@@ -6,6 +6,8 @@
   --gold-soft: #e8d9a0;
   --white: #ffffff;
   --paper: #f7f5f0;
+  --sky: #b9d3f1;
+  --sky-soft: #eaf2fa;
   --grey: #6b6b6b;
   --line: #e6e2d8;
   --ok: #1e7a4c;
@@ -77,17 +79,20 @@ input, select, textarea { font: inherit; }
 .header-cta:hover { background: #222; }
 @media (max-width: 760px) { .main-nav { display: none; } }
 
-/* Booking form (top of page) */
-.hero { background: var(--black); color: var(--white); }
-.hero-inner {
-  max-width: 560px; margin: 0 auto; padding: 56px 20px 64px;
-}
-@media (max-width: 860px) { .hero-inner { padding-top: 40px; } }
+/* Hero band + booking form (top of page) */
+.hero-band { background: var(--sky); color: var(--ink); }
+.hero-band-inner { max-width: 860px; margin: 0 auto; padding: 64px 20px 56px; text-align: center; }
+.hero-band h1 { font-size: 56px; line-height: 1.08; margin: 0 0 14px; letter-spacing: -0.01em; }
+.hero-sub { font-size: 19px; margin: 0; color: #2c3a4d; }
+@media (max-width: 760px) { .hero-band h1 { font-size: 40px; } .hero-band-inner { padding: 48px 20px 40px; } }
+.booking-section { background: var(--sky-soft); }
+.booking-wrap { max-width: 560px; margin: 0 auto; padding: 36px 20px 56px; }
 
 .booking-card {
   background: var(--white); color: var(--ink);
+  border: 1px solid var(--line);
   border-radius: 6px; padding: 26px 26px 22px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 18px 44px rgba(11, 11, 12, 0.14);
 }
 .booking-card h2 { margin: 0 0 4px; font-size: 24px; }
 .booking-card .sub { margin: 0 0 18px; color: var(--grey); font-size: 14px; }
@@ -238,14 +243,23 @@ input, select, textarea { font: inherit; }
 .section { max-width: 1100px; margin: 0 auto; padding: 56px 20px 8px; }
 .section h2 { font-size: 32px; margin: 0 0 8px; }
 .section .intro { color: var(--grey); max-width: 640px; margin: 0 0 26px; }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-@media (max-width: 860px) { .grid-4, .grid-3 { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 520px) { .grid-4, .grid-3 { grid-template-columns: 1fr; } }
-.tile { border: 1px solid var(--line); border-radius: 6px; padding: 20px; background: var(--white); }
-.tile .glyph { color: var(--gold); font-size: 22px; }
-.tile h3 { margin: 8px 0 6px; font-size: 19px; }
-.tile p { margin: 0; color: var(--grey); font-size: 14.5px; }
+/* Experience / trust cards (typographic + gradient band; no photos) */
+.exp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 860px) { .exp-grid { grid-template-columns: 1fr; } }
+.exp-card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--white); }
+.exp-card .band { height: 8px; background: linear-gradient(90deg, var(--gold), #7fa8d9 60%, var(--sky)); }
+.exp-body { padding: 20px 22px 22px; }
+.exp-body .glyph { color: var(--gold); font-size: 22px; }
+.exp-body h3 { margin: 8px 0 6px; font-size: 19px; }
+.exp-body p { margin: 0; color: var(--grey); font-size: 14.5px; }
+
+/* Airport transfers card (no photo) */
+.airport-card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--white); }
+.airport-card .band { height: 8px; background: linear-gradient(90deg, #7fa8d9, var(--sky) 60%, var(--gold)); }
+.airport-body { padding: 26px 28px 28px; }
+.airport-body .eyebrow { margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grey); }
+.section .airport-body h2 { font-size: 30px; margin: 0 0 8px; }
+.airport-body p { margin: 0; color: #3c3c3c; max-width: 680px; font-size: 16.5px; }
 .policy { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 24px 26px; }
 .policy h3 { margin: 18px 0 4px; font-size: 19px; }
 .policy h3:first-child { margin-top: 0; }

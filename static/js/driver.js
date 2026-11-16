@@ -538,15 +538,15 @@
     if (!m || m < 1 || m > 12) return String(isoDate);
     return months[m - 1] + " " + parseInt(parts[2], 10) + ", " + parts[0];
   }
-  function renderPayoutWindows(windows) {
-    var box = $("payout-windows");
+  function renderPayoutWeeks(weeks) {
+    var box = $("payout-weeks");
     if (!box) return;
     box.innerHTML = "";
-    (windows || []).forEach(function (w) {
+    (weeks || []).forEach(function (w) {
       var paid = w.paid === true || w.status === "paid";
       var count = pickNumber(w, ["ride_count", "rides", "rideCount"]);
       var card = document.createElement("div");
-      card.className = "pay-window";
+      card.className = "pay-week";
       card.innerHTML =
         '<div class="pw-top"><div class="pw-range">' + esc(fmtDay(w.start) + " – " + fmtDay(w.end)) + "</div>" +
         '<span class="badge ' + (paid ? "done" : "todo") + '">' + (paid ? "Paid" : "Unpaid") + "</span></div>" +
@@ -560,7 +560,7 @@
     fetch("/api/drivers/me/earnings", { headers: authHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        renderPayoutWindows(j.windows || j.pay_periods || j.payouts || []);
+        renderPayoutWeeks(j.weeks || j.pay_periods || j.payouts || []);
         var list = Array.isArray(j) ? j : (j.earnings || j.rides || j.completed || []);
         var box = $("earnings-list");
         box.innerHTML = "";

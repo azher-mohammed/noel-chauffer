@@ -36,7 +36,7 @@ from sqlalchemy import Numeric
 from werkzeug.exceptions import HTTPException
 
 import geo as geo_module
-from payouts import completion_date, window_bounds, window_for
+from payouts import completion_date, week_bounds, week_for
 from pricing import (
     cancellation_refundable,
     compute_hourly,
@@ -187,12 +187,12 @@ class Booking(db.Model):
     driver_lat = db.Column(db.Float, nullable=True)
     driver_lng = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
-    # Set when the driver completes the trip; the trip's payout window is
-    # the 14-day window containing this timestamp's New York date.
+    # Set when the driver completes the trip; the trip's payout week is
+    # the 7-day week containing this timestamp's New York date.
     completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
-    # True once the owner has marked this trip's pay period paid for its
-    # driver. Per-booking (not per-window) so a trip completed late into
-    # an already-paid window still shows as unpaid until marked again.
+    # True once the owner has marked this trip's payout week paid for its
+    # driver. Per-booking (not per-week) so a trip completed late into
+    # an already-paid week still shows as unpaid until marked again.
     payout_paid = db.Column(db.Boolean, nullable=False, default=False)
 
     accepted_driver = db.relationship("Driver", foreign_keys=[accepted_driver_id])
@@ -346,7 +346,7 @@ def booking_profit(booking):
     return money(booking.fare_total) + money(booking.waiting_charge) - money(booking.driver_earnings)
 
 
-# --------------------------------------------------------- payout windows ---
+# ---------------------------------------------------------- payout weeks ---
 
 def _refunded_booking_ids():
     return {p.booking_id for p in Payment.query.filter_by(status="refunded").all()}
@@ -354,28 +354,28 @@ def _refunded_booking_ids():
 
 def _payout_eligible(bookings, refunded_ids=None):
     """Completed, non-refunded bookings: the only trips that count toward
-    a payout window. A trip counts only once it is completed."""
+    a payout week. A trip counts only once it is completed."""
     if refunded_ids is None:
         refunded_ids = _refunded_booking_ids()
     return [b for b in bookings if b.status == "completed" and b.id not in refunded_ids]
 
 
-def _booking_window(booking):
-    """The payout window dict for a booking, from its completion date."""
-    return window_for(completion_date(booking.completed_at, booking.created_at))
+def _booking_week(booking):
+    """The payout week dict for a booking, from its completion date."""
+    return week_for(completion_date(booking.completed_at, booking.created_at))
 
 
-def _window_summary(window, bookings):
-    """JSON summary for one payout window. `bookings` are that window's
-    eligible trips. A window is paid only when it has trips and every
+def _week_summary(week, bookings):
+    """JSON summary for one payout week. `bookings` are that week's
+    eligible trips. A week is paid only when it has trips and every
     one of them has been marked paid."""
     total = sum((money(b.driver_earnings) for b in bookings), Decimal("0.00"))
     paid = bool(bookings) and all(b.payout_paid for b in bookings)
     return {
-        "index": window["index"],
-        "start": window["start"].isoformat(),
-        "end": window["end"].isoformat(),
-        "due_date": window["due_date"].isoformat(),
+        "index": week["index"],
+        "start": week["start"].isoformat(),
+        "end": week["end"].isoformat(),
+        "due_date": week["due_date"].isoformat(),
         "ride_count": len(bookings),
         "total_earnings": num(total),
         "paid": paid,
@@ -383,19 +383,19 @@ def _window_summary(window, bookings):
     }
 
 
-def _group_payout_windows(bookings):
-    """Group eligible bookings into payout windows, newest window first.
+def _group_payout_weeks(bookings):
+    """Group eligible bookings into payout weeks, newest week first.
 
-    Returns a list of (window_summary, member_bookings) pairs.
+    Returns a list of (week_summary, member_bookings) pairs.
     """
     groups = {}
     for b in bookings:
-        w = _booking_window(b)
+        w = _booking_week(b)
         groups.setdefault(w["index"], (w, []))[1].append(b)
     result = []
     for index in sorted(groups, reverse=True):
         w, members = groups[index]
-        result.append((_window_summary(w, members), members))
+        result.append((_week_summary(w, members), members))
     return result
 
 
@@ -1049,21 +1049,21 @@ def driver_earnings():
     rides = (Booking.query.filter_by(accepted_driver_id=driver.id, status="completed")
              .order_by(Booking.created_at.desc(), Booking.id.desc()).all())
     # Only completed, non-refunded trips count toward earnings and payout
-    # windows. Earnings amounts only — never miles, fares, or totals.
+    # weeks. Earnings amounts only — never miles, fares, or totals.
     eligible = _payout_eligible(rides)
     total = sum((money(b.driver_earnings) for b in eligible), Decimal("0.00"))
-    windows = [summary for summary, _ in _group_payout_windows(eligible)]
+    weeks = [summary for summary, _ in _group_payout_weeks(eligible)]
     ride_rows = []
     for b in eligible:
-        w = _booking_window(b)
+        w = _booking_week(b)
         ride_rows.append({
             "id": b.id,
             "date": b.date,
             "route": f"{b.pickup} to {b.dropoff}" if b.dropoff else b.pickup,
             "earnings": num(b.driver_earnings),
             "completed_date": completion_date(b.completed_at, b.created_at).isoformat(),
-            "window_start": w["start"].isoformat(),
-            "window_end": w["end"].isoformat(),
+            "week_start": w["start"].isoformat(),
+            "week_end": w["end"].isoformat(),
             "due_date": w["due_date"].isoformat(),
             "payout_paid": bool(b.payout_paid),
             "payout_status": "paid" if b.payout_paid else "unpaid",
@@ -1071,7 +1071,7 @@ def driver_earnings():
     return jsonify({
         "completed_rides": len(eligible),
         "total_earnings": num(total),
-        "windows": windows,
+        "weeks": weeks,
         "rides": ride_rows,
     })
 
@@ -1101,8 +1101,8 @@ def owner_summary():
     # Gross counts rides whose test payment succeeded and was not
     # refunded (including no-shows and kept-price cancellations).
     # driver_owed counts only UNPAID completed trips: a trip is owed
-    # once completed (and not refunded) until the owner marks its pay
-    # period paid for that driver.
+    # once completed (and not refunded) until the owner marks its
+    # payout week paid for that driver.
     paid_ids = [p.booking_id for p in Payment.query.filter_by(status="succeeded").all()]
     gross = Decimal("0.00")
     if paid_ids:
@@ -1231,11 +1231,12 @@ def owner_set_toll(booking_id):
 
 @app.route("/api/owner/payouts", methods=["GET"])
 def owner_payouts():
-    """Per-driver, per-window payout totals. Owner PIN session required.
+    """Per-driver, per-week payout totals. Owner PIN session required.
 
-    Only completed, non-refunded trips appear. Each window is due on
-    its last day; a window is paid when every trip in it has been
-    marked paid. Tracking only — no money moves here.
+    Only completed, non-refunded trips appear. Each week's payout
+    comes due every 14 days, one week at a time (week 0 due Nov 30,
+    week 1 due Dec 14, ...); a week is paid when every trip in it has
+    been marked paid. Tracking only — no money moves here.
     """
     error = require_owner()
     if error:
@@ -1245,14 +1246,14 @@ def owner_payouts():
     eligible = _payout_eligible(bookings)
     groups = {}
     for b in eligible:
-        w = _booking_window(b)
+        w = _booking_week(b)
         groups.setdefault((b.accepted_driver_id, w["index"]), (w, []))[1].append(b)
     drivers = {d.id: d for d in Driver.query.all()}
     result = []
     for (driver_id, _index), (w, members) in sorted(
             groups.items(), key=lambda kv: (-kv[0][1], kv[0][0] or 0)):
         driver = drivers.get(driver_id)
-        summary = _window_summary(w, members)
+        summary = _week_summary(w, members)
         summary.update({
             "driver_id": driver_id,
             "driver_name": driver.name if driver else None,
@@ -1272,40 +1273,40 @@ def owner_payouts():
 
 @app.route("/api/owner/payouts/mark-paid", methods=["POST"])
 def owner_mark_payout_paid():
-    """Mark one driver's one pay period paid. Owner PIN session required.
+    """Mark one driver's one payout week paid. Owner PIN session required.
 
-    Body: {"driver_id": int, "window_index": int}. Sets the payout-paid
+    Body: {"driver_id": int, "week_index": int}. Sets the payout-paid
     flag on every completed, non-refunded trip of that driver in that
-    window. Idempotent: marking an already-paid window again succeeds
-    with marked=0. A trip completed later into the same window stays
+    week. Idempotent: marking an already-paid week again succeeds
+    with marked=0. A trip completed later into the same week stays
     unpaid until marked again.
     """
     error = require_owner()
     if error:
         return error
     data = request.get_json(silent=True) or {}
-    if data.get("driver_id") is None or data.get("window_index") is None:
-        return err("driver_id and window_index are required.")
+    if data.get("driver_id") is None or data.get("week_index") is None:
+        return err("driver_id and week_index are required.")
     try:
         driver_id = int(data["driver_id"])
-        window_index = int(data["window_index"])
+        week_index = int(data["week_index"])
     except (TypeError, ValueError):
-        return err("driver_id and window_index must be integers.")
+        return err("driver_id and week_index must be integers.")
     driver = db.session.get(Driver, driver_id)
     if not driver:
         return err("Driver not found.", 404)
     bookings = (Booking.query.filter_by(status="completed", accepted_driver_id=driver_id).all())
     members = [b for b in _payout_eligible(bookings)
-               if _booking_window(b)["index"] == window_index]
+               if _booking_week(b)["index"] == week_index]
     if not members:
-        return err("No completed trips in this pay period for this driver.", 404)
+        return err("No completed trips in this week for this driver.", 404)
     marked = 0
     for b in members:
         if not b.payout_paid:
             b.payout_paid = True
             marked += 1
     db.session.commit()
-    summary = _window_summary(window_bounds(window_index), members)
+    summary = _week_summary(week_bounds(week_index), members)
     summary.update({
         "driver_id": driver.id,
         "driver_name": driver.name,

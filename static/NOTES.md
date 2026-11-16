@@ -63,7 +63,7 @@ frontend never works out a price.
   graceful fallback when denied or unavailable)
   → `POST /api/drivers/me/trip/<id>/location`
 - Earnings tab → `GET /api/drivers/me/earnings`; completed rides are
-  grouped into 14-day pay periods (window dates, total earnings, due
+  grouped into 7-day payout weeks (week dates, total earnings, due
   date, Paid/Unpaid) and the per-ride list is kept. Earnings amounts
   only — no miles, fares, or totals.
 - Documents tab → `docs` on `GET /api/drivers/me` (status strings keyed
@@ -80,9 +80,9 @@ frontend never works out a price.
   → `GET /api/owner/bookings`
 - Booking detail view → `GET /api/owner/bookings/<id>`
 - Toll entry per booking → `POST /api/owner/bookings/<id>/toll`
-- Driver payouts: per-driver, per-window totals
-  → `GET /api/owner/payouts`; mark a window paid
-  → `POST /api/owner/payouts/mark-paid` with `driver_id` + `window_index`
+- Driver payouts: per-driver, per-week totals
+  → `GET /api/owner/payouts`; mark a week paid
+  → `POST /api/owner/payouts/mark-paid` with `driver_id` + `week_index`
 - Alerts feed → `GET /api/owner/alerts`
 - Messages outbox → `GET /api/owner/outbox`
 - Drivers list → `GET /api/owner/drivers` (`docs` statuses, `doc_ids` for

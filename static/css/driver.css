@@ -155,11 +155,11 @@ input, select { font: inherit; }
 .earn-item .r { font-weight: 600; font-size: 15px; }
 .earn-item .m { color: var(--grey); font-size: 13.5px; }
 .earn-item .a { font-family: Georgia, serif; font-size: 18px; white-space: nowrap; }
-.pay-window { border: 1px solid var(--line); border-radius: 8px; padding: 13px 15px; margin-bottom: 10px; background: var(--white); }
-.pay-window .pw-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.pay-window .pw-range { font-weight: 600; font-size: 15px; }
-.pay-window .pw-meta { color: var(--grey); font-size: 13.5px; margin-top: 2px; }
-.pay-window .pw-amount { font-family: Georgia, serif; font-size: 22px; margin-top: 6px; }
+.pay-week { border: 1px solid var(--line); border-radius: 8px; padding: 13px 15px; margin-bottom: 10px; background: var(--white); }
+.pay-week .pw-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.pay-week .pw-range { font-weight: 600; font-size: 15px; }
+.pay-week .pw-meta { color: var(--grey); font-size: 13.5px; margin-top: 2px; }
+.pay-week .pw-amount { font-family: Georgia, serif; font-size: 22px; margin-top: 6px; }
 
 /* Documents list */
 .doc-status { border: 1px solid var(--line); border-radius: 8px; padding: 13px 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 12px; background: var(--white); }

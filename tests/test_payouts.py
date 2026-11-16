@@ -1,12 +1,15 @@
-"""Tests for the biweekly driver payout schedule.
+"""Tests for the driver payout schedule.
 
-Settled rule (owner, 2026-11-16): drivers are paid every 14 days.
-Trips tally in global 14-day windows anchored at 2026-11-16 (window 0 =
-Nov 16-29, 2026). A completed, non-refunded trip belongs to the window
-containing its completion date (America/New_York); the payout is due
-on the window's last day; the owner marks a window paid.
+Settled rule (owner, 2026-11-16, clarified the same day): every
+fourteen days the driver gets seven days' money. Each week's
+accounting is separate, and the money comes after two weeks. Trips
+tally in 7-day weeks anchored at 2026-11-16 (week 0 = Nov 16-22,
+2026), and one week's payout comes due every 14 days: week 0 due
+Nov 30, 2026; week 1 (Nov 23-29) due Dec 14, 2026; and so on. A
+completed, non-refunded trip belongs to the week containing its
+completion date (America/New_York); the owner marks a week paid.
 
-Covers: window grouping incl. boundary dates, due dates, mark-paid
+Covers: week grouping incl. boundary dates, due dates, mark-paid
 behavior, owed math (paid trips excluded), refunded exclusion, and
 driver-side privacy (earnings amounts only).
 
@@ -38,7 +41,7 @@ import geo as geo_module  # noqa: E402
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
-from payouts import ANCHOR, WINDOW_DAYS, completion_date, window_bounds, window_for  # noqa: E402
+from payouts import ANCHOR, PAYOUT_INTERVAL_DAYS, WEEK_DAYS, completion_date, week_bounds, week_for  # noqa: E402
 
 D = Decimal
 FORBIDDEN_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fee",
@@ -49,55 +52,61 @@ def _utc(y, mo, d, h=15, mi=0):
     return datetime(y, mo, d, h, mi, tzinfo=timezone.utc)
 
 
-class TestWindowMath(unittest.TestCase):
-    def test_anchor_and_length(self):
+class TestWeekMath(unittest.TestCase):
+    def test_anchor_and_lengths(self):
         self.assertEqual(ANCHOR, date(2026, 11, 16))
-        self.assertEqual(WINDOW_DAYS, 14)
+        self.assertEqual(WEEK_DAYS, 7)
+        self.assertEqual(PAYOUT_INTERVAL_DAYS, 14)
 
-    def test_window_zero_boundaries(self):
-        w = window_for(date(2026, 11, 16))
+    def test_week_zero_boundaries(self):
+        w = week_for(date(2026, 11, 16))
         self.assertEqual((w["index"], w["start"], w["end"], w["due_date"]),
-                         (0, date(2026, 11, 16), date(2026, 11, 29), date(2026, 11, 29)))
-        w = window_for(date(2026, 11, 29))
+                         (0, date(2026, 11, 16), date(2026, 11, 22), date(2026, 11, 30)))
+        w = week_for(date(2026, 11, 22))
         self.assertEqual(w["index"], 0)
-        self.assertEqual(w["due_date"], date(2026, 11, 29))
+        self.assertEqual(w["due_date"], date(2026, 11, 30))
 
-    def test_window_one_boundaries(self):
-        w = window_for(date(2026, 11, 30))
+    def test_week_one_boundaries(self):
+        w = week_for(date(2026, 11, 23))
         self.assertEqual((w["index"], w["start"], w["end"], w["due_date"]),
-                         (1, date(2026, 11, 30), date(2026, 12, 13), date(2026, 12, 13)))
-        self.assertEqual(window_for(date(2026, 12, 13))["index"], 1)
+                         (1, date(2026, 11, 23), date(2026, 11, 29), date(2026, 12, 14)))
+        self.assertEqual(week_for(date(2026, 11, 29))["index"], 1)
 
-    def test_window_two_starts_day_after(self):
-        w = window_for(date(2026, 12, 14))
-        self.assertEqual((w["index"], w["start"], w["end"]),
-                         (2, date(2026, 12, 14), date(2026, 12, 27)))
+    def test_week_two_boundaries(self):
+        w = week_for(date(2026, 11, 30))
+        self.assertEqual((w["index"], w["start"], w["end"], w["due_date"]),
+                         (2, date(2026, 11, 30), date(2026, 12, 6), date(2026, 12, 28)))
+        self.assertEqual(week_for(date(2026, 12, 6))["index"], 2)
 
-    def test_every_window_is_14_days_and_due_is_last_day(self):
+    def test_every_week_is_7_days_and_due_dates_fall_every_14_days(self):
+        prev_due = None
         for i in range(0, 30):
-            w = window_bounds(i)
-            self.assertEqual((w["end"] - w["start"]).days, 13)
-            self.assertEqual(w["due_date"], w["end"])
-            self.assertEqual(window_for(w["start"])["index"], i)
-            self.assertEqual(window_for(w["end"])["index"], i)
+            w = week_bounds(i)
+            self.assertEqual((w["end"] - w["start"]).days, 6)
+            self.assertEqual(w["due_date"], ANCHOR + timedelta(days=14 * (i + 1)))
+            if prev_due is not None:
+                self.assertEqual((w["due_date"] - prev_due).days, 14)
+            prev_due = w["due_date"]
+            self.assertEqual(week_for(w["start"])["index"], i)
+            self.assertEqual(week_for(w["end"])["index"], i)
 
-    def test_windows_are_contiguous(self):
+    def test_weeks_are_contiguous(self):
         for i in range(0, 10):
-            self.assertEqual(window_bounds(i)["end"] + timedelta(days=1),
-                             window_bounds(i + 1)["start"])
+            self.assertEqual(week_bounds(i)["end"] + timedelta(days=1),
+                             week_bounds(i + 1)["start"])
 
     def test_date_before_anchor_lands_on_same_grid(self):
-        w = window_for(date(2026, 11, 15))
-        self.assertEqual((w["index"], w["start"], w["end"]),
-                         (-1, date(2026, 11, 2), date(2026, 11, 15)))
+        w = week_for(date(2026, 11, 15))
+        self.assertEqual((w["index"], w["start"], w["end"], w["due_date"]),
+                         (-1, date(2026, 11, 9), date(2026, 11, 15), date(2026, 11, 16)))
 
     def test_completion_date_uses_new_york(self):
-        # 02:00 UTC on Nov 30 is 21:00 EST on Nov 29 -> window 0.
+        # 02:00 UTC on Nov 30 is 21:00 EST on Nov 29 -> week 1.
         self.assertEqual(completion_date(_utc(2026, 11, 30, 2, 0)), date(2026, 11, 29))
-        self.assertEqual(window_for(completion_date(_utc(2026, 11, 30, 2, 0)))["index"], 0)
-        # 06:00 UTC on Nov 30 is 01:00 EST on Nov 30 -> window 1.
+        self.assertEqual(week_for(completion_date(_utc(2026, 11, 30, 2, 0)))["index"], 1)
+        # 06:00 UTC on Nov 30 is 01:00 EST on Nov 30 -> week 2.
         self.assertEqual(completion_date(_utc(2026, 11, 30, 6, 0)), date(2026, 11, 30))
-        self.assertEqual(window_for(completion_date(_utc(2026, 11, 30, 6, 0)))["index"], 1)
+        self.assertEqual(week_for(completion_date(_utc(2026, 11, 30, 6, 0)))["index"], 2)
 
     def test_completion_date_naive_read_as_utc_and_fallback(self):
         naive = datetime(2026, 11, 30, 2, 0)  # no tzinfo -> UTC
@@ -176,62 +185,64 @@ class PayoutApiCase(unittest.TestCase):
         return self.client.get("/api/owner/summary").get_json()
 
     # -- grouping / due dates --------------------------------------------
-    def test_earnings_grouped_by_window_with_due_dates(self):
+    def test_earnings_grouped_by_week_with_due_dates(self):
         _driver, token = self.register_driver()
         b1 = self.complete_ride(token)
         b2 = self.complete_ride(token)
-        self.backdate_completion(b1, _utc(2026, 11, 20))   # window 0
-        self.backdate_completion(b2, _utc(2026, 12, 1))    # window 1
+        self.backdate_completion(b1, _utc(2026, 11, 20))   # week 0
+        self.backdate_completion(b2, _utc(2026, 12, 1))    # week 2
         resp = self.client.get("/api/drivers/me/earnings",
                                headers={"X-Driver-Token": token})
         body = resp.get_json()
         self.assertEqual(body["completed_rides"], 2)
         self.assertEqual(D(str(body["total_earnings"])), D("144.00"))
-        windows = body["windows"]
-        self.assertEqual(len(windows), 2)
-        # Newest window first.
-        self.assertEqual(windows[0]["index"], 1)
-        self.assertEqual((windows[0]["start"], windows[0]["end"], windows[0]["due_date"]),
-                         ("2026-11-30", "2026-12-13", "2026-12-13"))
-        self.assertEqual(windows[0]["ride_count"], 1)
-        self.assertEqual(D(str(windows[0]["total_earnings"])), D("72.00"))
-        self.assertEqual(windows[0]["status"], "unpaid")
-        self.assertIs(windows[0]["paid"], False)
-        self.assertEqual(windows[1]["index"], 0)
-        self.assertEqual((windows[1]["start"], windows[1]["end"], windows[1]["due_date"]),
-                         ("2026-11-16", "2026-11-29", "2026-11-29"))
-        self.assertEqual(windows[1]["ride_count"], 1)
-        # Per-ride list is kept, with window + payout info per ride.
+        weeks = body["weeks"]
+        self.assertEqual(len(weeks), 2)
+        # Newest week first.
+        self.assertEqual(weeks[0]["index"], 2)
+        self.assertEqual((weeks[0]["start"], weeks[0]["end"], weeks[0]["due_date"]),
+                         ("2026-11-30", "2026-12-06", "2026-12-28"))
+        self.assertEqual(weeks[0]["ride_count"], 1)
+        self.assertEqual(D(str(weeks[0]["total_earnings"])), D("72.00"))
+        self.assertEqual(weeks[0]["status"], "unpaid")
+        self.assertIs(weeks[0]["paid"], False)
+        self.assertEqual(weeks[1]["index"], 0)
+        self.assertEqual((weeks[1]["start"], weeks[1]["end"], weeks[1]["due_date"]),
+                         ("2026-11-16", "2026-11-22", "2026-11-30"))
+        self.assertEqual(weeks[1]["ride_count"], 1)
+        # Per-ride list is kept, with week + payout info per ride.
         rides = {r["id"]: r for r in body["rides"]}
-        self.assertEqual(rides[b1]["window_start"], "2026-11-16")
-        self.assertEqual(rides[b1]["due_date"], "2026-11-29")
+        self.assertEqual(rides[b1]["week_start"], "2026-11-16")
+        self.assertEqual(rides[b1]["week_end"], "2026-11-22")
+        self.assertEqual(rides[b1]["due_date"], "2026-11-30")
         self.assertEqual(rides[b1]["payout_status"], "unpaid")
         self.assertIs(rides[b1]["payout_paid"], False)
-        self.assertEqual(rides[b2]["window_start"], "2026-11-30")
+        self.assertEqual(rides[b2]["week_start"], "2026-11-30")
+        self.assertEqual(rides[b2]["due_date"], "2026-12-28")
         self.assertEqual(rides[b1]["earnings"], 72.00)
 
-    def test_multiple_rides_sum_in_one_window(self):
+    def test_multiple_rides_sum_in_one_week(self):
         _driver, token = self.register_driver()
         b1 = self.complete_ride(token)                    # one-way: $72.00
         b2 = self.complete_ride(token, ride_type="hourly", hours=3)  # $150.00
         self.backdate_completion(b1, _utc(2026, 11, 17))
-        self.backdate_completion(b2, _utc(2026, 11, 28))
+        self.backdate_completion(b2, _utc(2026, 11, 20))
         body = self.client.get("/api/drivers/me/earnings",
                                headers={"X-Driver-Token": token}).get_json()
-        self.assertEqual(len(body["windows"]), 1)
-        self.assertEqual(body["windows"][0]["ride_count"], 2)
-        self.assertEqual(D(str(body["windows"][0]["total_earnings"])), D("222.00"))
+        self.assertEqual(len(body["weeks"]), 1)
+        self.assertEqual(body["weeks"][0]["ride_count"], 2)
+        self.assertEqual(D(str(body["weeks"][0]["total_earnings"])), D("222.00"))
 
-    def test_boundary_completion_dates_split_windows(self):
+    def test_boundary_completion_dates_split_weeks(self):
         _driver, token = self.register_driver()
-        # Nov 29 21:00 EST (Nov 30 02:00 UTC) -> window 0; Nov 30 01:00 EST -> window 1.
+        # Nov 29 21:00 EST (Nov 30 02:00 UTC) -> week 1; Nov 30 01:00 EST -> week 2.
         b1 = self.complete_ride(token)
         b2 = self.complete_ride(token)
         self.backdate_completion(b1, _utc(2026, 11, 30, 2, 0))
         self.backdate_completion(b2, _utc(2026, 11, 30, 6, 0))
         body = self.client.get("/api/drivers/me/earnings",
                                headers={"X-Driver-Token": token}).get_json()
-        self.assertEqual([w["index"] for w in body["windows"]], [1, 0])
+        self.assertEqual([w["index"] for w in body["weeks"]], [2, 1])
 
     def test_driver_earnings_response_has_no_fare_fields(self):
         _driver, token = self.register_driver()
@@ -239,8 +250,8 @@ class PayoutApiCase(unittest.TestCase):
         resp = self.client.get("/api/drivers/me/earnings",
                                headers={"X-Driver-Token": token})
         body = resp.get_json()
-        for window in body["windows"]:
-            self.assertFalse(set(window) & FORBIDDEN_KEYS, str(window))
+        for week in body["weeks"]:
+            self.assertFalse(set(week) & FORBIDDEN_KEYS, str(week))
         for ride in body["rides"]:
             self.assertFalse(set(ride) & FORBIDDEN_KEYS, str(ride))
         # The customer fare total must never appear in the driver response.
@@ -252,7 +263,7 @@ class PayoutApiCase(unittest.TestCase):
         self.complete_ride(token)
         fresh = app_module.app.test_client()  # no owner session
         resp = fresh.post("/api/owner/payouts/mark-paid",
-                          json={"driver_id": driver["id"], "window_index": 0})
+                          json={"driver_id": driver["id"], "week_index": 0})
         self.assertEqual(resp.status_code, 401)
         resp = fresh.get("/api/owner/payouts")
         self.assertEqual(resp.status_code, 401)
@@ -263,21 +274,21 @@ class PayoutApiCase(unittest.TestCase):
         self.backdate_completion(b1, _utc(2026, 11, 20))
         self.owner_login()
         resp = self.client.post("/api/owner/payouts/mark-paid",
-                                json={"driver_id": driver["id"], "window_index": 0})
+                                json={"driver_id": driver["id"], "week_index": 0})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         payout = resp.get_json()["payout"]
         self.assertTrue(payout["paid"])
         self.assertEqual(payout["status"], "paid")
         self.assertEqual(payout["marked"], 1)
-        self.assertEqual(payout["due_date"], "2026-11-29")
-        # Driver view now shows the window paid.
+        self.assertEqual(payout["due_date"], "2026-11-30")
+        # Driver view now shows the week paid.
         body = self.client.get("/api/drivers/me/earnings",
                                headers={"X-Driver-Token": token}).get_json()
-        self.assertEqual(body["windows"][0]["status"], "paid")
+        self.assertEqual(body["weeks"][0]["status"], "paid")
         self.assertTrue(body["rides"][0]["payout_paid"])
         # Marking again is a harmless no-op.
         resp = self.client.post("/api/owner/payouts/mark-paid",
-                                json={"driver_id": driver["id"], "window_index": 0})
+                                json={"driver_id": driver["id"], "week_index": 0})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get_json()["payout"]["marked"], 0)
         self.assertTrue(resp.get_json()["payout"]["paid"])
@@ -289,28 +300,28 @@ class PayoutApiCase(unittest.TestCase):
         resp = self.client.post("/api/owner/payouts/mark-paid", json={})
         self.assertEqual(resp.status_code, 400)
         resp = self.client.post("/api/owner/payouts/mark-paid",
-                                json={"driver_id": 99999, "window_index": 0})
+                                json={"driver_id": 99999, "week_index": 0})
         self.assertEqual(resp.status_code, 404)
         resp = self.client.post("/api/owner/payouts/mark-paid",
-                                json={"driver_id": driver["id"], "window_index": 99})
+                                json={"driver_id": driver["id"], "week_index": 99})
         self.assertEqual(resp.status_code, 404)
 
-    def test_late_completion_into_paid_window_stays_unpaid(self):
+    def test_late_completion_into_paid_week_stays_unpaid(self):
         driver, token = self.register_driver()
         b1 = self.complete_ride(token)
         self.backdate_completion(b1, _utc(2026, 11, 20))
         self.owner_login()
         self.client.post("/api/owner/payouts/mark-paid",
-                         json={"driver_id": driver["id"], "window_index": 0})
-        # A second trip completed later, dated inside the same window.
+                         json={"driver_id": driver["id"], "week_index": 0})
+        # A second trip completed later, dated inside the same week.
         b2 = self.complete_ride(token)
-        self.backdate_completion(b2, _utc(2026, 11, 25))
+        self.backdate_completion(b2, _utc(2026, 11, 21))
         body = self.client.get("/api/drivers/me/earnings",
                                headers={"X-Driver-Token": token}).get_json()
-        window0 = [w for w in body["windows"] if w["index"] == 0][0]
-        self.assertEqual(window0["status"], "unpaid")
-        self.assertEqual(window0["ride_count"], 2)
-        self.assertEqual(D(str(window0["total_earnings"])), D("144.00"))
+        week0 = [w for w in body["weeks"] if w["index"] == 0][0]
+        self.assertEqual(week0["status"], "unpaid")
+        self.assertEqual(week0["ride_count"], 2)
+        self.assertEqual(D(str(week0["total_earnings"])), D("144.00"))
         self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("72.00"))
 
     # -- owed math ---------------------------------------------------------
@@ -318,21 +329,21 @@ class PayoutApiCase(unittest.TestCase):
         driver, token = self.register_driver()
         b1 = self.complete_ride(token)
         b2 = self.complete_ride(token)
-        self.backdate_completion(b1, _utc(2026, 11, 20))   # window 0
-        self.backdate_completion(b2, _utc(2026, 12, 1))    # window 1
+        self.backdate_completion(b1, _utc(2026, 11, 20))   # week 0
+        self.backdate_completion(b2, _utc(2026, 12, 1))    # week 2
         self.owner_login()
         summary = self.owner_summary()
         self.assertEqual(D(str(summary["driver_owed"])), D("144.00"))
         self.assertEqual(D(str(summary["profit"])),
                          D(str(summary["gross"])) - D(str(summary["driver_owed"])))
         self.client.post("/api/owner/payouts/mark-paid",
-                         json={"driver_id": driver["id"], "window_index": 0})
+                         json={"driver_id": driver["id"], "week_index": 0})
         summary = self.owner_summary()
         self.assertEqual(D(str(summary["driver_owed"])), D("72.00"))
         self.assertEqual(D(str(summary["profit"])),
                          D(str(summary["gross"])) - D("72.00"))
         self.client.post("/api/owner/payouts/mark-paid",
-                         json={"driver_id": driver["id"], "window_index": 1})
+                         json={"driver_id": driver["id"], "week_index": 2})
         self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("0.00"))
 
     def test_uncompleted_and_kept_price_trips_do_not_count_as_owed(self):
@@ -379,7 +390,7 @@ class PayoutApiCase(unittest.TestCase):
         body = self.client.get("/api/drivers/me/earnings",
                                headers={"X-Driver-Token": token}).get_json()
         self.assertEqual(body["completed_rides"], 0)
-        self.assertEqual(body["windows"], [])
+        self.assertEqual(body["weeks"], [])
         self.assertEqual(D(str(body["total_earnings"])), D("0.00"))
         self.owner_login()
         self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("0.00"))
@@ -399,13 +410,13 @@ class PayoutApiCase(unittest.TestCase):
         self.assertEqual(len(payouts), 1)
         resp = self.client.post("/api/owner/payouts/mark-paid",
                                 json={"driver_id": driver["id"],
-                                      "window_index": payouts[0]["index"]})
+                                      "week_index": payouts[0]["index"]})
         self.assertEqual(resp.status_code, 200)
         payouts = self.client.get("/api/owner/payouts").get_json()
         self.assertTrue(payouts[0]["paid"])
 
     # -- owner payouts endpoint --------------------------------------------
-    def test_owner_payouts_groups_per_driver_per_window(self):
+    def test_owner_payouts_groups_per_driver_per_week(self):
         d1, t1 = self.register_driver()
         d2, t2 = self.register_driver()
         b1 = self.complete_ride(t1)
@@ -420,12 +431,12 @@ class PayoutApiCase(unittest.TestCase):
         by_key = {(p["driver_id"], p["index"]): p for p in payouts}
         w0_d1 = by_key[(d1["id"], 0)]
         self.assertEqual(w0_d1["driver_name"], d1["name"])
-        self.assertEqual(w0_d1["due_date"], "2026-11-29")
+        self.assertEqual(w0_d1["due_date"], "2026-11-30")
         self.assertEqual(D(str(w0_d1["total_earnings"])), D("72.00"))
         self.assertEqual(w0_d1["status"], "unpaid")
         self.assertEqual([r["id"] for r in w0_d1["rides"]], [b1])
-        w1_d1 = by_key[(d1["id"], 1)]
-        self.assertEqual(w1_d1["due_date"], "2026-12-13")
+        w2_d1 = by_key[(d1["id"], 2)]
+        self.assertEqual(w2_d1["due_date"], "2026-12-28")
         w0_d2 = by_key[(d2["id"], 0)]
         self.assertEqual(w0_d2["driver_name"], d2["name"])
         self.assertEqual(D(str(w0_d2["total_earnings"])), D("72.00"))

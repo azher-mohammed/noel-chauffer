@@ -30,7 +30,7 @@ from decimal import Decimal
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from payouts import completion_date, window_for  # noqa: E402
+from payouts import completion_date, week_for  # noqa: E402
 from pricing import compute_hourly, compute_one_way, waiting_charge  # noqa: E402
 
 BASE = os.environ.get("NOEL_BASE_URL", "http://127.0.0.1:5055").rstrip("/")
@@ -539,65 +539,65 @@ check("driver_owed counts only the completed trip (kept-price cancel excluded)",
 print(f"  INFO summary: gross ${summary['gross']} profit ${summary['profit']} "
       f"driver_owed ${summary['driver_owed']} counts {summary['counts']}")
 
-# ------------------------------------------------- payout windows ----------
+# --------------------------------------------------- payout weeks ----------
 
-section("payout windows: 14-day periods, mark paid, owed drops")
+section("payout weeks: 7-day weeks, due every 14 days, mark paid, owed drops")
 detail_b1 = s.get(BASE + f"/api/owner/bookings/{b1['id']}", timeout=TIMEOUT).json()
 check("owner detail records completed_at + payout_paid false",
       detail_b1.get("completed_at") and detail_b1.get("payout_paid") is False,
       str(detail_b1.get("completed_at")))
 completed_dt = datetime.fromisoformat(detail_b1["completed_at"])
-expected_window = window_for(completion_date(completed_dt))
+expected_week = week_for(completion_date(completed_dt))
 resp = anon.get(BASE + "/api/drivers/me/earnings", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
 earn = resp.json()
-check("earnings windows present for completed ride", len(earn["windows"]) == 1, str(earn.get("windows")))
-w = earn["windows"][0] if earn["windows"] else {}
-check("window dates match completion window",
-      w.get("start") == expected_window["start"].isoformat()
-      and w.get("end") == expected_window["end"].isoformat()
-      and w.get("due_date") == expected_window["due_date"].isoformat(), str(w))
-check("window total = driver share, unpaid",
+check("earnings weeks present for completed ride", len(earn["weeks"]) == 1, str(earn.get("weeks")))
+w = earn["weeks"][0] if earn["weeks"] else {}
+check("week dates match completion week",
+      w.get("start") == expected_week["start"].isoformat()
+      and w.get("end") == expected_week["end"].isoformat()
+      and w.get("due_date") == expected_week["due_date"].isoformat(), str(w))
+check("week total = driver share, unpaid",
       approx(w.get("total_earnings"), expected1["driver_earnings"])
       and w.get("status") == "unpaid" and w.get("paid") is False, str(w))
-check("window has no fare/miles keys", not (set(w) & FORBIDDEN_OFFER_KEYS), str(w))
-check("ride row carries window + payout status",
-      earn["rides"] and earn["rides"][0].get("window_start") == expected_window["start"].isoformat()
+check("week has no fare/miles keys", not (set(w) & FORBIDDEN_OFFER_KEYS), str(w))
+check("ride row carries week + payout status",
+      earn["rides"] and earn["rides"][0].get("week_start") == expected_week["start"].isoformat()
       and earn["rides"][0].get("payout_status") == "unpaid", str(earn.get("rides")))
 resp = s.get(BASE + "/api/owner/payouts", timeout=TIMEOUT)
 payouts = resp.json()
-check("owner payouts lists the completed window", len(payouts) == 1, str(payouts))
+check("owner payouts lists the completed week", len(payouts) == 1, str(payouts))
 p = payouts[0] if payouts else {}
 check("owner payout row: driver, due date, total",
       p.get("driver_name") == "Verify Driver One"
-      and p.get("due_date") == expected_window["due_date"].isoformat()
+      and p.get("due_date") == expected_week["due_date"].isoformat()
       and approx(p.get("total_earnings"), expected1["driver_earnings"]), str(p))
 resp = anon.get(BASE + "/api/owner/payouts", timeout=TIMEOUT)
 check("owner payouts without PIN -> 401", resp.status_code == 401, str(resp.status_code))
 resp = anon.post(BASE + "/api/owner/payouts/mark-paid",
-                 json={"driver_id": d1row["id"], "window_index": expected_window["index"]},
+                 json={"driver_id": d1row["id"], "week_index": expected_week["index"]},
                  timeout=TIMEOUT)
 check("mark-paid without PIN -> 401", resp.status_code == 401, str(resp.status_code))
 resp = s.post(BASE + "/api/owner/payouts/mark-paid",
-              json={"driver_id": d1row["id"], "window_index": expected_window["index"]},
+              json={"driver_id": d1row["id"], "week_index": expected_week["index"]},
               timeout=TIMEOUT)
-check("mark-paid 200, window paid",
+check("mark-paid 200, week paid",
       resp.status_code == 200 and resp.json()["payout"]["paid"] is True, resp.text[:200])
 resp = s.post(BASE + "/api/owner/payouts/mark-paid",
-              json={"driver_id": d1row["id"], "window_index": expected_window["index"]},
+              json={"driver_id": d1row["id"], "week_index": expected_week["index"]},
               timeout=TIMEOUT)
 check("mark-paid again idempotent (marked 0)",
       resp.status_code == 200 and resp.json()["payout"]["marked"] == 0, resp.text[:150])
 resp = s.post(BASE + "/api/owner/payouts/mark-paid",
-              json={"driver_id": d1row["id"], "window_index": 999}, timeout=TIMEOUT)
-check("mark-paid empty window -> 404", resp.status_code == 404, str(resp.status_code))
+              json={"driver_id": d1row["id"], "week_index": 999}, timeout=TIMEOUT)
+check("mark-paid empty week -> 404", resp.status_code == 404, str(resp.status_code))
 summary2 = s.get(BASE + "/api/owner/summary", timeout=TIMEOUT).json()
 check("driver_owed drops to 0 after mark-paid", approx(summary2["driver_owed"], 0), str(summary2))
 check("profit equals gross once nothing owed",
       approx(summary2["profit"], summary2["gross"]), str(summary2))
 resp = anon.get(BASE + "/api/drivers/me/earnings", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
-check("driver window shows paid after mark-paid",
-      resp.json()["windows"] and resp.json()["windows"][0]["status"] == "paid",
-      str(resp.json().get("windows")))
+check("driver week shows paid after mark-paid",
+      resp.json()["weeks"] and resp.json()["weeks"][0]["status"] == "paid",
+      str(resp.json().get("weeks")))
 
 # ------------------------------------------------- static + greps -----------
 

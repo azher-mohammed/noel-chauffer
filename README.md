@@ -8,10 +8,10 @@ all connected:
   chauffeur is on the way, invoice, ride history.
 - **Driver app** (`/driver`) — register once with photo-only documents
   and bank details, go available, receive job offers (earnings only),
-  run trips stage by stage, see earnings grouped in 14-day pay periods.
+  run trips stage by stage, see earnings grouped in weekly pay periods.
 - **Owner dashboard** (`/owner`, PIN-protected) — per-ride revenue
   breakdown, alerts, messages outbox, driver documents, toll entry,
-  and driver payout periods (mark paid).
+  and driver payout weeks (mark paid).
 
 Stack: Python + Flask + SQLAlchemy, vanilla HTML/CSS/JS, no build step.
 Driver documents and photos are stored as BLOBs inside the database —
@@ -32,10 +32,12 @@ no files are written for uploads, so they survive restarts.
   distance × 1.3, or 10.0 miles if an address cannot be geocoded at all.
 - **Prices are settled business rules** in `pricing.py`. Do not change
   them without the owner's say-so.
-- **Driver payouts are tracking only.** Drivers are paid every 14 days;
-  trips tally in global 14-day windows anchored at 2026-11-16 (see
-  `payouts.py`), due on the window's last day. The owner marks a
-  window paid in the dashboard. No money moves in this app.
+- **Driver payouts are tracking only.** Every 14 days the driver gets
+  seven days' money: trips tally in 7-day weeks anchored at
+  2026-11-16 (see `payouts.py`), and one week's payout comes due
+  every 14 days (week 0, Nov 16–22, due Nov 30; week 1, Nov 23–29,
+  due Dec 14). The owner marks a week paid in the dashboard. No
+  money moves in this app.
 
 ## Run locally
 
@@ -60,7 +62,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests: pricing (11) + payout windows (22)
+python -m unittest discover -s tests -v   # unit tests: pricing (11) + payout weeks (22)
 python smoke_test.py                       # backend flow checks (77)
 ```
 
@@ -169,12 +171,12 @@ on its Render URL.
 ```
 app.py              Flask app: models + API endpoints + page routes
 pricing.py          Settled pricing rules (Decimal, pure functions)
-payouts.py          14-day driver payout windows (pure date math)
+payouts.py          Weekly driver payout schedule (pure date math)
 geo.py              Nominatim geocoding + OSRM routing, with fallbacks
 requirements.txt    Python dependencies (incl. gunicorn, psycopg2-binary)
 smoke_test.py       Backend flow checks (in-process, throwaway DB)
 verify_e2e.py       Full HTTP checklist against a running server
-tests/              Pricing + payout-window unit/API tests
+tests/              Pricing + payout-week unit/API tests
 static/             Customer site, driver app, owner dashboard (HTML/CSS/JS)
 static/NOTES.md     Frontend section-to-API mapping
 render.yaml         Render Blueprint (free web + free Postgres)

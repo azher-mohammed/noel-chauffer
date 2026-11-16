@@ -223,7 +223,7 @@
       .catch(function () { /* ignore */ });
   }
 
-  /* ---------- Driver payouts (14-day pay periods) ---------- */
+  /* ---------- Driver payouts (weekly tallies, one payout due every 14 days) ---------- */
   function loadPayouts() {
     fetch("/api/owner/payouts", { credentials: "same-origin" })
       .then(function (r) { return r.json(); })
@@ -262,14 +262,14 @@
 
   function markPayoutPaid(p, driverName, row) {
     var label = (p.start || "") + " to " + (p.end || "");
-    if (!window.confirm("Mark the pay period " + label + " paid for " + driverName + "?")) return;
+    if (!window.confirm("Mark the week " + label + " paid for " + driverName + "?")) return;
     var btn = row.querySelector(".row-btn");
     if (btn) btn.disabled = true;
     fetch("/api/owner/payouts/mark-paid", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ driver_id: p.driver_id, window_index: p.index })
+      body: JSON.stringify({ driver_id: p.driver_id, week_index: p.index })
     })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {

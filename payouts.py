@@ -1,18 +1,24 @@
-"""Driver payout windows for Noel Chauffer — pure date math.
+"""Driver payout weeks for Noel Chauffer — pure date math.
 
-Settled by the owner (2026-11-16): drivers are paid every 14 days.
-Trips are tallied in global 14-day windows anchored at 2026-11-16:
+Settled by the owner (2026-11-16, clarified the same day): every
+fourteen days the driver gets seven days' money. Each week's
+accounting is separate, and the money comes after two weeks.
 
-  window 0 = Nov 16-29, 2026
-  window 1 = Nov 30-Dec 13, 2026
-  window 2 = Dec 14-27, 2026
+Trips are tallied in 7-day weeks anchored at 2026-11-16, and one
+week's payout comes due every 14 days:
+
+  week 0 = Nov 16-22, 2026, due Nov 30, 2026
+  week 1 = Nov 23-29, 2026, due Dec 14, 2026
+  week 2 = Nov 30-Dec 6, 2026, due Dec 28, 2026
   ...
 
-A completed, non-refunded trip belongs to the window containing its
+So the due date for week n is the anchor + 14 * (n + 1) days: due
+dates fall every 14 days, each covering exactly one 7-day week.
+
+A completed, non-refunded trip belongs to the week containing its
 completion date (the America/New_York calendar date on which the trip
-was completed). The payout for a window is due on the window's last
-day. The owner marks a window paid in the owner dashboard; that is
-tracking only — no money moves in this app (test mode).
+was completed). The owner marks a week paid in the owner dashboard;
+that is tracking only — no money moves in this app (test mode).
 """
 
 from __future__ import annotations
@@ -25,7 +31,8 @@ except ImportError:  # pragma: no cover
     ZoneInfo = None  # type: ignore
 
 ANCHOR = date(2026, 11, 16)
-WINDOW_DAYS = 14
+WEEK_DAYS = 7
+PAYOUT_INTERVAL_DAYS = 14
 
 
 def _business_timezone():
@@ -37,25 +44,29 @@ def _business_timezone():
     return timezone.utc
 
 
-def window_for(d: date) -> dict:
-    """Return the payout window containing date `d`.
+def week_for(d: date) -> dict:
+    """Return the payout week containing date `d`.
 
     Result: {"index": int, "start": date, "end": date, "due_date": date}
-    where due_date == end (the window's last day). Dates before the
-    anchor fall in negative-index windows on the same 14-day grid.
+    where the week runs 7 days from `start`, and `due_date` is the
+    anchor + 14 * (index + 1) days, so payouts come due every 14 days,
+    one week at a time. Dates before the anchor fall in negative-index
+    weeks on the same 7-day grid.
     """
     delta = (d - ANCHOR).days
-    index = delta // WINDOW_DAYS
-    start = ANCHOR + timedelta(days=WINDOW_DAYS * index)
-    end = start + timedelta(days=WINDOW_DAYS - 1)
-    return {"index": index, "start": start, "end": end, "due_date": end}
+    index = delta // WEEK_DAYS
+    start = ANCHOR + timedelta(days=WEEK_DAYS * index)
+    end = start + timedelta(days=WEEK_DAYS - 1)
+    due_date = ANCHOR + timedelta(days=PAYOUT_INTERVAL_DAYS * (index + 1))
+    return {"index": index, "start": start, "end": end, "due_date": due_date}
 
 
-def window_bounds(index: int) -> dict:
-    """Return the start/end/due dates for payout window `index`."""
-    start = ANCHOR + timedelta(days=WINDOW_DAYS * index)
-    end = start + timedelta(days=WINDOW_DAYS - 1)
-    return {"index": index, "start": start, "end": end, "due_date": end}
+def week_bounds(index: int) -> dict:
+    """Return the start/end/due dates for payout week `index`."""
+    start = ANCHOR + timedelta(days=WEEK_DAYS * index)
+    end = start + timedelta(days=WEEK_DAYS - 1)
+    due_date = ANCHOR + timedelta(days=PAYOUT_INTERVAL_DAYS * (index + 1))
+    return {"index": index, "start": start, "end": end, "due_date": due_date}
 
 
 def completion_date(completed_at, created_at=None) -> date:

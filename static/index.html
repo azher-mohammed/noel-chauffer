@@ -46,13 +46,13 @@
           <li>Door opened for you, luggage carried</li>
           <li>Music and temperature set the way you like</li>
           <li>Phone chargers in every car</li>
-          <li>One single total, shown after your chauffeur accepts</li>
+          <li>One single total — see the price, pay by card, then your chauffeur is assigned</li>
         </ul>
       </div>
 
       <div class="booking-card" id="booking-card">
         <h2>Book your ride</h2>
-        <p class="sub">Tell us where you are going. We will confirm your chauffeur shortly.</p>
+        <p class="sub">Tell us where you are going. You will see your total, pay by card, and then your chauffeur will be assigned.</p>
 
         <div class="ride-tabs" role="tablist" aria-label="Ride type">
           <button type="button" class="ride-tab active" id="tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true">One way</button>
@@ -111,7 +111,7 @@
           </div>
           <button class="btn-primary" type="submit" id="book-submit">Request my chauffeur</button>
           <p class="form-error" id="booking-error" role="alert"></p>
-          <p class="form-note">After your chauffeur accepts, you will see your chauffeur's details and one single total for the ride.</p>
+          <p class="form-note">After you book, you will see one single total for the ride and pay by card. Your chauffeur is assigned right after payment, and the chauffeur's details are sent to your phone and email.</p>
         </form>
       </div>
     </div>
@@ -140,7 +140,7 @@
   <div class="status-panel">
     <div class="status-card hidden" id="status-card" aria-live="polite">
       <div id="status-finding">
-        <h2>Finding your chauffeur…</h2>
+        <h2 id="status-heading">Finding your chauffeur…</h2>
         <p class="status-line"><span class="dot"></span><span id="status-message">Your request is with us. Please keep this page open.</span></p>
         <p class="ride-summary" id="status-summary"></p>
         <p class="ride-summary hidden" id="status-flight"></p>
@@ -264,6 +264,12 @@
     <h2>Cancellation &amp; waiting</h2>
     <p class="intro">Simple rules, stated plainly before you book.</p>
     <div class="policy">
+      <h3>Payment</h3>
+      <ul>
+        <li>You pay by card on this page, right after you book.</li>
+        <li>You always see one single total before you pay — no breakdown, no hidden charges.</li>
+        <li>If you cancel more than 1 hour before pickup, your payment is refunded in full.</li>
+      </ul>
       <h3>Cancellation</h3>
       <ul>
         <li>Free cancellation if you cancel more than 1 hour before pickup.</li>

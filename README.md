@@ -3,9 +3,9 @@
 Luxury car-with-chauffeur service in the USA. One app with three parts,
 all connected:
 
-- **Customer site** (`/`) — book a ride, see the one single total only
-  after a chauffeur accepts, pay by card (test mode), live map once the
-  chauffeur is on the way, invoice, ride history.
+- **Customer site** (`/`) — book a ride, see the one single total,
+  pay by card (test mode), then the chauffeur is assigned; live map
+  once the chauffeur is on the way, invoice, ride history.
 - **Driver app** (`/driver`) — register once with photo-only documents
   and bank details, go available, receive job offers (earnings only),
   run trips stage by stage, see earnings grouped in weekly pay periods.

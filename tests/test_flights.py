@@ -150,6 +150,14 @@ class FlightsApiTestCase(unittest.TestCase):
         payload.update(extra)
         return self.client.post("/api/bookings", json=payload)
 
+    def _pay(self, booking_id):
+        """Pay for a booking (payment comes before dispatch)."""
+        resp = self.client.post("/api/bookings/%d/pay" % booking_id, json={
+            "card_number": "4242424242424242", "card_exp": "12/30",
+            "card_cvc": "123", "card_name": "Flight Tester"})
+        self.assertEqual(resp.status_code, 200, resp.get_json())
+        return resp
+
     def _make_driver(self):
         FlightsApiTestCase._counter += 1
         n = FlightsApiTestCase._counter
@@ -210,6 +218,7 @@ class TestDriverFlightPayloads(FlightsApiTestCase):
     def test_accept_and_active_trip_show_flight_no_fare(self):
         booking_id = self._book(TERMINAL_PICKUP, HOTEL,
                                 flight_number="EK215").get_json()["booking"]["id"]
+        self._pay(booking_id)
         token = self._make_driver()
         headers = {"X-Driver-Token": token}
         resp = self.client.post("/api/drivers/me/offers/%d/accept" % booking_id,
@@ -231,6 +240,7 @@ class TestDriverFlightPayloads(FlightsApiTestCase):
 
     def test_driver_trip_without_flight_has_nulls_no_fare(self):
         booking_id = self._book(HOTEL, HOTEL).get_json()["booking"]["id"]
+        self._pay(booking_id)
         token = self._make_driver()
         headers = {"X-Driver-Token": token}
         resp = self.client.post("/api/drivers/me/offers/%d/accept" % booking_id,

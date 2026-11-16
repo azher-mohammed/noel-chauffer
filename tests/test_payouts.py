@@ -162,12 +162,14 @@ class PayoutApiCase(unittest.TestCase):
         resp = self.client.post("/api/bookings", json=payload)
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         booking_id = resp.get_json()["booking"]["id"]
-        resp = self.client.post(f"/api/drivers/me/offers/{booking_id}/accept",
-                                headers={"X-Driver-Token": token})
-        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        # Payment comes BEFORE dispatch: pay first, then the driver
+        # accepts, then the trip runs stage by stage.
         resp = self.client.post(f"/api/bookings/{booking_id}/pay", json={
             "card_number": "4242424242424242", "card_exp": "12/30",
             "card_cvc": "123", "card_name": "Payout Customer"})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        resp = self.client.post(f"/api/drivers/me/offers/{booking_id}/accept",
+                                headers={"X-Driver-Token": token})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         for event in ("en_route", "arrived", "start", "complete"):
             resp = self.client.post(f"/api/drivers/me/trip/{booking_id}/event",
@@ -354,7 +356,7 @@ class PayoutApiCase(unittest.TestCase):
 
     def test_uncompleted_and_kept_price_trips_do_not_count_as_owed(self):
         driver, token = self.register_driver()
-        # Offered, never accepted: no earnings owed.
+        # Awaiting payment, never sent to drivers: no earnings owed.
         self.client.post("/api/bookings", json={
             "customer_name": "Waiting", "phone": "+15550001122", "email": "w@test.com",
             "pickup": "JFK Airport", "dropoff": "Times Square, New York",
@@ -372,11 +374,11 @@ class PayoutApiCase(unittest.TestCase):
             "date": soon.strftime("%Y-%m-%d"), "time": soon.strftime("%H:%M"),
             "ride_type": "one_way"})
         soon_id = resp.get_json()["booking"]["id"]
-        self.client.post(f"/api/drivers/me/offers/{soon_id}/accept",
-                         headers={"X-Driver-Token": token})
         self.client.post(f"/api/bookings/{soon_id}/pay", json={
             "card_number": "4242424242424242", "card_exp": "12/30",
             "card_cvc": "123", "card_name": "Soon"})
+        self.client.post(f"/api/drivers/me/offers/{soon_id}/accept",
+                         headers={"X-Driver-Token": token})
         resp = self.client.post(f"/api/bookings/{soon_id}/cancel",
                                 json={"phone": "+15550003333"})
         self.assertTrue(resp.get_json()["charge_kept"])

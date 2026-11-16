@@ -1,6 +1,8 @@
 /* Noel Chauffer — customer site logic.
    Talks only to the /api/* contract. The total is NEVER computed here:
-   it is shown only when the API returns a number, after a chauffeur accepts. */
+   it comes from the API with the booking, right after the form. The
+   customer sees the single total, pays by card, and only then is the
+   booking sent to drivers. */
 (function () {
   "use strict";
 
@@ -50,9 +52,9 @@
   }
   function statusLabel(status) {
     var map = {
+      awaiting_payment: "Payment needed to confirm your ride",
       offered: "Finding your chauffeur…",
       accepted: "Chauffeur confirmed",
-      paid: "Paid — your chauffeur is confirmed",
       en_route: "Your chauffeur is on the way",
       arrived: "Your chauffeur has arrived",
       started: "Your ride is under way",
@@ -384,6 +386,9 @@
     show($("status-card"));
     $("status-summary").textContent = rideLabel(booking) + (whenLabel(booking) ? " · " + whenLabel(booking) : "");
     $("status-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    /* The create response already carries the single total: show it
+       and open the card payment box at once, before any polling. */
+    renderBooking(booking);
     pollOnce();
     state.pollTimer = setInterval(pollOnce, 3000);
   }
@@ -446,21 +451,31 @@
     } else {
       show($("status-finding"));
       hide($("driver-block"));
-      $("status-message").textContent = statusLabel(st) || "Your request is with us. Please keep this page open.";
+      if (st === "awaiting_payment") {
+        $("status-heading").textContent = "Your total is ready";
+        $("status-message").textContent = "Please pay by card below — your chauffeur will be assigned right after payment.";
+      } else {
+        $("status-heading").textContent = "Finding your chauffeur…";
+        $("status-message").textContent = statusLabel(st) || "Your request is with us. Please keep this page open.";
+      }
     }
 
-    /* The single total: shown ONLY when the API returns one. */
+    /* The single total: shown from the moment the booking exists. The
+       card payment box opens with it; only after payment is the
+       booking sent to drivers, so no payment step exists later. */
     if (b.total !== null && b.total !== undefined) {
       show($("total-box"));
       $("total-amount").textContent = money(b.total);
       $("pay-amount-label").textContent = money(b.total);
-      if (st === "paid" || st === "en_route" || st === "arrived" || st === "started" || st === "on_trip" || st === "in_progress" || st === "completed") {
-        hide($("pay-open-btn"));
-      } else {
-        show($("pay-open-btn"));
-      }
     } else {
       hide($("total-box"));
+    }
+    if (st === "awaiting_payment") {
+      hide($("pay-open-btn"));
+      show($("pay-panel"));
+    } else {
+      hide($("pay-panel"));
+      hide($("pay-open-btn"));
     }
 
     /* Live map: ONLY when the API says tracking is visible. */
@@ -472,9 +487,10 @@
       hide($("map-wrap"));
     }
 
-    /* Thank-you + invoice after payment / completion. */
-    if (state.paid || st === "paid" || st === "en_route" || st === "arrived" || st === "started" || st === "on_trip" || st === "in_progress" || st === "completed") {
-      if (state.paid || st !== "offered") { showThankYou(b); }
+    /* Thank-you once the ride is paid for (payment confirms the
+       booking; the chauffeur is assigned after payment). */
+    if (state.paid || st === "offered" || st === "accepted" || st === "en_route" || st === "arrived" || st === "started" || st === "on_trip" || st === "in_progress" || st === "completed") {
+      showThankYou(b);
     }
     if (b.invoice) {
       show($("invoice-panel"));
@@ -492,6 +508,9 @@
     if (st === "cancelled" || st === "canceled") {
       hide($("status-actions"));
       hide($("pay-panel"));
+      hide($("pay-open-btn"));
+      hide($("total-box"));
+      $("status-heading").textContent = "Booking cancelled";
       $("status-message").textContent = "This booking was cancelled.";
       show($("status-finding"));
     }
@@ -750,7 +769,7 @@
       return "Waiting is free for 60 minutes at airports and 15 minutes at other pickups. After that, waiting is charged at $1/min. A no-show is charged the full price.";
     }
     if (has("price", "cost", "much", "total", "charge", "pay", "payment")) {
-      return "You will see one single total after your chauffeur accepts — no breakdown, no hidden charges. You pay by card on this page before the ride.";
+      return "You will see one single total right after you complete the booking form — no breakdown, no hidden charges. You pay by card on this page, and then your chauffeur is assigned.";
     }
     if (has("lost", "left", "forgot", "belonging", "item")) {
       return "I am sorry to hear that. Please report it here as soon as you can, and within 7 days. The driver checks the car after every ride. Unclaimed items go to the police station after one week.";
@@ -774,7 +793,7 @@
       return "If a friend referred you, enter their referral code in the booking form. After your ride, this page shows you how to refer a friend too.";
     }
     if (has("book", "reserve", "ride", "pickup", "how")) {
-      return "To book: fill in the form at the top of this page — pickup, drop-off (or hours), date, time, and your name, phone and email — then tap “Request my chauffeur”. Keep the page open while we confirm your chauffeur.";
+      return "To book: fill in the form at the top of this page — pickup, drop-off (or hours), date, time, and your name, phone and email — then tap “Request my chauffeur”. You will see one single total and pay by card, and then your chauffeur will be assigned.";
     }
     if (has("hello", "hi", "hey", "salam")) {
       return "Hello, and welcome to Noel Chauffer. I can help with booking, the total, cancellation, waiting time, lost items, or a problem with a ride.";

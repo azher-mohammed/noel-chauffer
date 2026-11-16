@@ -131,7 +131,7 @@
     var active = pick(inner, ["active", "active_rides", "upcoming"]);
     if (active === null && counts) {
       var n = 0;
-      ["offered", "accepted", "paid", "en_route", "arrived", "in_progress"].forEach(function (k) {
+      ["awaiting_payment", "offered", "accepted", "en_route", "arrived", "in_progress"].forEach(function (k) {
         n += Number(counts[k]) || 0;
       });
       active = n;

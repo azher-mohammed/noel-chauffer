@@ -165,6 +165,8 @@ check("booking1 create 201", resp.status_code == 201, resp.text[:200])
 b1 = resp.json()["booking"]
 referral_code = b1["referral_code"]
 check("referral code issued on create", bool(referral_code), str(b1))
+check("create status is awaiting_payment (pay before dispatch)",
+      b1["status"] == "awaiting_payment", str(b1))
 
 detail = s.get(BASE + f"/api/owner/bookings/{b1['id']}", timeout=TIMEOUT).json()
 miles1 = Decimal(str(detail["miles"]))
@@ -182,8 +184,8 @@ if miles1 == Decimal("18.0"):
 
 resp = anon.get(BASE + f"/api/bookings/{b1['id']}", timeout=TIMEOUT)
 got = resp.json()["booking"]
-check("customer GET before accept: total null, driver null",
-      got["total"] is None and got["driver"] is None, str(got))
+check("customer GET before accept: total visible, driver null",
+      approx(got["total"], expected1["total"]) and got["driver"] is None, str(got))
 check("customer GET returns referral_code (thank-you page field)",
       got["referral_code"] == referral_code, str(got.get("referral_code")))
 check("tracking hidden before en_route", got["tracking"]["visible"] is False)
@@ -241,11 +243,33 @@ if Decimal(str(detail_t["miles"])) == Decimal("18.0"):
     check("18.0 mi + toll total is exactly $180.95", approx(detail_t["customer_total"], "180.95"))
     check("18.0 mi + toll driver is exactly $90.50", approx(detail_t["driver_earnings"], "90.50"))
 
-# ------------------------------------------------- offers / accept / pay ---
+# ------------------------------------------------- pay / offers / accept ---
 
-section("full flow: offer -> accept -> pay -> trip -> invoice")
+section("full flow: total -> pay -> offer -> accept -> trip -> invoice")
 anon.post(BASE + "/api/drivers/me/availability", json={"available": True},
           headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+resp = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("no offers before payment (unpaid booking never reaches drivers)",
+      all(o["booking_id"] != b1["id"] for o in resp.json()), str(resp.json()))
+resp = anon.post(BASE + f"/api/drivers/me/offers/{b1['id']}/accept",
+                 headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("accept unpaid booking -> 409", resp.status_code == 409, str(resp.status_code))
+
+resp = anon.post(BASE + f"/api/bookings/{b1['id']}/pay", json={
+    "card_number": "4242 4242 4242 4242", "card_exp": "12/30",
+    "card_cvc": "123", "card_name": "Verify Customer"}, timeout=TIMEOUT)
+check("pay 200", resp.status_code == 200, resp.text[:200])
+pay = resp.json()["payment"]
+check("payment test mode + last4 only",
+      pay["test"] is True and pay["last4"] == "4242" and pay["status"] == "succeeded", str(pay))
+check("payment amount = fare total", approx(pay["amount"], expected1["total"]))
+check("full card number never in pay response", "4242424242424242" not in resp.text)
+check("status offered after payment", resp.json()["booking"]["status"] == "offered")
+detail = s.get(BASE + f"/api/owner/bookings/{b1['id']}", timeout=TIMEOUT).json()
+check("owner detail payment has pi_test_ id",
+      detail["payments"] and detail["payments"][0]["stripe_test_id"].startswith("pi_test_")
+      and detail["payments"][0]["test"] is True, str(detail.get("payments")))
+
 resp = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
 offers = resp.json()
 offer1 = [o for o in offers if o["booking_id"] == b1["id"]]
@@ -280,25 +304,10 @@ check("active-trip without token -> 401", resp.status_code == 401, str(resp.stat
 
 resp = anon.get(BASE + f"/api/bookings/{b1['id']}", timeout=TIMEOUT)
 got = resp.json()["booking"]
-check("total visible after accept (single total)",
+check("total still visible after accept (single total)",
       approx(got["total"], expected1["total"]), str(got["total"]))
 check("driver visible after accept", got["driver"] and got["driver"]["name"] == "Verify Driver One")
 check("tracking still hidden after accept", got["tracking"]["visible"] is False)
-
-resp = anon.post(BASE + f"/api/bookings/{b1['id']}/pay", json={
-    "card_number": "4242 4242 4242 4242", "card_exp": "12/30",
-    "card_cvc": "123", "card_name": "Verify Customer"}, timeout=TIMEOUT)
-check("pay 200", resp.status_code == 200, resp.text[:200])
-pay = resp.json()["payment"]
-check("payment test mode + last4 only",
-      pay["test"] is True and pay["last4"] == "4242" and pay["status"] == "succeeded", str(pay))
-check("payment amount = fare total", approx(pay["amount"], expected1["total"]))
-check("full card number never in pay response", "4242424242424242" not in resp.text)
-detail = s.get(BASE + f"/api/owner/bookings/{b1['id']}", timeout=TIMEOUT).json()
-check("owner detail payment has pi_test_ id",
-      detail["payments"] and detail["payments"][0]["stripe_test_id"].startswith("pi_test_")
-      and detail["payments"][0]["test"] is True, str(detail.get("payments")))
-
 
 def trip_event(booking_id, event, token, **kw):
     return anon.post(BASE + f"/api/drivers/me/trip/{booking_id}/event",
@@ -376,6 +385,10 @@ check("outbox has sms + email channels", {"sms", "email"} <= {m["channel"] for m
 # ------------------------------------------------- re-dispatch -------------
 
 section("driver cancel -> auto re-dispatch, customer never knows")
+resp = anon.post(BASE + f"/api/bookings/{b_ref['id']}/pay", json={
+    "card_number": "4242424242424242", "card_exp": "12/30",
+    "card_cvc": "123", "card_name": "Referral Customer"}, timeout=TIMEOUT)
+check("referral booking paid before dispatch", resp.status_code == 200, resp.text[:150])
 resp = anon.post(BASE + f"/api/drivers/me/offers/{b_ref['id']}/accept",
                  headers={"X-Driver-Token": token2}, timeout=TIMEOUT)
 check("driver2 accepts referral booking", resp.status_code == 200, resp.text[:150])
@@ -384,8 +397,8 @@ check("driver cancel -> back to offered",
       resp.status_code == 200 and resp.json()["booking"]["status"] == "offered", resp.text[:150])
 resp = anon.get(BASE + f"/api/bookings/{b_ref['id']}", timeout=TIMEOUT)
 got = resp.json()["booking"]
-check("customer view driver null + total null after re-dispatch",
-      got["driver"] is None and got["total"] is None, str(got))
+check("customer view driver null + total still visible after re-dispatch",
+      got["driver"] is None and approx(got["total"], expected_ref["total"]), str(got))
 resp = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token2}, timeout=TIMEOUT)
 check("cancelling driver excluded from offers",
       all(o["booking_id"] != b_ref["id"] for o in resp.json()))
@@ -431,11 +444,11 @@ resp = anon.post(BASE + "/api/bookings", json={
     "date": "2030-07-01", "time": "12:00", "ride_type": "one_way",
 }, timeout=TIMEOUT)
 b_far = resp.json()["booking"]
-anon.post(BASE + f"/api/drivers/me/offers/{b_far['id']}/accept",
-          headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
 anon.post(BASE + f"/api/bookings/{b_far['id']}/pay", json={
     "card_number": "4242424242424242", "card_exp": "12/30",
     "card_cvc": "123", "card_name": "Far Customer"}, timeout=TIMEOUT)
+anon.post(BASE + f"/api/drivers/me/offers/{b_far['id']}/accept",
+          headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
 resp = anon.post(BASE + f"/api/bookings/{b_far['id']}/cancel", json={"phone": "+15550000000"})
 check("cancel wrong phone -> 403", resp.status_code == 403, str(resp.status_code))
 resp = anon.post(BASE + f"/api/bookings/{b_far['id']}/cancel", json={"phone": "+15550007777"})
@@ -458,11 +471,11 @@ resp = anon.post(BASE + "/api/bookings", json={
 }, timeout=TIMEOUT)
 check("soon booking (pickup in ~30 min) 201", resp.status_code == 201, resp.text[:200])
 b_soon = resp.json()["booking"]
-anon.post(BASE + f"/api/drivers/me/offers/{b_soon['id']}/accept",
-          headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
 anon.post(BASE + f"/api/bookings/{b_soon['id']}/pay", json={
     "card_number": "4242424242424242", "card_exp": "12/30",
     "card_cvc": "123", "card_name": "Soon Customer"}, timeout=TIMEOUT)
+anon.post(BASE + f"/api/drivers/me/offers/{b_soon['id']}/accept",
+          headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
 resp = anon.post(BASE + f"/api/bookings/{b_soon['id']}/cancel", json={"phone": "+15550004444"})
 check("cancel <=1h before pickup keeps full price",
       resp.status_code == 200 and resp.json()["refund"] is False
@@ -480,11 +493,11 @@ resp = anon.post(BASE + "/api/bookings", json={
     "date": "2030-07-02", "time": "12:00", "ride_type": "one_way",
 }, timeout=TIMEOUT)
 b_bal = resp.json()["booking"]
-anon.post(BASE + f"/api/drivers/me/offers/{b_bal['id']}/accept",
-          headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
 pay_resp = anon.post(BASE + f"/api/bookings/{b_bal['id']}/pay", json={
     "card_number": "4242424242424242", "card_exp": "12/30",
     "card_cvc": "123", "card_name": "Balance Customer"}, timeout=TIMEOUT)
+anon.post(BASE + f"/api/drivers/me/offers/{b_bal['id']}/accept",
+          headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
 paid_amount = Decimal(str(pay_resp.json()["payment"]["amount"]))
 detail_before = s.get(BASE + f"/api/owner/bookings/{b_bal['id']}", timeout=TIMEOUT).json()
 resp = s.post(BASE + f"/api/owner/bookings/{b_bal['id']}/toll", json={"toll": 5.00}, timeout=TIMEOUT)

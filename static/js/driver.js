@@ -172,7 +172,7 @@
         var b = j && j.booking;
         if (!b || !b.id) return;
         state.trip = tripFromBooking(b);
-        var stageByStatus = { accepted: 0, paid: 0, en_route: 1, arrived: 2, in_progress: 3 };
+        var stageByStatus = { accepted: 0, en_route: 1, arrived: 2, in_progress: 3 };
         state.stageIndex = stageByStatus[b.status] !== undefined ? stageByStatus[b.status] : 0;
         renderTrip();
         showScreen("trip");

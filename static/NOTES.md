@@ -13,8 +13,14 @@ frontend never works out a price.
 
 ## Customer site — section to API mapping
 
+Flow: booking form (+ flight-number step for airport rides) → single
+total + card payment → booking sent to drivers → chauffeur accepts →
+driver details + live map. Payment always comes BEFORE any driver
+sees the booking; unpaid bookings never appear in driver offers.
+
 - Booking form, One way / By the hour tabs
-  → `POST /api/bookings`
+  → `POST /api/bookings` (returns the booking with its single `total`
+  and status `awaiting_payment`)
 - Address suggestions under the Pickup / Drop-off fields (no map
   inside the booking form); tapping a suggestion fills the field.
   Airport queries also list the airport's terminals, including
@@ -30,15 +36,22 @@ frontend never works out a price.
   booking payloads carry `flight_number`, `airline_name`, `terminal`.
   Driver trip screen shows all three (earnings only otherwise); owner
   ride detail shows the flight number.
-- "Finding your chauffeur" waiting state, polling every 3 seconds
+- "Finding your chauffeur" waiting state after payment, polling
+  every 3 seconds
   → `GET /api/bookings/<id>`
 - Assigned chauffeur card (name, phone, car, colour, plate, photo)
   → fields on `GET /api/bookings/<id>`; photo via
   `GET /api/bookings/<id>/driver-photo` (used when no photo URL is given)
-- Single total shown only after a chauffeur accepts
-  → `total` field on `GET /api/bookings/<id>` (null before accept)
-- Pay by card, labelled TEST MODE
-  → `POST /api/bookings/<id>/pay`
+- Single total shown right after the booking form (single total only,
+  no breakdown)
+  → `total` field returned on booking create and on
+  `GET /api/bookings/<id>` (always present for the customer)
+- Pay by card, labelled TEST MODE, before the booking reaches drivers
+  → `POST /api/bookings/<id>/pay` (only from status
+  `awaiting_payment`; on success the booking moves to `offered` and
+  is sent to drivers). Free cancellation (more than 1 hour before
+  pickup) records a full refund of this payment; later cancellation
+  or a no-show keeps the full price.
 - Thank-you page + "Book your return trip" (swapped addresses, new booking)
   → `POST /api/bookings` again; referral code shown from the `referral_code`
   field on `GET /api/bookings/<id>` (also returned on booking create)
@@ -63,7 +76,7 @@ frontend never works out a price.
   straight to Home; registration is never shown again
 - Active-trip restore after reload
   → `GET /api/drivers/me/active-trip`; the trip screen is rebuilt at the
-  stage matching the booking status (accepted/paid → Head to pickup,
+  stage matching the booking status (accepted → Head to pickup,
   en_route → Arrived, arrived → Start, in_progress → Complete)
 - Availability toggle → `POST /api/drivers/me/availability`
 - Job offers, polled every 5 seconds while available

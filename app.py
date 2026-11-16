@@ -112,10 +112,14 @@ DOC_FIELD_MAP = {
     "doc_vehicle_permit": "vehicle_permit",
     "doc_dmv_license": "dmv_license",
 }
-# Statuses where the customer may see the driver and the single total.
-VISIBLE_STATUSES = {"accepted", "paid", "en_route", "arrived", "in_progress", "completed"}
+# Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
+#   awaiting_payment -> offered -> accepted -> en_route -> arrived
+#   -> in_progress -> completed | no_show | cancelled.
+# The customer sees the single total from the moment the booking is
+# created; driver details only once a driver has accepted. Unpaid
+# bookings (awaiting_payment) never reach drivers.
+DRIVER_VISIBLE_STATUSES = {"accepted", "en_route", "arrived", "in_progress", "completed"}
 TRACKING_STATUSES = {"en_route", "arrived", "in_progress"}
-PAID_STATUSES = {"paid", "en_route", "arrived", "in_progress", "completed", "no_show"}
 
 
 def utcnow():
@@ -545,7 +549,7 @@ def create_booking():
         toll=Decimal("0.00"),
         referral_code_used=referral_code_used,
         flight_number=flight_number,
-        status="offered",
+        status="awaiting_payment",
     )
 
     if ride_type == "hourly":
@@ -590,7 +594,9 @@ def create_booking():
     outbox_to_customer(
         booking,
         f"Noel Chauffer: booking received for {booking.date} at {booking.time}, {route_text}. "
-        "We will message you your chauffeur's details once a driver accepts.",
+        f"Your total is ${booking.fare_total}. Complete your card payment to confirm "
+        "your ride — your chauffeur will be assigned right after payment, and we "
+        "will message you the chauffeur's details once a driver accepts.",
     )
     add_event(booking.id, "booking_received",
               f"New booking #{booking.id}: {route_text} on {booking.date} at {booking.time} "
@@ -600,6 +606,7 @@ def create_booking():
     return jsonify({"booking": {
         "id": booking.id,
         "status": booking.status,
+        "total": num(booking.fare_total),
         "pickup": booking.pickup,
         "dropoff": booking.dropoff,
         "date": booking.date,
@@ -616,8 +623,7 @@ def get_booking(booking_id):
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
-    visible = booking.status in VISIBLE_STATUSES
-    driver = booking.accepted_driver if visible else None
+    driver = booking.accepted_driver if booking.status in DRIVER_VISIBLE_STATUSES else None
     referral = ReferralCode.query.filter_by(issued_booking_id=booking.id).first()
     tracking_visible = booking.status in TRACKING_STATUSES
     invoice = None
@@ -644,7 +650,7 @@ def get_booking(booking_id):
             "plate": driver.plate,
             "photo_url": f"/api/bookings/{booking.id}/driver-photo",
         },
-        "total": num(booking.fare_total) if visible else None,
+        "total": num(booking.fare_total),
         "tracking": {
             "visible": tracking_visible,
             "lat": booking.driver_lat if tracking_visible else None,
@@ -657,11 +663,14 @@ def get_booking(booking_id):
 
 @app.route("/api/bookings/<int:booking_id>/pay", methods=["POST"])
 def pay_booking(booking_id):
+    """Card payment BEFORE dispatch: the customer sees the single total
+    right after the booking form and pays; only then is the booking
+    sent to drivers (status awaiting_payment -> offered)."""
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
-    if booking.status != "accepted":
-        return err("Payment is only accepted after a driver accepts the booking.", 409)
+    if booking.status != "awaiting_payment":
+        return err("Payment is taken before the booking is sent to drivers.", 409)
     data = request.get_json(silent=True) or {}
     for field in ("card_number", "card_exp", "card_cvc", "card_name"):
         if not data.get(field):
@@ -680,10 +689,10 @@ def pay_booking(booking_id):
         stripe_test_id="pi_test_" + secrets.token_hex(8),
     )
     db.session.add(payment)
-    booking.status = "paid"
+    booking.status = "offered"
     add_event(booking.id, "payment_received",
               f"Test payment of ${booking.fare_total} received for booking #{booking.id} "
-              f"(card ending {digits[-4:]}).")
+              f"(card ending {digits[-4:]}). Booking sent to drivers.")
     db.session.commit()
     return jsonify({"payment": {
         "id": payment.id,
@@ -736,7 +745,7 @@ def booking_history():
         "date": b.date,
         "time": b.time,
         "status": b.status,
-        "total": num(b.fare_total) if b.status in PAID_STATUSES else None,
+        "total": num(b.fare_total),
     } for b in bookings])
 
 
@@ -875,7 +884,7 @@ def driver_active_trip():
         return error
     booking = (Booking.query
                .filter(Booking.accepted_driver_id == driver.id,
-                       Booking.status.in_(("accepted", "paid", "en_route", "arrived", "in_progress")))
+                       Booking.status.in_(("accepted", "en_route", "arrived", "in_progress")))
                .order_by(Booking.created_at.desc(), Booking.id.desc())
                .first())
     if not booking:
@@ -918,6 +927,8 @@ def driver_offers():
     if not driver.available:
         return jsonify([])
     excluded_ids = [e.booking_id for e in BookingExclusion.query.filter_by(driver_id=driver.id).all()]
+    # Only PAID bookings reach drivers: status "offered" means payment
+    # succeeded. Unpaid bookings (awaiting_payment) never appear here.
     query = Booking.query.filter_by(status="offered").order_by(Booking.created_at, Booking.id)
     if excluded_ids:
         query = query.filter(~Booking.id.in_(excluded_ids))
@@ -1018,8 +1029,8 @@ def driver_trip_event(booking_id):
 
     response_extra = {}
     if event == "en_route":
-        if booking.status != "paid":
-            return err("The driver heads to pickup only after payment.", 409)
+        if booking.status != "accepted":
+            return err("The driver heads to pickup only after accepting the booking.", 409)
         booking.status = "en_route"
         add_event(booking.id, "trip_en_route", f"Driver {driver.name} is on the way to pickup for booking #{booking.id}.")
     elif event == "arrived":
@@ -1051,7 +1062,7 @@ def driver_trip_event(booking_id):
                   f"(fare ${booking.fare_total} + waiting ${booking.waiting_charge}).")
         response_extra["invoice"] = {"total": num(total), "waiting_charge": num(booking.waiting_charge)}
     elif event == "cancel":
-        if booking.status not in ("accepted", "paid", "en_route", "arrived"):
+        if booking.status not in ("accepted", "en_route", "arrived"):
             return err("Cannot cancel a ride in this state.", 409)
         booking.status = "offered"
         booking.accepted_driver_id = None
@@ -1059,9 +1070,10 @@ def driver_trip_event(booking_id):
         booking.driver_lng = None
         if not BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
             db.session.add(BookingExclusion(booking_id=booking_id, driver_id=driver.id))
-        # Payment (if any) is kept; the booking is re-dispatched automatically.
+        # Payment was taken before dispatch, so it is kept; the booking
+        # goes back to the other drivers automatically.
         add_event(booking.id, "driver_cancelled",
-                  f"Driver {driver.name} cancelled booking #{booking.id}; re-dispatched to other drivers. Payment kept.")
+                  f"Driver {driver.name} cancelled booking #{booking.id}; sent back to other drivers. Payment kept.")
     elif event == "no_show":
         if booking.status not in ("en_route", "arrived"):
             return err("No-show can only be marked while heading to or at pickup.", 409)

@@ -1,10 +1,16 @@
-"""Tests for the single "DMV driving license" document item.
+"""Tests for the driver document list order and the single
+"DMV driving license" document item.
 
 Owner decision 2026-11-16 (emphatic): the two near-identical items
 ("Driver's License" + "DMV driving licence") merge into ONE item
-labeled exactly "DMV driving license", FIRST at the top of the
-document list everywhere. US spelling "license", "driving" not
-"driver". NYS DMV Inspection stays a separate item.
+labeled exactly "DMV driving license". US spelling "license",
+"driving" not "driver". NYS DMV Inspection stays a separate item.
+
+Owner decision 2026-11-16 (later the same day): Profile Picture is
+FIRST at the top of the document list everywhere, with the DMV
+driving license second. Registration previews have a remove option,
+and the profile picture preview shows passport-style (a cropped face
+frame, not the whole photo).
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -30,7 +36,7 @@ import app as app_module  # noqa: E402
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-EXPECTED_DOC_TYPES = ["dmv_license", "profile_picture", "tlc_license",
+EXPECTED_DOC_TYPES = ["profile_picture", "dmv_license", "tlc_license",
                       "fh1_insurance", "registration", "inspection",
                       "vehicle_permit"]
 
@@ -70,17 +76,19 @@ class DmvDrivingLicenseCase(unittest.TestCase):
                                 content_type="multipart/form-data")
 
     # -- labels -------------------------------------------------------------
-    def test_label_exactly_once_in_form_and_first(self):
+    def test_profile_picture_first_dmv_second(self):
         html = read("static/driver.html")
         self.assertEqual(html.count("DMV driving license"), 2,
                          "label + hint must each carry the exact phrase once")
         self.assertIn("Photo of your DMV driving license, straight and fully visible.", html)
-        # First document item: before Profile Picture and every other doc.
-        first_doc = html.index("DMV driving license")
-        for other in ("Profile Picture", "TLC License", "FH-1 Insurance Card",
+        # Profile Picture first, DMV driving license second, before all others.
+        first_doc = html.index("Profile Picture")
+        second_doc = html.index("DMV driving license")
+        self.assertLess(first_doc, second_doc)
+        for other in ("TLC License", "FH-1 Insurance Card",
                       "Commercial Vehicle Registration", "NYS DMV Inspection",
                       "TLC-for-hire Vehicle Permit"):
-            self.assertLess(first_doc, html.index(other), other)
+            self.assertLess(second_doc, html.index(other), other)
         self.assertEqual(html.count("doc-name"), 7, "exactly 7 document items")
 
     def test_no_forbidden_strings_in_user_visible_files(self):
@@ -101,15 +109,17 @@ class DmvDrivingLicenseCase(unittest.TestCase):
         self.assertEqual(app_module.DOC_FIELD_MAP["doc_dmv_license"], "dmv_license")
         driver_js = read("static/js/driver.js")
         fields = driver_js[driver_js.index("var FILE_FIELDS"):driver_js.index("];", driver_js.index("var FILE_FIELDS"))]
-        self.assertIn('"doc_dmv_license"', fields.split(",")[0])
+        self.assertIn('"profile_photo"', fields.split(",")[0])
+        self.assertIn('"doc_dmv_license"', fields.split(",")[1])
         self.assertNotIn("doc_drivers_license", fields)
         owner_js = read("static/js/owner.js")
         doc_types = owner_js[owner_js.index("var DOC_TYPES"):owner_js.index("];", owner_js.index("var DOC_TYPES"))]
-        self.assertIn('"dmv_license"', doc_types.split("{")[1])
+        self.assertIn('"profile_picture"', doc_types.split("{")[1])
+        self.assertIn('"dmv_license"', doc_types.split("{")[2])
         self.assertIn('label: "DMV driving license"', doc_types)
 
     # -- API behaviour -----------------------------------------------------------
-    def test_docs_status_has_seven_types_dmv_first(self):
+    def test_docs_status_has_seven_types(self):
         resp = self.register()
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         docs = resp.get_json()["driver"]["docs"]
@@ -134,6 +144,17 @@ class DmvDrivingLicenseCase(unittest.TestCase):
         docs = resp.get_json()["driver"]["docs"]
         self.assertEqual(docs["dmv_license"], "missing")
         self.assertNotIn("drivers_license", docs)
+
+    def test_preview_has_remove_option_and_passport_frame(self):
+        driver_js = read("static/js/driver.js")
+        self.assertIn("Remove photo", driver_js)
+        self.assertIn("Remove file", driver_js)
+        # The remove control clears the file input so nothing uploads.
+        self.assertIn('input.value = ""', driver_js)
+        self.assertIn("passport-preview", driver_js)
+        css = read("static/css/driver.css")
+        self.assertIn("passport-preview", css)
+        self.assertIn("object-fit: cover", css)
 
 
 if __name__ == "__main__":

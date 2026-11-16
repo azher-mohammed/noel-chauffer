@@ -103,8 +103,8 @@ db = SQLAlchemy(app)
 MAX_FILE_BYTES = 5 * 1024 * 1024
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 DOC_TYPES = [
-    "dmv_license",
     "profile_picture",
+    "dmv_license",
     "tlc_license",
     "fh1_insurance",
     "registration",

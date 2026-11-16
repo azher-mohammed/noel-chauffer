@@ -375,8 +375,8 @@
      and `doc_ids` (row ids for the viewer). The profile picture has no
      document row: it is served from the driver photo endpoint. */
   var DOC_TYPES = [
-    { key: "dmv_license", label: "DMV driving license" },
     { key: "profile_picture", label: "Profile Picture", photo: true },
+    { key: "dmv_license", label: "DMV driving license" },
     { key: "tlc_license", label: "TLC License" },
     { key: "fh1_insurance", label: "FH-1 Insurance Card" },
     { key: "registration", label: "Commercial Vehicle Registration" },

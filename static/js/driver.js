@@ -9,8 +9,8 @@
 
   var TOKEN_KEY = "noel_driver_token";
   var FILE_FIELDS = [
-    "doc_dmv_license",
     "profile_photo",
+    "doc_dmv_license",
     "doc_tlc_license",
     "doc_fh1",
     "doc_registration",
@@ -18,8 +18,8 @@
     "doc_vehicle_permit"
   ];
   var DOC_LABELS = {
-    doc_dmv_license: "DMV driving license",
     profile_photo: "Profile Picture",
+    doc_dmv_license: "DMV driving license",
     doc_tlc_license: "TLC License",
     doc_fh1: "FH-1 Insurance Card",
     doc_registration: "Commercial Vehicle Registration",
@@ -210,12 +210,17 @@
     input.addEventListener("change", function () {
       var box = $("preview-" + field);
       box.innerHTML = "";
+      box.classList.remove("passport-preview");
       var file = input.files && input.files[0];
       if (!file) return;
-      if (file.type && file.type.indexOf("image/") === 0) {
+      var isImage = file.type && file.type.indexOf("image/") === 0;
+      if (isImage) {
         var img = document.createElement("img");
         img.alt = "Preview — check it is clear and complete, retake if blurry";
         img.src = URL.createObjectURL(file);
+        /* Profile picture shows passport-style: a cropped face frame,
+           not the whole photo. */
+        if (field === "profile_photo") box.classList.add("passport-preview");
         box.appendChild(img);
       } else {
         var p = document.createElement("p");
@@ -223,6 +228,16 @@
         p.textContent = "Selected file: " + file.name + " — please check it is the right document.";
         box.appendChild(p);
       }
+      var rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "preview-remove";
+      rm.textContent = isImage ? "Remove photo" : "Remove file";
+      rm.addEventListener("click", function () {
+        input.value = "";
+        box.innerHTML = "";
+        box.classList.remove("passport-preview");
+      });
+      box.appendChild(rm);
     });
   });
 

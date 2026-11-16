@@ -102,19 +102,20 @@ resp = anon.post(BASE + "/api/drivers/register", data={
     "bank_account_number": "123456789", "bank_routing_number": "021000021",
 }, files={
     "profile_photo": ("photo.jpg", photo, "image/jpeg"),
-    "doc_drivers_license": ("license.png", png, "image/png"),
+    "doc_dmv_license": ("license.png", png, "image/png"),
     "doc_tlc_license": ("tlc.png", png, "image/png"),
     "doc_fh1": ("fh1.pdf", fh1_pdf, "application/pdf"),
     "doc_registration": ("reg.png", png, "image/png"),
     "doc_inspection": ("insp.png", png, "image/png"),
     "doc_vehicle_permit": ("permit.png", png, "image/png"),
-    "doc_dmv_license": ("dmv.png", png, "image/png"),
 }, timeout=TIMEOUT)
 check("driver1 register 201", resp.status_code == 201, resp.text[:200])
 d1 = resp.json()["driver"]
 token1 = resp.json()["token"]
-check("all 8 docs completed", all(v == "completed" for v in d1["docs"].values())
-      and len(d1["docs"]) == 8, str(d1["docs"]))
+check("all 7 docs completed", all(v == "completed" for v in d1["docs"].values())
+      and len(d1["docs"]) == 7, str(d1["docs"]))
+check("dmv_license is the first doc status key",
+      list(d1["docs"])[:1] == ["dmv_license"], str(list(d1["docs"])))
 check("bank masked in register response", d1["bank_masked"] == "••••6789", d1["bank_masked"])
 check("full bank number never in register response",
       "123456789" not in resp.text and "021000021" not in resp.text)
@@ -143,7 +144,7 @@ resp = anon.post(BASE + "/api/drivers/register", data={
     "name": "Bad", "phone": "+15550003333", "car_model": "Cadillac Escalade",
     "car_year": "2023", "car_colour": "Y",
     "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
-}, files={"doc_drivers_license": ("license.pdf", fh1_pdf, "application/pdf")}, timeout=TIMEOUT)
+}, files={"doc_dmv_license": ("license.pdf", fh1_pdf, "application/pdf")}, timeout=TIMEOUT)
 check("PDF rejected for non-FH1 doc -> 400", resp.status_code == 400, str(resp.status_code))
 
 # Car-model dropdown data + validation (2022 floor, eligible list only).

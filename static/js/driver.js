@@ -6,24 +6,22 @@
 
   var TOKEN_KEY = "noel_driver_token";
   var FILE_FIELDS = [
+    "doc_dmv_license",
     "profile_photo",
-    "doc_drivers_license",
     "doc_tlc_license",
     "doc_fh1",
     "doc_registration",
     "doc_inspection",
-    "doc_vehicle_permit",
-    "doc_dmv_license"
+    "doc_vehicle_permit"
   ];
   var DOC_LABELS = {
+    doc_dmv_license: "DMV driving license",
     profile_photo: "Profile Picture",
-    doc_drivers_license: "Driver's License",
     doc_tlc_license: "TLC License",
     doc_fh1: "FH-1 Insurance Card",
     doc_registration: "Commercial Vehicle Registration",
     doc_inspection: "NYS DMV Inspection",
-    doc_vehicle_permit: "TLC-for-hire Vehicle Permit",
-    doc_dmv_license: "DMV driving licence"
+    doc_vehicle_permit: "TLC-for-hire Vehicle Permit"
   };
   var STAGES = ["en_route", "arrived", "start", "complete"];
   var STAGE_BUTTON = {
@@ -643,7 +641,7 @@
     var box = $("documents-list");
     box.innerHTML = "";
     /* The API returns document statuses as `docs` keyed by document
-       type (e.g. drivers_license: "completed"). */
+       type (e.g. dmv_license: "completed"). */
     var docs = (state.driver && (state.driver.docs || state.driver.documents)) || {};
     var byKey = {};
     if (Array.isArray(docs)) {
@@ -659,14 +657,13 @@
       if (value === undefined) {
         /* Try common alternate spellings from the API payload. */
         var alts = {
+          doc_dmv_license: ["dmv_license", "dmv_driving_license"],
           profile_photo: ["profile_picture", "photo", "profile"],
-          doc_drivers_license: ["drivers_license", "driver_license", "license"],
           doc_tlc_license: ["tlc_license"],
           doc_fh1: ["fh1", "fh1_insurance", "insurance"],
           doc_registration: ["registration", "commercial_registration"],
           doc_inspection: ["inspection", "dmv_inspection"],
-          doc_vehicle_permit: ["vehicle_permit", "tlc_vehicle_permit"],
-          doc_dmv_license: ["dmv_license", "dmv_driving_license"]
+          doc_vehicle_permit: ["vehicle_permit", "tlc_vehicle_permit"]
         };
         (alts[field] || []).forEach(function (a) { if (byKey[a] !== undefined) value = byKey[a]; });
       }

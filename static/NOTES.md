@@ -104,7 +104,9 @@ sees the booking; unpaid bookings never appear in driver offers.
   date, Paid/Unpaid) and the per-ride list is kept. Earnings amounts
   only — no miles, fares, or totals.
 - Documents tab → `docs` on `GET /api/drivers/me` (status strings keyed
-  by document type, e.g. `drivers_license: "completed"`)
+  by document type, e.g. `dmv_license: "completed"`). The document list
+  has 7 items, headed by the single "DMV driving license" item (the old
+  duplicate license item was merged into it 2026-11-16).
 - Profile tab → `GET /api/drivers/me` (bank shown masked, last 4 only)
 - "Register a different driver" clears the stored token.
 

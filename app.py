@@ -100,24 +100,22 @@ db = SQLAlchemy(app)
 MAX_FILE_BYTES = 5 * 1024 * 1024
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 DOC_TYPES = [
-    "drivers_license",
+    "dmv_license",
     "profile_picture",
     "tlc_license",
     "fh1_insurance",
     "registration",
     "inspection",
     "vehicle_permit",
-    "dmv_license",
 ]
 # multipart field name -> doc_type (profile_picture comes from profile_photo)
 DOC_FIELD_MAP = {
-    "doc_drivers_license": "drivers_license",
+    "doc_dmv_license": "dmv_license",
     "doc_tlc_license": "tlc_license",
     "doc_fh1": "fh1_insurance",
     "doc_registration": "registration",
     "doc_inspection": "inspection",
     "doc_vehicle_permit": "vehicle_permit",
-    "doc_dmv_license": "dmv_license",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived

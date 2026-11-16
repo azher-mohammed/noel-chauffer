@@ -102,12 +102,12 @@ resp = client.post("/api/drivers/register", data={
     "bank_account_number": "123456789", "bank_routing_number": "021000021",
     "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
     "doc_fh1": (io.BytesIO(b"%PDF- fake"), "fh1.pdf"),
-    "doc_drivers_license": (io.BytesIO(b"fake png"), "license.png"),
+    "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
 }, content_type="multipart/form-data")
 check("driver1 register 201", resp.status_code == 201, resp.get_data(as_text=True)[:200])
 d1 = resp.get_json()["driver"]
 token1 = resp.get_json()["token"]
-check("driver1 docs completed/missing", d1["docs"]["drivers_license"] == "completed"
+check("driver1 docs completed/missing", d1["docs"]["dmv_license"] == "completed"
       and d1["docs"]["fh1_insurance"] == "completed"
       and d1["docs"]["profile_picture"] == "completed"
       and d1["docs"]["tlc_license"] == "missing", str(d1["docs"]))
@@ -131,7 +131,7 @@ resp = client.post("/api/drivers/register", data={
     "name": "Bad", "phone": "+15550003333", "car_model": "Cadillac Escalade",
     "car_year": "2023", "car_colour": "Y",
     "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
-    "doc_drivers_license": (io.BytesIO(b"%PDF- fake"), "license.pdf"),
+    "doc_dmv_license": (io.BytesIO(b"%PDF- fake"), "license.pdf"),
 }, content_type="multipart/form-data")
 check("PDF rejected for non-FH1 doc", resp.status_code == 400, str(resp.status_code))
 

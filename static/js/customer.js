@@ -13,7 +13,13 @@
     paid: false,
     map: null,
     marker: null,
-    mapReady: false
+    mapReady: false,
+    bookingMap: null,
+    bookingMapReady: false,
+    pickupMarker: null,
+    dropoffMarker: null,
+    pickupPlace: null,
+    dropoffPlace: null
   };
 
   function $(id) { return document.getElementById(id); }
@@ -76,6 +82,8 @@
         hide($("field-dropoff"));
         hide($("field-passengers"));
         show($("field-hours"));
+        state.dropoffPlace = null;
+        updateBookingMarkers(null);
       } else {
         show($("field-dropoff"));
         show($("field-passengers"));
@@ -90,6 +98,206 @@
     var iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     $("bk-date").setAttribute("min", iso);
   })();
+
+  /* ---------- Booking map + USA address search ---------- */
+  /* The map shows the whole USA and marks addresses the customer picks
+     from the suggestions below each field. There is deliberately NO
+     pin-drop: tapping or clicking the map never sets an address.
+     The post-accept live tracking map further down is separate and
+     untouched. Suggestions show address text only — never any fare. */
+  var USA_CENTER = [39.8, -98.5];
+  var USA_ZOOM = 4;
+
+  function initBookingMap() {
+    if (typeof window.L === "undefined") {
+      hide($("booking-map-wrap"));
+      return;
+    }
+    if (state.bookingMapReady) return;
+    state.bookingMap = window.L.map("booking-map", { scrollWheelZoom: false })
+      .setView(USA_CENTER, USA_ZOOM);
+    window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap contributors"
+    }).addTo(state.bookingMap);
+    state.bookingMapReady = true;
+  }
+
+  function resetBookingMapView() {
+    if (state.bookingMapReady) state.bookingMap.setView(USA_CENTER, USA_ZOOM);
+  }
+
+  /* Refreshes the pickup/drop-off markers. Only moves the view when a
+     place was just chosen (focus is "pickup" or "dropoff"); clearing a
+     place never jumps the map. */
+  function updateBookingMarkers(focus) {
+    if (!state.bookingMapReady) return;
+    var pts = [];
+    if (state.pickupPlace) {
+      if (!state.pickupMarker) {
+        state.pickupMarker = window.L.marker([state.pickupPlace.lat, state.pickupPlace.lon]).addTo(state.bookingMap);
+      } else {
+        state.pickupMarker.setLatLng([state.pickupPlace.lat, state.pickupPlace.lon]);
+      }
+      state.pickupMarker.bindPopup("Pickup: " + esc(state.pickupPlace.display_name));
+      pts.push([state.pickupPlace.lat, state.pickupPlace.lon]);
+    } else if (state.pickupMarker) {
+      state.bookingMap.removeLayer(state.pickupMarker);
+      state.pickupMarker = null;
+    }
+    if (state.dropoffPlace) {
+      if (!state.dropoffMarker) {
+        state.dropoffMarker = window.L.marker([state.dropoffPlace.lat, state.dropoffPlace.lon]).addTo(state.bookingMap);
+      } else {
+        state.dropoffMarker.setLatLng([state.dropoffPlace.lat, state.dropoffPlace.lon]);
+      }
+      state.dropoffMarker.bindPopup("Drop-off: " + esc(state.dropoffPlace.display_name));
+      pts.push([state.dropoffPlace.lat, state.dropoffPlace.lon]);
+    } else if (state.dropoffMarker) {
+      state.bookingMap.removeLayer(state.dropoffMarker);
+      state.dropoffMarker = null;
+    }
+    if (!focus) return;
+    if (pts.length === 2) {
+      state.bookingMap.fitBounds(window.L.latLngBounds(pts).pad(0.25), { maxZoom: 15 });
+    } else if (pts.length === 1) {
+      state.bookingMap.setView(pts[0], 14);
+    }
+    if (focus === "pickup" && state.pickupMarker) state.pickupMarker.openPopup();
+    if (focus === "dropoff" && state.dropoffMarker) state.dropoffMarker.openPopup();
+  }
+
+  function clearBookingPlaces() {
+    state.pickupPlace = null;
+    state.dropoffPlace = null;
+    updateBookingMarkers(null);
+  }
+
+  function attachPlaces(inputId, listId, kind) {
+    var input = $(inputId);
+    var list = $(listId);
+    var timer = null;
+    var seq = 0;
+    var controller = null;
+    var activeIndex = -1;
+    var items = [];
+
+    function closeList() {
+      hide(list);
+      list.innerHTML = "";
+      items = [];
+      activeIndex = -1;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+    }
+    function clearStored() {
+      if (kind === "pickup") { state.pickupPlace = null; } else { state.dropoffPlace = null; }
+      updateBookingMarkers(null);
+    }
+    function choose(item) {
+      input.value = item.display_name;
+      if (kind === "pickup") { state.pickupPlace = item; } else { state.dropoffPlace = item; }
+      closeList();
+      updateBookingMarkers(kind);
+    }
+    function paintActive() {
+      var btns = list.querySelectorAll("button");
+      btns.forEach(function (b, i) {
+        b.classList.toggle("active", i === activeIndex);
+        b.setAttribute("aria-selected", i === activeIndex ? "true" : "false");
+      });
+      if (activeIndex >= 0 && btns[activeIndex]) {
+        input.setAttribute("aria-activedescendant", btns[activeIndex].id);
+      } else {
+        input.removeAttribute("aria-activedescendant");
+      }
+    }
+    function render(results) {
+      items = results;
+      activeIndex = -1;
+      list.innerHTML = "";
+      if (!results.length) { closeList(); return; }
+      results.forEach(function (item, idx) {
+        var parts = String(item.display_name).split(",");
+        var main = parts.shift().trim();
+        var detail = parts.join(",").trim();
+        var li = document.createElement("li");
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.setAttribute("role", "option");
+        btn.setAttribute("aria-selected", "false");
+        btn.id = listId + "-opt-" + idx;
+        var mainEl = document.createElement("span");
+        mainEl.className = "places-main";
+        mainEl.textContent = main || item.display_name;
+        btn.appendChild(mainEl);
+        if (detail) {
+          var detEl = document.createElement("span");
+          detEl.className = "places-detail";
+          detEl.textContent = detail;
+          btn.appendChild(detEl);
+        }
+        /* mousedown fires before the input loses focus, so a tap or
+           click always lands on the suggestion. */
+        btn.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          choose(item);
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+      show(list);
+      input.setAttribute("aria-expanded", "true");
+    }
+    function search(query) {
+      var mySeq = ++seq;
+      if (controller) controller.abort();
+      controller = new AbortController();
+      fetch("/api/places/search?q=" + encodeURIComponent(query) + "&limit=5",
+        { signal: controller.signal })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (mySeq !== seq) return;
+          render((j && Array.isArray(j.results)) ? j.results : []);
+        })
+        .catch(function () {
+          if (mySeq === seq) closeList();
+        });
+    }
+
+    input.addEventListener("input", function () {
+      clearStored();
+      if (timer) clearTimeout(timer);
+      var q = input.value.trim();
+      if (q.length < 3) { closeList(); return; }
+      timer = setTimeout(function () { search(input.value.trim()); }, 350);
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { closeList(); return; }
+      if (list.classList.contains("hidden") || !items.length) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        var dir = e.key === "ArrowDown" ? 1 : -1;
+        activeIndex = (activeIndex + dir + items.length) % items.length;
+        paintActive();
+      } else if (e.key === "Enter" && activeIndex >= 0) {
+        e.preventDefault();
+        choose(items[activeIndex]);
+      }
+    });
+    input.addEventListener("blur", function () {
+      setTimeout(function () {
+        if (!list.contains(document.activeElement)) closeList();
+      }, 150);
+    });
+    document.addEventListener("click", function (e) {
+      if (!list.contains(e.target) && e.target !== input) closeList();
+    });
+  }
+
+  initBookingMap();
+  attachPlaces("bk-pickup", "bk-pickup-list", "pickup");
+  attachPlaces("bk-dropoff", "bk-dropoff-list", "dropoff");
 
   /* ---------- Create a booking ---------- */
   $("booking-form").addEventListener("submit", function (e) {
@@ -397,6 +605,8 @@
     $("bk-date").value = "";
     $("bk-time").value = "";
     $("bk-referral").value = "";
+    clearBookingPlaces();
+    resetBookingMapView();
     state.bookingId = null;
     state.booking = null;
     state.paid = false;

@@ -1,8 +1,9 @@
-"""Geocoding + routing for Noel Chauffer.
+"""Geocoding + routing + USA place search for Noel Chauffer.
 
-Public no-key endpoints only: Nominatim for geocoding, OSRM demo server for
-driving routes. Fallback: haversine distance * 1.3. Never raises to the
-caller on geo failure — always returns a miles value via fallback.
+Public no-key endpoints only: Nominatim for geocoding and address
+suggestions, OSRM demo server for driving routes. Fallback: haversine
+distance * 1.3. Never raises to the caller on geo failure — always
+returns a miles value via fallback, or an empty suggestion list.
 """
 
 from __future__ import annotations
@@ -22,7 +23,14 @@ FALLBACK_MILES = 10.0  # used only when geocoding fails outright (no coords)
 
 _geocode_cache: dict = {}
 _route_cache: dict = {}
+_search_cache: dict = {}
 _CACHE_LIMIT = 500
+
+# Address-detail keys passed through to autocomplete suggestions.
+_ADDRESS_KEYS = (
+    "house_number", "road", "neighbourhood", "suburb", "city", "town",
+    "village", "county", "state", "postcode", "country", "country_code",
+)
 
 
 def _http_get_json(url: str):
@@ -52,6 +60,65 @@ def geocode(address: str):
     if len(_geocode_cache) < _CACHE_LIMIT:
         _geocode_cache[key] = result
     return result
+
+
+def search_places(query: str, limit: int = 5):
+    """USA-only address suggestions for booking-form autocomplete.
+
+    Returns a list of {display_name, lat, lon, address} dicts, or [] on
+    any failure. Never raises. Uses Nominatim with countrycodes=us and
+    addressdetails=1; no API key. Address text + coordinates only — no
+    fare, miles, or pricing data of any kind.
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        limit = 5
+    limit = max(1, min(10, limit))
+    key = (q.lower(), limit)
+    if key in _search_cache:
+        return [dict(item, address=dict(item["address"])) for item in _search_cache[key]]
+    results = []
+    try:
+        url = (
+            "https://nominatim.openstreetmap.org/search?format=json"
+            "&addressdetails=1&countrycodes=us&limit=" + str(limit)
+            + "&q=" + urllib.parse.quote(q)
+        )
+        data = _http_get_json(url)
+        if isinstance(data, list):
+            for item in data:
+                try:
+                    if not isinstance(item, dict):
+                        continue
+                    lat = float(item["lat"])
+                    lon = float(item["lon"])
+                    display_name = item.get("display_name")
+                    if not display_name:
+                        continue
+                    raw_address = item.get("address") or {}
+                    address = {}
+                    if isinstance(raw_address, dict):
+                        for k in _ADDRESS_KEYS:
+                            if raw_address.get(k):
+                                address[k] = raw_address[k]
+                    results.append({
+                        "display_name": display_name,
+                        "lat": lat,
+                        "lon": lon,
+                        "address": address,
+                    })
+                except (KeyError, TypeError, ValueError):
+                    continue
+    except Exception as exc:  # never raise: autocomplete degrades to plain text
+        log.warning("place search failed for %r: %s", q, exc)
+        return []
+    if len(_search_cache) < _CACHE_LIMIT:
+        _search_cache[key] = results
+    return results
 
 
 def haversine_miles(lat1, lng1, lat2, lng2) -> float:

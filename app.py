@@ -456,6 +456,30 @@ def owner_page():
     return _serve_page("owner.html", "owner dashboard")
 
 
+# ------------------------------------------------------- place search ------
+
+@app.route("/api/places/search", methods=["GET"])
+def place_search():
+    """USA-only address suggestions for the booking form (no API key).
+
+    Always 200: an empty query, bad input, or an upstream failure all
+    return an empty results list, so the form keeps working as plain
+    text. Results carry address text + coordinates only: no fare,
+    miles, or any pricing data.
+    """
+    try:
+        q = (request.args.get("q") or "").strip()[:200]
+        try:
+            limit = int(request.args.get("limit", "5"))
+        except (TypeError, ValueError):
+            limit = 5
+        results = geo_module.search_places(q, limit) if q else []
+        return jsonify({"results": results})
+    except Exception as exc:  # autocomplete must never break the page
+        log.warning("place search endpoint failed: %s", exc)
+        return jsonify({"results": []})
+
+
 # ------------------------------------------------------- customer booking ---
 
 @app.route("/api/bookings", methods=["POST"])

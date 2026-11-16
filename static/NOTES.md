@@ -15,6 +15,11 @@ frontend never works out a price.
 
 - Booking form, One way / By the hour tabs
   → `POST /api/bookings`
+- Booking map (whole USA) + address suggestions under the Pickup /
+  Drop-off fields; tapping a suggestion fills the field and marks it
+  on the map. No pin-drop: tapping the map never sets an address.
+  → `GET /api/places/search?q=<text>&limit=5` (USA-only Nominatim,
+  address text + coordinates only, always 200)
 - "Finding your chauffeur" waiting state, polling every 3 seconds
   → `GET /api/bookings/<id>`
 - Assigned chauffeur card (name, phone, car, colour, plate, photo)

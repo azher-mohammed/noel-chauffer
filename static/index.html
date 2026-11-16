@@ -60,13 +60,19 @@
         </div>
 
         <form id="booking-form" novalidate>
-          <div class="field">
+          <div class="field field-places">
             <label for="bk-pickup">Pickup address</label>
-            <input id="bk-pickup" name="pickup" type="text" required autocomplete="off" placeholder="Street address, airport, or hotel">
+            <input id="bk-pickup" name="pickup" type="text" required autocomplete="off" placeholder="Street address, airport, or hotel" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="bk-pickup-list">
+            <ul class="places-list hidden" id="bk-pickup-list" role="listbox" aria-label="Pickup address suggestions"></ul>
           </div>
-          <div class="field" id="field-dropoff">
+          <div class="field field-places" id="field-dropoff">
             <label for="bk-dropoff">Drop-off address</label>
-            <input id="bk-dropoff" name="dropoff" type="text" autocomplete="off" placeholder="Where are you going?">
+            <input id="bk-dropoff" name="dropoff" type="text" autocomplete="off" placeholder="Where are you going?" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="bk-dropoff-list">
+            <ul class="places-list hidden" id="bk-dropoff-list" role="listbox" aria-label="Drop-off address suggestions"></ul>
+          </div>
+          <div class="booking-map-wrap" id="booking-map-wrap">
+            <div id="booking-map" aria-label="Map of the United States"></div>
+            <p class="map-note">Start typing an address above and pick a suggestion — the map shows where it is.</p>
           </div>
           <div class="field-row">
             <div class="field">

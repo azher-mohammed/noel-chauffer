@@ -243,19 +243,21 @@ input, select, textarea { font: inherit; }
 .section { max-width: 1100px; margin: 0 auto; padding: 56px 20px 8px; }
 .section h2 { font-size: 32px; margin: 0 0 8px; }
 .section .intro { color: var(--grey); max-width: 640px; margin: 0 0 26px; }
-/* Experience / trust cards (typographic + gradient band; no photos) */
+/* Experience / trust cards (photos on experience cards; gradient band on trust cards) */
 .exp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 @media (max-width: 860px) { .exp-grid { grid-template-columns: 1fr; } }
 .exp-card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--white); }
 .exp-card .band { height: 8px; background: linear-gradient(90deg, var(--gold), #7fa8d9 60%, var(--sky)); }
+.card-photo { display: block; width: 100%; height: 190px; object-fit: cover; }
 .exp-body { padding: 20px 22px 22px; }
 .exp-body .glyph { color: var(--gold); font-size: 22px; }
 .exp-body h3 { margin: 8px 0 6px; font-size: 19px; }
 .exp-body p { margin: 0; color: var(--grey); font-size: 14.5px; }
 
-/* Airport transfers card (no photo) */
+/* Airport transfers card */
 .airport-card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--white); }
-.airport-card .band { height: 8px; background: linear-gradient(90deg, #7fa8d9, var(--sky) 60%, var(--gold)); }
+.airport-card .card-photo { height: 320px; }
+@media (max-width: 860px) { .airport-card .card-photo { height: 220px; } }
 .airport-body { padding: 26px 28px 28px; }
 .airport-body .eyebrow { margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grey); }
 .section .airport-body h2 { font-size: 30px; margin: 0 0 8px; }

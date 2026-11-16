@@ -52,9 +52,11 @@ from pricing import (
     compute_class_totals,
     compute_hourly,
     compute_one_way,
+    free_waiting_minutes,
     invoice_total,
     money,
     waiting_charge,
+    waiting_time_elapsed,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -392,6 +394,13 @@ def route_url_for(booking):
             f"&destination={quote_plus(booking.dropoff)}"
         )
     return "https://www.google.com/maps/search/?api=1&query=" + quote_plus(booking.pickup)
+
+
+def waze_url_for(booking):
+    # Waze navigates to a single destination from the driver's current
+    # location: the dropoff when there is one, else the pickup.
+    dest = booking.dropoff or booking.pickup
+    return "https://waze.com/ul?q=" + quote_plus(dest) + "&navigate=yes"
 
 
 def driver_docs_status(driver):
@@ -1112,6 +1121,8 @@ def driver_active_trip():
         "customer_phone": booking.phone,
         "earnings": num(booking.driver_earnings),
         "route_url": route_url_for(booking),
+        "route_waze_url": waze_url_for(booking),
+        "free_waiting_minutes": free_waiting_minutes(booking.pickup),
         "status": booking.status,
         **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
     }})
@@ -1165,6 +1176,7 @@ def driver_offers():
             "vehicle_class_label": class_label(booking_vehicle_class(b)),
             "earnings": num(b.driver_earnings),
             "route_url": route_url_for(b),
+            "route_waze_url": waze_url_for(b),
         })
     return jsonify(offers)
 
@@ -1219,6 +1231,8 @@ def driver_accept(booking_id):
         "customer_phone": booking.phone,
         "earnings": num(booking.driver_earnings),
         "route_url": route_url_for(booking),
+        "route_waze_url": waze_url_for(booking),
+        "free_waiting_minutes": free_waiting_minutes(booking.pickup),
         "status": booking.status,
         **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
     }})
@@ -1306,6 +1320,10 @@ def driver_trip_event(booking_id):
     elif event == "no_show":
         if booking.status not in ("en_route", "arrived"):
             return err("No-show can only be marked while heading to or at pickup.", 409)
+        if not waiting_time_elapsed(booking.date, booking.time, booking.pickup):
+            return err("The free waiting time has not finished yet. "
+                       "The driver must wait the full waiting time before "
+                       "marking a customer no-show.", 409)
         booking.status = "no_show"
         add_event(booking.id, "no_show",
                   f"Customer no-show for booking #{booking.id}. Full price kept.")

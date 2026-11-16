@@ -272,7 +272,10 @@ class PayBeforeDispatchCase(unittest.TestCase):
 
     def test_no_show_keeps_full_price(self):
         _, token = self.register_driver()
-        booking = self.book()
+        # Pickup 2 hours ago: the full 60-minute airport wait has elapsed,
+        # so the no-show time gate (owner decision 2026-11-16) allows it.
+        date, time = self.past_pickup(120)
+        booking = self.book(date=date, time=time)
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.client.post(f"/api/drivers/me/offers/{booking['id']}/accept",
                          headers={"X-Driver-Token": token})
@@ -288,6 +291,65 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertEqual(detail["payments"][0]["status"], "succeeded")
         summary = self.client.get("/api/owner/summary").get_json()
         self.assertTrue(approx(summary["gross"], "235.37"), summary)
+
+    # -- no-show time gate (owner decision 2026-11-16) -----------------------
+    def past_pickup(self, minutes_ago):
+        try:
+            from zoneinfo import ZoneInfo
+            past = datetime.now(ZoneInfo("America/New_York")) - timedelta(minutes=minutes_ago)
+        except Exception:
+            past = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+        return past.strftime("%Y-%m-%d"), past.strftime("%H:%M")
+
+    def trip_event(self, token, booking_id, event):
+        return self.client.post(f"/api/drivers/me/trip/{booking_id}/event",
+                                json={"event": event},
+                                headers={"X-Driver-Token": token})
+
+    def drive_to_arrived(self, token, booking_id):
+        for event in ("en_route", "arrived"):
+            resp = self.trip_event(token, booking_id, event)
+            self.assertEqual(resp.status_code, 200,
+                             f"{event}: {resp.get_data(as_text=True)[:200]}")
+
+    def test_no_show_rejected_before_waiting_time_ends(self):
+        _, token = self.register_driver()
+        booking = self.book()  # 2030 pickup: the wait has not even begun
+        self.assertEqual(self.pay(booking["id"]).status_code, 200)
+        self.client.post(f"/api/drivers/me/offers/{booking['id']}/accept",
+                         headers={"X-Driver-Token": token})
+        self.drive_to_arrived(token, booking["id"])
+        resp = self.trip_event(token, booking["id"], "no_show")
+        self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
+        self.owner_login()
+        detail = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
+        self.assertEqual(detail["status"], "arrived")
+        self.assertEqual(detail["payments"][0]["status"], "succeeded")
+
+    def test_no_show_airport_requires_full_60_minutes(self):
+        _, token = self.register_driver()
+        date, time = self.past_pickup(30)  # JFK: only 30 of 60 minutes elapsed
+        booking = self.book(date=date, time=time)
+        self.assertEqual(self.pay(booking["id"]).status_code, 200)
+        self.client.post(f"/api/drivers/me/offers/{booking['id']}/accept",
+                         headers={"X-Driver-Token": token})
+        self.drive_to_arrived(token, booking["id"])
+        resp = self.trip_event(token, booking["id"], "no_show")
+        self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
+
+    def test_no_show_regular_pickup_allowed_after_15_minutes(self):
+        _, token = self.register_driver()
+        date, time = self.past_pickup(30)  # regular pickup: 15-minute wait elapsed
+        booking = self.book(date=date, time=time, pickup="123 Main Street")
+        self.assertEqual(self.pay(booking["id"]).status_code, 200)
+        self.client.post(f"/api/drivers/me/offers/{booking['id']}/accept",
+                         headers={"X-Driver-Token": token})
+        self.drive_to_arrived(token, booking["id"])
+        resp = self.trip_event(token, booking["id"], "no_show")
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        self.owner_login()
+        detail = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
+        self.assertEqual(detail["status"], "no_show")
 
     # -- hourly + referral follow the same flow --------------------------------
     def test_hourly_same_flow(self):
@@ -389,6 +451,25 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertIn("Business SUV", index)
         self.assertNotIn("Book a ride", index)
         self.assertNotIn("Book a ride", customer_js)
+
+
+class NoShowButtonGateCase(unittest.TestCase):
+    """The driver app hides the no-show button until the full wait ends."""
+
+    def test_driver_js_gates_noshow_button(self):
+        with open(os.path.join(REPO_DIR, "static", "js", "driver.js"),
+                  encoding="utf-8") as fh:
+            driver_js = fh.read()
+        self.assertIn("refreshNoShowButton", driver_js)
+        self.assertIn("free_waiting_minutes", driver_js)
+        self.assertIn("noShowTimer", driver_js)
+        self.assertIn("30000", driver_js)
+
+    def test_noshow_button_starts_hidden(self):
+        with open(os.path.join(REPO_DIR, "static", "driver.html"),
+                  encoding="utf-8") as fh:
+            html = fh.read()
+        self.assertIn('class="btn-ghost hidden" type="button" id="trip-noshow-btn"', html)
 
 
 if __name__ == "__main__":

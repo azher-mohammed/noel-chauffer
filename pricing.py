@@ -185,3 +185,20 @@ def cancellation_refundable(date_str: str, time_str: str, now=None) -> bool:
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
     return (pickup_dt - now) > timedelta(hours=1)
+
+
+def waiting_time_elapsed(date_str: str, time_str: str, pickup_text: str, now=None) -> bool:
+    """True once the free waiting time has fully elapsed.
+
+    The driver must wait the full allowance — 60 minutes at airport
+    pickups, else 15 — from the pickup datetime (America/New_York)
+    before a customer no-show may be marked. `now` may be given (aware
+    datetime) for testing; otherwise the current UTC time is used.
+    """
+    pickup_naive = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    pickup_dt = pickup_naive.replace(tzinfo=_pickup_timezone())
+    if now is None:
+        now = datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return now >= pickup_dt + timedelta(minutes=free_waiting_minutes(pickup_text))

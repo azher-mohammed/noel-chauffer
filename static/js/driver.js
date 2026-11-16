@@ -46,6 +46,7 @@
     driver: null,
     available: false,
     offersTimer: null,
+    noShowTimer: null,
     trip: null,
     stageIndex: 0,
     watchId: null
@@ -168,6 +169,8 @@
       vehicle_class_label: b.vehicle_class_label,
       earnings: pickNumber(b, ["earnings", "driver_earnings", "amount"]),
       route_url: b.route_url,
+      route_waze_url: b.route_waze_url,
+      free_waiting_minutes: b.free_waiting_minutes,
       customer_name: b.customer_name,
       customer_phone: b.customer_phone,
       flight_number: b.flight_number || null,
@@ -407,7 +410,10 @@
         '<div class="when">' + esc(when) + "</div>" +
         '<div class="earnings"><span class="label">Your earnings</span><span class="amount">' + esc(money(earnings)) + "</span></div>";
       if (o.route_url) {
-        html += '<a class="route-link" href="' + esc(o.route_url) + '" target="_blank" rel="noopener">View route map ↗</a>';
+        html += '<a class="route-link" href="' + esc(o.route_url) + '" target="_blank" rel="noopener">Google Maps ↗</a>';
+      }
+      if (o.route_waze_url) {
+        html += '<a class="route-link" href="' + esc(o.route_waze_url) + '" target="_blank" rel="noopener">Waze ↗</a>';
       }
       html += '<div class="offer-actions">' +
         '<button type="button" class="btn-accept">Accept</button>' +
@@ -472,10 +478,16 @@
       '<div class="earnings" style="background:#fffdf4;border:1px solid var(--gold);border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">' +
       '<span class="label" style="font-size:13px;letter-spacing:0.05em;text-transform:uppercase;color:var(--grey);">Your earnings</span>' +
       '<span class="amount" style="font-family:Georgia,serif;font-size:26px;">' + esc(money(t.earnings)) + "</span></div>";
-    $("trip-route-link").innerHTML = t.route_url
-      ? '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(t.route_url) + '" target="_blank" rel="noopener">View route map ↗</a>'
-      : "";
+    var routeLinks = "";
+    if (t.route_url) {
+      routeLinks += '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(t.route_url) + '" target="_blank" rel="noopener">Google Maps ↗</a>';
+    }
+    if (t.route_waze_url) {
+      routeLinks += '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(t.route_waze_url) + '" target="_blank" rel="noopener">Waze ↗</a>';
+    }
+    $("trip-route-link").innerHTML = routeLinks;
     renderStages();
+    startNoShowTimer();
     $("trip-error").textContent = "";
   }
   function renderStages() {
@@ -490,6 +502,35 @@
     var current = STAGES[state.stageIndex];
     $("trip-next-btn").textContent = STAGE_BUTTON[current] || "Continue";
     if (current === "complete") { show($("waiting-field")); } else { hide($("waiting-field")); }
+    refreshNoShowButton();
+  }
+  /* Customer no-show is only offered once the driver has waited the
+     FULL free waiting time (60 min at airports, else 15) from the
+     pickup time, while heading to or waiting at pickup. stageIndex
+     counts completed stages, so en_route is 1 and arrived is 2 —
+     matching the server's stage check. */
+  function refreshNoShowButton() {
+    var btn = $("trip-noshow-btn");
+    var t = state.trip;
+    if (!t || (state.stageIndex !== 1 && state.stageIndex !== 2) || !t.date || !t.time) {
+      hide(btn);
+      return;
+    }
+    var allowance = (typeof t.free_waiting_minutes === "number") ? t.free_waiting_minutes : 15;
+    var pickup = new Date(t.date + "T" + t.time);
+    if (isNaN(pickup.getTime())) { hide(btn); return; }
+    if (Date.now() >= pickup.getTime() + allowance * 60000) { show(btn); }
+    else { hide(btn); }
+  }
+  function startNoShowTimer() {
+    if (state.noShowTimer) clearInterval(state.noShowTimer);
+    state.noShowTimer = setInterval(function () {
+      if (state.trip) refreshNoShowButton();
+    }, 30000);
+  }
+  function stopNoShowTimer() {
+    if (state.noShowTimer) clearInterval(state.noShowTimer);
+    state.noShowTimer = null;
   }
   function postTripEvent(eventName, extra) {
     var payload = Object.assign({ event: eventName }, extra || {});
@@ -538,9 +579,11 @@
   });
   function endTrip() {
     stopLocationSharing();
+    stopNoShowTimer();
     state.trip = null;
     state.stageIndex = 0;
     hide($("loc-note"));
+    hide($("trip-noshow-btn"));
     showScreen("home");
     refreshOffers();
   }

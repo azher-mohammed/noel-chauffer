@@ -18,6 +18,7 @@ from pricing import (  # noqa: E402
     free_waiting_minutes,
     is_airport_pickup,
     waiting_charge,
+    waiting_time_elapsed,
 )
 
 D = Decimal
@@ -103,6 +104,46 @@ class TestWaiting(unittest.TestCase):
 
     def test_non_airport_overage(self):
         self.assertEqual(waiting_charge("123 Main Street", 20), D("5.00"))
+
+
+class TestWaitingTimeElapsed(unittest.TestCase):
+    # Pickup 2030-06-01 12:00 New York = 16:00 UTC (EDT).
+    def test_regular_pickup_15_minutes(self):
+        self.assertFalse(waiting_time_elapsed(
+            "2030-06-01", "12:00", "123 Main Street",
+            now=datetime(2030, 6, 1, 16, 14, tzinfo=timezone.utc)))
+        # Boundary: exactly 15 minutes after pickup counts as elapsed.
+        self.assertTrue(waiting_time_elapsed(
+            "2030-06-01", "12:00", "123 Main Street",
+            now=datetime(2030, 6, 1, 16, 15, tzinfo=timezone.utc)))
+        self.assertTrue(waiting_time_elapsed(
+            "2030-06-01", "12:00", "123 Main Street",
+            now=datetime(2030, 6, 1, 16, 16, tzinfo=timezone.utc)))
+
+    def test_airport_pickup_60_minutes(self):
+        self.assertFalse(waiting_time_elapsed(
+            "2030-06-01", "12:00", "JFK Airport",
+            now=datetime(2030, 6, 1, 16, 59, tzinfo=timezone.utc)))
+        self.assertTrue(waiting_time_elapsed(
+            "2030-06-01", "12:00", "JFK Airport",
+            now=datetime(2030, 6, 1, 17, 0, tzinfo=timezone.utc)))
+        self.assertTrue(waiting_time_elapsed(
+            "2030-06-01", "12:00", "JFK Airport",
+            now=datetime(2030, 6, 1, 17, 1, tzinfo=timezone.utc)))
+
+    def test_naive_now_treated_as_utc(self):
+        self.assertTrue(waiting_time_elapsed(
+            "2030-06-01", "12:00", "123 Main Street",
+            now=datetime(2030, 6, 1, 16, 15)))
+        self.assertFalse(waiting_time_elapsed(
+            "2030-06-01", "12:00", "123 Main Street",
+            now=datetime(2030, 6, 1, 16, 14)))
+
+    def test_now_defaults_to_current_time(self):
+        # A pickup far in the future has not elapsed; one far in the
+        # past has — deterministic whatever the real clock says.
+        self.assertFalse(waiting_time_elapsed("2030-06-01", "12:00", "123 Main Street"))
+        self.assertTrue(waiting_time_elapsed("2020-01-01", "12:00", "JFK Airport"))
 
 
 class TestCancellation(unittest.TestCase):

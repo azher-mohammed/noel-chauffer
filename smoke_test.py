@@ -230,6 +230,7 @@ leaked = set(offers[0]) & FORBIDDEN_OFFER_KEYS if offers else {"none"}
 check("offer has no miles/fare fields", not leaked, f"leaked: {leaked}")
 check("offer earnings = driver share only", offers and approx(offers[0]["earnings"], 72.00), str(offers))
 check("offer has route_url", offers and offers[0]["route_url"].startswith("https://www.google.com/maps/"))
+check("offer has route_waze_url", offers and offers[0]["route_waze_url"].startswith("https://waze.com/ul?"))
 client.post("/api/drivers/me/availability", json={"available": True},
             headers={"X-Driver-Token": token2})
 resp = client.post(f"/api/drivers/me/offers/{b1['id']}/accept", headers={"X-Driver-Token": token1})

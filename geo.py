@@ -86,7 +86,17 @@ def _parse_place(item):
             if raw_address.get(k):
                 address[k] = raw_address[k]
     return (
-        {"display_name": display_name, "lat": lat, "lon": lon, "address": address},
+        {
+            "display_name": display_name,
+            "lat": lat,
+            "lon": lon,
+            "address": address,
+            # True only for the airport itself (aeroway/aerodrome), so
+            # the booking form can tell an airport suggestion apart
+            # from a terminal or street address.
+            "airport": item.get("class") == "aeroway"
+            and item.get("type") == "aerodrome",
+        },
         item.get("class"),
         item.get("type"),
     )

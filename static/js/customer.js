@@ -15,7 +15,10 @@
     marker: null,
     mapReady: false,
     pickupPlace: null,
-    dropoffPlace: null
+    dropoffPlace: null,
+    flightNumber: null,
+    flightResolved: false,
+    pendingPayload: null
   };
 
   function $(id) { return document.getElementById(id); }
@@ -106,6 +109,9 @@
   function clearBookingPlaces() {
     state.pickupPlace = null;
     state.dropoffPlace = null;
+    state.flightNumber = null;
+    state.flightResolved = false;
+    state.pendingPayload = null;
   }
 
   function attachPlaces(inputId, listId, kind) {
@@ -127,6 +133,9 @@
     }
     function clearStored() {
       if (kind === "pickup") { state.pickupPlace = null; } else { state.dropoffPlace = null; }
+      /* Editing an address re-arms the flight-number step, so a changed
+         airport address is asked about again on the next submit. */
+      state.flightResolved = false;
     }
     function choose(item) {
       input.value = item.display_name;
@@ -263,6 +272,70 @@
       err.textContent = "Please enter a drop-off address.";
       return;
     }
+    /* Airport rides ask for the flight number as a SEPARATE step after
+       this form — never a field inside it. Skipping never blocks the
+       booking. Detection: the chosen suggestion's airport flag, with
+       an address-text fallback (see flight.js). */
+    var sides = { any: false, pickup: false, dropoff: false };
+    if (window.NoelFlight) {
+      sides = window.NoelFlight.airportSides(
+        state.pickupPlace, state.dropoffPlace,
+        payload.pickup, payload.dropoff || "");
+    }
+    if (sides.any && !state.flightResolved) {
+      showFlightStep(sides, payload);
+      return;
+    }
+    if (state.flightNumber) payload.flight_number = state.flightNumber;
+    sendBooking(payload);
+  });
+
+  /* Flight-number step: shown after the booking form for airport rides. */
+  function showFlightStep(sides, payload) {
+    state.pendingPayload = payload;
+    if (sides.pickup) {
+      $("flight-step-title").textContent = "Add your flight number";
+      $("flight-step-text").textContent = "Your chauffeur will meet you at the right terminal.";
+    } else {
+      $("flight-step-title").textContent = "Add your flight number (optional)";
+      $("flight-step-text").textContent = "This helps your chauffeur take you to the right departure terminal.";
+    }
+    $("flight-step-airport").textContent = sides.pickup ? payload.pickup : (payload.dropoff || "");
+    $("flight-number").value = state.flightNumber || "";
+    hide($("booking-card"));
+    show($("flight-step"));
+    $("flight-step").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("flight-number").focus();
+  }
+
+  function proceedFromFlightStep() {
+    hide($("flight-step"));
+    show($("booking-card"));
+    var payload = state.pendingPayload;
+    state.pendingPayload = null;
+    if (!payload) return;
+    if (state.flightNumber) payload.flight_number = state.flightNumber;
+    sendBooking(payload);
+  }
+
+  $("flight-continue").addEventListener("click", function () {
+    state.flightNumber = $("flight-number").value.trim() || null;
+    state.flightResolved = true;
+    proceedFromFlightStep();
+  });
+  $("flight-skip").addEventListener("click", function () {
+    state.flightNumber = null;
+    state.flightResolved = true;
+    proceedFromFlightStep();
+  });
+  $("flight-back").addEventListener("click", function () {
+    hide($("flight-step"));
+    show($("booking-card"));
+    $("booking-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  function sendBooking(payload) {
+    var err = $("booking-error");
     var btn = $("book-submit");
     btn.disabled = true;
     btn.textContent = "Sending your request…";
@@ -286,7 +359,7 @@
         btn.textContent = "Request my chauffeur";
         err.textContent = "Could not reach the booking service. Please check your connection and try again.";
       });
-  });
+  }
 
   function startTracking(booking, phone) {
     stopPolling();
@@ -294,6 +367,9 @@
     state.bookingPhone = phone;
     state.booking = booking;
     state.paid = false;
+    state.flightNumber = null;
+    state.flightResolved = false;
+    state.pendingPayload = null;
     hide($("thankyou-block"));
     hide($("invoice-panel"));
     hide($("pay-panel"));
@@ -301,6 +377,8 @@
     hide($("total-box"));
     hide($("map-wrap"));
     hide($("cancel-result"));
+    $("status-flight").textContent = "";
+    hide($("status-flight"));
     show($("status-finding"));
     show($("status-actions"));
     show($("status-card"));
@@ -333,6 +411,17 @@
 
   function renderBooking(b) {
     $("status-summary").textContent = rideLabel(b) + (whenLabel(b) ? " · " + whenLabel(b) : "");
+    var flightEl = $("status-flight");
+    if (b.flight_number) {
+      var flightText = "Flight: " + b.flight_number;
+      if (b.airline_name) flightText += " · " + b.airline_name;
+      if (b.terminal) flightText += " · " + b.terminal;
+      flightEl.textContent = flightText;
+      show(flightEl);
+    } else {
+      flightEl.textContent = "";
+      hide(flightEl);
+    }
     var hasDriver = !!(b.driver && b.driver.name);
     var st = b.status || "";
 

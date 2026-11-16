@@ -36,6 +36,7 @@ from sqlalchemy import Numeric
 from werkzeug.exceptions import HTTPException
 
 import geo as geo_module
+from flights import flight_info, normalize_flight_number
 from payouts import completion_date, week_bounds, week_for
 from pricing import (
     cancellation_refundable,
@@ -176,6 +177,11 @@ class Booking(db.Model):
     hours = db.Column(Numeric(5, 1), nullable=True)
     toll = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     referral_code_used = db.Column(db.String(40), nullable=True)
+    # Optional flight number for airport rides, asked as a separate step
+    # after the booking form; skippable, never blocks the booking. No
+    # live flight tracking: the airline name is derived from the IATA
+    # code in flights.py.
+    flight_number = db.Column(db.String(20), nullable=True)
     status = db.Column(db.String(30), nullable=False, default="offered")
     fare_total = db.Column(Numeric(10, 2), nullable=False)
     driver_earnings = db.Column(Numeric(10, 2), nullable=False)
@@ -251,6 +257,21 @@ class BookingEvent(db.Model):
 
 with app.app_context():
     db.create_all()
+    # create_all() never alters an existing table, so add the
+    # flight_number column to databases created before it existed
+    # (e.g. the live database). Fresh databases already have it.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _cols = [c["name"] for c in _sa_inspect(db.engine).get_columns("bookings")]
+        if "flight_number" not in _cols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE bookings ADD COLUMN flight_number VARCHAR(20)")
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("flight_number column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -507,6 +528,10 @@ def create_booking():
             return err("Invalid referral code.")
         referral_valid = True
 
+    # Optional, skippable: an unparseable value stores as None and the
+    # booking still goes through.
+    flight_number = normalize_flight_number(data.get("flight_number"))
+
     booking = Booking(
         customer_name=data["customer_name"],
         phone=data["phone"],
@@ -519,6 +544,7 @@ def create_booking():
         ride_type=ride_type,
         toll=Decimal("0.00"),
         referral_code_used=referral_code_used,
+        flight_number=flight_number,
         status="offered",
     )
 
@@ -581,6 +607,7 @@ def create_booking():
         "ride_type": booking.ride_type,
         "hours": num(booking.hours),
         "referral_code": new_code,
+        **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
     }}), 201
 
 
@@ -608,6 +635,7 @@ def get_booking(booking_id):
         "time": booking.time,
         "ride_type": booking.ride_type,
         "hours": num(booking.hours),
+        **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
         "driver": None if driver is None else {
             "name": driver.name,
             "phone": driver.phone,
@@ -865,6 +893,7 @@ def driver_active_trip():
         "earnings": num(booking.driver_earnings),
         "route_url": route_url_for(booking),
         "status": booking.status,
+        **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
     }})
 
 
@@ -951,6 +980,7 @@ def driver_accept(booking_id):
         "earnings": num(booking.driver_earnings),
         "route_url": route_url_for(booking),
         "status": booking.status,
+        **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
     }})
 
 
@@ -1150,7 +1180,7 @@ def owner_summary():
 
 
 def _owner_booking_row(b):
-    return {
+    row = {
         "id": b.id,
         "customer_name": b.customer_name,
         "phone": b.phone,
@@ -1168,6 +1198,8 @@ def _owner_booking_row(b):
         "driver_name": b.accepted_driver.name if b.accepted_driver else None,
         "payout_paid": bool(b.payout_paid),
     }
+    row.update(flight_info(b.flight_number, b.pickup, b.dropoff))
+    return row
 
 
 @app.route("/api/owner/bookings", methods=["GET"])

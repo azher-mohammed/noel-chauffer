@@ -114,7 +114,8 @@ class TestPlaceSearchEndpoint(PlacesTestCase):
         results = resp.get_json()["results"]
         self.assertEqual(len(results), 2)
         first = results[0]
-        self.assertEqual(set(first.keys()), {"display_name", "lat", "lon", "address"})
+        self.assertEqual(set(first.keys()),
+                         {"display_name", "lat", "lon", "address", "airport"})
         self.assertEqual(first["display_name"], NOMINATIM_OK[0]["display_name"])
         self.assertIsInstance(first["lat"], float)
         self.assertIsInstance(first["lon"], float)
@@ -335,7 +336,7 @@ class TestAirportTerminals(PlacesTestCase):
         # Every entry keeps the exact public shape, no pricing fields.
         for item in results:
             self.assertEqual(set(item.keys()),
-                             {"display_name", "lat", "lon", "address"})
+                             {"display_name", "lat", "lon", "address", "airport"})
             self.assertFalse(FORBIDDEN_KEYS & set(item.keys()))
             self.assertFalse(FORBIDDEN_KEYS & set(item["address"].keys()))
             self.assertNotIn("class", item)
@@ -399,6 +400,24 @@ class TestAirportTerminals(PlacesTestCase):
         # Base search ran twice (different queries), terminal lookup once.
         self.assertEqual(len(self.urls), 5)
         self.assertEqual(len([u for u in self.urls if "bounded=1" in u]), 3)
+
+    def test_airport_flag_on_results(self):
+        # Only the airport itself is flagged; terminals and street
+        # addresses are not, so the booking form can tell them apart.
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=self._routed(self.JFK_BASE, self._terminal_payloads())):
+            results = geo_module.search_places("JFK")
+        flags = {item["display_name"].split(",")[0]: item["airport"]
+                 for item in results}
+        self.assertIs(flags["John F. Kennedy International Airport"], True)
+        self.assertIs(flags["JFK Airport AirTrain Station"], False)
+        self.assertIs(flags["Terminal 4 Arrivals"], False)
+        self.assertIs(flags["Terminal 1 Departures"], False)
+        with mock.patch.object(geo_module, "_http_get_json",
+                               side_effect=self._capture(NOMINATIM_OK)):
+            plain = geo_module.search_places("180 Green")
+        self.assertTrue(all(item["airport"] is False for item in plain))
 
     def test_terminal_lookup_never_raises(self):
         def boom(url):

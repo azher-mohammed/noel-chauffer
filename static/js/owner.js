@@ -295,6 +295,7 @@
           ["Drop-off", b.dropoff || (b.ride_type === "hourly" ? "By the hour" : "—")],
           ["Date / time", whenLabel(b) || "—"],
           ["Ride type", b.ride_type === "hourly" ? "By the hour" + (b.hours ? " · " + b.hours + " hour(s)" : "") : "One way"],
+          ["Flight", b.flight_number ? (b.flight_number + (b.airline_name ? " · " + b.airline_name : "") + (b.terminal ? " · " + b.terminal : "")) : "—"],
           ["Customer", b.customer_name || b.name || "—"],
           ["Customer phone", b.phone || b.customer_phone || "—"],
           ["Customer email", b.email || b.customer_email || "—"],

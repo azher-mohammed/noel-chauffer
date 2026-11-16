@@ -117,6 +117,25 @@
     </div>
   </section>
 
+  <!-- FLIGHT NUMBER (separate step after the booking form, airport rides only) -->
+  <section class="flight-section hidden" id="flight-step" aria-live="polite">
+    <div class="booking-card">
+      <h2 id="flight-step-title">Add your flight number</h2>
+      <p class="sub" id="flight-step-text">Your chauffeur will meet you at the right terminal.</p>
+      <p class="flight-airport" id="flight-step-airport"></p>
+      <div class="field">
+        <label for="flight-number">Flight number</label>
+        <input id="flight-number" type="text" autocomplete="off" placeholder="e.g. EK215" maxlength="20">
+      </div>
+      <p class="form-note">You can skip this — your booking will still go through.</p>
+      <div class="flight-actions">
+        <button type="button" class="btn-primary" id="flight-continue">Continue</button>
+        <button type="button" class="btn-ghost" id="flight-skip">Skip</button>
+      </div>
+      <button type="button" class="btn-text" id="flight-back">← Back to booking form</button>
+    </div>
+  </section>
+
   <!-- LIVE BOOKING STATUS (appears after a booking is placed) -->
   <div class="status-panel">
     <div class="status-card hidden" id="status-card" aria-live="polite">
@@ -124,6 +143,7 @@
         <h2>Finding your chauffeur…</h2>
         <p class="status-line"><span class="dot"></span><span id="status-message">Your request is with us. Please keep this page open.</span></p>
         <p class="ride-summary" id="status-summary"></p>
+        <p class="ride-summary hidden" id="status-flight"></p>
       </div>
 
       <div id="driver-block" class="hidden">
@@ -326,6 +346,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/js/flight.js"></script>
 <script src="/static/js/customer.js"></script>
 </body>
 </html>

@@ -20,7 +20,16 @@ frontend never works out a price.
   Airport queries also list the airport's terminals, including
   arrivals/departures entries where OpenStreetMap maps them.
   → `GET /api/places/search?q=<text>&limit=5` (USA-only Nominatim,
-  address text + coordinates only, always 200)
+  address text + coordinates + `airport` flag only, always 200)
+- Flight-number step, shown AFTER the booking form when the pickup or
+  drop-off is an airport (suggestion `airport` flag, with an
+  address-text fallback in `js/flight.js`); skipping never blocks the
+  booking. Stored as `flight_number` on the booking; the airline name
+  is derived from the IATA code (no live flight tracking).
+  → `POST /api/bookings` accepts optional `flight_number`; the
+  booking payloads carry `flight_number`, `airline_name`, `terminal`.
+  Driver trip screen shows all three (earnings only otherwise); owner
+  ride detail shows the flight number.
 - "Finding your chauffeur" waiting state, polling every 3 seconds
   → `GET /api/bookings/<id>`
 - Assigned chauffeur card (name, phone, car, colour, plate, photo)

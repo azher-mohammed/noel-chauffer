@@ -159,7 +159,10 @@
       earnings: pickNumber(b, ["earnings", "driver_earnings", "amount"]),
       route_url: b.route_url,
       customer_name: b.customer_name,
-      customer_phone: b.customer_phone
+      customer_phone: b.customer_phone,
+      flight_number: b.flight_number || null,
+      airline_name: b.airline_name || null,
+      terminal: b.terminal || null
     };
   }
   function restoreActiveTrip() {
@@ -417,6 +420,19 @@
       cust += (cust ? " · " : "") + '<a href="tel:' + esc(t.customer_phone.replace(/[^+0-9]/g, "")) + '">' + esc(t.customer_phone) + "</a>";
     }
     $("trip-customer").innerHTML = cust;
+    /* Flight details for airport trips: flight number, airline name and
+       terminal only — never miles, fare, or any other money figure. */
+    var flightEl = $("trip-flight");
+    if (t.flight_number) {
+      var flightText = "Flight: " + t.flight_number;
+      if (t.airline_name) flightText += " · " + t.airline_name;
+      if (t.terminal) flightText += " · " + t.terminal;
+      flightEl.textContent = flightText;
+      show(flightEl);
+    } else {
+      flightEl.textContent = "";
+      hide(flightEl);
+    }
     $("trip-earnings").innerHTML =
       '<div class="earnings" style="background:#fffdf4;border:1px solid var(--gold);border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">' +
       '<span class="label" style="font-size:13px;letter-spacing:0.05em;text-transform:uppercase;color:var(--grey);">Your earnings</span>' +

@@ -174,7 +174,7 @@ app.py              Flask app: models + API endpoints + page routes
 pricing.py          Settled pricing rules (Decimal, pure functions)
 payouts.py          Weekly driver payout schedule (pure date math)
 geo.py              Nominatim geocoding + OSRM routing, with fallbacks
-requirements.txt    Python dependencies (incl. gunicorn, psycopg2-binary)
+requirements.txt    Python dependencies (incl. gunicorn, psycopg2-binary, psycopg[binary] — SQLAlchemy 2.x needs the psycopg v3 driver for postgresql:// URLs)
 smoke_test.py       Backend flow checks (in-process, throwaway DB)
 verify_e2e.py       Full HTTP checklist against a running server
 tests/              Pricing + payout-week unit/API tests

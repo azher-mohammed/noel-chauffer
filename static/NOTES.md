@@ -70,7 +70,16 @@ sees the booking; unpaid bookings never appear in driver offers.
 
 - Registration (shown only when no token is stored and no driver record
   is found) → `POST /api/drivers/register` (multipart form, photo files
-  only for documents; FH-1 also accepts PDF)
+  only for documents; FH-1 also accepts PDF). Car model is a searchable
+  dropdown, NOT free text → `GET /api/car-models` (single list in
+  `car_models.py`, transcribed from `UBER_BLACK_LIST.md`: the 132-model
+  Uber Black list, 23 makes). Model year is a select from 2022 through
+  current year + 1 (2022 floor, owner decision 2026-11-16 — stricter
+  than Uber's 2020+ rule); the server rejects unlisted models and years
+  below 2022. TEMPORARY exception: "Tesla Model 3" is in the list only
+  so the owner can trial the system with his own 2023 Model 3 — remove
+  it when he says so. Model Y stays excluded. Jeep Wagoneer S is
+  included as transcribed (source marks it SF Bay Area only).
 - "Already registered?" lookup → `POST /api/drivers/me/lookup`
 - Return visits: token in localStorage + `GET /api/drivers/me` goes
   straight to Home; registration is never shown again

@@ -302,7 +302,7 @@
           ["Referral code", b.referral_code_used || b.referral_code || "—"],
           ["Driver", driver.name || b.driver_name || "—"],
           ["Driver phone", driver.phone || "—"],
-          ["Car", [driver.car_model, driver.car_colour].filter(Boolean).join(" · ") || "—"],
+          ["Car", [driver.car_year, driver.car_model, driver.car_colour].filter(Boolean).join(" · ") || "—"],
           ["Plate", driver.plate || "—"],
           ["Customer paid", money(f.paid)],
           ["Driver share", money(f.driver)],
@@ -402,7 +402,8 @@
         list.forEach(function (d) {
           var card = document.createElement("div");
           card.className = "driver-card";
-          var carBits = d.car || [d.car_model, d.car_colour].filter(Boolean).join(" · ");
+          var carBits = d.car || [d.car_year, d.car_model, d.car_colour].filter(Boolean).join(" · ");
+          if (d.car && d.car_year) carBits = d.car_year + " · " + d.car;
           var bank = d.bank_masked || d.bank_account_number || d.bank_account || d.account_number || d.masked_account || "";
           var photoUrl = "/api/owner/drivers/" + encodeURIComponent(d.id) + "/photo";
           var head = '<div style="display:flex;gap:14px;align-items:center;">' +

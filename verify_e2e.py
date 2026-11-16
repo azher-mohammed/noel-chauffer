@@ -98,7 +98,7 @@ for root, _dirs, names in os.walk(repo_dir):
 
 resp = anon.post(BASE + "/api/drivers/register", data={
     "name": "Verify Driver One", "phone": "+15550001111", "email": "d1@test.com",
-    "car_model": "Cadillac Escalade", "car_colour": "Black", "plate": "T11111",
+    "car_model": "Cadillac Escalade", "car_year": "2023", "car_colour": "Black", "plate": "T11111",
     "bank_account_number": "123456789", "bank_routing_number": "021000021",
 }, files={
     "profile_photo": ("photo.jpg", photo, "image/jpeg"),
@@ -127,22 +127,50 @@ check("full bank number never in /me",
 
 resp = anon.post(BASE + "/api/drivers/register", data={
     "name": "Verify Driver Two", "phone": "+15550002222", "email": "d2@test.com",
-    "car_model": "Lincoln Navigator", "car_colour": "Black", "plate": "T22222",
+    "car_model": "Lincoln Navigator", "car_year": "2024", "car_colour": "Black", "plate": "T22222",
     "bank_account_number": "987654321", "bank_routing_number": "021000021",
 }, files={"profile_photo": ("photo.jpg", photo, "image/jpeg")}, timeout=TIMEOUT)
 check("driver2 register 201", resp.status_code == 201, resp.text[:200])
 token2 = resp.json()["token"]
 
 resp = anon.post(BASE + "/api/drivers/register", data={
-    "name": "Dup", "phone": "+15550001111", "car_model": "X", "car_colour": "Y",
+    "name": "Dup", "phone": "+15550001111", "car_model": "Cadillac Escalade",
+    "car_year": "2023", "car_colour": "Y",
     "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
 }, timeout=TIMEOUT)
 check("duplicate phone -> 409", resp.status_code == 409, str(resp.status_code))
 resp = anon.post(BASE + "/api/drivers/register", data={
-    "name": "Bad", "phone": "+15550003333", "car_model": "X", "car_colour": "Y",
+    "name": "Bad", "phone": "+15550003333", "car_model": "Cadillac Escalade",
+    "car_year": "2023", "car_colour": "Y",
     "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
 }, files={"doc_drivers_license": ("license.pdf", fh1_pdf, "application/pdf")}, timeout=TIMEOUT)
 check("PDF rejected for non-FH1 doc -> 400", resp.status_code == 400, str(resp.status_code))
+
+# Car-model dropdown data + validation (2022 floor, eligible list only).
+resp = anon.get(BASE + "/api/car-models", timeout=TIMEOUT)
+check("car-models endpoint 200", resp.status_code == 200, str(resp.status_code))
+models_payload = resp.json()
+check("car-models: 133 entries (132 Uber Black + temporary Model 3)",
+      len(models_payload["models"]) == 133, str(len(models_payload.get("models", []))))
+check("car-models: Model 3 present (temporary exception), Model Y absent",
+      "Tesla Model 3" in models_payload["models"]
+      and "Tesla Model Y" not in models_payload["models"])
+check("car-models: year bounds 2022..current+1",
+      models_payload["min_year"] == 2022
+      and models_payload["max_year"] == datetime.now(timezone.utc).year + 1,
+      str(models_payload))
+resp = anon.post(BASE + "/api/drivers/register", data={
+    "name": "Old Car", "phone": "+15550004444", "car_model": "Cadillac Escalade",
+    "car_year": "2021", "car_colour": "Black",
+    "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
+}, timeout=TIMEOUT)
+check("year 2021 rejected (2022 floor)", resp.status_code == 400, str(resp.status_code))
+resp = anon.post(BASE + "/api/drivers/register", data={
+    "name": "Wrong Car", "phone": "+15550005555", "car_model": "Tesla Model Y",
+    "car_year": "2024", "car_colour": "Black",
+    "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
+}, timeout=TIMEOUT)
+check("unlisted model (Model Y) rejected", resp.status_code == 400, str(resp.status_code))
 
 files_after = set()
 for root, _dirs, names in os.walk(repo_dir):

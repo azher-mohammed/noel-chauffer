@@ -36,6 +36,13 @@ from sqlalchemy import Numeric
 from werkzeug.exceptions import HTTPException
 
 import geo as geo_module
+from car_models import (
+    MIN_CAR_YEAR,
+    allowed_models,
+    max_car_year,
+    validate_car_model,
+    validate_car_year,
+)
 from flights import flight_info, normalize_flight_number
 from payouts import completion_date, week_bounds, week_for
 from pricing import (
@@ -135,6 +142,7 @@ class Driver(db.Model):
     phone = db.Column(db.String(40), unique=True, nullable=False)
     email = db.Column(db.String(200), nullable=False, default="")
     car_model = db.Column(db.String(120), nullable=False)
+    car_year = db.Column(db.Integer, nullable=True)  # nullable: drivers registered before the year field existed
     car_colour = db.Column(db.String(60), nullable=False)
     plate = db.Column(db.String(40), nullable=False)
     profile_photo = db.Column(db.LargeBinary, nullable=True)
@@ -276,6 +284,19 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("flight_number column check failed: %s", exc)
+    # Same pattern for the driver car_year column (added with the
+    # car-model dropdown, 2026-11-16). Nullable, so existing driver
+    # rows keep working with no year on file.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "car_year" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(_sa_text("ALTER TABLE drivers ADD COLUMN car_year INTEGER"))
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("car_year column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -646,6 +667,7 @@ def get_booking(booking_id):
             "name": driver.name,
             "phone": driver.phone,
             "car_model": driver.car_model,
+            "car_year": driver.car_year,
             "car_colour": driver.car_colour,
             "plate": driver.plate,
             "photo_url": f"/api/bookings/{booking.id}/driver-photo",
@@ -776,16 +798,40 @@ def _validate_upload(storage, allowed_exts, field_name):
     return (data, storage.mimetype or "application/octet-stream", filename), None
 
 
+@app.route("/api/car-models", methods=["GET"])
+def car_models():
+    """Eligible car models for the driver registration dropdown.
+
+    One list, served from car_models.py (the transcribed Uber Black
+    list + the temporary Model 3 owner-trial exception). The driver
+    app fetches this; the server validates against the same set.
+    """
+    return jsonify({
+        "models": allowed_models(),
+        "min_year": MIN_CAR_YEAR,
+        "max_year": max_car_year(),
+    })
+
+
 @app.route("/api/drivers/register", methods=["POST"])
 def register_driver():
     form = request.form
-    for field in ("name", "phone", "car_model", "car_colour", "plate",
+    for field in ("name", "phone", "car_model", "car_year", "car_colour", "plate",
                   "bank_account_number", "bank_routing_number"):
         if not (form.get(field) or "").strip():
             return err(f"Missing required field: {field}.")
     phone = form["phone"].strip()
     if Driver.query.filter_by(phone=phone).first():
         return err("A driver with this phone number is already registered.", 409)
+
+    # Car model must come from the eligible list (dropdown), and the
+    # model year must be 2022 or newer (owner decision 2026-11-16).
+    car_model, model_error = validate_car_model(form.get("car_model"))
+    if model_error:
+        return err(model_error)
+    car_year, year_error = validate_car_year(form.get("car_year"))
+    if year_error:
+        return err(year_error)
 
     # Validate all uploaded files before creating anything.
     profile_photo = None
@@ -809,7 +855,8 @@ def register_driver():
         name=form["name"].strip(),
         phone=phone,
         email=(form.get("email") or "").strip(),
-        car_model=form["car_model"].strip(),
+        car_model=car_model,
+        car_year=car_year,
         car_colour=form["car_colour"].strip(),
         plate=form["plate"].strip(),
         profile_photo=profile_photo[0] if profile_photo else None,
@@ -832,6 +879,7 @@ def register_driver():
         "phone": driver.phone,
         "email": driver.email,
         "car_model": driver.car_model,
+        "car_year": driver.car_year,
         "car_colour": driver.car_colour,
         "plate": driver.plate,
         "docs": driver_docs_status(driver),
@@ -850,6 +898,7 @@ def driver_me():
         "phone": driver.phone,
         "email": driver.email,
         "car_model": driver.car_model,
+        "car_year": driver.car_year,
         "car_colour": driver.car_colour,
         "plate": driver.plate,
         "docs": driver_docs_status(driver),
@@ -1420,6 +1469,9 @@ def owner_drivers():
         "phone": d.phone,
         "email": d.email,
         "car": f"{d.car_model} ({d.car_colour})",
+        "car_model": d.car_model,
+        "car_year": d.car_year,
+        "car_colour": d.car_colour,
         "plate": d.plate,
         "available": d.available,
         "docs": driver_docs_status(d),

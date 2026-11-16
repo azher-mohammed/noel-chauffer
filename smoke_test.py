@@ -98,7 +98,7 @@ print("== driver registration ==")
 photo_bytes = b"\xff\xd8\xff fake jpeg photo"
 resp = client.post("/api/drivers/register", data={
     "name": "Test Driver", "phone": "+15550001111", "email": "driver@test.com",
-    "car_model": "Cadillac Escalade", "car_colour": "Black", "plate": "T12345",
+    "car_model": "Cadillac Escalade", "car_year": "2023", "car_colour": "Black", "plate": "T12345",
     "bank_account_number": "123456789", "bank_routing_number": "021000021",
     "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
     "doc_fh1": (io.BytesIO(b"%PDF- fake"), "fh1.pdf"),
@@ -116,18 +116,20 @@ check("no full bank number in response", "123456789" not in resp.get_data(as_tex
       and "021000021" not in resp.get_data(as_text=True))
 resp = client.post("/api/drivers/register", data={
     "name": "Second Driver", "phone": "+15550002222", "email": "d2@test.com",
-    "car_model": "Lincoln Navigator", "car_colour": "Black", "plate": "T67890",
+    "car_model": "Lincoln Navigator", "car_year": "2024", "car_colour": "Black", "plate": "T67890",
     "bank_account_number": "987654321", "bank_routing_number": "021000021",
 }, content_type="multipart/form-data")
 check("driver2 register 201", resp.status_code == 201, resp.get_data(as_text=True)[:200])
 token2 = resp.get_json()["token"]
 resp = client.post("/api/drivers/register", data={
-    "name": "Dup", "phone": "+15550001111", "car_model": "X", "car_colour": "Y",
+    "name": "Dup", "phone": "+15550001111", "car_model": "Cadillac Escalade",
+    "car_year": "2023", "car_colour": "Y",
     "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
 }, content_type="multipart/form-data")
 check("duplicate phone rejected", resp.status_code == 409, str(resp.status_code))
 resp = client.post("/api/drivers/register", data={
-    "name": "Bad", "phone": "+15550003333", "car_model": "X", "car_colour": "Y",
+    "name": "Bad", "phone": "+15550003333", "car_model": "Cadillac Escalade",
+    "car_year": "2023", "car_colour": "Y",
     "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
     "doc_drivers_license": (io.BytesIO(b"%PDF- fake"), "license.pdf"),
 }, content_type="multipart/form-data")

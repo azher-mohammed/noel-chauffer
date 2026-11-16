@@ -138,7 +138,7 @@ class PayoutApiCase(unittest.TestCase):
         resp = self.client.post("/api/drivers/register", data={
             "name": f"Test Driver {self._driver_seq}", "phone": phone,
             "email": f"d{self._driver_seq}@test.com",
-            "car_model": "Cadillac Escalade", "car_colour": "Black",
+            "car_model": "Cadillac Escalade", "car_year": "2023", "car_colour": "Black",
             "plate": f"T{self._driver_seq:05d}",
             "bank_account_number": "123456789", "bank_routing_number": "021000021",
             "profile_photo": (io.BytesIO(b"\xff\xd8\xff fake"), "photo.jpg"),

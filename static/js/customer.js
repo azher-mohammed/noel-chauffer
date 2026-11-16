@@ -435,6 +435,7 @@
       show($("driver-block"));
       $("driver-name").textContent = b.driver.name || "";
       var carBits = [];
+      if (b.driver.car_year) carBits.push(b.driver.car_year);
       if (b.driver.car_model) carBits.push(b.driver.car_model);
       if (b.driver.car_colour) carBits.push(b.driver.car_colour);
       $("driver-car").textContent = carBits.join(" · ");

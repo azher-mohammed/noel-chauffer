@@ -225,12 +225,17 @@
     var phone = $("reg-phone").value.trim();
     var email = $("reg-email").value.trim();
     var carModel = $("reg-car-model").value.trim();
+    var carYear = $("reg-car-year").value.trim();
     var carColour = $("reg-car-colour").value.trim();
     var plate = $("reg-plate").value.trim();
     var acct = $("reg-bank-account").value.trim();
     var routing = $("reg-bank-routing").value.trim();
-    if (!name || !phone || !email || !carModel || !carColour || !plate || !acct || !routing) {
+    if (!name || !phone || !email || !carModel || !carYear || !carColour || !plate || !acct || !routing) {
       err.textContent = "Please fill in every field, including your bank details.";
+      return;
+    }
+    if (carListLoaded && carModels.indexOf(carModel) === -1) {
+      err.textContent = "Please choose your car model from the list.";
       return;
     }
     var fd = new FormData();
@@ -238,6 +243,7 @@
     fd.append("phone", phone);
     fd.append("email", email);
     fd.append("car_model", carModel);
+    fd.append("car_year", carYear);
     fd.append("car_colour", carColour);
     fd.append("plate", plate);
     fd.append("bank_account_number", acct);
@@ -676,7 +682,7 @@
   /* ---------- Profile ---------- */
   function renderProfile() {
     var d = state.driver || {};
-    var carBits = [d.car_model, d.car_colour].filter(Boolean).join(" · ");
+    var carBits = [d.car_year, d.car_model, d.car_colour].filter(Boolean).join(" · ");
     var bank = d.bank_account_number || d.bank_account || d.account_number || d.masked_account || d.bank_masked || "";
     var bankText = bank ? maskBank(String(bank).indexOf("•") !== -1 || String(bank).indexOf("*") !== -1 ? bank.replace(/[^0-9]/g, "").slice(-4) : bank) : "Saved";
     if (String(bank).indexOf("•") !== -1 || String(bank).indexOf("*") !== -1) {
@@ -704,5 +710,130 @@
     window.location.reload();
   });
 
+  /* ---------- Car model dropdown (registration) ---------- */
+  /* Searchable dropdown fed by GET /api/car-models — the same single
+     list the server validates against. Type to filter; tap a
+     suggestion to choose it. Free text is not accepted: the chosen
+     value must match a list entry exactly. The year select is filled
+     from the same response (2022 through current year + 1). */
+  var carModels = [];
+  var carListLoaded = false;
+
+  function fillYearSelect(minYear, maxYear) {
+    var sel = $("reg-car-year");
+    sel.innerHTML = '<option value="">Select year</option>';
+    for (var y = maxYear; y >= minYear; y--) {
+      var opt = document.createElement("option");
+      opt.value = String(y);
+      opt.textContent = String(y);
+      sel.appendChild(opt);
+    }
+  }
+
+  function initCarModelDropdown() {
+    var input = $("reg-car-model");
+    var list = $("car-model-list");
+    var note = $("car-model-note");
+    var activeIndex = -1;
+    var items = [];
+
+    function closeList() {
+      hide(list);
+      list.innerHTML = "";
+      items = [];
+      activeIndex = -1;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+    }
+    function paintActive() {
+      var btns = list.querySelectorAll("button");
+      btns.forEach(function (b, i) {
+        b.classList.toggle("active", i === activeIndex);
+        b.setAttribute("aria-selected", i === activeIndex ? "true" : "false");
+      });
+      if (activeIndex >= 0 && btns[activeIndex]) {
+        input.setAttribute("aria-activedescendant", btns[activeIndex].id);
+      } else {
+        input.removeAttribute("aria-activedescendant");
+      }
+    }
+    function choose(name) {
+      input.value = name;
+      closeList();
+      input.focus();
+    }
+    function render(matches) {
+      items = matches;
+      activeIndex = -1;
+      list.innerHTML = "";
+      if (!matches.length) { closeList(); return; }
+      matches.forEach(function (name, idx) {
+        var li = document.createElement("li");
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.setAttribute("role", "option");
+        btn.setAttribute("aria-selected", "false");
+        btn.id = "car-model-list-opt-" + idx;
+        btn.textContent = name;
+        /* mousedown fires before the input loses focus, so a tap or
+           click always lands on the suggestion. */
+        btn.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          choose(name);
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+      show(list);
+      input.setAttribute("aria-expanded", "true");
+    }
+    function filter() {
+      var q = input.value.trim().toLowerCase();
+      var matches = carModels.filter(function (name) {
+        return !q || name.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 8);
+      render(matches);
+    }
+    input.addEventListener("input", filter);
+    input.addEventListener("focus", filter);
+    input.addEventListener("blur", function () {
+      /* A tap on a suggestion fires mousedown first; the short delay
+         keeps that working on touch screens. */
+      setTimeout(closeList, 150);
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (!items.length) return;
+        e.preventDefault();
+        activeIndex = e.key === "ArrowDown"
+          ? (activeIndex + 1) % items.length
+          : (activeIndex - 1 + items.length) % items.length;
+        paintActive();
+      } else if (e.key === "Enter") {
+        if (activeIndex >= 0 && items[activeIndex]) {
+          e.preventDefault();
+          choose(items[activeIndex]);
+        }
+      } else if (e.key === "Escape") {
+        closeList();
+      }
+    });
+
+    fetch("/api/car-models")
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        carModels = j.models || [];
+        carListLoaded = carModels.length > 0;
+        fillYearSelect(j.min_year || 2022, j.max_year || new Date().getFullYear() + 1);
+        if (!carListLoaded) { throw new Error("empty list"); }
+      })
+      .catch(function () {
+        note.textContent = "The car list could not be loaded. Please check your connection and reload this page.";
+        input.disabled = true;
+        $("register-submit").disabled = true;
+      });
+  }
+
+  initCarModelDropdown();
   boot();
 })();

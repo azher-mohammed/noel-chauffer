@@ -754,7 +754,7 @@ check("driver week shows paid after mark-paid",
 # ------------------------------------------------- static + greps -----------
 
 section("static pages + banned-string + no-sending greps")
-for path, needle in (("/", "Arrive"), ("/driver", "Driver registration"),
+for path, needle in (("/", "View options"), ("/driver", "Driver registration"),
                      ("/owner", "Owner dashboard")):
     r = anon.get(BASE + path, timeout=TIMEOUT)
     check(f"page {path} 200 with real HTML", r.status_code == 200 and needle in r.text,

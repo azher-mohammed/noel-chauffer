@@ -171,6 +171,7 @@
       route_url: b.route_url,
       route_waze_url: b.route_waze_url,
       free_waiting_minutes: b.free_waiting_minutes,
+      airport_pickup: b.airport_pickup,
       customer_name: b.customer_name,
       customer_phone: b.customer_phone,
       flight_number: b.flight_number || null,
@@ -462,13 +463,19 @@
     }
     $("trip-customer").innerHTML = cust;
     /* Flight details for airport trips: flight number, airline name and
-       terminal only — never miles, fare, or any other money figure. */
+       terminal only — never miles, fare, or any other money figure.
+       The track link appears only for airport pickups, so the driver
+       can check when the flight lands. */
     var flightEl = $("trip-flight");
     if (t.flight_number) {
       var flightText = "Flight: " + t.flight_number;
       if (t.airline_name) flightText += " · " + t.airline_name;
       if (t.terminal) flightText += " · " + t.terminal;
-      flightEl.textContent = flightText;
+      var flightHtml = esc(flightText);
+      if (t.airport_pickup) {
+        flightHtml += ' <a class="flight-track-link" href="' + esc("https://www.google.com/search?q=" + encodeURIComponent(t.flight_number + " flight status")) + '" target="_blank" rel="noopener">Track flight ↗</a>';
+      }
+      flightEl.innerHTML = flightHtml;
       show(flightEl);
     } else {
       flightEl.textContent = "";

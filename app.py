@@ -53,6 +53,7 @@ from pricing import (
     compute_hourly,
     compute_one_way,
     free_waiting_minutes,
+    is_airport_pickup,
     invoice_total,
     money,
     waiting_charge,
@@ -1123,6 +1124,7 @@ def driver_active_trip():
         "route_url": route_url_for(booking),
         "route_waze_url": waze_url_for(booking),
         "free_waiting_minutes": free_waiting_minutes(booking.pickup),
+        "airport_pickup": is_airport_pickup(booking.pickup),
         "status": booking.status,
         **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
     }})
@@ -1233,6 +1235,7 @@ def driver_accept(booking_id):
         "route_url": route_url_for(booking),
         "route_waze_url": waze_url_for(booking),
         "free_waiting_minutes": free_waiting_minutes(booking.pickup),
+        "airport_pickup": is_airport_pickup(booking.pickup),
         "status": booking.status,
         **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
     }})

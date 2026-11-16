@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Noel Chauffer — Luxury Chauffeur Rides Across USA</title>
+<meta name="description" content="Premium chauffeur service in the USA. On-time pickups, clear communication, recent high-end cars.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/static/css/customer.css">
+</head>
+<body>
+
+<div class="top-strip">
+  <div class="top-strip-inner">
+    <span class="cue"><b>Luxury Chauffeur Rides Across USA</b></span>
+    <span class="cue">✦ On-time pickup</span>
+    <span class="cue">✦ Professional driver</span>
+    <span class="cue">✦ 24x7 support</span>
+  </div>
+</div>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a class="wordmark" href="#top">Noel <span>Chauffer</span></a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="#book">Book a ride</a>
+      <a href="#experience">Experience</a>
+      <a href="#why">Why us</a>
+      <a href="#policy">Cancellation &amp; waiting</a>
+      <a href="#company">Our company</a>
+      <a href="#contacts">Contacts</a>
+      <a href="#history">Ride history</a>
+    </nav>
+    <a class="header-cta" href="#book">Book a ride</a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- HERO + BOOKING FORM FIRST -->
+  <section class="hero" id="book">
+    <div class="hero-inner">
+      <div>
+        <h1>Arrive <em>composed.</em></h1>
+        <p class="lead">A premium chauffeur service across the USA. Your driver arrives on time, helps with your luggage, and takes you where you need to go — calmly, and in comfort.</p>
+        <ul class="hero-points">
+          <li>Door opened for you, luggage carried</li>
+          <li>Music and temperature set the way you like</li>
+          <li>Phone chargers in every car</li>
+          <li>One single total, shown after your chauffeur accepts</li>
+        </ul>
+      </div>
+
+      <div class="booking-card" id="booking-card">
+        <h2>Book your ride</h2>
+        <p class="sub">Tell us where you are going. We will confirm your chauffeur shortly.</p>
+
+        <div class="ride-tabs" role="tablist" aria-label="Ride type">
+          <button type="button" class="ride-tab active" id="tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true">One way</button>
+          <button type="button" class="ride-tab" id="tab-hourly" data-ride-type="hourly" role="tab" aria-selected="false">By the hour</button>
+        </div>
+
+        <form id="booking-form" novalidate>
+          <div class="field">
+            <label for="bk-pickup">Pickup address</label>
+            <input id="bk-pickup" name="pickup" type="text" required autocomplete="off" placeholder="Street address, airport, or hotel">
+          </div>
+          <div class="field" id="field-dropoff">
+            <label for="bk-dropoff">Drop-off address</label>
+            <input id="bk-dropoff" name="dropoff" type="text" autocomplete="off" placeholder="Where are you going?">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="bk-date">Date</label>
+              <input id="bk-date" name="date" type="date" required>
+            </div>
+            <div class="field">
+              <label for="bk-time">Time</label>
+              <input id="bk-time" name="time" type="time" required>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field" id="field-passengers">
+              <label for="bk-passengers">Passengers</label>
+              <input id="bk-passengers" name="passengers" type="number" min="1" step="1" value="1">
+            </div>
+            <div class="field hidden" id="field-hours">
+              <label for="bk-hours">Hours</label>
+              <input id="bk-hours" name="hours" type="number" min="1" step="1" value="2">
+              <div class="hint">Your chauffeur stays with you for the hours you book.</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="bk-name">Your name</label>
+            <input id="bk-name" name="customer_name" type="text" required autocomplete="name" placeholder="Full name">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="bk-phone">Phone number</label>
+              <input id="bk-phone" name="phone" type="tel" required autocomplete="tel" placeholder="Your phone number">
+            </div>
+            <div class="field">
+              <label for="bk-email">Email</label>
+              <input id="bk-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com">
+            </div>
+          </div>
+          <div class="field" id="field-referral">
+            <label for="bk-referral">Referral code (optional)</label>
+            <input id="bk-referral" name="referral_code" type="text" autocomplete="off" placeholder="If a friend referred you, enter their code">
+          </div>
+          <button class="btn-primary" type="submit" id="book-submit">Request my chauffeur</button>
+          <p class="form-error" id="booking-error" role="alert"></p>
+          <p class="form-note">After your chauffeur accepts, you will see your chauffeur's details and one single total for the ride.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE BOOKING STATUS (appears after a booking is placed) -->
+  <div class="status-panel">
+    <div class="status-card hidden" id="status-card" aria-live="polite">
+      <div id="status-finding">
+        <h2>Finding your chauffeur…</h2>
+        <p class="status-line"><span class="dot"></span><span id="status-message">Your request is with us. Please keep this page open.</span></p>
+        <p class="ride-summary" id="status-summary"></p>
+      </div>
+
+      <div id="driver-block" class="hidden">
+        <h2>Your chauffeur is confirmed</h2>
+        <p class="status-line" id="driver-status-line">Your chauffeur is on the way.</p>
+        <div class="driver-card">
+          <img id="driver-photo" alt="Your chauffeur" src="">
+          <div>
+            <div class="who" id="driver-name"></div>
+            <div class="meta" id="driver-car"></div>
+            <div class="meta">Plate: <span id="driver-plate"></span></div>
+            <div class="meta">Phone: <a class="phone-link" id="driver-phone" href=""></a></div>
+          </div>
+        </div>
+        <p class="ride-summary">These details were also sent to your phone and email.</p>
+      </div>
+
+      <div class="map-wrap hidden" id="map-wrap">
+        <h3>Your chauffeur on the way</h3>
+        <div id="map" aria-label="Live map"></div>
+        <div class="map-fallback hidden" id="map-fallback"></div>
+      </div>
+
+      <div class="total-box hidden" id="total-box">
+        <div>
+          <div class="label">Your total</div>
+          <div class="amount" id="total-amount"></div>
+        </div>
+        <button class="btn-primary btn-gold" type="button" id="pay-open-btn" style="width:auto;padding:12px 26px;">Pay by card</button>
+        <p class="note">One single total for your ride. No breakdown, no hidden charges.</p>
+      </div>
+
+      <div class="pay-panel hidden" id="pay-panel">
+        <h3>Pay by card</h3>
+        <div class="test-banner"><strong>TEST MODE — no real charge.</strong> This payment form is in test mode. No real payment will be taken from your card.</div>
+        <form id="pay-form" novalidate>
+          <div class="field">
+            <label for="pay-name">Name on card</label>
+            <input id="pay-name" type="text" required autocomplete="cc-name">
+          </div>
+          <div class="field">
+            <label for="pay-number">Card number</label>
+            <input id="pay-number" type="text" inputmode="numeric" required autocomplete="cc-number" placeholder="4242 4242 4242 4242">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="pay-exp">Expiry (MM/YY)</label>
+              <input id="pay-exp" type="text" inputmode="numeric" required autocomplete="cc-exp" placeholder="MM/YY">
+            </div>
+            <div class="field">
+              <label for="pay-cvc">CVC</label>
+              <input id="pay-cvc" type="text" inputmode="numeric" required autocomplete="cc-csc" placeholder="123">
+            </div>
+          </div>
+          <button class="btn-primary" type="submit" id="pay-submit">Pay <span id="pay-amount-label"></span></button>
+          <p class="form-error" id="pay-error" role="alert"></p>
+        </form>
+      </div>
+
+      <div class="thankyou hidden" id="thankyou-block">
+        <h2>Thank you — your ride is booked.</h2>
+        <p class="status-line" id="thankyou-summary"></p>
+        <div class="referral-box">
+          <h3 style="margin:0 0 4px;">Refer a friend</h3>
+          <p>Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form.</p>
+          <p id="referral-code-line" class="hidden">Your referral code: <strong id="referral-code-value"></strong></p>
+        </div>
+        <div class="status-actions">
+          <button class="btn-primary hidden" type="button" id="return-trip-btn">Book your return trip</button>
+          <button class="btn-ghost" type="button" id="new-booking-btn">Book another ride</button>
+        </div>
+      </div>
+
+      <div class="invoice-panel hidden" id="invoice-panel">
+        <h3>Your invoice</h3>
+        <table>
+          <tbody>
+            <tr><td>Ride total</td><td id="invoice-total"></td></tr>
+            <tr id="invoice-waiting-row" class="hidden"><td>Waiting charge</td><td id="invoice-waiting"></td></tr>
+            <tr class="grand"><td>Amount paid</td><td id="invoice-grand"></td></tr>
+          </tbody>
+        </table>
+        <p class="form-note">Your invoice has been sent to your phone and email.</p>
+      </div>
+
+      <div class="status-actions" id="status-actions">
+        <button class="btn-danger" type="button" id="cancel-booking-btn">Cancel this booking</button>
+      </div>
+      <p class="form-note hidden" id="cancel-result" role="status"></p>
+    </div>
+  </div>
+
+  <!-- EXPERIENCE -->
+  <section class="section" id="experience">
+    <h2>The experience</h2>
+    <p class="intro">Every ride is prepared the same way: quietly, carefully, and on time.</p>
+    <div class="grid-4">
+      <div class="tile"><div class="glyph">✦</div><h3>Door opened for you</h3><p>Your chauffeur opens the door and welcomes you by name.</p></div>
+      <div class="tile"><div class="glyph">✦</div><h3>Luggage help</h3><p>Bags carried, loaded, and unloaded for you at both ends.</p></div>
+      <div class="tile"><div class="glyph">✦</div><h3>Music &amp; temperature</h3><p>Tell your chauffeur how you like the cabin — music and temperature set your way.</p></div>
+      <div class="tile"><div class="glyph">✦</div><h3>Phone chargers</h3><p>Chargers in every car, so you arrive with a full battery.</p></div>
+    </div>
+  </section>
+
+  <!-- TRUST -->
+  <section class="section" id="why">
+    <h2>Why ride with Noel Chauffer</h2>
+    <p class="intro">A calm ride starts long before pickup.</p>
+    <div class="grid-3">
+      <div class="tile"><div class="glyph">✓</div><h3>Professional chauffeurs</h3><p>Experienced, courteous drivers who know the roads and respect your time.</p></div>
+      <div class="tile"><div class="glyph">✓</div><h3>Recent high-end cars</h3><p>Clean, comfortable, recent sedans and SUVs, prepared for every ride.</p></div>
+      <div class="tile"><div class="glyph">✓</div><h3>On-time pickups</h3><p>Your chauffeur plans the route and arrives in good time, every time.</p></div>
+    </div>
+  </section>
+
+  <!-- POLICY -->
+  <section class="section" id="policy">
+    <h2>Cancellation &amp; waiting</h2>
+    <p class="intro">Simple rules, stated plainly before you book.</p>
+    <div class="policy">
+      <h3>Cancellation</h3>
+      <ul>
+        <li>Free cancellation if you cancel more than 1 hour before pickup.</li>
+        <li>If you cancel 1 hour or less before pickup, the full price of the ride applies.</li>
+      </ul>
+      <h3>Waiting time</h3>
+      <ul>
+        <li>Airport pickups: 60 minutes of waiting free.</li>
+        <li>All other pickups: 15 minutes of waiting free.</li>
+        <li>After the free waiting time, waiting is charged at $1/min.</li>
+      </ul>
+      <h3>No-show</h3>
+      <ul>
+        <li>If you do not show up, the full price of the ride applies.</li>
+        <li>Your chauffeur waits 60 minutes at airports and 30 minutes at other pickups before a ride is marked as a no-show.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- OUR COMPANY -->
+  <section class="section company" id="company">
+    <h2>Our company</h2>
+    <p>Noel Chauffer is a premium chauffeur service in the USA. We provide on-time pickups, clear communication, and a calm, comfortable ride — from the moment you book to the moment you arrive. Every booking is handled with care, and every ride is prepared so you can simply step in and relax.</p>
+  </section>
+
+  <!-- CONTACTS -->
+  <section class="section" id="contacts">
+    <h2>Contacts</h2>
+    <div class="contacts-box">
+      <p><strong>Chat with us.</strong> The fastest way to reach the Noel Chauffer team is the chat on this page — tap the chat button at the bottom right.</p>
+      <p>The team replies within 24 hours. For anything about a ride you have already booked, please mention your pickup date and time in your message.</p>
+      <p><button class="btn-ghost" type="button" id="open-chat-btn">Open chat</button></p>
+    </div>
+  </section>
+
+  <!-- RIDE HISTORY -->
+  <section class="section" id="history">
+    <h2>Your ride history</h2>
+    <p class="intro">Enter the phone number you booked with to see your past rides.</p>
+    <div class="history-box">
+      <form id="history-form" novalidate>
+        <div class="row">
+          <input id="history-phone" type="tel" required placeholder="Phone number used for booking" autocomplete="tel">
+          <button class="btn-primary" type="submit">Show my rides</button>
+        </div>
+        <p class="form-error" id="history-error" role="alert"></p>
+      </form>
+      <div id="history-results"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <a class="wordmark" href="#top">Noel <span>Chauffer</span></a>
+    <p>Luxury Chauffeur Rides Across USA — premium chauffeur service, on-time pickups, clear communication.</p>
+  </div>
+</footer>
+
+<!-- CHAT WIDGET -->
+<button class="chat-fab" type="button" id="chat-fab" aria-haspopup="dialog">💬 Chat with us</button>
+<div class="chat-panel hidden" id="chat-panel" role="dialog" aria-label="Chat with Noel Chauffer">
+  <div class="chat-head" style="position:relative;">
+    <b>Noel Chauffer</b>
+    <p>We reply within 24 hours.</p>
+    <button type="button" id="chat-close" aria-label="Close chat">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-chips" id="chat-chips">
+    <button type="button" data-q="How do I book a ride?">How do I book?</button>
+    <button type="button" data-q="When do I see the total?">When do I see the total?</button>
+    <button type="button" data-q="What is the cancellation rule?">Cancellation rules</button>
+    <button type="button" data-q="What is the waiting time rule?">Waiting time</button>
+    <button type="button" data-q="I left something in the car">Lost item</button>
+  </div>
+  <form class="chat-form" id="chat-form">
+    <input id="chat-input" type="text" placeholder="Type your message…" autocomplete="off" aria-label="Type your message">
+    <button type="submit">Send</button>
+  </form>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/js/customer.js"></script>
+</body>
+</html>

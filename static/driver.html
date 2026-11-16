@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Noel Chauffer — Driver App</title>
+<meta name="description" content="Driver app for Noel Chauffer chauffeurs.">
+<link rel="stylesheet" href="/static/css/driver.css">
+</head>
+<body>
+<div class="phone">
+  <header class="app-head">
+    <div class="brand">Noel <span>Chauffer</span></div>
+    <div class="tag">Driver app</div>
+    <div class="hello hidden" id="hello-line"></div>
+  </header>
+
+  <!-- ============ REGISTRATION (one time only) ============ -->
+  <section class="screen hidden" id="screen-register">
+    <h2>Driver registration</h2>
+    <p class="intro">Register once. After that, the app opens straight to your jobs — you will not see this form again on this device.</p>
+
+    <form id="register-form" novalidate>
+      <div class="section-title">About you</div>
+      <div class="field">
+        <label for="reg-name">Full name</label>
+        <input id="reg-name" type="text" required autocomplete="name">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="reg-phone">Phone number</label>
+          <input id="reg-phone" type="tel" required autocomplete="tel">
+        </div>
+        <div class="field">
+          <label for="reg-email">Email</label>
+          <input id="reg-email" type="email" required autocomplete="email">
+        </div>
+      </div>
+
+      <div class="section-title">Your car</div>
+      <div class="field">
+        <label for="reg-car-model">Car model</label>
+        <input id="reg-car-model" type="text" required placeholder="e.g. Cadillac Escalade">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="reg-car-colour">Car colour</label>
+          <input id="reg-car-colour" type="text" required placeholder="e.g. Black">
+        </div>
+        <div class="field">
+          <label for="reg-plate">Plate number</label>
+          <input id="reg-plate" type="text" required>
+        </div>
+      </div>
+
+      <div class="section-title">Photo &amp; documents</div>
+      <div class="photo-tips">
+        <b>Photo tips — please read</b>
+        <ul>
+          <li>Take a photo in good light, with the document straight in the frame.</li>
+          <li>Check the preview before saving — all corners and text must be clear.</li>
+          <li>If a photo is blurry or cut off, retake it.</li>
+          <li>Photos only — nothing needs to be typed for your documents.</li>
+        </ul>
+      </div>
+
+      <div class="doc-item">
+        <div class="doc-name">Profile Picture</div>
+        <div class="doc-hint">A clear photo of your face, in good light.</div>
+        <input type="file" id="file-profile_photo" accept="image/*">
+        <div class="doc-preview" id="preview-profile_photo"></div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-name">Driver's License</div>
+        <div class="doc-hint">Photo of your driver's license, straight and fully visible.</div>
+        <input type="file" id="file-doc_drivers_license" accept="image/*">
+        <div class="doc-preview" id="preview-doc_drivers_license"></div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-name">TLC License</div>
+        <div class="doc-hint">Photo of your TLC license, straight and fully visible.</div>
+        <input type="file" id="file-doc_tlc_license" accept="image/*">
+        <div class="doc-preview" id="preview-doc_tlc_license"></div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-name">FH-1 Insurance Card</div>
+        <div class="doc-hint">Photo of your FH-1 card, including the barcode — or upload a PDF.</div>
+        <input type="file" id="file-doc_fh1" accept="image/*,.pdf,application/pdf">
+        <div class="doc-preview" id="preview-doc_fh1"></div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-name">Commercial Vehicle Registration</div>
+        <div class="doc-hint">Photo of your registration, straight and fully visible.</div>
+        <input type="file" id="file-doc_registration" accept="image/*">
+        <div class="doc-preview" id="preview-doc_registration"></div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-name">NYS DMV Inspection</div>
+        <div class="doc-hint">Photo of your inspection document, straight and fully visible.</div>
+        <input type="file" id="file-doc_inspection" accept="image/*">
+        <div class="doc-preview" id="preview-doc_inspection"></div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-name">TLC-for-hire Vehicle Permit</div>
+        <div class="doc-hint">Photo of your vehicle permit, straight and fully visible.</div>
+        <input type="file" id="file-doc_vehicle_permit" accept="image/*">
+        <div class="doc-preview" id="preview-doc_vehicle_permit"></div>
+      </div>
+      <div class="doc-item">
+        <div class="doc-name">DMV driving licence</div>
+        <div class="doc-hint">Photo of your DMV driving licence, straight and fully visible.</div>
+        <input type="file" id="file-doc_dmv_license" accept="image/*">
+        <div class="doc-preview" id="preview-doc_dmv_license"></div>
+      </div>
+
+      <div class="section-title">Bank details — for your earnings</div>
+      <p class="form-note">Entered once. Your bank details are stored securely and are only used to pay your earnings.</p>
+      <div class="field">
+        <label for="reg-bank-account">Bank account number</label>
+        <input id="reg-bank-account" type="password" inputmode="numeric" required autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="reg-bank-routing">Bank routing number</label>
+        <input id="reg-bank-routing" type="password" inputmode="numeric" required autocomplete="off">
+      </div>
+
+      <button class="btn-primary btn-gold" type="submit" id="register-submit">Complete registration</button>
+      <p class="form-error" id="register-error" role="alert"></p>
+    </form>
+
+    <div class="section-title">Already registered?</div>
+    <p class="form-note">Enter your phone number to continue on this device.</p>
+    <form id="lookup-form" novalidate>
+      <div class="field">
+        <label for="lookup-phone">Phone number</label>
+        <input id="lookup-phone" type="tel" required autocomplete="tel">
+      </div>
+      <button class="btn-ghost" type="submit" id="lookup-submit">Continue</button>
+      <p class="form-error" id="lookup-error" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- ============ HOME / OFFERS ============ -->
+  <section class="screen hidden" id="screen-home">
+    <div class="avail-card">
+      <div class="state" id="avail-state">You are offline</div>
+      <p id="avail-note">Go available to receive job offers.</p>
+      <button class="toggle-btn" type="button" id="avail-toggle">Go available</button>
+    </div>
+
+    <div class="section-title">Job offers</div>
+    <div id="offers-list"></div>
+    <div class="empty-state" id="offers-empty">
+      <div class="big">✦</div>
+      <p>No job offers right now.<br>New jobs will appear here when you are available.</p>
+    </div>
+  </section>
+
+  <!-- ============ TRIP ============ -->
+  <section class="screen hidden" id="screen-trip">
+    <h2>Current trip</h2>
+    <div class="trip-card">
+      <div class="route" id="trip-route"></div>
+      <div class="meta" id="trip-when"></div>
+      <div class="cust" id="trip-customer"></div>
+      <div style="margin-top:12px;" id="trip-earnings"></div>
+      <div id="trip-route-link"></div>
+    </div>
+
+    <ul class="stage-list" id="stage-list">
+      <li data-stage="en_route"><span>Head to pickup</span><span class="tick"></span></li>
+      <li data-stage="arrived"><span>Arrived at pickup</span><span class="tick"></span></li>
+      <li data-stage="start"><span>Start trip</span><span class="tick"></span></li>
+      <li data-stage="complete"><span>Complete trip</span><span class="tick"></span></li>
+    </ul>
+
+    <div class="field hidden" id="waiting-field">
+      <label for="waiting-minutes">Waiting minutes at pickup (if any)</label>
+      <input id="waiting-minutes" type="number" min="0" step="1" value="0">
+    </div>
+
+    <button class="btn-primary btn-gold" type="button" id="trip-next-btn">Head to pickup</button>
+    <p class="loc-note hidden" id="loc-note"></p>
+    <div style="height:10px;"></div>
+    <button class="btn-ghost" type="button" id="trip-noshow-btn">Customer no-show</button>
+    <div style="height:10px;"></div>
+    <button class="btn-danger" type="button" id="trip-cancel-btn">Cancel this job</button>
+    <p class="form-note">If you cancel, the job goes to the next driver automatically.</p>
+    <p class="form-error" id="trip-error" role="alert"></p>
+  </section>
+
+  <!-- ============ EARNINGS ============ -->
+  <section class="screen hidden" id="screen-earnings">
+    <h2>Earnings</h2>
+    <p class="intro">Your earnings from completed rides.</p>
+    <div class="earn-sum">
+      <div class="label">Your earnings so far</div>
+      <div class="amount" id="earnings-sum">—</div>
+    </div>
+    <div id="earnings-list"></div>
+    <div class="empty-state hidden" id="earnings-empty">
+      <div class="big">✦</div>
+      <p>No completed rides yet.<br>Your earnings will appear here after your first ride.</p>
+    </div>
+  </section>
+
+  <!-- ============ DOCUMENTS ============ -->
+  <section class="screen hidden" id="screen-documents">
+    <h2>Documents</h2>
+    <p class="intro">Each item shows whether it is complete or still needs attention.</p>
+    <div id="documents-list"></div>
+  </section>
+
+  <!-- ============ PROFILE ============ -->
+  <section class="screen hidden" id="screen-profile">
+    <h2>Profile</h2>
+    <div class="profile-card" id="profile-card"></div>
+    <button class="btn-ghost" type="button" id="reset-driver-btn">Register a different driver</button>
+    <p class="form-note">This signs this device out of the current driver account and shows the registration form again.</p>
+  </section>
+
+  <!-- Bottom tabs -->
+  <nav class="tabbar hidden" id="tabbar" aria-label="Driver app">
+    <button type="button" data-screen="home" class="active"><span class="ico">◆</span>Home</button>
+    <button type="button" data-screen="earnings"><span class="ico">$</span>Earnings</button>
+    <button type="button" data-screen="documents"><span class="ico">▤</span>Documents</button>
+    <button type="button" data-screen="profile"><span class="ico">●</span>Profile</button>
+  </nav>
+</div>
+
+<script src="/static/js/driver.js"></script>
+</body>
+</html>

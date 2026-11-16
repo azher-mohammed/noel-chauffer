@@ -1,0 +1,1218 @@
+"""Noel Chauffer — real booking system backend (Flask + SQLAlchemy).
+
+TEST MODE ONLY for payments: no Stripe API call is ever made. Customer
+messages are written to the owner-dashboard outbox only — this app never
+sends SMS or email (no SMTP, no Twilio/SendGrid anywhere).
+
+Run:  python app.py   (dev server on $PORT, default 5000)
+Prod: gunicorn app:app
+
+Env vars:
+  DATABASE_URL    default sqlite:///noel.db in the project dir; postgres://
+                  URLs are rewritten to postgresql:// for SQLAlchemy.
+  ENCRYPTION_KEY  Fernet key for bank numbers; generated at startup (with a
+                  loud warning) if unset — generated keys do not survive
+                  restarts, so set this in production.
+  OWNER_PIN       default "1234" (warning logged when the default is used).
+  SECRET_KEY      Flask session key; generated at startup if unset.
+  PORT            default 5000.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import secrets
+import string
+import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
+from urllib.parse import quote_plus
+
+from cryptography.fernet import Fernet
+from flask import Flask, Response, jsonify, request, send_from_directory, session
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Numeric
+from werkzeug.exceptions import HTTPException
+
+import geo as geo_module
+from pricing import (
+    cancellation_refundable,
+    compute_hourly,
+    compute_one_way,
+    invoice_total,
+    money,
+    waiting_charge,
+)
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("noel-chauffer")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ---------------------------------------------------------------- config ---
+
+app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+database_url = os.environ.get("DATABASE_URL") or "sqlite:///" + os.path.join(BASE_DIR, "noel.db")
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 5MB/file enforced per file below
+
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_hex(32)
+    log.warning("SECRET_KEY is not set; using a generated key (sessions will not survive restarts).")
+app.config["SECRET_KEY"] = SECRET_KEY
+
+OWNER_PIN = os.environ.get("OWNER_PIN", "1234")
+if os.environ.get("OWNER_PIN") is None:
+    log.warning("OWNER_PIN is not set; using default PIN 1234. Set OWNER_PIN in production.")
+
+_encryption_key = os.environ.get("ENCRYPTION_KEY")
+if _encryption_key:
+    try:
+        _fernet = Fernet(_encryption_key.encode())
+    except Exception:
+        log.warning("ENCRYPTION_KEY is invalid; generating an ephemeral key. Bank data will not survive restarts.")
+        _fernet = Fernet(Fernet.generate_key())
+else:
+    log.warning(
+        "!!! ENCRYPTION_KEY is not set — generated an ephemeral key. "
+        "Stored bank numbers CANNOT be decrypted after a restart. "
+        "Set ENCRYPTION_KEY to a persistent Fernet key in production. !!!"
+    )
+    _fernet = Fernet(Fernet.generate_key())
+
+db = SQLAlchemy(app)
+
+MAX_FILE_BYTES = 5 * 1024 * 1024
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+DOC_TYPES = [
+    "drivers_license",
+    "profile_picture",
+    "tlc_license",
+    "fh1_insurance",
+    "registration",
+    "inspection",
+    "vehicle_permit",
+    "dmv_license",
+]
+# multipart field name -> doc_type (profile_picture comes from profile_photo)
+DOC_FIELD_MAP = {
+    "doc_drivers_license": "drivers_license",
+    "doc_tlc_license": "tlc_license",
+    "doc_fh1": "fh1_insurance",
+    "doc_registration": "registration",
+    "doc_inspection": "inspection",
+    "doc_vehicle_permit": "vehicle_permit",
+    "doc_dmv_license": "dmv_license",
+}
+# Statuses where the customer may see the driver and the single total.
+VISIBLE_STATUSES = {"accepted", "paid", "en_route", "arrived", "in_progress", "completed"}
+TRACKING_STATUSES = {"en_route", "arrived", "in_progress"}
+PAID_STATUSES = {"paid", "en_route", "arrived", "in_progress", "completed", "no_show"}
+
+
+def utcnow():
+    return datetime.now(timezone.utc)
+
+
+# ---------------------------------------------------------------- models ---
+
+class Driver(db.Model):
+    __tablename__ = "drivers"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(40), unique=True, nullable=False)
+    email = db.Column(db.String(200), nullable=False, default="")
+    car_model = db.Column(db.String(120), nullable=False)
+    car_colour = db.Column(db.String(60), nullable=False)
+    plate = db.Column(db.String(40), nullable=False)
+    profile_photo = db.Column(db.LargeBinary, nullable=True)
+    profile_photo_mime = db.Column(db.String(60), nullable=True)
+    available = db.Column(db.Boolean, nullable=False, default=False)
+    bank_encrypted = db.Column(db.LargeBinary, nullable=True)
+    bank_last4 = db.Column(db.String(4), nullable=True)
+    token = db.Column(db.String(64), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+    documents = db.relationship("DriverDocument", backref="driver", cascade="all, delete-orphan")
+
+
+class DriverDocument(db.Model):
+    __tablename__ = "driver_documents"
+    id = db.Column(db.Integer, primary_key=True)
+    driver_id = db.Column(db.Integer, db.ForeignKey("drivers.id"), nullable=False)
+    doc_type = db.Column(db.String(40), nullable=False)
+    file = db.Column(db.LargeBinary, nullable=False)
+    mime = db.Column(db.String(60), nullable=False)
+    original_name = db.Column(db.String(255), nullable=False, default="")
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+    __table_args__ = (db.UniqueConstraint("driver_id", "doc_type"),)
+
+
+class Booking(db.Model):
+    __tablename__ = "bookings"
+    id = db.Column(db.Integer, primary_key=True)
+    customer_name = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(40), nullable=False)
+    email = db.Column(db.String(200), nullable=False)
+    pickup = db.Column(db.String(500), nullable=False)
+    dropoff = db.Column(db.String(500), nullable=False, default="")
+    pickup_lat = db.Column(db.Float, nullable=True)
+    pickup_lng = db.Column(db.Float, nullable=True)
+    dropoff_lat = db.Column(db.Float, nullable=True)
+    dropoff_lng = db.Column(db.Float, nullable=True)
+    miles = db.Column(Numeric(6, 1), nullable=True)
+    date = db.Column(db.String(10), nullable=False)  # YYYY-MM-DD
+    time = db.Column(db.String(5), nullable=False)   # HH:MM
+    passengers = db.Column(db.Integer, nullable=False, default=1)
+    ride_type = db.Column(db.String(20), nullable=False)  # one_way | hourly
+    hours = db.Column(Numeric(5, 1), nullable=True)
+    toll = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    referral_code_used = db.Column(db.String(40), nullable=True)
+    status = db.Column(db.String(30), nullable=False, default="offered")
+    fare_total = db.Column(Numeric(10, 2), nullable=False)
+    driver_earnings = db.Column(Numeric(10, 2), nullable=False)
+    gratuity = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    booking_fee = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    waiting_minutes = db.Column(db.Integer, nullable=False, default=0)
+    waiting_charge = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    accepted_driver_id = db.Column(db.Integer, db.ForeignKey("drivers.id"), nullable=True)
+    driver_lat = db.Column(db.Float, nullable=True)
+    driver_lng = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+    accepted_driver = db.relationship("Driver", foreign_keys=[accepted_driver_id])
+    payments = db.relationship("Payment", backref="booking", cascade="all, delete-orphan")
+    events = db.relationship("BookingEvent", backref="booking", cascade="all, delete-orphan")
+
+
+class BookingExclusion(db.Model):
+    __tablename__ = "booking_exclusions"
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=False)
+    driver_id = db.Column(db.Integer, db.ForeignKey("drivers.id"), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint("booking_id", "driver_id"),)
+
+
+class Payment(db.Model):
+    __tablename__ = "payments"
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=False)
+    amount = db.Column(Numeric(10, 2), nullable=False)
+    status = db.Column(db.String(20), nullable=False)  # succeeded | refunded
+    test = db.Column(db.Boolean, nullable=False, default=True)
+    last4 = db.Column(db.String(4), nullable=True)
+    stripe_test_id = db.Column(db.String(60), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class ReferralCode(db.Model):
+    __tablename__ = "referral_codes"
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(40), unique=True, nullable=False)
+    issued_booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=True)
+    used_count = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class OutboxMessage(db.Model):
+    __tablename__ = "outbox_messages"
+    id = db.Column(db.Integer, primary_key=True)
+    channel = db.Column(db.String(10), nullable=False)  # sms | email
+    recipient = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class BookingEvent(db.Model):
+    __tablename__ = "booking_events"
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=False)
+    type = db.Column(db.String(40), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+with app.app_context():
+    db.create_all()
+
+# --------------------------------------------------------------- helpers ---
+
+def err(message, status=400):
+    return jsonify({"error": message}), status
+
+
+def num(value):
+    """Decimal/float -> JSON number (float), preserving None."""
+    if value is None:
+        return None
+    return float(value)
+
+
+def iso(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def generate_referral_code() -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    while True:
+        code = "NOEL-" + "".join(secrets.choice(alphabet) for _ in range(6))
+        if not ReferralCode.query.filter_by(code=code).first():
+            return code
+
+
+def add_event(booking_id, event_type, message):
+    db.session.add(BookingEvent(booking_id=booking_id, type=event_type, message=message))
+
+
+def add_outbox(channel, recipient, body, booking_id=None):
+    db.session.add(OutboxMessage(channel=channel, recipient=recipient, body=body, booking_id=booking_id))
+
+
+def outbox_to_customer(booking, sms_body, email_body=None):
+    add_outbox("sms", booking.phone, sms_body, booking.id)
+    add_outbox("email", booking.email, email_body or sms_body, booking.id)
+
+
+def route_url_for(booking):
+    if booking.dropoff:
+        return (
+            "https://www.google.com/maps/dir/?api=1"
+            f"&origin={quote_plus(booking.pickup)}"
+            f"&destination={quote_plus(booking.dropoff)}"
+        )
+    return "https://www.google.com/maps/search/?api=1&query=" + quote_plus(booking.pickup)
+
+
+def driver_docs_status(driver):
+    present = {d.doc_type for d in driver.documents}
+    status = {}
+    for doc_type in DOC_TYPES:
+        if doc_type == "profile_picture":
+            status[doc_type] = "completed" if driver.profile_photo else "missing"
+        else:
+            status[doc_type] = "completed" if doc_type in present else "missing"
+    return status
+
+
+def bank_masked(driver):
+    if driver.bank_last4:
+        return "••••" + driver.bank_last4
+    return ""
+
+
+def encrypt_bank(account_number, routing_number):
+    payload = f"{account_number}|{routing_number}".encode()
+    return _fernet.encrypt(payload)
+
+
+def require_driver():
+    token = request.headers.get("X-Driver-Token")
+    if not token:
+        return None, err("Missing X-Driver-Token header.", 401)
+    driver = Driver.query.filter_by(token=token).first()
+    if not driver:
+        return None, err("Invalid driver token.", 401)
+    return driver, None
+
+
+def require_owner():
+    if not session.get("owner"):
+        return err("Owner login required.", 401)
+    return None
+
+
+def booking_profit(booking):
+    return money(booking.fare_total) + money(booking.waiting_charge) - money(booking.driver_earnings)
+
+
+def recompute_booking_fare(booking):
+    """Recompute fare/driver/gratuity/fee from miles/hours + current toll.
+
+    Referral discount is preserved when this booking used a referral code
+    (one-way only — hourly rides have no booking fee to waive).
+    """
+    if booking.ride_type == "hourly":
+        result = compute_hourly(booking.hours or Decimal("0"))
+    else:
+        result = compute_one_way(
+            booking.miles or Decimal("0"),
+            toll=booking.toll or Decimal("0"),
+            referral=bool(booking.referral_code_used),
+        )
+    booking.fare_total = result["total"]
+    booking.driver_earnings = result["driver_earnings"]
+    booking.gratuity = result["gratuity"]
+    booking.booking_fee = result["booking_fee"]
+    return result
+
+
+@app.errorhandler(HTTPException)
+def _http_error(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": e.description}), e.code
+    return e
+
+
+# ------------------------------------------------------------ page routes ---
+
+def _serve_page(filename, label):
+    path = os.path.join(app.static_folder, filename)
+    if os.path.exists(path):
+        return send_from_directory(app.static_folder, filename)
+    return (
+        f"<html><body><h1>Noel Chauffer</h1>"
+        f"<p>The {label} page is not built yet. The backend API is running.</p>"
+        f"</body></html>",
+        200,
+    )
+
+
+@app.route("/")
+def home():
+    return _serve_page("index.html", "customer booking")
+
+
+@app.route("/driver")
+def driver_page():
+    return _serve_page("driver.html", "driver app")
+
+
+@app.route("/owner")
+def owner_page():
+    return _serve_page("owner.html", "owner dashboard")
+
+
+# ------------------------------------------------------- customer booking ---
+
+@app.route("/api/bookings", methods=["POST"])
+def create_booking():
+    data = request.get_json(silent=True) or {}
+    required = ["customer_name", "phone", "email", "pickup", "date", "time", "ride_type"]
+    for field in required:
+        if not data.get(field):
+            return err(f"Missing required field: {field}.")
+    ride_type = data["ride_type"]
+    if ride_type not in ("one_way", "hourly"):
+        return err("ride_type must be one_way or hourly.")
+    try:
+        datetime.strptime(data["date"], "%Y-%m-%d")
+        datetime.strptime(data["time"], "%H:%M")
+    except ValueError:
+        return err("date must be YYYY-MM-DD and time must be HH:MM.")
+
+    referral_code_used = (data.get("referral_code") or "").strip() or None
+    referral_valid = False
+    referral_row = None
+    if referral_code_used:
+        referral_row = ReferralCode.query.filter_by(code=referral_code_used).first()
+        if not referral_row:
+            return err("Invalid referral code.")
+        referral_valid = True
+
+    booking = Booking(
+        customer_name=data["customer_name"],
+        phone=data["phone"],
+        email=data["email"],
+        pickup=data["pickup"],
+        dropoff=data.get("dropoff") or "",
+        date=data["date"],
+        time=data["time"],
+        passengers=int(data.get("passengers") or 1),
+        ride_type=ride_type,
+        toll=Decimal("0.00"),
+        referral_code_used=referral_code_used,
+        status="offered",
+    )
+
+    if ride_type == "hourly":
+        hours = data.get("hours")
+        if hours is None:
+            return err("hours is required for hourly rides.")
+        try:
+            hours_dec = Decimal(str(hours))
+        except Exception:
+            return err("hours must be a number.")
+        if hours_dec <= 0:
+            return err("hours must be greater than 0.")
+        booking.hours = hours_dec
+        booking.miles = None
+        result = compute_hourly(hours_dec)
+    else:
+        if not booking.dropoff:
+            return err("dropoff is required for one-way rides.")
+        miles, pickup_coords, dropoff_coords = geo_module.distance_miles(booking.pickup, booking.dropoff)
+        booking.miles = Decimal(str(miles))
+        if pickup_coords:
+            booking.pickup_lat, booking.pickup_lng = pickup_coords
+        if dropoff_coords:
+            booking.dropoff_lat, booking.dropoff_lng = dropoff_coords
+        result = compute_one_way(booking.miles, toll=Decimal("0.00"), referral=referral_valid)
+
+    booking.fare_total = result["total"]
+    booking.driver_earnings = result["driver_earnings"]
+    booking.gratuity = result["gratuity"]
+    booking.booking_fee = result["booking_fee"]
+
+    db.session.add(booking)
+    db.session.flush()  # booking.id needed for the referral code + outbox
+
+    if referral_row is not None:
+        referral_row.used_count += 1
+
+    new_code = generate_referral_code()
+    db.session.add(ReferralCode(code=new_code, issued_booking_id=booking.id))
+
+    route_text = f"{booking.pickup} to {booking.dropoff}" if booking.dropoff else booking.pickup
+    outbox_to_customer(
+        booking,
+        f"Noel Chauffer: booking received for {booking.date} at {booking.time}, {route_text}. "
+        "We will message you your chauffeur's details once a driver accepts.",
+    )
+    add_event(booking.id, "booking_received",
+              f"New booking #{booking.id}: {route_text} on {booking.date} at {booking.time} "
+              f"({booking.customer_name}, {booking.phone}).")
+    db.session.commit()
+
+    return jsonify({"booking": {
+        "id": booking.id,
+        "status": booking.status,
+        "pickup": booking.pickup,
+        "dropoff": booking.dropoff,
+        "date": booking.date,
+        "time": booking.time,
+        "ride_type": booking.ride_type,
+        "hours": num(booking.hours),
+        "referral_code": new_code,
+    }}), 201
+
+
+@app.route("/api/bookings/<int:booking_id>", methods=["GET"])
+def get_booking(booking_id):
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    visible = booking.status in VISIBLE_STATUSES
+    driver = booking.accepted_driver if visible else None
+    referral = ReferralCode.query.filter_by(issued_booking_id=booking.id).first()
+    tracking_visible = booking.status in TRACKING_STATUSES
+    invoice = None
+    if booking.status == "completed":
+        invoice = {
+            "total": num(invoice_total(booking.fare_total, booking.waiting_charge)),
+            "waiting_charge": num(booking.waiting_charge),
+        }
+    return jsonify({"booking": {
+        "id": booking.id,
+        "status": booking.status,
+        "pickup": booking.pickup,
+        "dropoff": booking.dropoff,
+        "date": booking.date,
+        "time": booking.time,
+        "ride_type": booking.ride_type,
+        "hours": num(booking.hours),
+        "driver": None if driver is None else {
+            "name": driver.name,
+            "phone": driver.phone,
+            "car_model": driver.car_model,
+            "car_colour": driver.car_colour,
+            "plate": driver.plate,
+            "photo_url": f"/api/bookings/{booking.id}/driver-photo",
+        },
+        "total": num(booking.fare_total) if visible else None,
+        "tracking": {
+            "visible": tracking_visible,
+            "lat": booking.driver_lat if tracking_visible else None,
+            "lng": booking.driver_lng if tracking_visible else None,
+        },
+        "invoice": invoice,
+        "referral_code": referral.code if referral else None,
+    }})
+
+
+@app.route("/api/bookings/<int:booking_id>/pay", methods=["POST"])
+def pay_booking(booking_id):
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.status != "accepted":
+        return err("Payment is only accepted after a driver accepts the booking.", 409)
+    data = request.get_json(silent=True) or {}
+    for field in ("card_number", "card_exp", "card_cvc", "card_name"):
+        if not data.get(field):
+            return err(f"Missing required field: {field}.")
+    digits = "".join(ch for ch in str(data["card_number"]) if ch.isdigit())
+    if not (12 <= len(digits) <= 19):
+        return err("Invalid card number.")
+    # TEST MODE ONLY: no Stripe API call is ever made. Only the last 4
+    # digits are stored; the card number itself is never persisted.
+    payment = Payment(
+        booking_id=booking.id,
+        amount=booking.fare_total,
+        status="succeeded",
+        test=True,
+        last4=digits[-4:],
+        stripe_test_id="pi_test_" + secrets.token_hex(8),
+    )
+    db.session.add(payment)
+    booking.status = "paid"
+    add_event(booking.id, "payment_received",
+              f"Test payment of ${booking.fare_total} received for booking #{booking.id} "
+              f"(card ending {digits[-4:]}).")
+    db.session.commit()
+    return jsonify({"payment": {
+        "id": payment.id,
+        "amount": num(payment.amount),
+        "status": payment.status,
+        "test": True,
+        "last4": payment.last4,
+    }, "booking": {"status": booking.status}})
+
+
+@app.route("/api/bookings/<int:booking_id>/cancel", methods=["POST"])
+def cancel_booking(booking_id):
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    data = request.get_json(silent=True) or {}
+    if not data.get("phone") or str(data["phone"]) != str(booking.phone):
+        return err("Phone number does not match this booking.", 403)
+    if booking.status in ("cancelled", "completed", "no_show"):
+        return err(f"Booking is already {booking.status}.", 409)
+    refundable = cancellation_refundable(booking.date, booking.time)
+    payment = Payment.query.filter_by(booking_id=booking.id, status="succeeded").order_by(Payment.id.desc()).first()
+    refund = False
+    charge_kept = False
+    if payment is not None:
+        if refundable:
+            payment.status = "refunded"
+            refund = True
+        else:
+            charge_kept = True
+    booking.status = "cancelled"
+    add_event(booking.id, "customer_cancelled",
+              f"Booking #{booking.id} cancelled by customer. "
+              f"{'Payment refunded (test mode).' if refund else 'Full price kept.' if charge_kept else 'No payment had been taken.'}")
+    db.session.commit()
+    return jsonify({"booking": {"status": "cancelled"}, "refund": refund, "charge_kept": charge_kept})
+
+
+@app.route("/api/bookings", methods=["GET"])
+def booking_history():
+    phone = request.args.get("phone")
+    if not phone:
+        return err("phone query parameter is required.")
+    bookings = (Booking.query.filter_by(phone=phone)
+                .order_by(Booking.created_at.desc(), Booking.id.desc()).all())
+    return jsonify([{
+        "id": b.id,
+        "pickup": b.pickup,
+        "dropoff": b.dropoff,
+        "date": b.date,
+        "time": b.time,
+        "status": b.status,
+        "total": num(b.fare_total) if b.status in PAID_STATUSES else None,
+    } for b in bookings])
+
+
+@app.route("/api/bookings/<int:booking_id>/driver-photo", methods=["GET"])
+def booking_driver_photo(booking_id):
+    booking = db.session.get(Booking, booking_id)
+    if not booking or not booking.accepted_driver_id:
+        return err("No driver assigned to this booking.", 404)
+    driver = booking.accepted_driver
+    if not driver or not driver.profile_photo:
+        return err("Driver photo not available.", 404)
+    return Response(driver.profile_photo, mimetype=driver.profile_photo_mime or "image/jpeg")
+
+
+# ---------------------------------------------------------------- drivers ---
+
+def _validate_upload(storage, allowed_exts, field_name):
+    """Return (bytes, mime, original_name) or an error response tuple."""
+    data = storage.read()
+    if len(data) > MAX_FILE_BYTES:
+        return None, err(f"{field_name} exceeds the 5MB limit.")
+    if len(data) == 0:
+        return None, err(f"{field_name} is empty.")
+    filename = storage.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in allowed_exts:
+        return None, err(f"{field_name} must be one of: {', '.join(sorted(allowed_exts))}.")
+    return (data, storage.mimetype or "application/octet-stream", filename), None
+
+
+@app.route("/api/drivers/register", methods=["POST"])
+def register_driver():
+    form = request.form
+    for field in ("name", "phone", "car_model", "car_colour", "plate",
+                  "bank_account_number", "bank_routing_number"):
+        if not (form.get(field) or "").strip():
+            return err(f"Missing required field: {field}.")
+    phone = form["phone"].strip()
+    if Driver.query.filter_by(phone=phone).first():
+        return err("A driver with this phone number is already registered.", 409)
+
+    # Validate all uploaded files before creating anything.
+    profile_photo = None
+    if "profile_photo" in request.files and request.files["profile_photo"].filename:
+        profile_photo, error = _validate_upload(request.files["profile_photo"], IMAGE_EXTS, "profile_photo")
+        if error:
+            return error
+    docs = {}
+    for field_name, doc_type in DOC_FIELD_MAP.items():
+        storage = request.files.get(field_name)
+        if storage and storage.filename:
+            allowed = IMAGE_EXTS | {".pdf"} if doc_type == "fh1_insurance" else IMAGE_EXTS
+            parsed, error = _validate_upload(storage, allowed, field_name)
+            if error:
+                return error
+            docs[doc_type] = parsed
+
+    account = form["bank_account_number"].strip()
+    routing = form["bank_routing_number"].strip()
+    driver = Driver(
+        name=form["name"].strip(),
+        phone=phone,
+        email=(form.get("email") or "").strip(),
+        car_model=form["car_model"].strip(),
+        car_colour=form["car_colour"].strip(),
+        plate=form["plate"].strip(),
+        profile_photo=profile_photo[0] if profile_photo else None,
+        profile_photo_mime=profile_photo[1] if profile_photo else None,
+        available=False,
+        bank_encrypted=encrypt_bank(account, routing),
+        bank_last4=account[-4:],
+        token=uuid.uuid4().hex,
+    )
+    db.session.add(driver)
+    db.session.flush()
+    for doc_type, (data, mime, original_name) in docs.items():
+        db.session.add(DriverDocument(
+            driver_id=driver.id, doc_type=doc_type, file=data,
+            mime=mime, original_name=original_name))
+    db.session.commit()
+    return jsonify({"driver": {
+        "id": driver.id,
+        "name": driver.name,
+        "phone": driver.phone,
+        "email": driver.email,
+        "car_model": driver.car_model,
+        "car_colour": driver.car_colour,
+        "plate": driver.plate,
+        "docs": driver_docs_status(driver),
+        "bank_masked": bank_masked(driver),
+    }, "token": driver.token}), 201
+
+
+@app.route("/api/drivers/me", methods=["GET"])
+def driver_me():
+    driver, error = require_driver()
+    if error:
+        return error
+    return jsonify({"driver": {
+        "id": driver.id,
+        "name": driver.name,
+        "phone": driver.phone,
+        "email": driver.email,
+        "car_model": driver.car_model,
+        "car_colour": driver.car_colour,
+        "plate": driver.plate,
+        "docs": driver_docs_status(driver),
+        "bank_masked": bank_masked(driver),
+        "available": driver.available,
+    }})
+
+
+@app.route("/api/drivers/me/lookup", methods=["POST"])
+def driver_lookup():
+    data = request.get_json(silent=True) or {}
+    if not data.get("phone"):
+        return err("phone is required.")
+    driver = Driver.query.filter_by(phone=str(data["phone"])).first()
+    if not driver:
+        return err("No driver found with that phone number.", 404)
+    driver.token = uuid.uuid4().hex  # re-issue token (trial only)
+    db.session.commit()
+    return jsonify({"driver": {"id": driver.id, "name": driver.name}, "token": driver.token})
+
+
+@app.route("/api/drivers/me/active-trip", methods=["GET"])
+def driver_active_trip():
+    """The driver's currently assigned non-terminal booking, or null.
+
+    Lets the driver app restore the trip screen after a reload. Same
+    booking shape as the accept response, plus the booking status.
+    Driver sees earnings only — never miles, fare, or total.
+    """
+    driver, error = require_driver()
+    if error:
+        return error
+    booking = (Booking.query
+               .filter(Booking.accepted_driver_id == driver.id,
+                       Booking.status.in_(("accepted", "paid", "en_route", "arrived", "in_progress")))
+               .order_by(Booking.created_at.desc(), Booking.id.desc())
+               .first())
+    if not booking:
+        return jsonify({"booking": None})
+    return jsonify({"booking": {
+        "id": booking.id,
+        "pickup": booking.pickup,
+        "dropoff": booking.dropoff,
+        "date": booking.date,
+        "time": booking.time,
+        "ride_type": booking.ride_type,
+        "hours": num(booking.hours),
+        "customer_name": booking.customer_name,
+        "customer_phone": booking.phone,
+        "earnings": num(booking.driver_earnings),
+        "route_url": route_url_for(booking),
+        "status": booking.status,
+    }})
+
+
+@app.route("/api/drivers/me/availability", methods=["POST"])
+def driver_availability():
+    driver, error = require_driver()
+    if error:
+        return error
+    data = request.get_json(silent=True) or {}
+    if "available" not in data:
+        return err("available is required.")
+    driver.available = bool(data["available"])
+    db.session.commit()
+    return jsonify({"available": driver.available})
+
+
+@app.route("/api/drivers/me/offers", methods=["GET"])
+def driver_offers():
+    driver, error = require_driver()
+    if error:
+        return error
+    if not driver.available:
+        return jsonify([])
+    excluded_ids = [e.booking_id for e in BookingExclusion.query.filter_by(driver_id=driver.id).all()]
+    query = Booking.query.filter_by(status="offered").order_by(Booking.created_at, Booking.id)
+    if excluded_ids:
+        query = query.filter(~Booking.id.in_(excluded_ids))
+    offers = []
+    for b in query.all():
+        # Driver sees ONLY his own earnings — never miles, fare, total,
+        # gratuity, or the booking fee.
+        offers.append({
+            "booking_id": b.id,
+            "pickup": b.pickup,
+            "dropoff": b.dropoff,
+            "date": b.date,
+            "time": b.time,
+            "ride_type": b.ride_type,
+            "hours": num(b.hours),
+            "earnings": num(b.driver_earnings),
+            "route_url": route_url_for(b),
+        })
+    return jsonify(offers)
+
+
+@app.route("/api/drivers/me/offers/<int:booking_id>/accept", methods=["POST"])
+def driver_accept(booking_id):
+    driver, error = require_driver()
+    if error:
+        return error
+    if BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
+        return err("You have declined this booking.", 409)
+    # Atomic first-accept-wins: only one driver can flip offered -> accepted.
+    rows = (db.session.query(Booking)
+            .filter(Booking.id == booking_id, Booking.status == "offered")
+            .update({"status": "accepted", "accepted_driver_id": driver.id},
+                    synchronize_session=False))
+    if rows == 0:
+        db.session.rollback()
+        booking = db.session.get(Booking, booking_id)
+        if not booking:
+            return err("Booking not found.", 404)
+        return err("This booking has already been taken.", 409)
+    db.session.commit()
+    booking = db.session.get(Booking, booking_id)
+    outbox_to_customer(
+        booking,
+        f"Noel Chauffer: your chauffeur is {driver.name} ({driver.phone}), "
+        f"{driver.car_model} ({driver.car_colour}), plate {driver.plate}. "
+        f"Your ride total is ${booking.fare_total}. Pickup {booking.date} at {booking.time} from {booking.pickup}.",
+    )
+    add_event(booking.id, "driver_accepted",
+              f"Driver {driver.name} accepted booking #{booking.id}.")
+    db.session.commit()
+    return jsonify({"booking": {
+        "id": booking.id,
+        "pickup": booking.pickup,
+        "dropoff": booking.dropoff,
+        "date": booking.date,
+        "time": booking.time,
+        "ride_type": booking.ride_type,
+        "customer_name": booking.customer_name,
+        "customer_phone": booking.phone,
+        "earnings": num(booking.driver_earnings),
+        "route_url": route_url_for(booking),
+        "status": booking.status,
+    }})
+
+
+@app.route("/api/drivers/me/offers/<int:booking_id>/decline", methods=["POST"])
+def driver_decline(booking_id):
+    driver, error = require_driver()
+    if error:
+        return error
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if not BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
+        db.session.add(BookingExclusion(booking_id=booking_id, driver_id=driver.id))
+        db.session.commit()
+    return jsonify({"excluded": True, "booking_id": booking_id})
+
+
+@app.route("/api/drivers/me/trip/<int:booking_id>/event", methods=["POST"])
+def driver_trip_event(booking_id):
+    driver, error = require_driver()
+    if error:
+        return error
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.accepted_driver_id != driver.id:
+        return err("This booking is not assigned to you.", 403)
+    data = request.get_json(silent=True) or {}
+    event = data.get("event")
+    if event not in ("en_route", "arrived", "start", "complete", "cancel", "no_show"):
+        return err("Unknown event.")
+    if data.get("lat") is not None and data.get("lng") is not None:
+        booking.driver_lat = float(data["lat"])
+        booking.driver_lng = float(data["lng"])
+
+    response_extra = {}
+    if event == "en_route":
+        if booking.status != "paid":
+            return err("The driver heads to pickup only after payment.", 409)
+        booking.status = "en_route"
+        add_event(booking.id, "trip_en_route", f"Driver {driver.name} is on the way to pickup for booking #{booking.id}.")
+    elif event == "arrived":
+        if booking.status != "en_route":
+            return err("Cannot mark arrived before heading to pickup.", 409)
+        booking.status = "arrived"
+        add_event(booking.id, "trip_arrived", f"Driver {driver.name} arrived at pickup for booking #{booking.id}.")
+    elif event == "start":
+        if booking.status != "arrived":
+            return err("Cannot start the ride before arriving at pickup.", 409)
+        booking.status = "in_progress"
+        add_event(booking.id, "trip_started", f"Ride started for booking #{booking.id}.")
+    elif event == "complete":
+        if booking.status not in ("in_progress", "arrived"):
+            return err("Cannot complete a ride that has not started.", 409)
+        waiting_minutes = int(data.get("waiting_minutes") or 0)
+        booking.waiting_minutes = max(0, waiting_minutes)
+        booking.waiting_charge = waiting_charge(booking.pickup, booking.waiting_minutes)
+        booking.status = "completed"
+        total = invoice_total(booking.fare_total, booking.waiting_charge)
+        outbox_to_customer(
+            booking,
+            f"Noel Chauffer: thank you for riding with us. Your invoice total is ${total} "
+            f"(including ${booking.waiting_charge} waiting charge).",
+        )
+        add_event(booking.id, "trip_completed",
+                  f"Booking #{booking.id} completed. Invoice total ${total} "
+                  f"(fare ${booking.fare_total} + waiting ${booking.waiting_charge}).")
+        response_extra["invoice"] = {"total": num(total), "waiting_charge": num(booking.waiting_charge)}
+    elif event == "cancel":
+        if booking.status not in ("accepted", "paid", "en_route", "arrived"):
+            return err("Cannot cancel a ride in this state.", 409)
+        booking.status = "offered"
+        booking.accepted_driver_id = None
+        booking.driver_lat = None
+        booking.driver_lng = None
+        if not BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
+            db.session.add(BookingExclusion(booking_id=booking_id, driver_id=driver.id))
+        # Payment (if any) is kept; the booking is re-dispatched automatically.
+        add_event(booking.id, "driver_cancelled",
+                  f"Driver {driver.name} cancelled booking #{booking.id}; re-dispatched to other drivers. Payment kept.")
+    elif event == "no_show":
+        if booking.status not in ("en_route", "arrived"):
+            return err("No-show can only be marked while heading to or at pickup.", 409)
+        booking.status = "no_show"
+        add_event(booking.id, "no_show",
+                  f"Customer no-show for booking #{booking.id}. Full price kept.")
+    db.session.commit()
+    payload = {"booking": {"id": booking.id, "status": booking.status}}
+    payload.update(response_extra)
+    return jsonify(payload)
+
+
+@app.route("/api/drivers/me/trip/<int:booking_id>/location", methods=["POST"])
+def driver_location(booking_id):
+    driver, error = require_driver()
+    if error:
+        return error
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.accepted_driver_id != driver.id:
+        return err("This booking is not assigned to you.", 403)
+    if booking.status not in TRACKING_STATUSES:
+        return err("Location updates are only accepted while the trip is active.", 409)
+    data = request.get_json(silent=True) or {}
+    if data.get("lat") is None or data.get("lng") is None:
+        return err("lat and lng are required.")
+    booking.driver_lat = float(data["lat"])
+    booking.driver_lng = float(data["lng"])
+    db.session.commit()
+    return jsonify({"lat": booking.driver_lat, "lng": booking.driver_lng})
+
+
+@app.route("/api/drivers/me/earnings", methods=["GET"])
+def driver_earnings():
+    driver, error = require_driver()
+    if error:
+        return error
+    rides = (Booking.query.filter_by(accepted_driver_id=driver.id, status="completed")
+             .order_by(Booking.created_at.desc(), Booking.id.desc()).all())
+    total = sum((money(b.driver_earnings) for b in rides), Decimal("0.00"))
+    return jsonify({
+        "completed_rides": len(rides),
+        "total_earnings": num(total),
+        "rides": [{
+            "id": b.id,
+            "date": b.date,
+            "route": f"{b.pickup} to {b.dropoff}" if b.dropoff else b.pickup,
+            "earnings": num(b.driver_earnings),
+        } for b in rides],
+    })
+
+
+# ------------------------------------------------------------------ owner ---
+
+@app.route("/api/owner/login", methods=["POST"])
+def owner_login():
+    data = request.get_json(silent=True) or {}
+    if str(data.get("pin")) != OWNER_PIN:
+        return err("Wrong PIN.", 401)
+    session["owner"] = True
+    return jsonify({"ok": True})
+
+
+@app.route("/api/owner/logout", methods=["POST"])
+def owner_logout():
+    session.pop("owner", None)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/owner/summary", methods=["GET"])
+def owner_summary():
+    error = require_owner()
+    if error:
+        return error
+    # Gross/profit count only rides whose test payment succeeded and was not
+    # refunded (including no-shows and kept-price cancellations).
+    paid_ids = [p.booking_id for p in Payment.query.filter_by(status="succeeded").all()]
+    gross = Decimal("0.00")
+    driver_owed = Decimal("0.00")
+    if paid_ids:
+        for b in Booking.query.filter(Booking.id.in_(paid_ids)).all():
+            gross += money(b.fare_total) + money(b.waiting_charge)
+            driver_owed += money(b.driver_earnings)
+    counts = {}
+    for (status,) in db.session.query(Booking.status).all():
+        counts[status] = counts.get(status, 0) + 1
+    return jsonify({
+        "gross": num(gross),
+        "profit": num(gross - driver_owed),
+        "driver_owed": num(driver_owed),
+        "counts": counts,
+    })
+
+
+def _owner_booking_row(b):
+    return {
+        "id": b.id,
+        "customer_name": b.customer_name,
+        "phone": b.phone,
+        "route": f"{b.pickup} to {b.dropoff}" if b.dropoff else b.pickup,
+        "date": b.date,
+        "time": b.time,
+        "status": b.status,
+        "customer_total": num(b.fare_total),
+        "driver_earnings": num(b.driver_earnings),
+        "toll": num(b.toll),
+        "gratuity": num(b.gratuity),
+        "booking_fee": num(b.booking_fee),
+        "waiting_charge": num(b.waiting_charge),
+        "profit": num(booking_profit(b)),
+        "driver_name": b.accepted_driver.name if b.accepted_driver else None,
+    }
+
+
+@app.route("/api/owner/bookings", methods=["GET"])
+def owner_bookings():
+    error = require_owner()
+    if error:
+        return error
+    bookings = Booking.query.order_by(Booking.created_at.desc(), Booking.id.desc()).all()
+    return jsonify([_owner_booking_row(b) for b in bookings])
+
+
+@app.route("/api/owner/bookings/<int:booking_id>", methods=["GET"])
+def owner_booking_detail(booking_id):
+    error = require_owner()
+    if error:
+        return error
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    row = _owner_booking_row(booking)
+    row.update({
+        "pickup": booking.pickup,
+        "dropoff": booking.dropoff,
+        "email": booking.email,
+        "passengers": booking.passengers,
+        "ride_type": booking.ride_type,
+        "hours": num(booking.hours),
+        "miles": num(booking.miles),
+        "referral_code_used": booking.referral_code_used,
+        "waiting_minutes": booking.waiting_minutes,
+        "invoice": {
+            "fare_total": num(booking.fare_total),
+            "waiting_charge": num(booking.waiting_charge),
+            "total": num(invoice_total(booking.fare_total, booking.waiting_charge)),
+        },
+        "payments": [{
+            "id": p.id, "amount": num(p.amount), "status": p.status,
+            "test": p.test, "last4": p.last4, "stripe_test_id": p.stripe_test_id,
+            "created_at": iso(p.created_at),
+        } for p in booking.payments],
+        "events": [{
+            "id": e.id, "type": e.type, "message": e.message, "created_at": iso(e.created_at),
+        } for e in sorted(booking.events, key=lambda e: e.id)],
+    })
+    return jsonify(row)
+
+
+@app.route("/api/owner/bookings/<int:booking_id>/toll", methods=["POST"])
+def owner_set_toll(booking_id):
+    error = require_owner()
+    if error:
+        return error
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.status == "completed":
+        return err("Cannot change the toll after a ride is completed.", 409)
+    data = request.get_json(silent=True) or {}
+    if data.get("toll") is None:
+        return err("toll is required.")
+    try:
+        toll = money(data["toll"])
+    except Exception:
+        return err("toll must be a number.")
+    if toll < 0:
+        return err("toll cannot be negative.")
+    booking.toll = toll
+    recompute_booking_fare(booking)
+    add_event(booking.id, "toll_updated",
+              f"Toll set to ${toll} for booking #{booking.id}; totals recomputed "
+              f"(customer ${booking.fare_total}, driver ${booking.driver_earnings}).")
+    db.session.commit()
+    payload = {"booking": _owner_booking_row(booking)}
+    payment = Payment.query.filter_by(booking_id=booking.id, status="succeeded").order_by(Payment.id.desc()).first()
+    if payment is not None:
+        balance_due = invoice_total(booking.fare_total, booking.waiting_charge) - money(payment.amount)
+        payload["balance_due"] = num(balance_due)
+        payload["paid_amount"] = num(payment.amount)
+    else:
+        payload["balance_due"] = None
+    return jsonify(payload)
+
+
+@app.route("/api/owner/alerts", methods=["GET"])
+def owner_alerts():
+    error = require_owner()
+    if error:
+        return error
+    events = (BookingEvent.query.order_by(BookingEvent.id.desc()).limit(200).all())
+    return jsonify([{
+        "id": e.id, "type": e.type, "message": e.message,
+        "booking_id": e.booking_id, "created_at": iso(e.created_at),
+    } for e in events])
+
+
+@app.route("/api/owner/outbox", methods=["GET"])
+def owner_outbox():
+    error = require_owner()
+    if error:
+        return error
+    messages = (OutboxMessage.query.order_by(OutboxMessage.id.desc()).limit(200).all())
+    return jsonify([{
+        "id": m.id, "channel": m.channel, "recipient": m.recipient,
+        "body": m.body, "booking_id": m.booking_id, "created_at": iso(m.created_at),
+    } for m in messages])
+
+
+@app.route("/api/owner/drivers", methods=["GET"])
+def owner_drivers():
+    error = require_owner()
+    if error:
+        return error
+    drivers = Driver.query.order_by(Driver.created_at, Driver.id).all()
+    return jsonify([{
+        "id": d.id,
+        "name": d.name,
+        "phone": d.phone,
+        "email": d.email,
+        "car": f"{d.car_model} ({d.car_colour})",
+        "plate": d.plate,
+        "available": d.available,
+        "docs": driver_docs_status(d),
+        # Document row ids so the owner viewer can fetch each file via
+        # GET /api/owner/documents/<id>. Profile picture has no document
+        # row — it is served via GET /api/owner/drivers/<id>/photo.
+        "doc_ids": {doc.doc_type: doc.id for doc in d.documents},
+        "bank_masked": bank_masked(d),
+    } for d in drivers])
+
+
+@app.route("/api/owner/documents/<int:doc_id>", methods=["GET"])
+def owner_document(doc_id):
+    error = require_owner()
+    if error:
+        return error
+    doc = db.session.get(DriverDocument, doc_id)
+    if not doc:
+        return err("Document not found.", 404)
+    return Response(doc.file, mimetype=doc.mime)
+
+
+@app.route("/api/owner/drivers/<int:driver_id>/photo", methods=["GET"])
+def owner_driver_photo(driver_id):
+    error = require_owner()
+    if error:
+        return error
+    driver = db.session.get(Driver, driver_id)
+    if not driver or not driver.profile_photo:
+        return err("Photo not available.", 404)
+    return Response(driver.profile_photo, mimetype=driver.profile_photo_mime or "image/jpeg")
+
+
+# ------------------------------------------------------------------- main ---
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port)

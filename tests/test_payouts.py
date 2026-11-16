@@ -1,0 +1,435 @@
+"""Tests for the biweekly driver payout schedule.
+
+Settled rule (owner, 2026-11-16): drivers are paid every 14 days.
+Trips tally in global 14-day windows anchored at 2026-11-16 (window 0 =
+Nov 16-29, 2026). A completed, non-refunded trip belongs to the window
+containing its completion date (America/New_York); the payout is due
+on the window's last day; the owner marks a window paid.
+
+Covers: window grouping incl. boundary dates, due dates, mark-paid
+behavior, owed math (paid trips excluded), refunded exclusion, and
+driver-side privacy (earnings amounts only).
+
+Run:  python -m unittest discover -s tests -v
+"""
+
+import io
+import os
+import sys
+import tempfile
+import unittest
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
+
+# --- test env BEFORE importing the app -------------------------------------
+_tmpdir = tempfile.mkdtemp(prefix="noel-payouts-")
+os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "payouts.db")
+os.environ["OWNER_PIN"] = "9999"
+os.environ["SECRET_KEY"] = "payouts-secret-key"
+from cryptography.fernet import Fernet  # noqa: E402
+
+os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import geo as geo_module  # noqa: E402
+
+# Deterministic geo: every one-way ride is 18.0 miles -> driver $72.00.
+geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
+
+import app as app_module  # noqa: E402
+from payouts import ANCHOR, WINDOW_DAYS, completion_date, window_bounds, window_for  # noqa: E402
+
+D = Decimal
+FORBIDDEN_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fee",
+                  "fare_total", "customer_total", "subtotal", "profit"}
+
+
+def _utc(y, mo, d, h=15, mi=0):
+    return datetime(y, mo, d, h, mi, tzinfo=timezone.utc)
+
+
+class TestWindowMath(unittest.TestCase):
+    def test_anchor_and_length(self):
+        self.assertEqual(ANCHOR, date(2026, 11, 16))
+        self.assertEqual(WINDOW_DAYS, 14)
+
+    def test_window_zero_boundaries(self):
+        w = window_for(date(2026, 11, 16))
+        self.assertEqual((w["index"], w["start"], w["end"], w["due_date"]),
+                         (0, date(2026, 11, 16), date(2026, 11, 29), date(2026, 11, 29)))
+        w = window_for(date(2026, 11, 29))
+        self.assertEqual(w["index"], 0)
+        self.assertEqual(w["due_date"], date(2026, 11, 29))
+
+    def test_window_one_boundaries(self):
+        w = window_for(date(2026, 11, 30))
+        self.assertEqual((w["index"], w["start"], w["end"], w["due_date"]),
+                         (1, date(2026, 11, 30), date(2026, 12, 13), date(2026, 12, 13)))
+        self.assertEqual(window_for(date(2026, 12, 13))["index"], 1)
+
+    def test_window_two_starts_day_after(self):
+        w = window_for(date(2026, 12, 14))
+        self.assertEqual((w["index"], w["start"], w["end"]),
+                         (2, date(2026, 12, 14), date(2026, 12, 27)))
+
+    def test_every_window_is_14_days_and_due_is_last_day(self):
+        for i in range(0, 30):
+            w = window_bounds(i)
+            self.assertEqual((w["end"] - w["start"]).days, 13)
+            self.assertEqual(w["due_date"], w["end"])
+            self.assertEqual(window_for(w["start"])["index"], i)
+            self.assertEqual(window_for(w["end"])["index"], i)
+
+    def test_windows_are_contiguous(self):
+        for i in range(0, 10):
+            self.assertEqual(window_bounds(i)["end"] + timedelta(days=1),
+                             window_bounds(i + 1)["start"])
+
+    def test_date_before_anchor_lands_on_same_grid(self):
+        w = window_for(date(2026, 11, 15))
+        self.assertEqual((w["index"], w["start"], w["end"]),
+                         (-1, date(2026, 11, 2), date(2026, 11, 15)))
+
+    def test_completion_date_uses_new_york(self):
+        # 02:00 UTC on Nov 30 is 21:00 EST on Nov 29 -> window 0.
+        self.assertEqual(completion_date(_utc(2026, 11, 30, 2, 0)), date(2026, 11, 29))
+        self.assertEqual(window_for(completion_date(_utc(2026, 11, 30, 2, 0)))["index"], 0)
+        # 06:00 UTC on Nov 30 is 01:00 EST on Nov 30 -> window 1.
+        self.assertEqual(completion_date(_utc(2026, 11, 30, 6, 0)), date(2026, 11, 30))
+        self.assertEqual(window_for(completion_date(_utc(2026, 11, 30, 6, 0)))["index"], 1)
+
+    def test_completion_date_naive_read_as_utc_and_fallback(self):
+        naive = datetime(2026, 11, 30, 2, 0)  # no tzinfo -> UTC
+        self.assertEqual(completion_date(naive), date(2026, 11, 29))
+        created = _utc(2026, 11, 20, 15, 0)
+        self.assertEqual(completion_date(None, created), date(2026, 11, 20))
+
+
+class PayoutApiCase(unittest.TestCase):
+    """In-process API tests with a fresh DB per test."""
+
+    def setUp(self):
+        with app_module.app.app_context():
+            app_module.db.drop_all()
+            app_module.db.create_all()
+        self.client = app_module.app.test_client()
+        self._driver_seq = 0
+
+    # -- helpers ---------------------------------------------------------
+    def register_driver(self):
+        self._driver_seq += 1
+        phone = f"+1555000{self._driver_seq:04d}"
+        resp = self.client.post("/api/drivers/register", data={
+            "name": f"Test Driver {self._driver_seq}", "phone": phone,
+            "email": f"d{self._driver_seq}@test.com",
+            "car_model": "Cadillac Escalade", "car_colour": "Black",
+            "plate": f"T{self._driver_seq:05d}",
+            "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "profile_photo": (io.BytesIO(b"\xff\xd8\xff fake"), "photo.jpg"),
+        }, content_type="multipart/form-data")
+        self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
+        body = resp.get_json()
+        self.client.post("/api/drivers/me/availability", json={"available": True},
+                         headers={"X-Driver-Token": body["token"]})
+        return body["driver"], body["token"]
+
+    def complete_ride(self, token, ride_type="one_way", hours=None):
+        payload = {
+            "customer_name": "Payout Customer", "phone": "+15550009999",
+            "email": "cust@test.com", "pickup": "JFK Airport",
+            "dropoff": "Times Square, New York",
+            "date": "2030-06-01", "time": "12:00", "ride_type": ride_type,
+        }
+        if ride_type == "hourly":
+            payload["hours"] = hours
+            payload.pop("dropoff")
+        resp = self.client.post("/api/bookings", json=payload)
+        self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
+        booking_id = resp.get_json()["booking"]["id"]
+        resp = self.client.post(f"/api/drivers/me/offers/{booking_id}/accept",
+                                headers={"X-Driver-Token": token})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        resp = self.client.post(f"/api/bookings/{booking_id}/pay", json={
+            "card_number": "4242424242424242", "card_exp": "12/30",
+            "card_cvc": "123", "card_name": "Payout Customer"})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        for event in ("en_route", "arrived", "start", "complete"):
+            resp = self.client.post(f"/api/drivers/me/trip/{booking_id}/event",
+                                    json={"event": event},
+                                    headers={"X-Driver-Token": token})
+            self.assertEqual(resp.status_code, 200,
+                             f"{event}: {resp.get_data(as_text=True)[:200]}")
+        return booking_id
+
+    def backdate_completion(self, booking_id, completed_at):
+        with app_module.app.app_context():
+            booking = app_module.db.session.get(app_module.Booking, booking_id)
+            booking.completed_at = completed_at
+            app_module.db.session.commit()
+
+    def owner_login(self):
+        resp = self.client.post("/api/owner/login", json={"pin": "9999"})
+        self.assertEqual(resp.status_code, 200)
+
+    def owner_summary(self):
+        return self.client.get("/api/owner/summary").get_json()
+
+    # -- grouping / due dates --------------------------------------------
+    def test_earnings_grouped_by_window_with_due_dates(self):
+        _driver, token = self.register_driver()
+        b1 = self.complete_ride(token)
+        b2 = self.complete_ride(token)
+        self.backdate_completion(b1, _utc(2026, 11, 20))   # window 0
+        self.backdate_completion(b2, _utc(2026, 12, 1))    # window 1
+        resp = self.client.get("/api/drivers/me/earnings",
+                               headers={"X-Driver-Token": token})
+        body = resp.get_json()
+        self.assertEqual(body["completed_rides"], 2)
+        self.assertEqual(D(str(body["total_earnings"])), D("144.00"))
+        windows = body["windows"]
+        self.assertEqual(len(windows), 2)
+        # Newest window first.
+        self.assertEqual(windows[0]["index"], 1)
+        self.assertEqual((windows[0]["start"], windows[0]["end"], windows[0]["due_date"]),
+                         ("2026-11-30", "2026-12-13", "2026-12-13"))
+        self.assertEqual(windows[0]["ride_count"], 1)
+        self.assertEqual(D(str(windows[0]["total_earnings"])), D("72.00"))
+        self.assertEqual(windows[0]["status"], "unpaid")
+        self.assertIs(windows[0]["paid"], False)
+        self.assertEqual(windows[1]["index"], 0)
+        self.assertEqual((windows[1]["start"], windows[1]["end"], windows[1]["due_date"]),
+                         ("2026-11-16", "2026-11-29", "2026-11-29"))
+        self.assertEqual(windows[1]["ride_count"], 1)
+        # Per-ride list is kept, with window + payout info per ride.
+        rides = {r["id"]: r for r in body["rides"]}
+        self.assertEqual(rides[b1]["window_start"], "2026-11-16")
+        self.assertEqual(rides[b1]["due_date"], "2026-11-29")
+        self.assertEqual(rides[b1]["payout_status"], "unpaid")
+        self.assertIs(rides[b1]["payout_paid"], False)
+        self.assertEqual(rides[b2]["window_start"], "2026-11-30")
+        self.assertEqual(rides[b1]["earnings"], 72.00)
+
+    def test_multiple_rides_sum_in_one_window(self):
+        _driver, token = self.register_driver()
+        b1 = self.complete_ride(token)                    # one-way: $72.00
+        b2 = self.complete_ride(token, ride_type="hourly", hours=3)  # $150.00
+        self.backdate_completion(b1, _utc(2026, 11, 17))
+        self.backdate_completion(b2, _utc(2026, 11, 28))
+        body = self.client.get("/api/drivers/me/earnings",
+                               headers={"X-Driver-Token": token}).get_json()
+        self.assertEqual(len(body["windows"]), 1)
+        self.assertEqual(body["windows"][0]["ride_count"], 2)
+        self.assertEqual(D(str(body["windows"][0]["total_earnings"])), D("222.00"))
+
+    def test_boundary_completion_dates_split_windows(self):
+        _driver, token = self.register_driver()
+        # Nov 29 21:00 EST (Nov 30 02:00 UTC) -> window 0; Nov 30 01:00 EST -> window 1.
+        b1 = self.complete_ride(token)
+        b2 = self.complete_ride(token)
+        self.backdate_completion(b1, _utc(2026, 11, 30, 2, 0))
+        self.backdate_completion(b2, _utc(2026, 11, 30, 6, 0))
+        body = self.client.get("/api/drivers/me/earnings",
+                               headers={"X-Driver-Token": token}).get_json()
+        self.assertEqual([w["index"] for w in body["windows"]], [1, 0])
+
+    def test_driver_earnings_response_has_no_fare_fields(self):
+        _driver, token = self.register_driver()
+        self.complete_ride(token)
+        resp = self.client.get("/api/drivers/me/earnings",
+                               headers={"X-Driver-Token": token})
+        body = resp.get_json()
+        for window in body["windows"]:
+            self.assertFalse(set(window) & FORBIDDEN_KEYS, str(window))
+        for ride in body["rides"]:
+            self.assertFalse(set(ride) & FORBIDDEN_KEYS, str(ride))
+        # The customer fare total must never appear in the driver response.
+        self.assertNotIn("160.60", resp.get_data(as_text=True))
+
+    # -- mark-paid --------------------------------------------------------
+    def test_mark_paid_requires_owner_pin(self):
+        driver, token = self.register_driver()
+        self.complete_ride(token)
+        fresh = app_module.app.test_client()  # no owner session
+        resp = fresh.post("/api/owner/payouts/mark-paid",
+                          json={"driver_id": driver["id"], "window_index": 0})
+        self.assertEqual(resp.status_code, 401)
+        resp = fresh.get("/api/owner/payouts")
+        self.assertEqual(resp.status_code, 401)
+
+    def test_mark_paid_flow_and_idempotency(self):
+        driver, token = self.register_driver()
+        b1 = self.complete_ride(token)
+        self.backdate_completion(b1, _utc(2026, 11, 20))
+        self.owner_login()
+        resp = self.client.post("/api/owner/payouts/mark-paid",
+                                json={"driver_id": driver["id"], "window_index": 0})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        payout = resp.get_json()["payout"]
+        self.assertTrue(payout["paid"])
+        self.assertEqual(payout["status"], "paid")
+        self.assertEqual(payout["marked"], 1)
+        self.assertEqual(payout["due_date"], "2026-11-29")
+        # Driver view now shows the window paid.
+        body = self.client.get("/api/drivers/me/earnings",
+                               headers={"X-Driver-Token": token}).get_json()
+        self.assertEqual(body["windows"][0]["status"], "paid")
+        self.assertTrue(body["rides"][0]["payout_paid"])
+        # Marking again is a harmless no-op.
+        resp = self.client.post("/api/owner/payouts/mark-paid",
+                                json={"driver_id": driver["id"], "window_index": 0})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()["payout"]["marked"], 0)
+        self.assertTrue(resp.get_json()["payout"]["paid"])
+
+    def test_mark_paid_validation_errors(self):
+        driver, token = self.register_driver()
+        self.complete_ride(token)
+        self.owner_login()
+        resp = self.client.post("/api/owner/payouts/mark-paid", json={})
+        self.assertEqual(resp.status_code, 400)
+        resp = self.client.post("/api/owner/payouts/mark-paid",
+                                json={"driver_id": 99999, "window_index": 0})
+        self.assertEqual(resp.status_code, 404)
+        resp = self.client.post("/api/owner/payouts/mark-paid",
+                                json={"driver_id": driver["id"], "window_index": 99})
+        self.assertEqual(resp.status_code, 404)
+
+    def test_late_completion_into_paid_window_stays_unpaid(self):
+        driver, token = self.register_driver()
+        b1 = self.complete_ride(token)
+        self.backdate_completion(b1, _utc(2026, 11, 20))
+        self.owner_login()
+        self.client.post("/api/owner/payouts/mark-paid",
+                         json={"driver_id": driver["id"], "window_index": 0})
+        # A second trip completed later, dated inside the same window.
+        b2 = self.complete_ride(token)
+        self.backdate_completion(b2, _utc(2026, 11, 25))
+        body = self.client.get("/api/drivers/me/earnings",
+                               headers={"X-Driver-Token": token}).get_json()
+        window0 = [w for w in body["windows"] if w["index"] == 0][0]
+        self.assertEqual(window0["status"], "unpaid")
+        self.assertEqual(window0["ride_count"], 2)
+        self.assertEqual(D(str(window0["total_earnings"])), D("144.00"))
+        self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("72.00"))
+
+    # -- owed math ---------------------------------------------------------
+    def test_owed_counts_only_unpaid_completed_trips(self):
+        driver, token = self.register_driver()
+        b1 = self.complete_ride(token)
+        b2 = self.complete_ride(token)
+        self.backdate_completion(b1, _utc(2026, 11, 20))   # window 0
+        self.backdate_completion(b2, _utc(2026, 12, 1))    # window 1
+        self.owner_login()
+        summary = self.owner_summary()
+        self.assertEqual(D(str(summary["driver_owed"])), D("144.00"))
+        self.assertEqual(D(str(summary["profit"])),
+                         D(str(summary["gross"])) - D(str(summary["driver_owed"])))
+        self.client.post("/api/owner/payouts/mark-paid",
+                         json={"driver_id": driver["id"], "window_index": 0})
+        summary = self.owner_summary()
+        self.assertEqual(D(str(summary["driver_owed"])), D("72.00"))
+        self.assertEqual(D(str(summary["profit"])),
+                         D(str(summary["gross"])) - D("72.00"))
+        self.client.post("/api/owner/payouts/mark-paid",
+                         json={"driver_id": driver["id"], "window_index": 1})
+        self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("0.00"))
+
+    def test_uncompleted_and_kept_price_trips_do_not_count_as_owed(self):
+        driver, token = self.register_driver()
+        # Offered, never accepted: no earnings owed.
+        self.client.post("/api/bookings", json={
+            "customer_name": "Waiting", "phone": "+15550001122", "email": "w@test.com",
+            "pickup": "JFK Airport", "dropoff": "Times Square, New York",
+            "date": "2030-06-01", "time": "12:00", "ride_type": "one_way"})
+        # Kept-price cancellation (pickup within an hour): fare kept, but
+        # the trip never completed, so nothing is owed to the driver.
+        try:
+            from zoneinfo import ZoneInfo
+            soon = datetime.now(ZoneInfo("America/New_York")) + timedelta(minutes=30)
+        except Exception:
+            soon = datetime.now(timezone.utc) + timedelta(minutes=30)
+        resp = self.client.post("/api/bookings", json={
+            "customer_name": "Soon", "phone": "+15550003333", "email": "s@test.com",
+            "pickup": "JFK Airport", "dropoff": "Times Square, New York",
+            "date": soon.strftime("%Y-%m-%d"), "time": soon.strftime("%H:%M"),
+            "ride_type": "one_way"})
+        soon_id = resp.get_json()["booking"]["id"]
+        self.client.post(f"/api/drivers/me/offers/{soon_id}/accept",
+                         headers={"X-Driver-Token": token})
+        self.client.post(f"/api/bookings/{soon_id}/pay", json={
+            "card_number": "4242424242424242", "card_exp": "12/30",
+            "card_cvc": "123", "card_name": "Soon"})
+        resp = self.client.post(f"/api/bookings/{soon_id}/cancel",
+                                json={"phone": "+15550003333"})
+        self.assertTrue(resp.get_json()["charge_kept"])
+        self.owner_login()
+        summary = self.owner_summary()
+        self.assertEqual(D(str(summary["driver_owed"])), D("0.00"))
+        # Gross still includes the kept payment.
+        self.assertEqual(D(str(summary["gross"])), D("160.60"))
+
+    def test_refunded_completed_trip_is_excluded(self):
+        _driver, token = self.register_driver()
+        booking_id = self.complete_ride(token)
+        with app_module.app.app_context():
+            payment = app_module.Payment.query.filter_by(booking_id=booking_id).first()
+            payment.status = "refunded"
+            app_module.db.session.commit()
+        body = self.client.get("/api/drivers/me/earnings",
+                               headers={"X-Driver-Token": token}).get_json()
+        self.assertEqual(body["completed_rides"], 0)
+        self.assertEqual(body["windows"], [])
+        self.assertEqual(D(str(body["total_earnings"])), D("0.00"))
+        self.owner_login()
+        self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("0.00"))
+        payouts = self.client.get("/api/owner/payouts").get_json()
+        self.assertEqual(payouts, [])
+
+    def test_completed_at_recorded_and_row_flags_payout(self):
+        driver, token = self.register_driver()
+        booking_id = self.complete_ride(token)
+        self.owner_login()
+        detail = self.client.get(f"/api/owner/bookings/{booking_id}").get_json()
+        self.assertIsNotNone(detail["completed_at"])
+        self.assertIs(detail["payout_paid"], False)
+        rows = self.client.get("/api/owner/bookings").get_json()
+        self.assertIs(rows[0]["payout_paid"], False)
+        payouts = self.client.get("/api/owner/payouts").get_json()
+        self.assertEqual(len(payouts), 1)
+        resp = self.client.post("/api/owner/payouts/mark-paid",
+                                json={"driver_id": driver["id"],
+                                      "window_index": payouts[0]["index"]})
+        self.assertEqual(resp.status_code, 200)
+        payouts = self.client.get("/api/owner/payouts").get_json()
+        self.assertTrue(payouts[0]["paid"])
+
+    # -- owner payouts endpoint --------------------------------------------
+    def test_owner_payouts_groups_per_driver_per_window(self):
+        d1, t1 = self.register_driver()
+        d2, t2 = self.register_driver()
+        b1 = self.complete_ride(t1)
+        b2 = self.complete_ride(t1)
+        b3 = self.complete_ride(t2)
+        self.backdate_completion(b1, _utc(2026, 11, 20))
+        self.backdate_completion(b2, _utc(2026, 12, 1))
+        self.backdate_completion(b3, _utc(2026, 11, 21))
+        self.owner_login()
+        payouts = self.client.get("/api/owner/payouts").get_json()
+        self.assertEqual(len(payouts), 3)
+        by_key = {(p["driver_id"], p["index"]): p for p in payouts}
+        w0_d1 = by_key[(d1["id"], 0)]
+        self.assertEqual(w0_d1["driver_name"], d1["name"])
+        self.assertEqual(w0_d1["due_date"], "2026-11-29")
+        self.assertEqual(D(str(w0_d1["total_earnings"])), D("72.00"))
+        self.assertEqual(w0_d1["status"], "unpaid")
+        self.assertEqual([r["id"] for r in w0_d1["rides"]], [b1])
+        w1_d1 = by_key[(d1["id"], 1)]
+        self.assertEqual(w1_d1["due_date"], "2026-12-13")
+        w0_d2 = by_key[(d2["id"], 0)]
+        self.assertEqual(w0_d2["driver_name"], d2["name"])
+        self.assertEqual(D(str(w0_d2["total_earnings"])), D("72.00"))
+
+
+if __name__ == "__main__":
+    unittest.main()

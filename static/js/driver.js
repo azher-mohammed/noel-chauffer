@@ -529,10 +529,38 @@
   }
 
   /* ---------- Earnings ---------- */
+  function fmtDay(isoDate) {
+    /* Format a YYYY-MM-DD date without timezone shifting. */
+    var parts = String(isoDate || "").split("-");
+    if (parts.length !== 3) return String(isoDate || "");
+    var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var m = parseInt(parts[1], 10);
+    if (!m || m < 1 || m > 12) return String(isoDate);
+    return months[m - 1] + " " + parseInt(parts[2], 10) + ", " + parts[0];
+  }
+  function renderPayoutWindows(windows) {
+    var box = $("payout-windows");
+    if (!box) return;
+    box.innerHTML = "";
+    (windows || []).forEach(function (w) {
+      var paid = w.paid === true || w.status === "paid";
+      var count = pickNumber(w, ["ride_count", "rides", "rideCount"]);
+      var card = document.createElement("div");
+      card.className = "pay-window";
+      card.innerHTML =
+        '<div class="pw-top"><div class="pw-range">' + esc(fmtDay(w.start) + " – " + fmtDay(w.end)) + "</div>" +
+        '<span class="badge ' + (paid ? "done" : "todo") + '">' + (paid ? "Paid" : "Unpaid") + "</span></div>" +
+        '<div class="pw-meta">Due ' + esc(fmtDay(w.due_date)) +
+        (count !== null ? " · " + count + " ride(s)" : "") + "</div>" +
+        '<div class="pw-amount">' + esc(money(pickNumber(w, ["total_earnings", "total", "amount"]))) + "</div>";
+      box.appendChild(card);
+    });
+  }
   function loadEarnings() {
     fetch("/api/drivers/me/earnings", { headers: authHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (j) {
+        renderPayoutWindows(j.windows || j.pay_periods || j.payouts || []);
         var list = Array.isArray(j) ? j : (j.earnings || j.rides || j.completed || []);
         var box = $("earnings-list");
         box.innerHTML = "";
@@ -547,6 +575,11 @@
             if (r.dropoff) route += " → " + esc(r.dropoff);
           }
           var meta = [r.date, r.time].filter(Boolean).join(" · ");
+          if (r.payout_status === "paid" || r.payout_paid === true) {
+            meta += (meta ? " · " : "") + "Paid";
+          } else if (r.payout_status === "unpaid" || r.payout_paid === false) {
+            meta += (meta ? " · " : "") + "Unpaid";
+          }
           var div = document.createElement("div");
           div.className = "earn-item";
           div.innerHTML = "<div><div class=\"r\">" + (route || "Ride") + "</div><div class=\"m\">" + esc(meta) + "</div></div>" +

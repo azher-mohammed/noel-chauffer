@@ -30,6 +30,7 @@ from decimal import Decimal
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from payouts import completion_date, window_for  # noqa: E402
 from pricing import compute_hourly, compute_one_way, waiting_charge  # noqa: E402
 
 BASE = os.environ.get("NOEL_BASE_URL", "http://127.0.0.1:5055").rstrip("/")
@@ -508,10 +509,21 @@ gross_sum = Decimal("0.00")
 owed_sum = Decimal("0.00")
 for row in rows:
     det = s.get(BASE + f"/api/owner/bookings/{row['id']}", timeout=TIMEOUT).json()
-    if any(p["status"] == "succeeded" for p in det["payments"]):
-        profit_sum += Decimal(str(row["profit"]))
-        gross_sum += Decimal(str(row["customer_total"])) + Decimal(str(row["waiting_charge"]))
+    statuses = [p["status"] for p in det["payments"]]
+    # driver_owed counts only UNPAID completed, non-refunded trips: a
+    # kept-price cancellation or no-show is never owed to a driver.
+    counts_toward_owed = (row["status"] == "completed" and "refunded" not in statuses
+                          and not row.get("payout_paid"))
+    if counts_toward_owed:
         owed_sum += Decimal(str(row["driver_earnings"]))
+    if "succeeded" in statuses:
+        gross_sum += Decimal(str(row["customer_total"])) + Decimal(str(row["waiting_charge"]))
+        # Profit contribution: the driver share is subtracted only for
+        # trips still owed; kept-price fares count in full.
+        contribution = Decimal(str(row["customer_total"])) + Decimal(str(row["waiting_charge"]))
+        if counts_toward_owed:
+            contribution -= Decimal(str(row["driver_earnings"]))
+        profit_sum += contribution
         check(f"row profit reconciles (booking {row['id']})",
               approx(Decimal(str(row["customer_total"])) + Decimal(str(row["waiting_charge"]))
                      - Decimal(str(row["driver_earnings"])), row["profit"]), str(row))
@@ -521,8 +533,71 @@ check("per-ride gross sums to summary gross", approx(gross_sum, summary["gross"]
       f"sum {gross_sum} vs summary {summary['gross']}")
 check("per-ride driver sums to summary driver_owed", approx(owed_sum, summary["driver_owed"]),
       f"sum {owed_sum} vs summary {summary['driver_owed']}")
+check("driver_owed counts only the completed trip (kept-price cancel excluded)",
+      approx(summary["driver_owed"], expected1["driver_earnings"]),
+      f"owed {summary['driver_owed']} expected {expected1['driver_earnings']}")
 print(f"  INFO summary: gross ${summary['gross']} profit ${summary['profit']} "
       f"driver_owed ${summary['driver_owed']} counts {summary['counts']}")
+
+# ------------------------------------------------- payout windows ----------
+
+section("payout windows: 14-day periods, mark paid, owed drops")
+detail_b1 = s.get(BASE + f"/api/owner/bookings/{b1['id']}", timeout=TIMEOUT).json()
+check("owner detail records completed_at + payout_paid false",
+      detail_b1.get("completed_at") and detail_b1.get("payout_paid") is False,
+      str(detail_b1.get("completed_at")))
+completed_dt = datetime.fromisoformat(detail_b1["completed_at"])
+expected_window = window_for(completion_date(completed_dt))
+resp = anon.get(BASE + "/api/drivers/me/earnings", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+earn = resp.json()
+check("earnings windows present for completed ride", len(earn["windows"]) == 1, str(earn.get("windows")))
+w = earn["windows"][0] if earn["windows"] else {}
+check("window dates match completion window",
+      w.get("start") == expected_window["start"].isoformat()
+      and w.get("end") == expected_window["end"].isoformat()
+      and w.get("due_date") == expected_window["due_date"].isoformat(), str(w))
+check("window total = driver share, unpaid",
+      approx(w.get("total_earnings"), expected1["driver_earnings"])
+      and w.get("status") == "unpaid" and w.get("paid") is False, str(w))
+check("window has no fare/miles keys", not (set(w) & FORBIDDEN_OFFER_KEYS), str(w))
+check("ride row carries window + payout status",
+      earn["rides"] and earn["rides"][0].get("window_start") == expected_window["start"].isoformat()
+      and earn["rides"][0].get("payout_status") == "unpaid", str(earn.get("rides")))
+resp = s.get(BASE + "/api/owner/payouts", timeout=TIMEOUT)
+payouts = resp.json()
+check("owner payouts lists the completed window", len(payouts) == 1, str(payouts))
+p = payouts[0] if payouts else {}
+check("owner payout row: driver, due date, total",
+      p.get("driver_name") == "Verify Driver One"
+      and p.get("due_date") == expected_window["due_date"].isoformat()
+      and approx(p.get("total_earnings"), expected1["driver_earnings"]), str(p))
+resp = anon.get(BASE + "/api/owner/payouts", timeout=TIMEOUT)
+check("owner payouts without PIN -> 401", resp.status_code == 401, str(resp.status_code))
+resp = anon.post(BASE + "/api/owner/payouts/mark-paid",
+                 json={"driver_id": d1row["id"], "window_index": expected_window["index"]},
+                 timeout=TIMEOUT)
+check("mark-paid without PIN -> 401", resp.status_code == 401, str(resp.status_code))
+resp = s.post(BASE + "/api/owner/payouts/mark-paid",
+              json={"driver_id": d1row["id"], "window_index": expected_window["index"]},
+              timeout=TIMEOUT)
+check("mark-paid 200, window paid",
+      resp.status_code == 200 and resp.json()["payout"]["paid"] is True, resp.text[:200])
+resp = s.post(BASE + "/api/owner/payouts/mark-paid",
+              json={"driver_id": d1row["id"], "window_index": expected_window["index"]},
+              timeout=TIMEOUT)
+check("mark-paid again idempotent (marked 0)",
+      resp.status_code == 200 and resp.json()["payout"]["marked"] == 0, resp.text[:150])
+resp = s.post(BASE + "/api/owner/payouts/mark-paid",
+              json={"driver_id": d1row["id"], "window_index": 999}, timeout=TIMEOUT)
+check("mark-paid empty window -> 404", resp.status_code == 404, str(resp.status_code))
+summary2 = s.get(BASE + "/api/owner/summary", timeout=TIMEOUT).json()
+check("driver_owed drops to 0 after mark-paid", approx(summary2["driver_owed"], 0), str(summary2))
+check("profit equals gross once nothing owed",
+      approx(summary2["profit"], summary2["gross"]), str(summary2))
+resp = anon.get(BASE + "/api/drivers/me/earnings", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("driver window shows paid after mark-paid",
+      resp.json()["windows"] and resp.json()["windows"][0]["status"] == "paid",
+      str(resp.json().get("windows")))
 
 # ------------------------------------------------- static + greps -----------
 

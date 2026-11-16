@@ -95,6 +95,7 @@
     show($("dashboard"));
     renderSummary(summary);
     loadBookings();
+    loadPayouts();
     loadAlerts();
     loadOutbox();
     loadDrivers();
@@ -220,6 +221,62 @@
       .then(function (r) { return r.json(); })
       .then(function (j) { renderSummary(j); })
       .catch(function () { /* ignore */ });
+  }
+
+  /* ---------- Driver payouts (14-day pay periods) ---------- */
+  function loadPayouts() {
+    fetch("/api/owner/payouts", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var list = asList(j, "payouts");
+        var body = $("payouts-body");
+        body.innerHTML = "";
+        if (!list.length) { show($("payouts-empty")); return; }
+        hide($("payouts-empty"));
+        list.forEach(function (p) {
+          var paid = p.paid === true || p.status === "paid";
+          var driverName = p.driver_name || "Driver";
+          var tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" + esc(driverName) + '<div class="sub">' + esc(p.driver_phone || "") + "</div></td>" +
+            "<td>" + esc((p.start || "") + " – " + (p.end || "")) + "</td>" +
+            "<td>" + esc(p.due_date || "") + "</td>" +
+            '<td class="num">' + esc(String(pick(p, ["ride_count", "rides"]) || 0)) + "</td>" +
+            '<td class="num">' + esc(money(pick(p, ["total_earnings", "total", "amount"]))) + "</td>" +
+            '<td><span class="pill">' + (paid ? "Paid" : "Unpaid") + "</span></td>" +
+            "<td>" + (paid ? "" : '<button class="row-btn" type="button">Mark paid</button>') + "</td>";
+          if (!paid) {
+            tr.querySelector(".row-btn").addEventListener("click", function () {
+              markPayoutPaid(p, driverName, tr);
+            });
+          }
+          body.appendChild(tr);
+        });
+      })
+      .catch(function () {
+        $("payouts-body").innerHTML = "";
+        show($("payouts-empty"));
+        $("payouts-empty").textContent = "Could not load payouts.";
+      });
+  }
+
+  function markPayoutPaid(p, driverName, row) {
+    var label = (p.start || "") + " to " + (p.end || "");
+    if (!window.confirm("Mark the pay period " + label + " paid for " + driverName + "?")) return;
+    var btn = row.querySelector(".row-btn");
+    if (btn) btn.disabled = true;
+    fetch("/api/owner/payouts/mark-paid", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ driver_id: p.driver_id, window_index: p.index })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (res.ok) { loadPayouts(); loadSummaryThenEnterSoft(); loadBookings(); }
+        else if (btn) { btn.disabled = false; }
+      })
+      .catch(function () { if (btn) btn.disabled = false; });
   }
 
   /* ---------- Booking detail ---------- */

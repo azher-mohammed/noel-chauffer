@@ -349,7 +349,7 @@
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         btn.disabled = false;
-        btn.textContent = "Request my chauffeur";
+        btn.textContent = "Book a ride";
         if (!res.ok || !res.j.booking || !res.j.booking.id) {
           err.textContent = (res.j && (res.j.error || res.j.message)) || "Something went wrong. Please try again.";
           return;
@@ -358,7 +358,7 @@
       })
       .catch(function () {
         btn.disabled = false;
-        btn.textContent = "Request my chauffeur";
+        btn.textContent = "Book a ride";
         err.textContent = "Could not reach the booking service. Please check your connection and try again.";
       });
   }
@@ -794,7 +794,7 @@
       return "If a friend referred you, enter their referral code in the booking form. After your ride, this page shows you how to refer a friend too.";
     }
     if (has("book", "reserve", "ride", "pickup", "how")) {
-      return "To book: fill in the form at the top of this page — pickup, drop-off (or hours), date, time, and your name, phone and email — then tap “Request my chauffeur”. You will see one single total and pay by card, and then your chauffeur will be assigned.";
+      return "To book: fill in the form at the top of this page — pickup, drop-off (or hours), date, time, and your name, phone and email — then tap “Book a ride”. You will see one single total and pay by card, and then your chauffeur will be assigned.";
     }
     if (has("hello", "hi", "hey", "salam")) {
       return "Hello, and welcome to Noel Chauffer. I can help with booking, the total, cancellation, waiting time, lost items, or a problem with a ride.";

@@ -4,16 +4,17 @@ Settled by the owner (2026-11-16, clarified the same day): every
 fourteen days the driver gets seven days' money. Each week's
 accounting is separate, and the money comes after two weeks.
 
-Trips are tallied in 7-day weeks anchored at 2026-11-16, and one
-week's payout comes due every 14 days:
+Trips are tallied in 7-day weeks anchored at 2026-11-16, and each
+week's payout comes due 14 days after that week starts:
 
   week 0 = Nov 16-22, 2026, due Nov 30, 2026
-  week 1 = Nov 23-29, 2026, due Dec 14, 2026
-  week 2 = Nov 30-Dec 6, 2026, due Dec 28, 2026
+  week 1 = Nov 23-29, 2026, due Dec 7, 2026
+  week 2 = Nov 30-Dec 6, 2026, due Dec 14, 2026
   ...
 
-So the due date for week n is the anchor + 14 * (n + 1) days: due
-dates fall every 14 days, each covering exactly one 7-day week.
+So the due date for a week is its start + 14 days: due dates fall
+7 days apart (weekly), and every trip is paid 8-14 days after it
+happens — the lag never grows.
 
 A completed, non-refunded trip belongs to the week containing its
 completion date (the America/New_York calendar date on which the trip
@@ -49,15 +50,15 @@ def week_for(d: date) -> dict:
 
     Result: {"index": int, "start": date, "end": date, "due_date": date}
     where the week runs 7 days from `start`, and `due_date` is the
-    anchor + 14 * (index + 1) days, so payouts come due every 14 days,
-    one week at a time. Dates before the anchor fall in negative-index
-    weeks on the same 7-day grid.
+    week start + 14 days, so due dates fall 7 days apart and every
+    trip is paid 8-14 days after it happens. Dates before the anchor
+    fall in negative-index weeks on the same 7-day grid.
     """
     delta = (d - ANCHOR).days
     index = delta // WEEK_DAYS
     start = ANCHOR + timedelta(days=WEEK_DAYS * index)
     end = start + timedelta(days=WEEK_DAYS - 1)
-    due_date = ANCHOR + timedelta(days=PAYOUT_INTERVAL_DAYS * (index + 1))
+    due_date = start + timedelta(days=PAYOUT_INTERVAL_DAYS)
     return {"index": index, "start": start, "end": end, "due_date": due_date}
 
 
@@ -65,7 +66,7 @@ def week_bounds(index: int) -> dict:
     """Return the start/end/due dates for payout week `index`."""
     start = ANCHOR + timedelta(days=WEEK_DAYS * index)
     end = start + timedelta(days=WEEK_DAYS - 1)
-    due_date = ANCHOR + timedelta(days=PAYOUT_INTERVAL_DAYS * (index + 1))
+    due_date = start + timedelta(days=PAYOUT_INTERVAL_DAYS)
     return {"index": index, "start": start, "end": end, "due_date": due_date}
 
 

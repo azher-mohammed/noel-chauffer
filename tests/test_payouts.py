@@ -4,8 +4,10 @@ Settled rule (owner, 2026-11-16, clarified the same day): every
 fourteen days the driver gets seven days' money. Each week's
 accounting is separate, and the money comes after two weeks. Trips
 tally in 7-day weeks anchored at 2026-11-16 (week 0 = Nov 16-22,
-2026), and one week's payout comes due every 14 days: week 0 due
-Nov 30, 2026; week 1 (Nov 23-29) due Dec 14, 2026; and so on. A
+2026), and each week's payout comes due 14 days after the week
+starts: week 0 due Nov 30, 2026; week 1 (Nov 23-29) due Dec 7,
+2026; week 2 (Nov 30-Dec 6) due Dec 14, 2026. Due dates fall 7
+days apart, so every trip is paid 8-14 days after it happens.
 completed, non-refunded trip belongs to the week containing its
 completion date (America/New_York); the owner marks a week paid.
 
@@ -69,23 +71,27 @@ class TestWeekMath(unittest.TestCase):
     def test_week_one_boundaries(self):
         w = week_for(date(2026, 11, 23))
         self.assertEqual((w["index"], w["start"], w["end"], w["due_date"]),
-                         (1, date(2026, 11, 23), date(2026, 11, 29), date(2026, 12, 14)))
+                         (1, date(2026, 11, 23), date(2026, 11, 29), date(2026, 12, 7)))
         self.assertEqual(week_for(date(2026, 11, 29))["index"], 1)
 
     def test_week_two_boundaries(self):
         w = week_for(date(2026, 11, 30))
         self.assertEqual((w["index"], w["start"], w["end"], w["due_date"]),
-                         (2, date(2026, 11, 30), date(2026, 12, 6), date(2026, 12, 28)))
+                         (2, date(2026, 11, 30), date(2026, 12, 6), date(2026, 12, 14)))
         self.assertEqual(week_for(date(2026, 12, 6))["index"], 2)
 
-    def test_every_week_is_7_days_and_due_dates_fall_every_14_days(self):
+    def test_every_week_is_7_days_and_due_dates_fall_7_days_apart(self):
         prev_due = None
         for i in range(0, 30):
             w = week_bounds(i)
             self.assertEqual((w["end"] - w["start"]).days, 6)
-            self.assertEqual(w["due_date"], ANCHOR + timedelta(days=14 * (i + 1)))
+            # due = week start + 14 days: a trip on the first day of the
+            # week is paid 14 days later, one on the last day 8 days
+            # later — the lag never grows.
+            self.assertEqual(w["due_date"], w["start"] + timedelta(days=14))
+            self.assertEqual((w["due_date"] - w["end"]).days, 8)
             if prev_due is not None:
-                self.assertEqual((w["due_date"] - prev_due).days, 14)
+                self.assertEqual((w["due_date"] - prev_due).days, 7)
             prev_due = w["due_date"]
             self.assertEqual(week_for(w["start"])["index"], i)
             self.assertEqual(week_for(w["end"])["index"], i)
@@ -98,7 +104,7 @@ class TestWeekMath(unittest.TestCase):
     def test_date_before_anchor_lands_on_same_grid(self):
         w = week_for(date(2026, 11, 15))
         self.assertEqual((w["index"], w["start"], w["end"], w["due_date"]),
-                         (-1, date(2026, 11, 9), date(2026, 11, 15), date(2026, 11, 16)))
+                         (-1, date(2026, 11, 9), date(2026, 11, 15), date(2026, 11, 23)))
 
     def test_completion_date_uses_new_york(self):
         # 02:00 UTC on Nov 30 is 21:00 EST on Nov 29 -> week 1.
@@ -201,7 +207,7 @@ class PayoutApiCase(unittest.TestCase):
         # Newest week first.
         self.assertEqual(weeks[0]["index"], 2)
         self.assertEqual((weeks[0]["start"], weeks[0]["end"], weeks[0]["due_date"]),
-                         ("2026-11-30", "2026-12-06", "2026-12-28"))
+                         ("2026-11-30", "2026-12-06", "2026-12-14"))
         self.assertEqual(weeks[0]["ride_count"], 1)
         self.assertEqual(D(str(weeks[0]["total_earnings"])), D("72.00"))
         self.assertEqual(weeks[0]["status"], "unpaid")
@@ -218,7 +224,7 @@ class PayoutApiCase(unittest.TestCase):
         self.assertEqual(rides[b1]["payout_status"], "unpaid")
         self.assertIs(rides[b1]["payout_paid"], False)
         self.assertEqual(rides[b2]["week_start"], "2026-11-30")
-        self.assertEqual(rides[b2]["due_date"], "2026-12-28")
+        self.assertEqual(rides[b2]["due_date"], "2026-12-14")
         self.assertEqual(rides[b1]["earnings"], 72.00)
 
     def test_multiple_rides_sum_in_one_week(self):
@@ -436,7 +442,7 @@ class PayoutApiCase(unittest.TestCase):
         self.assertEqual(w0_d1["status"], "unpaid")
         self.assertEqual([r["id"] for r in w0_d1["rides"]], [b1])
         w2_d1 = by_key[(d1["id"], 2)]
-        self.assertEqual(w2_d1["due_date"], "2026-12-28")
+        self.assertEqual(w2_d1["due_date"], "2026-12-14")
         w0_d2 = by_key[(d2["id"], 0)]
         self.assertEqual(w0_d2["driver_name"], d2["name"])
         self.assertEqual(D(str(w0_d2["total_earnings"])), D("72.00"))

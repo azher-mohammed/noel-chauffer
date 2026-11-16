@@ -34,10 +34,11 @@ no files are written for uploads, so they survive restarts.
   them without the owner's say-so.
 - **Driver payouts are tracking only.** Every 14 days the driver gets
   seven days' money: trips tally in 7-day weeks anchored at
-  2026-11-16 (see `payouts.py`), and one week's payout comes due
-  every 14 days (week 0, Nov 16–22, due Nov 30; week 1, Nov 23–29,
-  due Dec 14). The owner marks a week paid in the dashboard. No
-  money moves in this app.
+  2026-11-16 (see `payouts.py`), and each week's payout comes due
+  14 days after the week starts (week 0, Nov 16–22, due Nov 30;
+  week 1, Nov 23–29, due Dec 7; week 2, Nov 30–Dec 6, due Dec 14),
+  so every trip is paid 8–14 days after it happens. The owner marks
+  a week paid in the dashboard. No money moves in this app.
 
 ## Run locally
 

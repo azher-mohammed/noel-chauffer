@@ -1234,9 +1234,10 @@ def owner_payouts():
     """Per-driver, per-week payout totals. Owner PIN session required.
 
     Only completed, non-refunded trips appear. Each week's payout
-    comes due every 14 days, one week at a time (week 0 due Nov 30,
-    week 1 due Dec 14, ...); a week is paid when every trip in it has
-    been marked paid. Tracking only — no money moves here.
+    comes due 14 days after the week starts (week 0 due Nov 30,
+    week 1 due Dec 7, week 2 due Dec 14, ...); a week is paid when
+    every trip in it has been marked paid. Tracking only — no money
+    moves here.
     """
     error = require_owner()
     if error:

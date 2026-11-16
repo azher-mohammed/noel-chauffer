@@ -541,7 +541,7 @@ print(f"  INFO summary: gross ${summary['gross']} profit ${summary['profit']} "
 
 # --------------------------------------------------- payout weeks ----------
 
-section("payout weeks: 7-day weeks, due every 14 days, mark paid, owed drops")
+section("payout weeks: 7-day weeks, due 14 days after week start, mark paid, owed drops")
 detail_b1 = s.get(BASE + f"/api/owner/bookings/{b1['id']}", timeout=TIMEOUT).json()
 check("owner detail records completed_at + payout_paid false",
       detail_b1.get("completed_at") and detail_b1.get("payout_paid") is False,

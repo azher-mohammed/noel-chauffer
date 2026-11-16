@@ -52,7 +52,7 @@ from flights import (  # noqa: E402
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FORBIDDEN_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fee",
-                  "fare_total", "customer_total", "subtotal", "profit"}
+                  "fare_total", "customer_total", "subtotal", "profit", "tax"}
 
 TERMINAL_PICKUP = "Terminal 4 Arrivals, Jamaica, Queens, New York, 11430, United States"
 HOTEL = "The Plaza Hotel, 5th Avenue, New York, NY 10019, United States"

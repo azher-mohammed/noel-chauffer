@@ -18,7 +18,7 @@ Pricing assertions use the live geo result: miles are read back from the
 owner booking detail and the expected totals are computed with the same
 pricing module the server uses. When live geo returns 18.0 miles for
 JFK Airport -> Times Square (as verified before), the exact figures
-$160.60 / $72.00 / $140.60 / $180.95 / $90.50 / $175.60 are asserted too.
+$235.37 / $72.00 / $235.37 / $253.87 / $90.50 / $250.37 are asserted too.
 """
 
 import os
@@ -63,7 +63,7 @@ s = requests.Session()  # owner session (cookie jar)
 anon = requests.Session()
 
 FORBIDDEN_OFFER_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fee",
-                        "fare_total", "customer_total", "subtotal", "profit"}
+                        "fare_total", "customer_total", "subtotal", "profit", "tax"}
 
 # ------------------------------------------------------------------ boot ---
 
@@ -98,7 +98,7 @@ for root, _dirs, names in os.walk(repo_dir):
 
 resp = anon.post(BASE + "/api/drivers/register", data={
     "name": "Verify Driver One", "phone": "+15550001111", "email": "d1@test.com",
-    "car_model": "Cadillac Escalade", "car_year": "2023", "car_colour": "Black", "plate": "T11111",
+    "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T11111",
     "bank_account_number": "123456789", "bank_routing_number": "021000021",
 }, files={
     "profile_photo": ("photo.jpg", photo, "image/jpeg"),
@@ -128,11 +128,24 @@ check("full bank number never in /me",
 
 resp = anon.post(BASE + "/api/drivers/register", data={
     "name": "Verify Driver Two", "phone": "+15550002222", "email": "d2@test.com",
-    "car_model": "Lincoln Navigator", "car_year": "2024", "car_colour": "Black", "plate": "T22222",
+    "car_model": "Lincoln Continental", "car_year": "2024", "car_colour": "Black", "plate": "T22222",
     "bank_account_number": "987654321", "bank_routing_number": "021000021",
 }, files={"profile_photo": ("photo.jpg", photo, "image/jpeg")}, timeout=TIMEOUT)
 check("driver2 register 201", resp.status_code == 201, resp.text[:200])
 token2 = resp.json()["token"]
+
+resp = anon.post(BASE + "/api/drivers/register", data={
+    "name": "Verify Driver Three", "phone": "+15550001234", "email": "d3@test.com",
+    "car_model": "Cadillac Escalade", "car_year": "2024", "car_colour": "Black", "plate": "T33333",
+    "bank_account_number": "111222333", "bank_routing_number": "021000021",
+}, files={"profile_photo": ("photo.jpg", photo, "image/jpeg")}, timeout=TIMEOUT)
+check("driver3 (SUV) register 201", resp.status_code == 201, resp.text[:200])
+d3 = resp.json()["driver"]
+token3 = resp.json()["token"]
+check("driver3 class derived as SUV", d3["vehicle_class"] == "suv"
+      and d3["vehicle_class_label"] == "Business SUV", str(d3))
+check("driver1 class derived as sedan", d1["vehicle_class"] == "sedan"
+      and d1["vehicle_class_label"] == "Business Class", str(d1))
 
 resp = anon.post(BASE + "/api/drivers/register", data={
     "name": "Dup", "phone": "+15550001111", "car_model": "Cadillac Escalade",
@@ -208,7 +221,9 @@ check("one-way driver matches pricing formula",
       approx(detail["driver_earnings"], expected1["driver_earnings"]),
       f"got {detail['driver_earnings']} expected {expected1['driver_earnings']}")
 if miles1 == Decimal("18.0"):
-    check("18.0 mi total is exactly $160.60", approx(detail["customer_total"], "160.60"))
+    check("18.0 mi total is exactly $235.37", approx(detail["customer_total"], "235.37"))
+    check("18.0 mi fare/tax/gratuity", approx(detail["fare"], "198.00")
+          and approx(detail["tax"], "17.57") and approx(detail["gratuity"], "19.80"), str(detail))
     check("18.0 mi driver is exactly $72.00", approx(detail["driver_earnings"], "72.00"))
 
 resp = anon.get(BASE + f"/api/bookings/{b1['id']}", timeout=TIMEOUT)
@@ -230,12 +245,12 @@ check("referral booking 201", resp.status_code == 201, resp.text[:200])
 b_ref = resp.json()["booking"]
 detail_ref = s.get(BASE + f"/api/owner/bookings/{b_ref['id']}", timeout=TIMEOUT).json()
 expected_ref = compute_one_way(Decimal(str(detail_ref["miles"])), referral=True)
-check("referral total = formula minus exactly $20",
+check("referral total = formula (discount $0 for now)",
       approx(detail_ref["customer_total"], expected_ref["total"]),
       f"got {detail_ref['customer_total']} expected {expected_ref['total']}")
 if Decimal(str(detail_ref["miles"])) == Decimal("18.0"):
-    check("18.0 mi referral total is exactly $140.60",
-          approx(detail_ref["customer_total"], "140.60"))
+    check("18.0 mi referral total is exactly $235.37 (no discount)",
+          approx(detail_ref["customer_total"], "235.37"))
 
 # Hourly booking
 resp = anon.post(BASE + "/api/bookings", json={
@@ -248,8 +263,9 @@ b_hourly = resp.json()["booking"]
 detail_h = s.get(BASE + f"/api/owner/bookings/{b_hourly['id']}", timeout=TIMEOUT).json()
 check("hourly 3h total $270.00", approx(detail_h["customer_total"], "270.00"), str(detail_h))
 check("hourly 3h driver $150.00", approx(detail_h["driver_earnings"], "150.00"))
-check("hourly has NO fee and NO gratuity",
-      approx(detail_h["booking_fee"], "0.00") and approx(detail_h["gratuity"], "0.00"),
+check("hourly has NO fee, NO gratuity, NO tax, NO class",
+      approx(detail_h["booking_fee"], "0.00") and approx(detail_h["gratuity"], "0.00")
+      and approx(detail_h["tax"], "0.00") and detail_h["vehicle_class"] is None,
       str(detail_h))
 
 # Toll recompute on a fresh booking
@@ -269,8 +285,97 @@ check("toll $18.50 recomputes total per formula",
 check("toll $18.50 recomputes driver per formula",
       approx(detail_t["driver_earnings"], expected_t["driver_earnings"]))
 if Decimal(str(detail_t["miles"])) == Decimal("18.0"):
-    check("18.0 mi + toll total is exactly $180.95", approx(detail_t["customer_total"], "180.95"))
+    check("18.0 mi + toll total is exactly $253.87", approx(detail_t["customer_total"], "253.87"))
     check("18.0 mi + toll driver is exactly $90.50", approx(detail_t["driver_earnings"], "90.50"))
+
+# ------------------------------------------------- class selection ---------
+
+section("options page: form -> class totals -> pick class -> pay -> class-filtered dispatch")
+anon.post(BASE + "/api/drivers/me/availability", json={"available": True},
+          headers={"X-Driver-Token": token3}, timeout=TIMEOUT)
+anon.post(BASE + "/api/drivers/me/availability", json={"available": True},
+          headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+resp = anon.post(BASE + "/api/bookings", json={
+    "customer_name": "Class Customer", "phone": "+15550004545", "email": "cc@test.com",
+    "pickup": "JFK Airport", "dropoff": "Times Square, New York",
+    "date": "2030-06-06", "time": "12:00", "ride_type": "one_way",
+}, timeout=TIMEOUT)
+check("class booking create 201", resp.status_code == 201, resp.text[:200])
+b_class = resp.json()["booking"]
+detail_c = s.get(BASE + f"/api/owner/bookings/{b_class['id']}", timeout=TIMEOUT).json()
+miles_c = Decimal(str(detail_c["miles"]))
+exp_sedan = compute_one_way(miles_c)
+exp_suv = compute_one_way(miles_c, vehicle_class="suv")
+check("class booking defaults to sedan (Business Class)",
+      b_class["vehicle_class"] == "sedan"
+      and b_class["vehicle_class_label"] == "Business Class", str(b_class))
+check("class_totals match both class formulas",
+      approx(b_class["class_totals"]["sedan"], exp_sedan["total"])
+      and approx(b_class["class_totals"]["suv"], exp_suv["total"]), str(b_class.get("class_totals")))
+resp = anon.post(BASE + f"/api/bookings/{b_class['id']}/vehicle-class",
+                 json={"vehicle_class": "suv"}, timeout=TIMEOUT)
+check("switch to SUV 200", resp.status_code == 200, resp.text[:200])
+check("SUV total + label after switch",
+      approx(resp.json()["booking"]["total"], exp_suv["total"])
+      and resp.json()["booking"]["vehicle_class_label"] == "Business SUV", str(resp.json()))
+detail_c = s.get(BASE + f"/api/owner/bookings/{b_class['id']}", timeout=TIMEOUT).json()
+check("owner breakdown matches SUV formula",
+      approx(detail_c["fare"], exp_suv["fare"]) and approx(detail_c["tax"], exp_suv["tax"])
+      and approx(detail_c["driver_earnings"], exp_suv["driver_earnings"])
+      and approx(detail_c["profit"], exp_suv["profit"]), str(detail_c))
+resp = anon.post(BASE + f"/api/bookings/{b_class['id']}/vehicle-class",
+                 json={"vehicle_class": "luxury"}, timeout=TIMEOUT)
+check("invalid class -> 400", resp.status_code == 400, str(resp.status_code))
+resp = anon.post(BASE + f"/api/bookings/{b_hourly['id']}/vehicle-class",
+                 json={"vehicle_class": "suv"}, timeout=TIMEOUT)
+check("class switch on hourly -> 409", resp.status_code == 409, str(resp.status_code))
+resp = anon.post(BASE + f"/api/bookings/{b_class['id']}/vehicle-class",
+                 json={"vehicle_class": "sedan"}, timeout=TIMEOUT)
+check("switch back to sedan restores sedan total",
+      resp.status_code == 200 and approx(resp.json()["booking"]["total"], exp_sedan["total"]),
+      resp.text[:200])
+resp = anon.post(BASE + f"/api/bookings/{b_class['id']}/pay", json={
+    "card_number": "4242424242424242", "card_exp": "12/30",
+    "card_cvc": "123", "card_name": "Class Customer"}, timeout=TIMEOUT)
+check("class booking pays sedan total", resp.status_code == 200
+      and approx(resp.json()["payment"]["amount"], exp_sedan["total"]), resp.text[:200])
+resp = anon.post(BASE + f"/api/bookings/{b_class['id']}/vehicle-class",
+                 json={"vehicle_class": "suv"}, timeout=TIMEOUT)
+check("class switch after payment -> 409", resp.status_code == 409, str(resp.status_code))
+resp = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("sedan driver sees the sedan booking",
+      any(o["booking_id"] == b_class["id"] for o in resp.json()), str(resp.json()))
+resp = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token3}, timeout=TIMEOUT)
+check("SUV driver does NOT see the sedan booking",
+      all(o["booking_id"] != b_class["id"] for o in resp.json()), str(resp.json()))
+resp = anon.post(BASE + f"/api/bookings/{b_class['id']}/cancel", json={"phone": "+15550004545"}, timeout=TIMEOUT)
+check("class booking cancelled + refunded (keeps later checks clean)",
+      resp.status_code == 200 and resp.json()["refund"] is True, resp.text[:150])
+
+# SUV path: switch before paying, then only the SUV driver sees it.
+resp = anon.post(BASE + "/api/bookings", json={
+    "customer_name": "SUV Customer", "phone": "+15550004646", "email": "suv@test.com",
+    "pickup": "JFK Airport", "dropoff": "Times Square, New York",
+    "date": "2030-06-07", "time": "12:00", "ride_type": "one_way",
+}, timeout=TIMEOUT)
+b_class2 = resp.json()["booking"]
+anon.post(BASE + f"/api/bookings/{b_class2['id']}/vehicle-class",
+          json={"vehicle_class": "suv"}, timeout=TIMEOUT)
+anon.post(BASE + f"/api/bookings/{b_class2['id']}/pay", json={
+    "card_number": "4242424242424242", "card_exp": "12/30",
+    "card_cvc": "123", "card_name": "SUV Customer"}, timeout=TIMEOUT)
+resp = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token3}, timeout=TIMEOUT)
+check("SUV driver sees the SUV booking",
+      any(o["booking_id"] == b_class2["id"] for o in resp.json()), str(resp.json()))
+resp = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("sedan driver does NOT see the SUV booking",
+      all(o["booking_id"] != b_class2["id"] for o in resp.json()), str(resp.json()))
+resp = anon.post(BASE + f"/api/drivers/me/offers/{b_class2['id']}/accept",
+                 headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("sedan driver direct-accept of SUV booking -> 409", resp.status_code == 409, str(resp.status_code))
+resp = anon.post(BASE + f"/api/bookings/{b_class2['id']}/cancel", json={"phone": "+15550004646"}, timeout=TIMEOUT)
+check("SUV booking cancelled + refunded",
+      resp.status_code == 200 and resp.json()["refund"] is True, resp.text[:150])
 
 # ------------------------------------------------- pay / offers / accept ---
 
@@ -367,7 +472,7 @@ check("waiting 75 min at airport = $15.00", approx(inv.get("waiting_charge"), ex
 check("invoice = fare + waiting",
       approx(inv.get("total"), Decimal(str(expected1["total"])) + expected_wait), str(inv))
 if miles1 == Decimal("18.0"):
-    check("invoice total is exactly $175.60", approx(inv.get("total"), "175.60"))
+    check("invoice total is exactly $250.37", approx(inv.get("total"), "250.37"))
 resp = anon.get(BASE + f"/api/bookings/{b1['id']}", timeout=TIMEOUT)
 got = resp.json()["booking"]
 check("GET invoice after complete", got["invoice"] and approx(got["invoice"]["total"], inv.get("total")))
@@ -386,11 +491,11 @@ check("driver photo bytes round-trip from DB", resp.status_code == 200 and resp.
 section("owner documents view + outbox")
 resp = s.get(BASE + "/api/owner/drivers", timeout=TIMEOUT)
 drivers = resp.json()
-check("owner drivers list has 2 drivers", len(drivers) == 2, str(drivers))
+check("owner drivers list has 3 drivers", len(drivers) == 3, str(drivers))
 d1row = [d for d in drivers if d["phone"] == "+15550001111"][0]
 check("owner drivers: docs + doc_ids + masked bank + car",
       d1row["docs"]["fh1_insurance"] == "completed" and "fh1_insurance" in d1row["doc_ids"]
-      and d1row["bank_masked"] == "••••6789" and d1row["car"] == "Cadillac Escalade (Black)",
+      and d1row["bank_masked"] == "••••6789" and d1row["car"] == "Cadillac CT6 (Black)",
       str(d1row))
 check("full bank number never in owner drivers list",
       "123456789" not in resp.text and "021000021" not in resp.text)
@@ -549,6 +654,7 @@ rows = s.get(BASE + "/api/owner/bookings", timeout=TIMEOUT).json()
 profit_sum = Decimal("0.00")
 gross_sum = Decimal("0.00")
 owed_sum = Decimal("0.00")
+tax_sum = Decimal("0.00")
 for row in rows:
     det = s.get(BASE + f"/api/owner/bookings/{row['id']}", timeout=TIMEOUT).json()
     statuses = [p["status"] for p in det["payments"]]
@@ -568,13 +674,17 @@ for row in rows:
         profit_sum += contribution
         check(f"row profit reconciles (booking {row['id']})",
               approx(Decimal(str(row["customer_total"])) + Decimal(str(row["waiting_charge"]))
-                     - Decimal(str(row["driver_earnings"])), row["profit"]), str(row))
+                     - Decimal(str(row["driver_earnings"])) - Decimal(str(row["tax"])),
+                     row["profit"]), str(row))
+        tax_sum += Decimal(str(row["tax"]))
 check("per-ride profits sum to summary profit", approx(profit_sum, summary["profit"]),
       f"sum {profit_sum} vs summary {summary['profit']}")
 check("per-ride gross sums to summary gross", approx(gross_sum, summary["gross"]),
       f"sum {gross_sum} vs summary {summary['gross']}")
 check("per-ride driver sums to summary driver_owed", approx(owed_sum, summary["driver_owed"]),
       f"sum {owed_sum} vs summary {summary['driver_owed']}")
+check("per-ride tax sums to summary tax_collected", approx(tax_sum, summary["tax_collected"]),
+      f"sum {tax_sum} vs summary {summary['tax_collected']}")
 check("driver_owed counts only the completed trip (kept-price cancel excluded)",
       approx(summary["driver_owed"], expected1["driver_earnings"]),
       f"owed {summary['driver_owed']} expected {expected1['driver_earnings']}")
@@ -654,8 +764,8 @@ for path in ("/static/js/customer.js", "/static/js/driver.js", "/static/js/owner
     r = anon.get(BASE + path, timeout=TIMEOUT)
     check(f"static {path} 200", r.status_code == 200 and len(r.content) > 100, str(r.status_code))
 
-banned = [r"\$7", r"\$20", r"\$4", r"\$90", r"\$50", "per mile", "booking fee",
-          "gratuity", "dispatch"]
+banned = [r"\$7", r"\$20", r"\$4", r"\$90", r"\$50", r"\$11", r"\$12",
+          "per mile", "booking fee", "gratuity", "dispatch", "Book a ride"]
 customer_driver_files = ["static/index.html", "static/driver.html",
                          "static/css/customer.css", "static/css/driver.css",
                          "static/js/customer.js", "static/js/driver.js"]
@@ -673,6 +783,11 @@ for rel in customer_driver_files:
         dollar_literals.add(m.group(0).rstrip(".,"))
 check("only permitted dollar literal is $1/min",
       dollar_literals <= {"$1/min"}, str(sorted(dollar_literals)))
+idx = open(os.path.join(repo_dir, "static/index.html"), encoding="utf-8").read()
+check("options page present in index.html",
+      "View options" in idx and "Choose your experience" in idx
+      and "Business Class" in idx and "Business SUV" in idx
+      and "class-step" in idx and "class-trip-summary" in idx, "missing options copy")
 
 backend_files = ["app.py", "pricing.py", "geo.py"]
 send_hits = []

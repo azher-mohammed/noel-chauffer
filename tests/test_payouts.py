@@ -47,7 +47,7 @@ from payouts import ANCHOR, PAYOUT_INTERVAL_DAYS, WEEK_DAYS, completion_date, we
 
 D = Decimal
 FORBIDDEN_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fee",
-                  "fare_total", "customer_total", "subtotal", "profit"}
+                  "fare_total", "customer_total", "subtotal", "profit", "tax"}
 
 
 def _utc(y, mo, d, h=15, mi=0):
@@ -138,7 +138,7 @@ class PayoutApiCase(unittest.TestCase):
         resp = self.client.post("/api/drivers/register", data={
             "name": f"Test Driver {self._driver_seq}", "phone": phone,
             "email": f"d{self._driver_seq}@test.com",
-            "car_model": "Cadillac Escalade", "car_year": "2023", "car_colour": "Black",
+            "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black",
             "plate": f"T{self._driver_seq:05d}",
             "bank_account_number": "123456789", "bank_routing_number": "021000021",
             "profile_photo": (io.BytesIO(b"\xff\xd8\xff fake"), "photo.jpg"),
@@ -263,7 +263,7 @@ class PayoutApiCase(unittest.TestCase):
         for ride in body["rides"]:
             self.assertFalse(set(ride) & FORBIDDEN_KEYS, str(ride))
         # The customer fare total must never appear in the driver response.
-        self.assertNotIn("160.60", resp.get_data(as_text=True))
+        self.assertNotIn("235.37", resp.get_data(as_text=True))
 
     # -- mark-paid --------------------------------------------------------
     def test_mark_paid_requires_owner_pin(self):
@@ -386,7 +386,7 @@ class PayoutApiCase(unittest.TestCase):
         summary = self.owner_summary()
         self.assertEqual(D(str(summary["driver_owed"])), D("0.00"))
         # Gross still includes the kept payment.
-        self.assertEqual(D(str(summary["gross"])), D("160.60"))
+        self.assertEqual(D(str(summary["gross"])), D("235.37"))
 
     def test_refunded_completed_trip_is_excluded(self):
         _driver, token = self.register_driver()

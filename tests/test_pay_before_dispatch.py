@@ -11,9 +11,10 @@ The old rule (total + payment only after a driver accepts) is dead.
 - Driver accept -> trip stages run with no second payment step.
 - Free cancellation (>1h) refunds the upfront payment in full; late
   cancellation / no-show keeps the full price.
-- Hourly rides follow the same flow; referral codes still waive the
-  $20 fee inside the shown total.
-- Driver payloads never carry miles, fare, or total anywhere.
+- Hourly rides follow the same flow; referral codes are accepted but
+  give a $0 discount for now (the old $20-fee waiver is dead: there is
+  no fee; a new benefit is TBD).
+- Driver payloads never carry miles, fare, tax, or total anywhere.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -39,14 +40,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles (same as the other
-# API test modules): total $160.60, driver $72.00, referral $140.60.
+# API test modules): total $235.37, driver $72.00, referral $235.37.
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FORBIDDEN_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fee",
-                  "fare_total", "customer_total", "subtotal", "profit"}
+                  "fare_total", "customer_total", "subtotal", "profit", "tax"}
 CARD = {"card_number": "4242424242424242", "card_exp": "12/30",
         "card_cvc": "123", "card_name": "Pay Flow Customer"}
 
@@ -71,7 +72,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         resp = self.client.post("/api/drivers/register", data={
             "name": f"Pay Driver {self._driver_seq}", "phone": phone,
             "email": f"pd{self._driver_seq}@test.com",
-            "car_model": "Cadillac Escalade", "car_year": "2023", "car_colour": "Black",
+            "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black",
             "plate": f"P{self._driver_seq:05d}",
             "bank_account_number": "123456789", "bank_routing_number": "021000021",
             "profile_photo": (io.BytesIO(b"\xff\xd8\xff fake"), "photo.jpg"),
@@ -111,12 +112,12 @@ class PayBeforeDispatchCase(unittest.TestCase):
     def test_create_returns_total_and_awaiting_payment(self):
         booking = self.book()
         self.assertEqual(booking["status"], "awaiting_payment")
-        self.assertTrue(approx(booking["total"], "160.60"), booking)
+        self.assertTrue(approx(booking["total"], "235.37"), booking)
 
     def test_total_visible_before_any_driver_accept(self):
         booking = self.book()
         got = self.get_booking(booking["id"])
-        self.assertTrue(approx(got["total"], "160.60"), got)
+        self.assertTrue(approx(got["total"], "235.37"), got)
         self.assertIsNone(got["driver"])
         self.assertIs(got["tracking"]["visible"], False)
 
@@ -151,7 +152,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertEqual(payment["status"], "succeeded")
         self.assertIs(payment["test"], True)
         self.assertEqual(payment["last4"], "4242")
-        self.assertTrue(approx(payment["amount"], "160.60"))
+        self.assertTrue(approx(payment["amount"], "235.37"))
         self.assertEqual(resp.get_json()["booking"]["status"], "offered")
         offers = self.client.get("/api/drivers/me/offers",
                                  headers={"X-Driver-Token": token}).get_json()
@@ -186,7 +187,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         got = self.get_booking(booking["id"])
         self.assertEqual(got["driver"]["name"], "Pay Driver 1")
-        self.assertTrue(approx(got["total"], "160.60"))
+        self.assertTrue(approx(got["total"], "235.37"))
         for event in ("en_route", "arrived", "start", "complete"):
             resp = self.client.post(f"/api/drivers/me/trip/{booking['id']}/event",
                                     json={"event": event, "waiting_minutes": 75}
@@ -196,7 +197,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
                              f"{event}: {resp.get_data(as_text=True)[:200]}")
         got = self.get_booking(booking["id"])
         self.assertEqual(got["status"], "completed")
-        self.assertTrue(approx(got["invoice"]["total"], "175.60"))
+        self.assertTrue(approx(got["invoice"]["total"], "250.37"))
 
     def test_driver_cancel_keeps_payment_and_redispatches(self):
         _, token1 = self.register_driver()
@@ -213,7 +214,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         # Customer still sees the total; driver details are gone again.
         got = self.get_booking(booking["id"])
         self.assertIsNone(got["driver"])
-        self.assertTrue(approx(got["total"], "160.60"))
+        self.assertTrue(approx(got["total"], "235.37"))
         # Payment kept; the other driver sees the offer again.
         self.owner_login()
         detail = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
@@ -286,7 +287,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertEqual(detail["status"], "no_show")
         self.assertEqual(detail["payments"][0]["status"], "succeeded")
         summary = self.client.get("/api/owner/summary").get_json()
-        self.assertTrue(approx(summary["gross"], "160.60"), summary)
+        self.assertTrue(approx(summary["gross"], "235.37"), summary)
 
     # -- hourly + referral follow the same flow --------------------------------
     def test_hourly_same_flow(self):
@@ -329,10 +330,10 @@ class PayBeforeDispatchCase(unittest.TestCase):
         code = first["referral_code"]
         self.assertTrue(code)
         referred = self.book(referral_code=code)
-        self.assertTrue(approx(referred["total"], "140.60"), referred)
+        self.assertTrue(approx(referred["total"], "235.37"), referred)
         resp = self.pay(referred["id"])
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "140.60"))
+        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "235.37"))
 
     # -- driver visibility boundary ---------------------------------------------
     def test_driver_payloads_never_carry_fare_or_miles(self):
@@ -360,10 +361,10 @@ class PayBeforeDispatchCase(unittest.TestCase):
             phone_p = app_module.db.session.get(app_module.Booking, paid["id"]).phone
         hist_u = self.client.get("/api/bookings", query_string={"phone": phone_u}).get_json()
         self.assertEqual(len(hist_u), 1)
-        self.assertTrue(approx(hist_u[0]["total"], "160.60"), hist_u)
+        self.assertTrue(approx(hist_u[0]["total"], "235.37"), hist_u)
         hist_p = self.client.get("/api/bookings", query_string={"phone": phone_p}).get_json()
         self.assertEqual(len(hist_p), 1)
-        self.assertTrue(approx(hist_p[0]["total"], "160.60"), hist_p)
+        self.assertTrue(approx(hist_p[0]["total"], "235.37"), hist_p)
 
     # -- static copy matches the new flow ----------------------------------------
     def test_static_copy_matches_new_flow(self):
@@ -380,6 +381,14 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertIn("You pay by card on this page, right after you book.", index)
         self.assertIn("awaiting_payment", customer_js)
         self.assertNotIn('st === "paid"', customer_js)
+        # Options page: "View options" opens the class page; the old
+        # "Book a ride" label is gone everywhere user-visible.
+        self.assertIn('id="book-submit">View options<', index)
+        self.assertIn("Choose your experience", index)
+        self.assertIn("Business Class", index)
+        self.assertIn("Business SUV", index)
+        self.assertNotIn("Book a ride", index)
+        self.assertNotIn("Book a ride", customer_js)
 
 
 if __name__ == "__main__":

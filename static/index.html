@@ -23,7 +23,7 @@
   <div class="header-inner">
     <a class="wordmark" href="#top">Noel <span>Chauffer</span></a>
     <nav class="main-nav" aria-label="Main">
-      <a href="#book">Book a ride</a>
+      <a href="#book">Book</a>
       <a href="#experience">Experience</a>
       <a href="#why">Why us</a>
       <a href="#policy">Cancellation &amp; waiting</a>
@@ -31,7 +31,7 @@
       <a href="#contacts">Contacts</a>
       <a href="#history">Ride history</a>
     </nav>
-    <a class="header-cta" href="#book">Book a ride</a>
+    <a class="header-cta" href="#book">Book</a>
   </div>
 </header>
 
@@ -46,13 +46,13 @@
           <li>Door opened for you, luggage carried</li>
           <li>Music and temperature set the way you like</li>
           <li>Phone chargers in every car</li>
-          <li>One single total — see the price, pay by card, then your chauffeur is assigned</li>
+          <li>Choose your class, see one single total, pay by card — then your chauffeur is assigned</li>
         </ul>
       </div>
 
       <div class="booking-card" id="booking-card">
         <h2>Book your ride</h2>
-        <p class="sub">Tell us where you are going. You will see your total, pay by card, and then your chauffeur will be assigned.</p>
+        <p class="sub">Tell us where you are going. You will choose your class, see your total, pay by card, and then your chauffeur will be assigned.</p>
 
         <div class="ride-tabs" role="tablist" aria-label="Ride type">
           <button type="button" class="ride-tab active" id="tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true">One way</button>
@@ -109,9 +109,9 @@
             <label for="bk-referral">Referral code (optional)</label>
             <input id="bk-referral" name="referral_code" type="text" autocomplete="off" placeholder="If a friend referred you, enter their code">
           </div>
-          <button class="btn-primary" type="submit" id="book-submit">Book a ride</button>
+          <button class="btn-primary" type="submit" id="book-submit">View options</button>
           <p class="form-error" id="booking-error" role="alert"></p>
-          <p class="form-note">After you book, you will see one single total for the ride and pay by card. Your chauffeur is assigned right after payment, and the chauffeur's details are sent to your phone and email.</p>
+          <p class="form-note">After you tap View options, choose your class — Business Class or Business SUV — and you will see one single total for the ride, then pay by card. Your chauffeur is assigned right after payment, and the chauffeur's details are sent to your phone and email.</p>
         </form>
       </div>
     </div>
@@ -133,6 +133,30 @@
         <button type="button" class="btn-ghost" id="flight-skip">Skip</button>
       </div>
       <button type="button" class="btn-text" id="flight-back">← Back to booking form</button>
+    </div>
+  </section>
+
+  <!-- CHOOSE YOUR EXPERIENCE (separate options page after the booking form) -->
+  <section class="class-section hidden" id="class-step" aria-live="polite">
+    <div class="booking-card">
+      <h2>Choose your experience</h2>
+      <p class="sub" id="class-trip-summary"></p>
+      <div class="class-options" role="radiogroup" aria-label="Choose your vehicle class">
+        <button type="button" class="class-option selected" id="class-option-sedan" data-vehicle-class="sedan" role="radio" aria-checked="true">
+          <span class="class-option-name">Business Class</span>
+          <span class="class-option-total" id="class-total-sedan"></span>
+        </button>
+        <button type="button" class="class-option" id="class-option-suv" data-vehicle-class="suv" role="radio" aria-checked="false">
+          <span class="class-option-name">Business SUV</span>
+          <span class="class-option-total" id="class-total-suv"></span>
+        </button>
+      </div>
+      <p class="form-note">One single total per class, tax included. No breakdown, no hidden charges.</p>
+      <p class="form-error" id="class-error" role="alert"></p>
+      <div class="class-actions">
+        <button type="button" class="btn-primary" id="class-continue">Select Business Class</button>
+      </div>
+      <button type="button" class="btn-text" id="class-back">← Back to booking form</button>
     </div>
   </section>
 
@@ -254,7 +278,7 @@
     <p class="intro">A calm ride starts long before pickup.</p>
     <div class="grid-3">
       <div class="tile"><div class="glyph">✓</div><h3>Professional chauffeurs</h3><p>Experienced, courteous drivers who know the roads and respect your time.</p></div>
-      <div class="tile"><div class="glyph">✓</div><h3>Recent high-end cars</h3><p>Clean, comfortable, recent sedans and SUVs, prepared for every ride.</p></div>
+      <div class="tile"><div class="glyph">✓</div><h3>Recent high-end cars</h3><p>Clean, comfortable, recent cars, prepared for every ride.</p></div>
       <div class="tile"><div class="glyph">✓</div><h3>On-time pickups</h3><p>Your chauffeur plans the route and arrives in good time, every time.</p></div>
     </div>
   </section>
@@ -266,8 +290,10 @@
     <div class="policy">
       <h3>Payment</h3>
       <ul>
+        <li>After you enter your trip, choose your class — Business Class or Business SUV. Each class shows its own single total.</li>
+        <li>You always see one single total before you pay — tax included, no breakdown, no hidden charges.</li>
         <li>You pay by card on this page, right after you book.</li>
-        <li>You always see one single total before you pay — no breakdown, no hidden charges.</li>
+        <li>Your chauffeur is assigned right after payment.</li>
         <li>If you cancel more than 1 hour before pickup, your payment is refunded in full.</li>
       </ul>
       <h3>Cancellation</h3>

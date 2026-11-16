@@ -1,6 +1,9 @@
 /* Noel Chauffer — driver app logic.
    The driver sees ONLY his own earnings per job. No other money figure
-   is ever displayed. Offers show the earnings value from the API as-is. */
+   is ever displayed. Offers show the earnings value from the API as-is.
+   Job offers reach only drivers whose vehicle class matches the
+   booking's class (Business Class / Business SUV); hourly rides reach
+   every available driver. */
 (function () {
   "use strict";
 
@@ -30,6 +33,13 @@
     start: "Start trip",
     complete: "Complete trip"
   };
+  /* Customer-facing class names, as the API returns them in
+     vehicle_class_label; the map is only a fallback. */
+  var CLASS_LABELS = { sedan: "Business Class", suv: "Business SUV" };
+  function classLabelFor(obj) {
+    if (!obj) return "";
+    return obj.vehicle_class_label || CLASS_LABELS[obj.vehicle_class] || "";
+  }
 
   var state = {
     token: null,
@@ -154,6 +164,8 @@
       time: b.time,
       ride_type: b.ride_type,
       hours: b.hours,
+      vehicle_class: b.vehicle_class,
+      vehicle_class_label: b.vehicle_class_label,
       earnings: pickNumber(b, ["earnings", "driver_earnings", "amount"]),
       route_url: b.route_url,
       customer_name: b.customer_name,
@@ -372,6 +384,8 @@
       var route = esc(o.pickup || "");
       if (o.dropoff) route += "  →  " + esc(o.dropoff);
       var when = [o.date, o.time].filter(Boolean).join(" · ");
+      var cls = classLabelFor(o);
+      if (cls) when += (when ? " · " : "") + cls;
       if (o.ride_type === "hourly") when += (when ? " · " : "") + "By the hour" + (o.hours ? " · " + o.hours + " hour(s)" : "");
       var earnings = pickNumber(o, ["earnings", "driver_earnings", "amount"]);
       var html = '<div class="route">' + route + "</div>" +
@@ -416,6 +430,8 @@
     if (t.dropoff) route += "  →  " + esc(t.dropoff);
     $("trip-route").innerHTML = route;
     var when = [t.date, t.time].filter(Boolean).join(" · ");
+    var cls = classLabelFor(t);
+    if (cls) when += (when ? " · " : "") + cls;
     if (t.ride_type === "hourly") when += (when ? " · " : "") + "By the hour" + (t.hours ? " · " + t.hours + " hour(s)" : "");
     $("trip-when").textContent = when;
     var cust = "";
@@ -595,6 +611,8 @@
             if (r.dropoff) route += " → " + esc(r.dropoff);
           }
           var meta = [r.date, r.time].filter(Boolean).join(" · ");
+          var rcls = classLabelFor(r);
+          if (rcls) meta += (meta ? " · " : "") + rcls;
           if (r.payout_status === "paid" || r.payout_paid === true) {
             meta += (meta ? " · " : "") + "Paid";
           } else if (r.payout_status === "unpaid" || r.payout_paid === false) {
@@ -694,6 +712,7 @@
       '<div class="profile-row"><span class="k">Phone</span><span>' + esc(d.phone || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Email</span><span>' + esc(d.email || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Car</span><span>' + esc(carBits || "—") + "</span></div>" +
+      '<div class="profile-row"><span class="k">Vehicle class</span><span>' + esc(classLabelFor(d) || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Plate</span><span>' + esc(d.plate || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Bank account</span><span>' + esc(bankText) + "</span></div>";
     $("profile-card").innerHTML = html;

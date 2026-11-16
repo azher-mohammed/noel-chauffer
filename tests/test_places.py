@@ -75,7 +75,7 @@ NOMINATIM_OK = [
 ]
 
 FORBIDDEN_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fee",
-                  "fare_total", "customer_total", "subtotal", "profit"}
+                  "fare_total", "customer_total", "subtotal", "profit", "tax"}
 
 
 class PlacesTestCase(unittest.TestCase):

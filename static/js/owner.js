@@ -114,6 +114,7 @@
     $("sum-gross").textContent = money(pick(inner, ["gross", "gross_revenue", "revenue", "total_collected"]));
     $("sum-profit").textContent = money(pick(inner, ["profit", "net_profit", "total_profit"]));
     $("sum-owed").textContent = money(pick(inner, ["driver_owed", "driver_payable", "owed_to_drivers", "unpaid_driver_earnings"]));
+    $("sum-tax").textContent = money(pick(inner, ["tax_collected", "total_tax", "tax"]));
     var rides = pick(inner, ["ride_count", "rides", "total_rides", "booking_count", "bookings"]);
     var counts = inner.counts || {};
     if ((rides === null || rides === undefined) && counts && typeof counts === "object") {
@@ -147,6 +148,8 @@
     var inv = b.invoice || {};
     return {
       paid: pick(b, ["customer_paid", "total", "amount", "customer_total", "charged"]),
+      fare: pick(b, ["fare", "fare_amount", "base_fare"]),
+      tax: pick(b, ["tax", "tax_collected", "tax_amount"]),
       driver: pick(b, ["driver_share", "driver_earnings", "driver_pay", "driver_amount"]),
       toll: pick(b, ["toll", "toll_amount"]) !== null ? pick(b, ["toll", "toll_amount"]) : pick(inv, ["toll"]),
       gratuity: pick(b, ["gratuity", "tip", "gratuity_amount"]),
@@ -170,13 +173,16 @@
           /* The API returns the ready-made `route` string on list rows. */
           var route = b.route ? esc(b.route) : (esc(b.pickup || "") + (b.dropoff ? " → " + esc(b.dropoff) : ""));
           var tr = document.createElement("tr");
+          var classBit = b.vehicle_class_label ? " · " + esc(b.vehicle_class_label) : "";
           tr.innerHTML =
             "<td>" + route + '<div class="sub">' + esc(whenLabel(b)) +
-            (b.ride_type === "hourly" ? " · By the hour" + (b.hours ? " · " + b.hours + " h" : "") : "") + "</div></td>" +
+            (b.ride_type === "hourly" ? " · By the hour" + (b.hours ? " · " + b.hours + " h" : "") : classBit) + "</div></td>" +
             "<td>" + esc(b.customer_name || b.name || "—") + '<div class="sub">' + esc(b.phone || "") + "</div></td>" +
             "<td>" + esc(driverName) + "</td>" +
             '<td><span class="pill">' + esc(b.status || "") + "</span></td>" +
             '<td class="num">' + esc(money(f.paid)) + "</td>" +
+            '<td class="num">' + esc(money(f.fare)) + "</td>" +
+            '<td class="num">' + esc(money(f.tax)) + "</td>" +
             '<td class="num">' + esc(money(f.driver)) + "</td>" +
             '<td class="num">' + esc(money(f.toll)) + "</td>" +
             '<td class="num">' + esc(money(f.gratuity)) + "</td>" +
@@ -295,6 +301,7 @@
           ["Drop-off", b.dropoff || (b.ride_type === "hourly" ? "By the hour" : "—")],
           ["Date / time", whenLabel(b) || "—"],
           ["Ride type", b.ride_type === "hourly" ? "By the hour" + (b.hours ? " · " + b.hours + " hour(s)" : "") : "One way"],
+          ["Vehicle class", b.vehicle_class_label || "—"],
           ["Flight", b.flight_number ? (b.flight_number + (b.airline_name ? " · " + b.airline_name : "") + (b.terminal ? " · " + b.terminal : "")) : "—"],
           ["Customer", b.customer_name || b.name || "—"],
           ["Customer phone", b.phone || b.customer_phone || "—"],
@@ -305,9 +312,11 @@
           ["Car", [driver.car_year, driver.car_model, driver.car_colour].filter(Boolean).join(" · ") || "—"],
           ["Plate", driver.plate || "—"],
           ["Customer paid", money(f.paid)],
+          ["Fare", money(f.fare)],
+          ["Gratuity", money(f.gratuity)],
+          ["Tax", money(f.tax)],
           ["Driver share", money(f.driver)],
           ["Toll", money(f.toll)],
-          ["Gratuity", money(f.gratuity)],
           ["Waiting charge", money(f.waiting)],
           ["Profit", money(f.profit)]
         ];
@@ -410,6 +419,7 @@
             "<div><h3>" + esc(d.name || "Driver") + "</h3>" +
             '<div class="meta">' + esc(d.phone || "") + (d.email ? " · " + esc(d.email) : "") + "</div>" +
             '<div class="meta">' + esc(carBits) + (d.plate ? " · Plate " + esc(d.plate) : "") + "</div>" +
+            '<div class="meta">Vehicle class: ' + esc(d.vehicle_class_label || d.vehicle_class || "—") + "</div>" +
             '<div class="meta">Bank account: ' + esc(maskBank(bank)) + "</div></div></div>";
           card.innerHTML = head;
           var chips = document.createElement("div");

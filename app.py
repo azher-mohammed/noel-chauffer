@@ -39,6 +39,7 @@ import geo as geo_module
 from car_models import (
     MIN_CAR_YEAR,
     allowed_models,
+    class_for_model,
     max_car_year,
     validate_car_model,
     validate_car_year,
@@ -47,6 +48,8 @@ from flights import flight_info, normalize_flight_number
 from payouts import completion_date, week_bounds, week_for
 from pricing import (
     cancellation_refundable,
+    class_label,
+    compute_class_totals,
     compute_hourly,
     compute_one_way,
     invoice_total,
@@ -141,6 +144,11 @@ class Driver(db.Model):
     email = db.Column(db.String(200), nullable=False, default="")
     car_model = db.Column(db.String(120), nullable=False)
     car_year = db.Column(db.Integer, nullable=True)  # nullable: drivers registered before the year field existed
+    # Vehicle class derived from car_model at registration ("sedan" |
+    # "suv", see car_models.class_for_model). Nullable: drivers
+    # registered before the class system existed get it derived from
+    # their car model on read (driver_vehicle_class below).
+    vehicle_class = db.Column(db.String(10), nullable=True)
     car_colour = db.Column(db.String(60), nullable=False)
     plate = db.Column(db.String(40), nullable=False)
     profile_photo = db.Column(db.LargeBinary, nullable=True)
@@ -192,11 +200,23 @@ class Booking(db.Model):
     # live flight tracking: the airline name is derived from the IATA
     # code in flights.py.
     flight_number = db.Column(db.String(20), nullable=True)
+    # Vehicle class for one-way rides: "sedan" (Business Class, the
+    # default the customer sees pre-selected) or "suv" (Business SUV).
+    # Hourly rides have no class (None). Nullable: bookings created
+    # before the class system existed read as "sedan" (see
+    # booking_vehicle_class below).
+    vehicle_class = db.Column(db.String(10), nullable=True)
     status = db.Column(db.String(30), nullable=False, default="offered")
     fare_total = db.Column(Numeric(10, 2), nullable=False)
     driver_earnings = db.Column(Numeric(10, 2), nullable=False)
     gratuity = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     booking_fee = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    # Fare (miles x class rate) and NYC sales tax (8.875% of the fare),
+    # stored so the owner breakdown never has to recompute them.
+    # Nullable: bookings created before the class/tax change read via
+    # the recompute fallback in booking_fare/booking_tax below.
+    fare = db.Column(Numeric(10, 2), nullable=True)
+    tax = db.Column(Numeric(10, 2), nullable=True)
     waiting_minutes = db.Column(db.Integer, nullable=False, default=0)
     waiting_charge = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     accepted_driver_id = db.Column(db.Integer, db.ForeignKey("drivers.id"), nullable=True)
@@ -295,6 +315,32 @@ with app.app_context():
                 _conn.execute(_sa_text("ALTER TABLE drivers ADD COLUMN car_year INTEGER"))
     except Exception as exc:  # logged, never fatal at startup
         log.warning("car_year column check failed: %s", exc)
+    # Same pattern for the vehicle-class / fare / tax columns (added
+    # with the class + NYC-tax change, 2026-11-16). Nullable, so
+    # existing rows keep working; the read helpers below derive the
+    # values for rows that predate the columns.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _bcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("bookings")]
+        _badds = {
+            "vehicle_class": "ALTER TABLE bookings ADD COLUMN vehicle_class VARCHAR(10)",
+            "fare": "ALTER TABLE bookings ADD COLUMN fare NUMERIC(10, 2)",
+            "tax": "ALTER TABLE bookings ADD COLUMN tax NUMERIC(10, 2)",
+        }
+        for _name, _ddl in _badds.items():
+            if _name not in _bcols:
+                with db.engine.begin() as _conn:
+                    _conn.execute(_sa_text(_ddl))
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "vehicle_class" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE drivers ADD COLUMN vehicle_class VARCHAR(10)")
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("vehicle_class/fare/tax column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -386,8 +432,56 @@ def require_owner():
     return None
 
 
+def driver_vehicle_class(driver):
+    """A driver's vehicle class: stored at registration, or derived
+    from the car model for drivers registered before the class system
+    existed. Always "sedan" or "suv" for a validated car model."""
+    if driver.vehicle_class in ("sedan", "suv"):
+        return driver.vehicle_class
+    derived = class_for_model(driver.car_model)
+    return derived or "sedan"
+
+
+def booking_vehicle_class(booking):
+    """A booking's vehicle class: None for hourly rides; "sedan" for
+    one-way bookings created before the class system existed."""
+    if booking.ride_type == "hourly":
+        return None
+    return booking.vehicle_class if booking.vehicle_class in ("sedan", "suv") else "sedan"
+
+
+def _recomputed_breakdown(booking):
+    """Pricing breakdown recomputed from miles/hours + toll + class.
+
+    Read-only fallback for rows created before fare/tax were stored.
+    """
+    if booking.ride_type == "hourly":
+        return compute_hourly(booking.hours or Decimal("0"))
+    return compute_one_way(
+        booking.miles or Decimal("0"),
+        toll=booking.toll or Decimal("0"),
+        vehicle_class=booking_vehicle_class(booking),
+        referral=bool(booking.referral_code_used),
+    )
+
+
+def booking_fare(booking):
+    if booking.fare is not None:
+        return money(booking.fare)
+    return _recomputed_breakdown(booking)["fare"]
+
+
+def booking_tax(booking):
+    if booking.tax is not None:
+        return money(booking.tax)
+    return _recomputed_breakdown(booking)["tax"]
+
+
 def booking_profit(booking):
-    return money(booking.fare_total) + money(booking.waiting_charge) - money(booking.driver_earnings)
+    # Owner profit per ride: total + waiting - driver pay - tax.
+    # Tax is pass-through, so it never counts as profit.
+    return (money(booking.fare_total) + money(booking.waiting_charge)
+            - money(booking.driver_earnings) - booking_tax(booking))
 
 
 # ---------------------------------------------------------- payout weeks ---
@@ -444,23 +538,29 @@ def _group_payout_weeks(bookings):
 
 
 def recompute_booking_fare(booking):
-    """Recompute fare/driver/gratuity/fee from miles/hours + current toll.
+    """Recompute fare/driver/gratuity/tax/fee from miles/hours +
+    current toll + vehicle class.
 
-    Referral discount is preserved when this booking used a referral code
-    (one-way only — hourly rides have no booking fee to waive).
+    Referral codes are accepted but give a $0 discount for now (the
+    old $20-fee waiver no longer applies; a new benefit is TBD).
     """
     if booking.ride_type == "hourly":
         result = compute_hourly(booking.hours or Decimal("0"))
+        booking.vehicle_class = None
     else:
         result = compute_one_way(
             booking.miles or Decimal("0"),
             toll=booking.toll or Decimal("0"),
+            vehicle_class=booking_vehicle_class(booking),
             referral=bool(booking.referral_code_used),
         )
+        booking.vehicle_class = result["vehicle_class"]
     booking.fare_total = result["total"]
     booking.driver_earnings = result["driver_earnings"]
     booking.gratuity = result["gratuity"]
     booking.booking_fee = result["booking_fee"]
+    booking.fare = result["fare"]
+    booking.tax = result["tax"]
     return result
 
 
@@ -526,6 +626,33 @@ def place_search():
 
 # ------------------------------------------------------- customer booking ---
 
+def _booking_create_view(booking, referral_code=None):
+    """The booking shape returned on create and on class selection:
+    single total (+ both class totals for the options page on one-way
+    rides), never a breakdown, never miles or rates."""
+    view = {
+        "id": booking.id,
+        "status": booking.status,
+        "total": num(booking.fare_total),
+        "pickup": booking.pickup,
+        "dropoff": booking.dropoff,
+        "date": booking.date,
+        "time": booking.time,
+        "ride_type": booking.ride_type,
+        "hours": num(booking.hours),
+        "vehicle_class": booking_vehicle_class(booking),
+        "vehicle_class_label": class_label(booking_vehicle_class(booking)),
+        **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
+    }
+    if booking.ride_type == "one_way":
+        totals = compute_class_totals(
+            booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"))
+        view["class_totals"] = {k: num(v) for k, v in totals.items()}
+    if referral_code is not None:
+        view["referral_code"] = referral_code
+    return view
+
+
 @app.route("/api/bookings", methods=["POST"])
 def create_booking():
     data = request.get_json(silent=True) or {}
@@ -583,6 +710,7 @@ def create_booking():
             return err("hours must be greater than 0.")
         booking.hours = hours_dec
         booking.miles = None
+        booking.vehicle_class = None
         result = compute_hourly(hours_dec)
     else:
         if not booking.dropoff:
@@ -593,12 +721,18 @@ def create_booking():
             booking.pickup_lat, booking.pickup_lng = pickup_coords
         if dropoff_coords:
             booking.dropoff_lat, booking.dropoff_lng = dropoff_coords
-        result = compute_one_way(booking.miles, toll=Decimal("0.00"), referral=referral_valid)
+        # Default class is sedan (Business Class, pre-selected on the
+        # options page); the customer may switch to SUV before paying.
+        booking.vehicle_class = "sedan"
+        result = compute_one_way(booking.miles, toll=Decimal("0.00"),
+                                 vehicle_class="sedan", referral=referral_valid)
 
     booking.fare_total = result["total"]
     booking.driver_earnings = result["driver_earnings"]
     booking.gratuity = result["gratuity"]
     booking.booking_fee = result["booking_fee"]
+    booking.fare = result["fare"]
+    booking.tax = result["tax"]
 
     db.session.add(booking)
     db.session.flush()  # booking.id needed for the referral code + outbox
@@ -622,19 +756,33 @@ def create_booking():
               f"({booking.customer_name}, {booking.phone}).")
     db.session.commit()
 
-    return jsonify({"booking": {
-        "id": booking.id,
-        "status": booking.status,
-        "total": num(booking.fare_total),
-        "pickup": booking.pickup,
-        "dropoff": booking.dropoff,
-        "date": booking.date,
-        "time": booking.time,
-        "ride_type": booking.ride_type,
-        "hours": num(booking.hours),
-        "referral_code": new_code,
-        **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
-    }}), 201
+    return jsonify({"booking": _booking_create_view(booking, referral_code=new_code)}), 201
+
+
+@app.route("/api/bookings/<int:booking_id>/vehicle-class", methods=["POST"])
+def select_vehicle_class(booking_id):
+    """The customer picks a class on the options page ("Choose your
+    experience") before paying. Only while the booking is still
+    awaiting payment and only for one-way rides: after payment the
+    booking is already with drivers and its class is fixed."""
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.ride_type != "one_way":
+        return err("Hourly rides have no vehicle class.", 409)
+    if booking.status != "awaiting_payment":
+        return err("The vehicle class can only be changed before payment.", 409)
+    data = request.get_json(silent=True) or {}
+    vehicle_class = data.get("vehicle_class")
+    if vehicle_class not in ("sedan", "suv"):
+        return err("vehicle_class must be sedan or suv.")
+    booking.vehicle_class = vehicle_class
+    recompute_booking_fare(booking)
+    add_event(booking.id, "class_selected",
+              f"Customer selected {class_label(vehicle_class)} for booking "
+              f"#{booking.id} (total ${booking.fare_total}).")
+    db.session.commit()
+    return jsonify({"booking": _booking_create_view(booking)})
 
 
 @app.route("/api/bookings/<int:booking_id>", methods=["GET"])
@@ -651,7 +799,7 @@ def get_booking(booking_id):
             "total": num(invoice_total(booking.fare_total, booking.waiting_charge)),
             "waiting_charge": num(booking.waiting_charge),
         }
-    return jsonify({"booking": {
+    view = {
         "id": booking.id,
         "status": booking.status,
         "pickup": booking.pickup,
@@ -660,6 +808,8 @@ def get_booking(booking_id):
         "time": booking.time,
         "ride_type": booking.ride_type,
         "hours": num(booking.hours),
+        "vehicle_class": booking_vehicle_class(booking),
+        "vehicle_class_label": class_label(booking_vehicle_class(booking)),
         **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
         "driver": None if driver is None else {
             "name": driver.name,
@@ -678,14 +828,20 @@ def get_booking(booking_id):
         },
         "invoice": invoice,
         "referral_code": referral.code if referral else None,
-    }})
+    }
+    if booking.ride_type == "one_way":
+        totals = compute_class_totals(
+            booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"))
+        view["class_totals"] = {k: num(v) for k, v in totals.items()}
+    return jsonify({"booking": view})
 
 
 @app.route("/api/bookings/<int:booking_id>/pay", methods=["POST"])
 def pay_booking(booking_id):
-    """Card payment BEFORE dispatch: the customer sees the single total
-    right after the booking form and pays; only then is the booking
-    sent to drivers (status awaiting_payment -> offered)."""
+    """Card payment BEFORE dispatch: the customer picks a class on the
+    options page, sees the single total for that class, and pays; only
+    then is the booking sent to drivers (status awaiting_payment ->
+    offered)."""
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
@@ -855,6 +1011,8 @@ def register_driver():
         email=(form.get("email") or "").strip(),
         car_model=car_model,
         car_year=car_year,
+        # Vehicle class is derived from the car model, never typed in.
+        vehicle_class=class_for_model(car_model),
         car_colour=form["car_colour"].strip(),
         plate=form["plate"].strip(),
         profile_photo=profile_photo[0] if profile_photo else None,
@@ -878,6 +1036,8 @@ def register_driver():
         "email": driver.email,
         "car_model": driver.car_model,
         "car_year": driver.car_year,
+        "vehicle_class": driver_vehicle_class(driver),
+        "vehicle_class_label": class_label(driver_vehicle_class(driver)),
         "car_colour": driver.car_colour,
         "plate": driver.plate,
         "docs": driver_docs_status(driver),
@@ -897,6 +1057,8 @@ def driver_me():
         "email": driver.email,
         "car_model": driver.car_model,
         "car_year": driver.car_year,
+        "vehicle_class": driver_vehicle_class(driver),
+        "vehicle_class_label": class_label(driver_vehicle_class(driver)),
         "car_colour": driver.car_colour,
         "plate": driver.plate,
         "docs": driver_docs_status(driver),
@@ -944,6 +1106,8 @@ def driver_active_trip():
         "time": booking.time,
         "ride_type": booking.ride_type,
         "hours": num(booking.hours),
+        "vehicle_class": booking_vehicle_class(booking),
+        "vehicle_class_label": class_label(booking_vehicle_class(booking)),
         "customer_name": booking.customer_name,
         "customer_phone": booking.phone,
         "earnings": num(booking.driver_earnings),
@@ -976,13 +1140,19 @@ def driver_offers():
     excluded_ids = [e.booking_id for e in BookingExclusion.query.filter_by(driver_id=driver.id).all()]
     # Only PAID bookings reach drivers: status "offered" means payment
     # succeeded. Unpaid bookings (awaiting_payment) never appear here.
+    # Class filtering: one-way bookings reach only drivers whose car
+    # class matches the booking's class; hourly rides (no class) reach
+    # every available driver.
+    driver_class = driver_vehicle_class(driver)
     query = Booking.query.filter_by(status="offered").order_by(Booking.created_at, Booking.id)
     if excluded_ids:
         query = query.filter(~Booking.id.in_(excluded_ids))
     offers = []
     for b in query.all():
+        if b.ride_type == "one_way" and booking_vehicle_class(b) != driver_class:
+            continue
         # Driver sees ONLY his own earnings — never miles, fare, total,
-        # gratuity, or the booking fee.
+        # gratuity, tax, or the booking fee.
         offers.append({
             "booking_id": b.id,
             "pickup": b.pickup,
@@ -991,6 +1161,8 @@ def driver_offers():
             "time": b.time,
             "ride_type": b.ride_type,
             "hours": num(b.hours),
+            "vehicle_class": booking_vehicle_class(b),
+            "vehicle_class_label": class_label(booking_vehicle_class(b)),
             "earnings": num(b.driver_earnings),
             "route_url": route_url_for(b),
         })
@@ -1004,6 +1176,14 @@ def driver_accept(booking_id):
         return error
     if BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
         return err("You have declined this booking.", 409)
+    # Class match is enforced here too, so a driver can never accept a
+    # booking of the other class even by calling this endpoint directly.
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if (booking.ride_type == "one_way"
+            and booking_vehicle_class(booking) != driver_vehicle_class(driver)):
+        return err("This ride is for a different vehicle class.", 409)
     # Atomic first-accept-wins: only one driver can flip offered -> accepted.
     rows = (db.session.query(Booking)
             .filter(Booking.id == booking_id, Booking.status == "offered")
@@ -1033,6 +1213,8 @@ def driver_accept(booking_id):
         "date": booking.date,
         "time": booking.time,
         "ride_type": booking.ride_type,
+        "vehicle_class": booking_vehicle_class(booking),
+        "vehicle_class_label": class_label(booking_vehicle_class(booking)),
         "customer_name": booking.customer_name,
         "customer_phone": booking.phone,
         "earnings": num(booking.driver_earnings),
@@ -1173,6 +1355,8 @@ def driver_earnings():
             "id": b.id,
             "date": b.date,
             "route": f"{b.pickup} to {b.dropoff}" if b.dropoff else b.pickup,
+            "vehicle_class": booking_vehicle_class(b),
+            "vehicle_class_label": class_label(booking_vehicle_class(b)),
             "earnings": num(b.driver_earnings),
             "completed_date": completion_date(b.completed_at, b.created_at).isoformat(),
             "week_start": w["start"].isoformat(),
@@ -1218,9 +1402,14 @@ def owner_summary():
     # payout week paid for that driver.
     paid_ids = [p.booking_id for p in Payment.query.filter_by(status="succeeded").all()]
     gross = Decimal("0.00")
+    tax_collected = Decimal("0.00")
     if paid_ids:
         for b in Booking.query.filter(Booking.id.in_(paid_ids)).all():
             gross += money(b.fare_total) + money(b.waiting_charge)
+            # Tax collected on paid, non-refunded rides only (refunded
+            # payments have status "refunded", so they are not in
+            # paid_ids). Tax is pass-through, never profit.
+            tax_collected += booking_tax(b)
     refunded_ids = _refunded_booking_ids()
     driver_owed = Decimal("0.00")
     for b in Booking.query.filter_by(status="completed").all():
@@ -1234,6 +1423,7 @@ def owner_summary():
         "gross": num(gross),
         "profit": num(gross - driver_owed),
         "driver_owed": num(driver_owed),
+        "tax_collected": num(tax_collected),
         "counts": counts,
     })
 
@@ -1247,7 +1437,12 @@ def _owner_booking_row(b):
         "date": b.date,
         "time": b.time,
         "status": b.status,
+        "ride_type": b.ride_type,
+        "vehicle_class": booking_vehicle_class(b),
+        "vehicle_class_label": class_label(booking_vehicle_class(b)),
         "customer_total": num(b.fare_total),
+        "fare": num(booking_fare(b)),
+        "tax": num(booking_tax(b)),
         "driver_earnings": num(b.driver_earnings),
         "toll": num(b.toll),
         "gratuity": num(b.gratuity),
@@ -1469,6 +1664,8 @@ def owner_drivers():
         "car": f"{d.car_model} ({d.car_colour})",
         "car_model": d.car_model,
         "car_year": d.car_year,
+        "vehicle_class": driver_vehicle_class(d),
+        "vehicle_class_label": class_label(driver_vehicle_class(d)),
         "car_colour": d.car_colour,
         "plate": d.plate,
         "available": d.available,

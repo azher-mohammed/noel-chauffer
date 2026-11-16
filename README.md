@@ -3,19 +3,58 @@
 Luxury car-with-chauffeur service in the USA. One app with three parts,
 all connected:
 
-- **Customer site** (`/`) — book a ride, see the one single total,
-  pay by card (test mode), then the chauffeur is assigned; live map
-  once the chauffeur is on the way, invoice, ride history.
+- **Customer site** (`/`) — book a ride, choose a class on the
+  "Choose your experience" page (Business Class / Business SUV, one
+  single total each), pay by card (test mode), then the chauffeur is
+  assigned; live map once the chauffeur is on the way, invoice, ride
+  history.
 - **Driver app** (`/driver`) — register once with photo-only documents
-  and bank details, go available, receive job offers (earnings only),
-  run trips stage by stage, see earnings grouped in weekly pay periods.
+  and bank details, go available, receive job offers (earnings only,
+  filtered to the driver's vehicle class), run trips stage by stage,
+  see earnings grouped in weekly pay periods.
 - **Owner dashboard** (`/owner`, PIN-protected) — per-ride revenue
-  breakdown, alerts, messages outbox, driver documents, toll entry,
-  and driver payout weeks (mark paid).
+  breakdown (fare, gratuity, tax, driver share, profit), tax collected,
+  alerts, messages outbox, driver documents, toll entry, and driver
+  payout weeks (mark paid).
 
 Stack: Python + Flask + SQLAlchemy, vanilla HTML/CSS/JS, no build step.
 Driver documents and photos are stored as BLOBs inside the database —
 no files are written for uploads, so they survive restarts.
+
+## Pricing (settled by the owner, 2026-11-16)
+
+All pricing lives in `pricing.py`. Do not change the rates without
+the owner's say-so. The customer sees ONE single total per class —
+never a breakdown, never rates, never miles.
+
+- **Two vehicle classes only:** sedan ("Business Class") and SUV
+  ("Business SUV"). No S-Class / First Class. The customer picks a
+  class on the separate "Choose your experience" page after the
+  booking form (sedan pre-selected); each class shows its own single
+  total. The form button says "View options".
+- **One-way:** fare = miles × class rate (sedan $11/mile, SUV
+  $12/mile); gratuity = 10% of the fare (owner profit, never driver
+  pay); NYC tax = 8.875% of the fare (pass-through — not profit, not
+  driver pay); toll added untaxed, passed to the driver. Customer
+  total = fare + gratuity + tax + toll. Driver earnings = miles ×
+  driver rate (sedan $4/mile, SUV $7/mile) + toll. Owner profit =
+  total − driver − tax. **No booking fee ($0).** This supersedes the
+  old $20 fee + $7/mile formula entirely.
+- **NYC tax verification:** NYC311/TLC confirm 8.875% on car-service /
+  limousine / black-car passenger fares, and Blacklane's own quote
+  applied exactly 8.875% to the base fare. Tolls are not taxed.
+- **Referral codes** are accepted but give a $0 discount for now (the
+  old $20-fee waiver no longer applies since there is no fee). A new
+  referral benefit is TBD pending the owner's decision.
+- **Hourly rides are unchanged:** $90/hour customer, $50/hour driver,
+  no fee, no gratuity, no tax. Whether hourly rides get tax is TBD.
+- **Driver vehicle class** is derived from the registered car model
+  via the explicit 133-model mapping in `car_models.py` (85 SUVs, 48
+  sedans; judgment calls documented in `static/NOTES.md`). Dispatch
+  is class-filtered: sedan bookings only to sedan drivers, SUV
+  bookings only to SUV drivers; hourly rides reach every driver.
+- **Verified examples:** 20-mile SUV = $285.30 total, driver $140,
+  profit $124. 20-mile sedan = $261.53 total, driver $80, profit $162.
 
 ## Test-mode limits (read this first)
 
@@ -63,8 +102,8 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests: pricing (11) + payout weeks (22)
-python smoke_test.py                       # backend flow checks (77)
+python -m unittest discover -s tests -v   # unit tests (148)
+python smoke_test.py                       # backend flow checks (101)
 ```
 
 `verify_e2e.py` runs the full HTTP checklist against a **running**
@@ -74,6 +113,7 @@ server with a **fresh** database:
 DATABASE_URL="sqlite:////tmp/noel-verify.db" OWNER_PIN=4321 \
   SECRET_KEY=test-secret ENCRYPTION_KEY="<fernet key>" PORT=5055 python app.py &
 NOEL_BASE_URL=http://127.0.0.1:5055 NOEL_OWNER_PIN=4321 python verify_e2e.py
+# full HTTP checklist (171 checks)
 ```
 
 ## Deploy on Render (free tier, one-month trial)
@@ -174,6 +214,9 @@ app.py              Flask app: models + API endpoints + page routes
 pricing.py          Settled pricing rules (Decimal, pure functions)
 payouts.py          Weekly driver payout schedule (pure date math)
 geo.py              Nominatim geocoding + OSRM routing, with fallbacks
+car_models.py       Eligible car models (Uber Black list + Model 3 exception) + model -> vehicle-class mapping
+flights.py          Flight-number parsing + IATA airline table (no live tracking)
+UBER_BLACK_LIST.md  Source data for the car-model list (transcribed Oct 2026)
 requirements.txt    Python dependencies (incl. gunicorn, psycopg2-binary, psycopg[binary] — SQLAlchemy 2.x needs the psycopg v3 driver for postgresql:// URLs)
 smoke_test.py       Backend flow checks (in-process, throwaway DB)
 verify_e2e.py       Full HTTP checklist against a running server

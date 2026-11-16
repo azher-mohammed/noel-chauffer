@@ -1,8 +1,11 @@
 /* Noel Chauffer — customer site logic.
    Talks only to the /api/* contract. The total is NEVER computed here:
-   it comes from the API with the booking, right after the form. The
-   customer sees the single total, pays by card, and only then is the
-   booking sent to drivers. */
+   it comes from the API with the booking. Flow: booking form (+ the
+   flight-number step for airport rides) -> "Choose your experience"
+   options page (Business Class / Business SUV, one single total each)
+   -> card payment -> only then is the booking sent to drivers. The
+   customer picks a class, sees the single total, pays by card, and
+   only then is the booking sent to drivers. */
 (function () {
   "use strict";
 
@@ -20,8 +23,25 @@
     dropoffPlace: null,
     flightNumber: null,
     flightResolved: false,
-    pendingPayload: null
+    pendingPayload: null,
+    selectedClass: "sedan",
+    classBooking: null,
+    classPhone: ""
   };
+
+  /* Customer-facing class names. Internal keys stay "sedan"/"suv". */
+  var CLASS_LABELS = { sedan: "Business Class", suv: "Business SUV" };
+  function classLabelFor(b) {
+    if (!b || b.ride_type !== "one_way") return "";
+    return b.vehicle_class_label || CLASS_LABELS[b.vehicle_class] || "";
+  }
+  function summaryText(b) {
+    var text = rideLabel(b);
+    var cls = classLabelFor(b);
+    if (cls) text += " · " + cls;
+    if (whenLabel(b)) text += " · " + whenLabel(b);
+    return text;
+  }
 
   function $(id) { return document.getElementById(id); }
   function show(el) { el.classList.remove("hidden"); }
@@ -336,6 +356,102 @@
     $("booking-card").scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
+  /* Choose your experience: a SEPARATE options page after the booking
+     form (and the flight step). The booking already exists, unpaid;
+     the customer picks a class — each option shows its own single
+     total, no breakdown, no rates, no miles — and then continues to
+     the card payment. Sedan (Business Class) is pre-selected. Back
+     cancels the unpaid booking and returns to the form to edit. */
+  function paintClassSelection() {
+    ["sedan", "suv"].forEach(function (cls) {
+      var opt = $("class-option-" + cls);
+      var selected = state.selectedClass === cls;
+      opt.classList.toggle("selected", selected);
+      opt.setAttribute("aria-checked", selected ? "true" : "false");
+    });
+    $("class-continue").textContent = "Select " + (CLASS_LABELS[state.selectedClass] || "Business Class");
+  }
+
+  function showClassStep(booking, phone) {
+    state.classBooking = booking;
+    state.classPhone = phone;
+    state.selectedClass = booking.vehicle_class || "sedan";
+    $("class-trip-summary").textContent = summaryText(booking);
+    var totals = booking.class_totals || {};
+    $("class-total-sedan").textContent = money(totals.sedan !== undefined ? totals.sedan : booking.total);
+    $("class-total-suv").textContent = money(totals.suv);
+    $("class-error").textContent = "";
+    paintClassSelection();
+    hide($("booking-card"));
+    show($("class-step"));
+    $("class-step").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  ["sedan", "suv"].forEach(function (cls) {
+    $("class-option-" + cls).addEventListener("click", function () {
+      state.selectedClass = cls;
+      paintClassSelection();
+    });
+  });
+
+  $("class-continue").addEventListener("click", function () {
+    var booking = state.classBooking;
+    if (!booking) return;
+    var err = $("class-error");
+    err.textContent = "";
+    var btn = $("class-continue");
+    function proceedWith(updated) {
+      hide($("class-step"));
+      show($("booking-card"));
+      state.classBooking = null;
+      startTracking(updated, state.classPhone);
+    }
+    if (state.selectedClass === (booking.vehicle_class || "sedan")) {
+      proceedWith(booking);
+      return;
+    }
+    btn.disabled = true;
+    fetch("/api/bookings/" + encodeURIComponent(booking.id) + "/vehicle-class", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vehicle_class: state.selectedClass })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok || !res.j.booking) {
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "That class could not be selected. Please try again.";
+          return;
+        }
+        proceedWith(res.j.booking);
+      })
+      .catch(function () {
+        btn.disabled = false;
+        err.textContent = "Could not reach the booking service. Please try again.";
+      });
+  });
+
+  $("class-back").addEventListener("click", function () {
+    var booking = state.classBooking;
+    var phone = state.classPhone;
+    state.classBooking = null;
+    state.classPhone = "";
+    hide($("class-step"));
+    show($("booking-card"));
+    $("booking-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    /* The booking was created but never paid: cancel it so it never
+       reaches drivers, then the customer edits the form and submits
+       again. A failed cancel is harmless — unpaid bookings are never
+       sent to drivers. */
+    if (booking && booking.id && phone) {
+      fetch("/api/bookings/" + encodeURIComponent(booking.id) + "/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone })
+      }).catch(function () { /* ignore */ });
+    }
+  });
+
   function sendBooking(payload) {
     var err = $("booking-error");
     var btn = $("book-submit");
@@ -349,16 +465,24 @@
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         btn.disabled = false;
-        btn.textContent = "Book a ride";
+        btn.textContent = "View options";
         if (!res.ok || !res.j.booking || !res.j.booking.id) {
           err.textContent = (res.j && (res.j.error || res.j.message)) || "Something went wrong. Please try again.";
           return;
         }
-        startTracking(res.j.booking, payload.phone);
+        var booking = res.j.booking;
+        /* One-way rides go to the separate options page first (pick a
+           class, each with its own single total); hourly rides have
+           no class and go straight to the payment step. */
+        if (booking.ride_type === "one_way" && booking.class_totals) {
+          showClassStep(booking, payload.phone);
+        } else {
+          startTracking(booking, payload.phone);
+        }
       })
       .catch(function () {
         btn.disabled = false;
-        btn.textContent = "Book a ride";
+        btn.textContent = "View options";
         err.textContent = "Could not reach the booking service. Please check your connection and try again.";
       });
   }
@@ -384,7 +508,7 @@
     show($("status-finding"));
     show($("status-actions"));
     show($("status-card"));
-    $("status-summary").textContent = rideLabel(booking) + (whenLabel(booking) ? " · " + whenLabel(booking) : "");
+    $("status-summary").textContent = summaryText(booking);
     $("status-card").scrollIntoView({ behavior: "smooth", block: "start" });
     /* The create response already carries the single total: show it
        and open the card payment box at once, before any polling. */
@@ -415,7 +539,7 @@
   }
 
   function renderBooking(b) {
-    $("status-summary").textContent = rideLabel(b) + (whenLabel(b) ? " · " + whenLabel(b) : "");
+    $("status-summary").textContent = summaryText(b);
     var flightEl = $("status-flight");
     if (b.flight_number) {
       var flightText = "Flight: " + b.flight_number;
@@ -524,7 +648,7 @@
   function showThankYou(b) {
     show($("thankyou-block"));
     $("thankyou-summary").textContent =
-      "Ride confirmed: " + rideLabel(b) + (whenLabel(b) ? " · " + whenLabel(b) : "") + ".";
+      "Ride confirmed: " + summaryText(b) + ".";
     /* The API returns the issued code as `referral_code` on the booking. */
     var code = b.referral_code || b.customer_referral_code || b.share_code || b.own_referral_code || null;
     if (code) {
@@ -770,7 +894,7 @@
       return "Waiting is free for 60 minutes at airports and 15 minutes at other pickups. After that, waiting is charged at $1/min. A no-show is charged the full price.";
     }
     if (has("price", "cost", "much", "total", "charge", "pay", "payment")) {
-      return "You will see one single total right after you complete the booking form — no breakdown, no hidden charges. You pay by card on this page, and then your chauffeur is assigned.";
+      return "After you complete the booking form, choose Business Class or Business SUV — each class shows its own single total, tax included, with no breakdown and no hidden charges. You pay by card on this page, and then your chauffeur is assigned.";
     }
     if (has("lost", "left", "forgot", "belonging", "item")) {
       return "I am sorry to hear that. Please report it here as soon as you can, and within 7 days. The driver checks the car after every ride. Unclaimed items go to the police station after one week.";
@@ -781,8 +905,8 @@
     if (has("driver", "chauffeur", "phone", "email", "detail", "contact")) {
       return "As soon as your chauffeur accepts, you will see their name, phone number, car, colour and plate number on this page — and the same details are sent to your phone and email.";
     }
-    if (has("car", "vehicle", "sedan", "suv", "type")) {
-      return "Our rides use recent high-end sedans and SUVs — clean, comfortable, and prepared for every ride, with phone chargers on board.";
+    if (has("car", "vehicle", "sedan", "suv", "type", "class")) {
+      return "Our rides come in two classes — Business Class and Business SUV — recent high-end cars, clean, comfortable, and prepared for every ride, with phone chargers on board.";
     }
     if (has("return", "round trip", "back", "come back")) {
       return "For a return journey, simply book a second one-way ride. After you pay for your first ride, this page offers you a return booking with the addresses already swapped for you.";
@@ -794,7 +918,7 @@
       return "If a friend referred you, enter their referral code in the booking form. After your ride, this page shows you how to refer a friend too.";
     }
     if (has("book", "reserve", "ride", "pickup", "how")) {
-      return "To book: fill in the form at the top of this page — pickup, drop-off (or hours), date, time, and your name, phone and email — then tap “Book a ride”. You will see one single total and pay by card, and then your chauffeur will be assigned.";
+      return "To book: fill in the form at the top of this page — pickup, drop-off (or hours), date, time, and your name, phone and email — then tap “View options” to choose your class. Each class shows its own single total — you pay by card, and then your chauffeur will be assigned.";
     }
     if (has("hello", "hi", "hey", "salam")) {
       return "Hello, and welcome to Noel Chauffer. I can help with booking, the total, cancellation, waiting time, lost items, or a problem with a ride.";

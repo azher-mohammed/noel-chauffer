@@ -47,8 +47,7 @@ input, select { font: inherit; }
 .section-note { color: var(--grey); font-size: 14px; margin: -6px 0 14px; }
 
 /* Summary cards */
-.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-@media (max-width: 860px) { .cards { grid-template-columns: 1fr 1fr; } }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 .card { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
 .card .label { font-size: 12.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--grey); }
 .card .value { font-family: Georgia, serif; font-size: 30px; margin-top: 4px; }

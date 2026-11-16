@@ -1121,6 +1121,7 @@ def driver_active_trip():
         "customer_name": booking.customer_name,
         "customer_phone": booking.phone,
         "earnings": num(booking.driver_earnings),
+        "toll": num(booking.toll),
         "route_url": route_url_for(booking),
         "route_waze_url": waze_url_for(booking),
         "free_waiting_minutes": free_waiting_minutes(booking.pickup),
@@ -1164,8 +1165,10 @@ def driver_offers():
     for b in query.all():
         if b.ride_type == "one_way" and booking_vehicle_class(b) != driver_class:
             continue
-        # Driver sees ONLY his own earnings — never miles, fare, total,
-        # gratuity, tax, or the booking fee.
+        # Driver sees ONLY his own pay — never miles, fare, total,
+        # gratuity, tax, or the booking fee. Earnings include any toll;
+        # the toll is also sent on its own so the app can show it as a
+        # separate line (only when a toll applies).
         offers.append({
             "booking_id": b.id,
             "pickup": b.pickup,
@@ -1177,6 +1180,7 @@ def driver_offers():
             "vehicle_class": booking_vehicle_class(b),
             "vehicle_class_label": class_label(booking_vehicle_class(b)),
             "earnings": num(b.driver_earnings),
+            "toll": num(b.toll),
             "route_url": route_url_for(b),
             "route_waze_url": waze_url_for(b),
         })
@@ -1232,6 +1236,7 @@ def driver_accept(booking_id):
         "customer_name": booking.customer_name,
         "customer_phone": booking.phone,
         "earnings": num(booking.driver_earnings),
+        "toll": num(booking.toll),
         "route_url": route_url_for(booking),
         "route_waze_url": waze_url_for(booking),
         "free_waiting_minutes": free_waiting_minutes(booking.pickup),

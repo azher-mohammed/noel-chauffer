@@ -145,6 +145,14 @@ input, select { font: inherit; }
 }
 .offer .earnings .label { font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--grey); }
 .offer .earnings .amount { font-family: Georgia, serif; font-size: 26px; }
+/* Toll on its own line, only when a toll applies — same pale-gold
+   highlight on the offer card and the trip screen. */
+.toll-line {
+  margin-top: 8px; background: #fdf6e3; border: 1px solid #ecd9a0; border-radius: 8px;
+  padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+}
+.toll-line .label { font-size: 14px; font-weight: 600; }
+.toll-line .amount { font-family: Georgia, serif; font-size: 18px; font-weight: 700; }
 .offer .route-link { display: inline-block; margin-top: 10px; font-size: 14.5px; color: var(--ink); font-weight: 600; }
 .route-link + .route-link { margin-left: 14px; }
 #trip-flight .flight-track-link { font-weight: 600; color: var(--ink); margin-left: 8px; }

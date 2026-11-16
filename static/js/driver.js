@@ -1,6 +1,9 @@
 /* Noel Chauffer — driver app logic.
-   The driver sees ONLY his own earnings per job. No other money figure
-   is ever displayed. Offers show the earnings value from the API as-is.
+   The driver sees ONLY his own pay per job: his earnings, plus the
+   toll on its own line when a toll applies. No other money figure
+   is ever displayed. A job offer stays on screen until the driver
+   accepts or declines it — it never expires on its own — and a tone
+   sounds when a new offer arrives so the driver knows a job came in.
    Job offers reach only drivers whose vehicle class matches the
    booking's class (Business Class / Business SUV); hourly rides reach
    every available driver. */
@@ -49,7 +52,11 @@
     noShowTimer: null,
     trip: null,
     stageIndex: 0,
-    watchId: null
+    watchId: null,
+    seenOfferIds: {},
+    offersPrimed: false,
+    lastOffersSig: "",
+    audioCtx: null
   };
 
   function $(id) { return document.getElementById(id); }
@@ -168,6 +175,7 @@
       vehicle_class: b.vehicle_class,
       vehicle_class_label: b.vehicle_class_label,
       earnings: pickNumber(b, ["earnings", "driver_earnings", "amount"]),
+      toll: pickNumber(b, ["toll"]),
       route_url: b.route_url,
       route_waze_url: b.route_waze_url,
       free_waiting_minutes: b.free_waiting_minutes,
@@ -357,6 +365,7 @@
     }
   }
   $("avail-toggle").addEventListener("click", function () {
+    unlockAudio();
     var next = !state.available;
     fetch("/api/drivers/me/availability", {
       method: "POST",
@@ -371,6 +380,43 @@
       })
       .catch(function () { /* leave the toggle as it was */ });
   });
+
+  /* ---------- New-offer tone ---------- */
+  /* Browsers only allow sound after the driver has tapped something,
+     so the audio context is unlocked on the availability tap (and on
+     any other tap that reaches here). The tone is a short chime made
+     with the Web Audio API — no audio file needed. */
+  function unlockAudio() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!state.audioCtx) state.audioCtx = new AC();
+      if (state.audioCtx.state === "suspended") state.audioCtx.resume();
+    } catch (e) { /* audio unavailable: offers still show silently */ }
+  }
+  function playOfferTone() {
+    try {
+      unlockAudio();
+      var ctx = state.audioCtx;
+      if (!ctx) return;
+      var notes = [880, 1174.66, 880];
+      notes.forEach(function (freq, i) {
+        var t = ctx.currentTime + i * 0.18;
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.18);
+      });
+      if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
+    } catch (e) { /* keep silent on failure */ }
+  }
 
   /* ---------- Job offers (earnings only) ---------- */
   function startOffersPolling() {
@@ -387,6 +433,18 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var list = Array.isArray(j) ? j : (j.offers || []);
+        /* Ring once for each offer the driver has not seen before.
+           The first load only records what is already there, so
+           opening the app does not ring for old offers. */
+        var fresh = false;
+        list.forEach(function (o) {
+          if (!state.seenOfferIds[offerId(o)]) fresh = true;
+        });
+        if (state.offersPrimed && fresh) playOfferTone();
+        var seen = {};
+        list.forEach(function (o) { seen[offerId(o)] = true; });
+        state.seenOfferIds = seen;
+        state.offersPrimed = true;
         renderOffers(list);
       })
       .catch(function () { /* keep the current list on a failed check */ });
@@ -394,6 +452,15 @@
   function offerId(o) { return o.booking_id || o.id; }
   function renderOffers(list) {
     var box = $("offers-list");
+    /* The job stays put until the driver accepts or declines it: when
+       nothing about the offers changed, leave the cards untouched so
+       the list never flickers or rebuilds under the driver's tap. */
+    var sig = list.map(function (o) {
+      return [offerId(o), pickNumber(o, ["earnings", "driver_earnings", "amount"]),
+              pickNumber(o, ["toll"]) || 0].join(":");
+    }).join("|");
+    if (sig === state.lastOffersSig) return;
+    state.lastOffersSig = sig;
     box.innerHTML = "";
     if (!list.length) { show($("offers-empty")); return; }
     hide($("offers-empty"));
@@ -407,9 +474,20 @@
       if (cls) when += (when ? " · " : "") + cls;
       if (o.ride_type === "hourly") when += (when ? " · " : "") + "By the hour" + (o.hours ? " · " + o.hours + " hour(s)" : "");
       var earnings = pickNumber(o, ["earnings", "driver_earnings", "amount"]);
+      var toll = pickNumber(o, ["toll"]) || 0;
+      /* Earnings from the API include the toll; the card shows the
+         driving pay on its own and the toll as a separate line, only
+         when a toll applies. */
+      var baseEarnings = earnings;
+      if (toll > 0 && earnings !== null) {
+        baseEarnings = Math.max(0, Math.round((earnings - toll) * 100) / 100);
+      }
       var html = '<div class="route">' + route + "</div>" +
         '<div class="when">' + esc(when) + "</div>" +
-        '<div class="earnings"><span class="label">Your earnings</span><span class="amount">' + esc(money(earnings)) + "</span></div>";
+        '<div class="earnings"><span class="label">Your earnings</span><span class="amount">' + esc(money(baseEarnings)) + "</span></div>";
+      if (toll > 0) {
+        html += '<div class="toll-line"><span class="label">Toll</span><span class="amount">' + esc(money(toll)) + "</span></div>";
+      }
       if (o.route_url) {
         html += '<a class="route-link" href="' + esc(o.route_url) + '" target="_blank" rel="noopener">Google Maps ↗</a>';
       }
@@ -481,10 +559,21 @@
       flightEl.textContent = "";
       hide(flightEl);
     }
-    $("trip-earnings").innerHTML =
+    /* Same split as the offer card: driving pay on its own, and the
+       toll as a separate line only when a toll applies. */
+    var tripToll = pickNumber(t, ["toll"]) || 0;
+    var tripBase = t.earnings;
+    if (tripToll > 0 && tripBase !== null) {
+      tripBase = Math.max(0, Math.round((tripBase - tripToll) * 100) / 100);
+    }
+    var tripEarningsHtml =
       '<div class="earnings" style="background:#fffdf4;border:1px solid var(--gold);border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">' +
       '<span class="label" style="font-size:13px;letter-spacing:0.05em;text-transform:uppercase;color:var(--grey);">Your earnings</span>' +
-      '<span class="amount" style="font-family:Georgia,serif;font-size:26px;">' + esc(money(t.earnings)) + "</span></div>";
+      '<span class="amount" style="font-family:Georgia,serif;font-size:26px;">' + esc(money(tripBase)) + "</span></div>";
+    if (tripToll > 0) {
+      tripEarningsHtml += '<div class="toll-line"><span class="label">Toll</span><span class="amount">' + esc(money(tripToll)) + "</span></div>";
+    }
+    $("trip-earnings").innerHTML = tripEarningsHtml;
     var routeLinks = "";
     if (t.route_url) {
       routeLinks += '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(t.route_url) + '" target="_blank" rel="noopener">Google Maps ↗</a>';

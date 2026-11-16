@@ -9,6 +9,14 @@ text. Results carry address text + coordinates only — never any
 fare, miles, or pricing data.
 
 Run:  python -m unittest discover -s tests -v
+
+Airport terminals: when a result is an airport (aeroway/aerodrome),
+viewbox-bounded Nominatim searches for "Terminal", "Arrivals" and
+"Departures" around the airport are merged in directly below the
+airport, from live OpenStreetMap data. The fixtures below mirror real
+Nominatim responses observed for JFK (terminal roadways, AirTrain
+stops, a construction site, parking, a bus stop, a distant freight
+terminal) so the filter rules are tested against realistic noise.
 """
 
 import os
@@ -73,6 +81,7 @@ FORBIDDEN_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fee",
 class PlacesTestCase(unittest.TestCase):
     def setUp(self):
         geo_module._search_cache.clear()
+        geo_module._terminal_cache.clear()
         self.client = app_module.app.test_client()
         self.urls = []
 
@@ -80,6 +89,19 @@ class PlacesTestCase(unittest.TestCase):
         def fake_get(url):
             self.urls.append(url)
             return payload
+        return fake_get
+
+    def _routed(self, base_payload, terminal_payloads, fail_bounded=False):
+        """Mock _http_get_json: base search -> base_payload, bounded
+        terminal searches -> terminal_payloads[q], optionally failing."""
+        def fake_get(url):
+            self.urls.append(url)
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+            if params.get("bounded") == ["1"]:
+                if fail_bounded:
+                    raise urllib.error.URLError("terminal lookup down")
+                return terminal_payloads.get(params["q"][0], [])
+            return base_payload
         return fake_get
 
 
@@ -216,6 +238,177 @@ class TestSearchPlacesUnit(PlacesTestCase):
         second[0]["address"]["state"] = "CHANGED"
         self.assertEqual(geo_module.search_places("180 Green")[0]["address"]["state"],
                          "New York")
+
+
+class TestAirportTerminals(PlacesTestCase):
+    # JFK aerodrome at its real coordinates; the airport is deliberately
+    # second in the base results to prove detection is not position-based.
+    JFK_BASE = [
+        {
+            "place_id": 200,
+            "class": "railway",
+            "type": "station",
+            "display_name": "JFK Airport AirTrain Station, Queens, New York, United States",
+            "lat": "40.6410",
+            "lon": "-73.7800",
+            "address": {"county": "Queens", "state": "New York",
+                        "country": "United States", "country_code": "us"},
+        },
+        {
+            "place_id": 201,
+            "class": "aeroway",
+            "type": "aerodrome",
+            "display_name": "John F. Kennedy International Airport, Queens, New York, United States",
+            "lat": "40.6413111",
+            "lon": "-73.7803273",
+            "address": {"county": "Queens", "state": "New York",
+                        "country": "United States", "country_code": "us"},
+        },
+    ]
+
+    def _terminal(self, name, cls, typ, lat, lon):
+        return {
+            "class": cls, "type": typ, "display_name": name,
+            "lat": str(lat), "lon": str(lon),
+            "address": {"county": "Queens", "state": "New York",
+                        "country": "United States", "country_code": "us"},
+        }
+
+    def _terminal_payloads(self):
+        t = self._terminal
+        return {
+            "Terminal": [
+                # Construction segment first: must not shadow the real one.
+                t("Terminal 4 Departures, Queens, New York, United States",
+                  "highway", "construction", 40.6435, -73.7823),
+                t("Terminal 4 Departures, Queens, New York, United States",
+                  "highway", "tertiary", 40.6435, -73.7823),
+                t("Terminal 4 Arrivals, Queens, New York, United States",
+                  "highway", "tertiary", 40.6436, -73.7824),
+                t("Terminal 4, Queens, New York, United States",
+                  "railway", "station", 40.6437, -73.7825),  # AirTrain stop
+                t("JFK Terminal 6, Queens, New York, United States",
+                  "landuse", "construction", 40.6440, -73.7830),  # not open
+                t("Terminal 7 Parking, Queens, New York, United States",
+                  "amenity", "parking", 40.6450, -73.7840),
+                t("Terminal 4, Queens, New York, United States",
+                  "highway", "bus_stop", 40.6438, -73.7826),
+                t("Red Hook Terminal, Brooklyn, New York, United States",
+                  "landuse", "industrial", 40.6790, -74.0120),  # freight
+                t("Newark Liberty Terminal, Newark, New Jersey, United States",
+                  "highway", "tertiary", 40.6895, -74.1745),  # ~35 km away
+            ],
+            "Arrivals": [
+                t("Terminal 1 Arrivals, Queens, New York, United States",
+                  "highway", "tertiary", 40.6445, -73.7855),
+                t("Terminal 5 Arrivals, Queens, New York, United States",
+                  "highway", "tertiary", 40.6430, -73.7800),
+                # Duplicate name, different postcode: dedup keeps one.
+                t("Terminal 4 Arrivals, Queens, New York, 11430, United States",
+                  "highway", "tertiary", 40.6436, -73.7824),
+            ],
+            "Departures": [
+                t("Terminal 1 Departures, Queens, New York, United States",
+                  "highway", "tertiary", 40.6446, -73.7856),
+                t("Terminal 5 Departures, Queens, New York, United States",
+                  "highway", "tertiary", 40.6431, -73.7801),
+            ],
+        }
+
+    def _names(self, results):
+        return [item["display_name"].split(",")[0] for item in results]
+
+    def test_airport_query_merges_terminals_below_airport(self):
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=self._routed(self.JFK_BASE, self._terminal_payloads())):
+            resp = self.client.get("/api/places/search?q=JFK")
+        self.assertEqual(resp.status_code, 200)
+        results = resp.get_json()["results"]
+        self.assertEqual(
+            self._names(results),
+            ["John F. Kennedy International Airport",
+             "Terminal 1 Arrivals", "Terminal 1 Departures",
+             "Terminal 4 Arrivals", "Terminal 4 Departures",
+             "Terminal 5 Arrivals", "Terminal 5 Departures",
+             "JFK Airport AirTrain Station"])
+        # Every entry keeps the exact public shape, no pricing fields.
+        for item in results:
+            self.assertEqual(set(item.keys()),
+                             {"display_name", "lat", "lon", "address"})
+            self.assertFalse(FORBIDDEN_KEYS & set(item.keys()))
+            self.assertFalse(FORBIDDEN_KEYS & set(item["address"].keys()))
+            self.assertNotIn("class", item)
+            self.assertNotIn("type", item)
+
+    def test_bounded_queries_use_viewbox_around_airport(self):
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=self._routed(self.JFK_BASE, self._terminal_payloads())):
+            geo_module.search_places("JFK")
+        bounded = [u for u in self.urls if "bounded=1" in u]
+        self.assertEqual(len(bounded), 3)
+        queries = set()
+        for url in bounded:
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+            queries.add(params["q"][0])
+            self.assertEqual(params["countrycodes"], ["us"])
+            self.assertEqual(params["addressdetails"], ["1"])
+            self.assertEqual(params["limit"], ["25"])
+            left, top, right, bottom = [float(v) for v in params["viewbox"][0].split(",")]
+            # Viewbox is airport coords +/- 0.06 degrees.
+            self.assertAlmostEqual(left, -73.7803273 - 0.06, places=3)
+            self.assertAlmostEqual(right, -73.7803273 + 0.06, places=3)
+            self.assertAlmostEqual(top, 40.6413111 + 0.06, places=3)
+            self.assertAlmostEqual(bottom, 40.6413111 - 0.06, places=3)
+        self.assertEqual(queries, {"Terminal", "Arrivals", "Departures"})
+
+    def test_non_airport_query_makes_no_bounded_calls(self):
+        with mock.patch.object(geo_module, "_http_get_json",
+                               side_effect=self._capture(NOMINATIM_OK)):
+            results = geo_module.search_places("180 Green")
+        self.assertEqual(len(results), 2)
+        self.assertEqual([u for u in self.urls if "bounded" in u], [])
+
+    def test_terminal_lookup_failure_falls_back_to_base_results(self):
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=self._routed(self.JFK_BASE, {}, fail_bounded=True)):
+            resp = self.client.get("/api/places/search?q=JFK")
+        self.assertEqual(resp.status_code, 200)
+        results = resp.get_json()["results"]
+        self.assertEqual(len(results), 2)
+        self.assertEqual(self._names(results),
+                         ["JFK Airport AirTrain Station",
+                          "John F. Kennedy International Airport"])
+
+    def test_empty_terminal_results_keep_base_results(self):
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=self._routed(self.JFK_BASE, {})):
+            results = geo_module.search_places("JFK")
+        self.assertEqual(len(results), 2)
+
+    def test_terminal_cache_shared_across_queries_for_same_airport(self):
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=self._routed(self.JFK_BASE, self._terminal_payloads())):
+            first = geo_module.search_places("JFK")
+            second = geo_module.search_places("Kennedy Airport")
+        self.assertEqual(first, second)
+        # Base search ran twice (different queries), terminal lookup once.
+        self.assertEqual(len(self.urls), 5)
+        self.assertEqual(len([u for u in self.urls if "bounded=1" in u]), 3)
+
+    def test_terminal_lookup_never_raises(self):
+        def boom(url):
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+            if params.get("bounded") == ["1"]:
+                raise RuntimeError("boom")
+            return self.JFK_BASE
+        with mock.patch.object(geo_module, "_http_get_json", side_effect=boom):
+            results = geo_module.search_places("JFK")
+        self.assertEqual(len(results), 2)
 
 
 if __name__ == "__main__":

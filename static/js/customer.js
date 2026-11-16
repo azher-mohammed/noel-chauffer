@@ -14,10 +14,6 @@
     map: null,
     marker: null,
     mapReady: false,
-    bookingMap: null,
-    bookingMapReady: false,
-    pickupMarker: null,
-    dropoffMarker: null,
     pickupPlace: null,
     dropoffPlace: null
   };
@@ -83,7 +79,6 @@
         hide($("field-passengers"));
         show($("field-hours"));
         state.dropoffPlace = null;
-        updateBookingMarkers(null);
       } else {
         show($("field-dropoff"));
         show($("field-passengers"));
@@ -99,78 +94,18 @@
     $("bk-date").setAttribute("min", iso);
   })();
 
-  /* ---------- Booking map + USA address search ---------- */
-  /* The map shows the whole USA and marks addresses the customer picks
-     from the suggestions below each field. There is deliberately NO
-     pin-drop: tapping or clicking the map never sets an address.
-     The post-accept live tracking map further down is separate and
-     untouched. Suggestions show address text only — never any fare. */
-  var USA_CENTER = [39.8, -98.5];
-  var USA_ZOOM = 4;
-
-  function initBookingMap() {
-    if (typeof window.L === "undefined") {
-      hide($("booking-map-wrap"));
-      return;
-    }
-    if (state.bookingMapReady) return;
-    state.bookingMap = window.L.map("booking-map", { scrollWheelZoom: false })
-      .setView(USA_CENTER, USA_ZOOM);
-    window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "© OpenStreetMap contributors"
-    }).addTo(state.bookingMap);
-    state.bookingMapReady = true;
-  }
-
-  function resetBookingMapView() {
-    if (state.bookingMapReady) state.bookingMap.setView(USA_CENTER, USA_ZOOM);
-  }
-
-  /* Refreshes the pickup/drop-off markers. Only moves the view when a
-     place was just chosen (focus is "pickup" or "dropoff"); clearing a
-     place never jumps the map. */
-  function updateBookingMarkers(focus) {
-    if (!state.bookingMapReady) return;
-    var pts = [];
-    if (state.pickupPlace) {
-      if (!state.pickupMarker) {
-        state.pickupMarker = window.L.marker([state.pickupPlace.lat, state.pickupPlace.lon]).addTo(state.bookingMap);
-      } else {
-        state.pickupMarker.setLatLng([state.pickupPlace.lat, state.pickupPlace.lon]);
-      }
-      state.pickupMarker.bindPopup("Pickup: " + esc(state.pickupPlace.display_name));
-      pts.push([state.pickupPlace.lat, state.pickupPlace.lon]);
-    } else if (state.pickupMarker) {
-      state.bookingMap.removeLayer(state.pickupMarker);
-      state.pickupMarker = null;
-    }
-    if (state.dropoffPlace) {
-      if (!state.dropoffMarker) {
-        state.dropoffMarker = window.L.marker([state.dropoffPlace.lat, state.dropoffPlace.lon]).addTo(state.bookingMap);
-      } else {
-        state.dropoffMarker.setLatLng([state.dropoffPlace.lat, state.dropoffPlace.lon]);
-      }
-      state.dropoffMarker.bindPopup("Drop-off: " + esc(state.dropoffPlace.display_name));
-      pts.push([state.dropoffPlace.lat, state.dropoffPlace.lon]);
-    } else if (state.dropoffMarker) {
-      state.bookingMap.removeLayer(state.dropoffMarker);
-      state.dropoffMarker = null;
-    }
-    if (!focus) return;
-    if (pts.length === 2) {
-      state.bookingMap.fitBounds(window.L.latLngBounds(pts).pad(0.25), { maxZoom: 15 });
-    } else if (pts.length === 1) {
-      state.bookingMap.setView(pts[0], 14);
-    }
-    if (focus === "pickup" && state.pickupMarker) state.pickupMarker.openPopup();
-    if (focus === "dropoff" && state.dropoffMarker) state.dropoffMarker.openPopup();
-  }
+  /* ---------- USA address search (autocomplete only) ---------- */
+  /* Typing in Pickup / Drop-off shows USA-only suggestions below the
+     field, including airport terminals (with arrivals/departures
+     entries where the map data has them). Picking a suggestion fills
+     the field. There is deliberately NO map inside the booking form
+     and NO pin-drop. The post-accept live tracking map further down
+     is separate and untouched. Suggestions show address text only —
+     never any fare. */
 
   function clearBookingPlaces() {
     state.pickupPlace = null;
     state.dropoffPlace = null;
-    updateBookingMarkers(null);
   }
 
   function attachPlaces(inputId, listId, kind) {
@@ -192,13 +127,11 @@
     }
     function clearStored() {
       if (kind === "pickup") { state.pickupPlace = null; } else { state.dropoffPlace = null; }
-      updateBookingMarkers(null);
     }
     function choose(item) {
       input.value = item.display_name;
       if (kind === "pickup") { state.pickupPlace = item; } else { state.dropoffPlace = item; }
       closeList();
-      updateBookingMarkers(kind);
     }
     function paintActive() {
       var btns = list.querySelectorAll("button");
@@ -295,7 +228,6 @@
     });
   }
 
-  initBookingMap();
   attachPlaces("bk-pickup", "bk-pickup-list", "pickup");
   attachPlaces("bk-dropoff", "bk-dropoff-list", "dropoff");
 
@@ -606,7 +538,6 @@
     $("bk-time").value = "";
     $("bk-referral").value = "";
     clearBookingPlaces();
-    resetBookingMapView();
     state.bookingId = null;
     state.booking = null;
     state.paid = false;

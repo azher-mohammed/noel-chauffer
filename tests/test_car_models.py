@@ -82,6 +82,12 @@ class CarModelsCase(unittest.TestCase):
             "car_colour": "Black", "plate": f"C{self._seq:05d}",
             "bank_account_number": "123456789", "bank_routing_number": "021000021",
             "profile_photo": (io.BytesIO(b"\xff\xd8\xff fake"), "photo.jpg"),
+            "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
+            "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
+            "doc_fh1": (io.BytesIO(b"fake png"), "fh1.png"),
+            "doc_registration": (io.BytesIO(b"fake png"), "reg.png"),
+            "doc_inspection": (io.BytesIO(b"fake png"), "insp.png"),
+            "doc_vehicle_permit": (io.BytesIO(b"fake png"), "permit.png"),
         }
         data.update(overrides)
         return self.client.post("/api/drivers/register", data=data,

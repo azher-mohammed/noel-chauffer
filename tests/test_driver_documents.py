@@ -75,6 +75,18 @@ class DmvDrivingLicenseCase(unittest.TestCase):
         return self.client.post("/api/drivers/register", data=data,
                                 content_type="multipart/form-data")
 
+    def all_files(self):
+        # All 7 compulsory uploads (owner decision 2026-11-17).
+        return {
+            "profile_photo": (io.BytesIO(b"fake jpg"), "photo.jpg"),
+            "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
+            "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
+            "doc_fh1": (io.BytesIO(b"fake png"), "fh1.png"),
+            "doc_registration": (io.BytesIO(b"fake png"), "reg.png"),
+            "doc_inspection": (io.BytesIO(b"fake png"), "insp.png"),
+            "doc_vehicle_permit": (io.BytesIO(b"fake png"), "permit.png"),
+        }
+
     # -- labels -------------------------------------------------------------
     def test_profile_picture_first_dmv_second(self):
         html = read("static/driver.html")
@@ -120,29 +132,30 @@ class DmvDrivingLicenseCase(unittest.TestCase):
 
     # -- API behaviour -----------------------------------------------------------
     def test_docs_status_has_seven_types(self):
-        resp = self.register()
+        resp = self.register(files=self.all_files())
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         docs = resp.get_json()["driver"]["docs"]
         self.assertEqual(set(docs), set(EXPECTED_DOC_TYPES))
         # JSON keys arrive alphabetically; dmv_license sorts first, and
         # DOC_TYPES order in code (asserted separately) drives the UI.
         self.assertEqual(list(docs)[0], "dmv_license")
-        self.assertEqual(docs["dmv_license"], "missing")
+        self.assertTrue(all(v == "completed" for v in docs.values()),
+                        "all 7 compulsory uploads present -> all completed")
 
     def test_dmv_license_upload_completes_the_item(self):
-        resp = self.register(files={
-            "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png")})
+        resp = self.register(files=self.all_files())
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         docs = resp.get_json()["driver"]["docs"]
         self.assertEqual(docs["dmv_license"], "completed")
 
     def test_old_field_name_is_ignored(self):
         # The removed duplicate field no longer maps to any doc type.
-        resp = self.register(files={
-            "doc_drivers_license": (io.BytesIO(b"fake png"), "license.png")})
+        files = self.all_files()
+        files["doc_drivers_license"] = (io.BytesIO(b"fake png"), "license.png")
+        resp = self.register(files=files)
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         docs = resp.get_json()["driver"]["docs"]
-        self.assertEqual(docs["dmv_license"], "missing")
+        self.assertEqual(docs["dmv_license"], "completed")
         self.assertNotIn("drivers_license", docs)
 
     def test_preview_has_remove_option_and_passport_frame(self):

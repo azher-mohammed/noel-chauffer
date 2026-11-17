@@ -79,6 +79,11 @@ class ClearRidesCase(unittest.TestCase):
             "bank_account_number": "123456789", "bank_routing_number": "021000021",
             "profile_photo": (io.BytesIO(PHOTO_BYTES), "photo.jpg"),
             "doc_dmv_license": (io.BytesIO(DOC_BYTES), "dmv.jpg"),
+            "doc_tlc_license": (io.BytesIO(DOC_BYTES), "tlc.jpg"),
+            "doc_fh1": (io.BytesIO(DOC_BYTES), "fh1.jpg"),
+            "doc_registration": (io.BytesIO(DOC_BYTES), "reg.jpg"),
+            "doc_inspection": (io.BytesIO(DOC_BYTES), "insp.jpg"),
+            "doc_vehicle_permit": (io.BytesIO(DOC_BYTES), "permit.jpg"),
         }, content_type="multipart/form-data")
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         body = resp.get_json()
@@ -205,14 +210,14 @@ class ClearRidesCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         after = self.counts()
         self.assertEqual(after["drivers"], 1)
-        self.assertEqual(after["driver_documents"], 1)
+        self.assertEqual(after["driver_documents"], 6)
         with app_module.app.app_context():
             kept = app_module.db.session.get(app_module.Driver, driver["id"])
             self.assertIsNotNone(kept)
             self.assertEqual(kept.phone, driver["phone"])
             self.assertEqual(kept.token, token)
             self.assertEqual(kept.profile_photo, PHOTO_BYTES)
-            self.assertEqual(len(kept.documents), 1)
+            self.assertEqual(len(kept.documents), 6)
             self.assertEqual(kept.documents[0].doc_type, "dmv_license")
             self.assertEqual(kept.documents[0].file, DOC_BYTES)
         # The driver still signs in and sees an empty offers list.

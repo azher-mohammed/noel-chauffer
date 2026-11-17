@@ -113,14 +113,16 @@ resp = client.post("/api/drivers/register", data={
     "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
     "doc_fh1": (io.BytesIO(b"%PDF- fake"), "fh1.pdf"),
     "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
+    "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
+    "doc_registration": (io.BytesIO(b"fake png"), "reg.png"),
+    "doc_inspection": (io.BytesIO(b"fake png"), "insp.png"),
+    "doc_vehicle_permit": (io.BytesIO(b"fake png"), "permit.png"),
 }, content_type="multipart/form-data")
 check("driver1 register 201", resp.status_code == 201, resp.get_data(as_text=True)[:200])
 d1 = resp.get_json()["driver"]
 token1 = resp.get_json()["token"]
-check("driver1 docs completed/missing", d1["docs"]["dmv_license"] == "completed"
-      and d1["docs"]["fh1_insurance"] == "completed"
-      and d1["docs"]["profile_picture"] == "completed"
-      and d1["docs"]["tlc_license"] == "missing", str(d1["docs"]))
+check("driver1 all 7 docs completed", all(v == "completed" for v in d1["docs"].values())
+      and len(d1["docs"]) == 7, str(d1["docs"]))
 check("bank masked", d1["bank_masked"] == "••••6789", d1["bank_masked"])
 check("no full bank number in response", "123456789" not in resp.get_data(as_text=True)
       and "021000021" not in resp.get_data(as_text=True))
@@ -128,9 +130,48 @@ resp = client.post("/api/drivers/register", data={
     "name": "Second Driver", "phone": "+15550002222", "email": "d2@test.com",
     "car_model": "Lincoln Continental", "car_year": "2024", "car_colour": "Black", "plate": "T67890",
     "bank_account_number": "987654321", "bank_routing_number": "021000021",
+    "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
+    "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
+    "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
+    "doc_fh1": (io.BytesIO(b"fake png"), "fh1.png"),
+    "doc_registration": (io.BytesIO(b"fake png"), "reg.png"),
+    "doc_inspection": (io.BytesIO(b"fake png"), "insp.png"),
+    "doc_vehicle_permit": (io.BytesIO(b"fake png"), "permit.png"),
 }, content_type="multipart/form-data")
 check("driver2 register 201", resp.status_code == 201, resp.get_data(as_text=True)[:200])
 token2 = resp.get_json()["token"]
+# Compulsory documents (owner decision 2026-11-17): registration must
+# not complete unless every item is uploaded, and the rejection must
+# name each missing item ("Missing document: ...").
+resp = client.post("/api/drivers/register", data={
+    "name": "No Docs", "phone": "+15550004444", "email": "nd@test.com",
+    "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T00000",
+    "bank_account_number": "111222333", "bank_routing_number": "021000021",
+}, content_type="multipart/form-data")
+check("no documents -> 400 naming every missing item",
+      resp.status_code == 400
+      and resp.get_json()["error"].startswith("Missing document: ")
+      and all(label in resp.get_json()["error"] for label in
+              ("Profile Picture", "DMV driving license", "TLC License",
+               "FH-1 Insurance Card", "Commercial Vehicle Registration",
+               "NYS DMV Inspection", "TLC-for-hire Vehicle Permit")),
+      resp.get_data(as_text=True)[:300])
+resp = client.post("/api/drivers/register", data={
+    "name": "One Missing", "phone": "+15550005555", "email": "om@test.com",
+    "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T00001",
+    "bank_account_number": "111222333", "bank_routing_number": "021000021",
+    "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
+    "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
+    "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
+    "doc_fh1": (io.BytesIO(b"fake png"), "fh1.png"),
+    "doc_registration": (io.BytesIO(b"fake png"), "reg.png"),
+    "doc_inspection": (io.BytesIO(b"fake png"), "insp.png"),
+}, content_type="multipart/form-data")
+check("one document missing -> 400 naming only that item",
+      resp.status_code == 400
+      and resp.get_json()["error"] == "Missing document: TLC-for-hire Vehicle Permit. "
+      "Please upload all required documents to complete registration.",
+      resp.get_data(as_text=True)[:300])
 resp = client.post("/api/drivers/register", data={
     "name": "Dup", "phone": "+15550001111", "car_model": "Cadillac Escalade",
     "car_year": "2023", "car_colour": "Y",

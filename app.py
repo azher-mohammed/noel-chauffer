@@ -127,6 +127,18 @@ DOC_FIELD_MAP = {
     "doc_inspection": "inspection",
     "doc_vehicle_permit": "vehicle_permit",
 }
+# doc_type -> exact user-visible label, same wording as the driver app
+# and owner dashboard. Used by the compulsory-documents gate so the
+# rejection names each missing item in the owner's words.
+DOC_LABELS = {
+    "profile_picture": "Profile Picture",
+    "dmv_license": "DMV driving license",
+    "tlc_license": "TLC License",
+    "fh1_insurance": "FH-1 Insurance Card",
+    "registration": "Commercial Vehicle Registration",
+    "inspection": "NYS DMV Inspection",
+    "vehicle_permit": "TLC-for-hire Vehicle Permit",
+}
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived
 #   -> in_progress -> completed | no_show | cancelled.
@@ -1319,6 +1331,25 @@ def register_driver():
             if error:
                 return error
             docs[doc_type] = parsed
+
+    # Owner decision 2026-11-17: documents are COMPULSORY — registration
+    # must not complete unless every item is uploaded ("Compulsory
+    # documents un log upload karna hi zaroori hai. Nahi to registration
+    # nahi hoga."). The rejection names each missing item in the
+    # owner's words: "Missing document: ...". This gates only new
+    # registrations: drivers registered before this change keep
+    # signing in and going available exactly as before.
+    missing = []
+    for doc_type in DOC_TYPES:
+        if doc_type == "profile_picture":
+            present = profile_photo is not None
+        else:
+            present = doc_type in docs
+        if not present:
+            missing.append(DOC_LABELS[doc_type])
+    if missing:
+        return err("Missing document: " + ", ".join(missing) +
+                   ". Please upload all required documents to complete registration.")
 
     account = form["bank_account_number"].strip()
     routing = form["bank_routing_number"].strip()

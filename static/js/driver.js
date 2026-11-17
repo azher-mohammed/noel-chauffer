@@ -293,6 +293,21 @@
       err.textContent = "Please choose your car model from the list.";
       return;
     }
+    /* Owner decision 2026-11-17: documents are compulsory — the form
+       must not submit until every item is uploaded. The message names
+       each missing item, in the owner's words ("Missing document").
+       Nothing is cleared: uploads already chosen stay in the form, so
+       the driver only adds what is missing and submits again. */
+    var missingDocs = [];
+    FILE_FIELDS.forEach(function (field) {
+      var input = $("file-" + field);
+      if (!input || !input.files || !input.files[0]) missingDocs.push(DOC_LABELS[field]);
+    });
+    if (missingDocs.length) {
+      err.textContent = "Missing document: " + missingDocs.join(", ") +
+        ". Please upload all required documents to complete registration.";
+      return;
+    }
     var fd = new FormData();
     fd.append("name", name);
     fd.append("phone", phone);

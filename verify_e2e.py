@@ -88,6 +88,16 @@ section("driver registration: all 8 docs, FH-1 PDF, masked bank")
 photo = b"\xff\xd8\xff fake jpeg photo driver1"
 fh1_pdf = b"%PDF-1.4 fake fh1 insurance card"
 png = b"\x89PNG fake document image"
+# All 7 compulsory registration uploads (owner decision 2026-11-17).
+all_docs = {
+    "profile_photo": ("photo.jpg", photo, "image/jpeg"),
+    "doc_dmv_license": ("license.png", png, "image/png"),
+    "doc_tlc_license": ("tlc.png", png, "image/png"),
+    "doc_fh1": ("fh1.png", png, "image/png"),
+    "doc_registration": ("reg.png", png, "image/png"),
+    "doc_inspection": ("insp.png", png, "image/png"),
+    "doc_vehicle_permit": ("permit.png", png, "image/png"),
+}
 files_before = set()
 repo_dir = os.path.dirname(os.path.abspath(__file__))
 for root, _dirs, names in os.walk(repo_dir):
@@ -130,7 +140,7 @@ resp = anon.post(BASE + "/api/drivers/register", data={
     "name": "Verify Driver Two", "phone": "+15550002222", "email": "d2@test.com",
     "car_model": "Lincoln Continental", "car_year": "2024", "car_colour": "Black", "plate": "T22222",
     "bank_account_number": "987654321", "bank_routing_number": "021000021",
-}, files={"profile_photo": ("photo.jpg", photo, "image/jpeg")}, timeout=TIMEOUT)
+}, files=all_docs, timeout=TIMEOUT)
 check("driver2 register 201", resp.status_code == 201, resp.text[:200])
 token2 = resp.json()["token"]
 
@@ -138,7 +148,7 @@ resp = anon.post(BASE + "/api/drivers/register", data={
     "name": "Verify Driver Three", "phone": "+15550001234", "email": "d3@test.com",
     "car_model": "Cadillac Escalade", "car_year": "2024", "car_colour": "Black", "plate": "T33333",
     "bank_account_number": "111222333", "bank_routing_number": "021000021",
-}, files={"profile_photo": ("photo.jpg", photo, "image/jpeg")}, timeout=TIMEOUT)
+}, files=all_docs, timeout=TIMEOUT)
 check("driver3 (SUV) register 201", resp.status_code == 201, resp.text[:200])
 d3 = resp.json()["driver"]
 token3 = resp.json()["token"]
@@ -159,6 +169,39 @@ resp = anon.post(BASE + "/api/drivers/register", data={
     "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
 }, files={"doc_dmv_license": ("license.pdf", fh1_pdf, "application/pdf")}, timeout=TIMEOUT)
 check("PDF rejected for non-FH1 doc -> 400", resp.status_code == 400, str(resp.status_code))
+
+# Compulsory documents (owner decision 2026-11-17): registration must
+# not complete unless every item is uploaded, and the rejection must
+# name each missing item ("Missing document: ...").
+resp = anon.post(BASE + "/api/drivers/register", data={
+    "name": "No Docs", "phone": "+15550006666", "email": "nd@test.com",
+    "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black",
+    "plate": "T00000", "bank_account_number": "1", "bank_routing_number": "2",
+}, timeout=TIMEOUT)
+check("no documents -> 400 naming every missing item",
+      resp.status_code == 400
+      and resp.json()["error"].startswith("Missing document: ")
+      and all(label in resp.json()["error"] for label in
+              ("Profile Picture", "DMV driving license", "TLC License",
+               "FH-1 Insurance Card", "Commercial Vehicle Registration",
+               "NYS DMV Inspection", "TLC-for-hire Vehicle Permit")),
+      resp.text[:300])
+partial_docs = dict(all_docs)
+del partial_docs["doc_vehicle_permit"]
+resp = anon.post(BASE + "/api/drivers/register", data={
+    "name": "One Missing", "phone": "+15550007777", "email": "om@test.com",
+    "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black",
+    "plate": "T00001", "bank_account_number": "1", "bank_routing_number": "2",
+}, files=partial_docs, timeout=TIMEOUT)
+check("one document missing -> 400 naming only that item",
+      resp.status_code == 400
+      and resp.json()["error"] == "Missing document: TLC-for-hire Vehicle Permit. "
+      "Please upload all required documents to complete registration.",
+      resp.text[:300])
+resp = anon.post(BASE + "/api/drivers/me/lookup", json={"phone": "+15550006666"},
+                 timeout=TIMEOUT)
+check("rejected registration leaves no driver record", resp.status_code == 404,
+      str(resp.status_code))
 
 # Car-model dropdown data + validation (2022 floor, eligible list only).
 resp = anon.get(BASE + "/api/car-models", timeout=TIMEOUT)
@@ -837,7 +880,7 @@ resp = anon.post(BASE + "/api/drivers/register", data={
     "name": "Verify Driver SUV", "phone": "+15550004444", "email": "d3@test.com",
     "car_model": "Cadillac Escalade", "car_year": "2024", "car_colour": "Black", "plate": "T33333",
     "bank_account_number": "555555555", "bank_routing_number": "021000021",
-}, files={"profile_photo": ("photo.jpg", photo, "image/jpeg")}, timeout=TIMEOUT)
+}, files=all_docs, timeout=TIMEOUT)
 check("driver3 (SUV) register 201", resp.status_code == 201, resp.text[:200])
 d3 = resp.json()["driver"]
 token3 = resp.json()["token"]
@@ -1000,6 +1043,11 @@ check("served driver.js pops a nav chooser on heading/pickup stages",
       and 'window.open(urls.google, "_blank", "noopener");' in r.text
       and 'window.open(urls.waze, "_blank", "noopener");' in r.text,
       "nav chooser helpers or wiring missing from served driver.js")
+check("served driver.js gates registration on all compulsory documents",
+      "Missing document: " in r.text
+      and "missingDocs.join" in r.text
+      and "Please upload all required documents to complete registration." in r.text,
+      "compulsory-documents gate missing from served driver.js")
 r = anon.get(BASE + "/driver", timeout=TIMEOUT)
 check("driver page carries the nav chooser overlay",
       "nav-chooser-overlay" in r.text
@@ -1007,6 +1055,10 @@ check("driver page carries the nav chooser overlay",
       and "nav-chooser-waze" in r.text
       and "nav-chooser-close" in r.text,
       "nav chooser overlay missing from served driver page")
+check("driver page states all 7 documents are required",
+      "All 7 items are required" in r.text
+      and "registration cannot be completed until every document is uploaded" in r.text,
+      "compulsory-documents note missing from served driver page")
 r = anon.get(BASE + "/static/css/driver.css", timeout=TIMEOUT)
 check("served driver.css styles route labels",
       ".route-label" in r.text, "route-label rule missing from served driver.css")

@@ -929,6 +929,15 @@ for path in ("/static/js/customer.js", "/static/js/driver.js", "/static/js/owner
              "/static/css/customer.css", "/static/css/driver.css", "/static/css/owner.css"):
     r = anon.get(BASE + path, timeout=TIMEOUT)
     check(f"static {path} 200", r.status_code == 200 and len(r.content) > 100, str(r.status_code))
+r = anon.get(BASE + "/static/js/driver.js", timeout=TIMEOUT)
+check("served driver.js has Pick up / Drop off route labels",
+      "route-label" in r.text and "Pick up" in r.text and "Drop off" in r.text
+      and "routeHtml(o.pickup, o.dropoff)" in r.text
+      and "routeHtml(t.pickup, t.dropoff)" in r.text,
+      "labels or route render calls missing from served driver.js")
+r = anon.get(BASE + "/static/css/driver.css", timeout=TIMEOUT)
+check("served driver.css styles route labels",
+      ".route-label" in r.text, "route-label rule missing from served driver.css")
 
 banned = [r"\$9", r"\$10", r"\$7", r"\$20", r"\$4", r"\$90", r"\$50", r"\$11", r"\$12",
           "per mile", "booking fee", "gratuity", "dispatch", "Book a ride"]

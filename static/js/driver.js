@@ -543,6 +543,15 @@
       .catch(function () { /* keep the current list on a failed check */ });
   }
   function offerId(o) { return o.booking_id || o.id; }
+  /* Route line with small side labels: 'Pick up' beside the pickup
+     address and 'Drop off' beside the drop-off address, so the driver
+     can tell them apart at a glance. Hourly rides have no drop-off,
+     so only the pickup label shows. Addresses stay escaped. */
+  function routeHtml(pickup, dropoff) {
+    var html = '<span class="route-label">Pick up</span> ' + esc(pickup || "");
+    if (dropoff) html += '  →  <span class="route-label">Drop off</span> ' + esc(dropoff);
+    return html;
+  }
   function renderOffers(list) {
     var box = $("offers-list");
     /* The job stays put until the driver accepts or declines it: when
@@ -560,8 +569,7 @@
     list.forEach(function (o) {
       var card = document.createElement("div");
       card.className = "offer";
-      var route = esc(o.pickup || "");
-      if (o.dropoff) route += "  →  " + esc(o.dropoff);
+      var route = routeHtml(o.pickup, o.dropoff);
       var when = [o.date, o.time].filter(Boolean).join(" · ");
       var cls = classLabelFor(o);
       if (cls) when += (when ? " · " : "") + cls;
@@ -622,8 +630,7 @@
   function renderTrip() {
     var t = state.trip;
     if (!t) return;
-    var route = esc(t.pickup || "");
-    if (t.dropoff) route += "  →  " + esc(t.dropoff);
+    var route = routeHtml(t.pickup, t.dropoff);
     $("trip-route").innerHTML = route;
     var when = [t.date, t.time].filter(Boolean).join(" · ");
     var cls = classLabelFor(t);

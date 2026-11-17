@@ -138,6 +138,13 @@ input, select { font: inherit; }
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 .offer .route { font-weight: 700; font-size: 16.5px; line-height: 1.35; }
+/* Small quiet side labels on the route line ('Pick up' / 'Drop off'),
+   same muted grey as the other small labels. No uppercase transform:
+   the words read exactly as written. Shared by the offer card and
+   the trip screen. */
+.offer .route .route-label, .trip-card .route .route-label {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--grey);
+}
 .offer .when { color: var(--grey); font-size: 14px; margin-top: 3px; }
 .offer .earnings {
   margin-top: 12px; background: #fffdf4; border: 1px solid var(--gold); border-radius: 8px;

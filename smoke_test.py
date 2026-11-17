@@ -522,5 +522,19 @@ check("clear-rides idempotent on empty db",
       resp.status_code == 200 and resp.get_json()["deleted"]["bookings"] == 0,
       resp.get_data(as_text=True)[:150])
 
+# --- route labels (served driver JS/CSS) ------------------------------------
+resp = client.get("/static/js/driver.js")
+check("served driver.js has Pick up / Drop off route labels",
+      resp.status_code == 200
+      and b"route-label" in resp.data
+      and b"Pick up" in resp.data and b"Drop off" in resp.data
+      and b"routeHtml(o.pickup, o.dropoff)" in resp.data
+      and b"routeHtml(t.pickup, t.dropoff)" in resp.data,
+      str(resp.status_code))
+resp = client.get("/static/css/driver.css")
+check("served driver.css styles route labels",
+      resp.status_code == 200 and b".route-label" in resp.data,
+      str(resp.status_code))
+
 print(f"\n{CHECKS['passed']} passed, {CHECKS['failed']} failed")
 sys.exit(1 if CHECKS["failed"] else 0)

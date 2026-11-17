@@ -25,7 +25,7 @@ import os
 import secrets
 import string
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from urllib.parse import quote_plus
 
@@ -543,6 +543,80 @@ def booking_profit(booking):
 
 
 # ---------------------------------------------------------- payout weeks ---
+
+# --- Driver busy windows: no double-booking (owner decision 2026-11-16) ---
+# A driver who has accepted a ride must not get a second job at the same
+# time. A new offer reaches him only when its pickup falls AFTER the
+# accepted ride's busy window ends. The window covers the estimated
+# driving time (from the booked miles, so a driver coming from
+# Connecticut for a JFK job is not offered an overlapping second job)
+# plus a buffer for drop-off and getting to the next pickup.
+#   one-way: duration = miles / 30 mph, at least 30 minutes.
+#   hourly:  duration = the booked hours.
+#   buffer:  30 minutes after the estimated end.
+# The speeds and buffer are estimates the owner can change in one
+# place; the rule itself (no overlapping jobs) is what he decided.
+TRIP_AVG_MPH = 30.0
+TRIP_MIN_MINUTES = 30
+TRIP_BUFFER_MINUTES = 30
+ACTIVE_TRIP_STATUSES = ("accepted", "en_route", "arrived", "in_progress")
+
+
+def _pickup_dt(date_str, time_str):
+    """Pickup datetime in America/New_York, or None if unparseable."""
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("America/New_York")
+    except Exception:
+        tz = timezone.utc
+    try:
+        naive = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    except (TypeError, ValueError):
+        return None
+    return naive.replace(tzinfo=tz)
+
+
+def _booking_busy_window(booking):
+    """(start, end) datetimes the driver is busy with this booking.
+
+    Returns None when the pickup time cannot be parsed, in which case
+    the booking never blocks another job (fail-open: a bad date must
+    not hide every offer).
+    """
+    start = _pickup_dt(booking.date, booking.time)
+    if start is None:
+        return None
+    if booking.ride_type == "hourly" and booking.hours:
+        minutes = float(booking.hours) * 60.0
+    else:
+        miles = float(booking.miles) if booking.miles is not None else 0.0
+        minutes = max(miles / TRIP_AVG_MPH * 60.0, TRIP_MIN_MINUTES)
+    end = start + timedelta(minutes=minutes + TRIP_BUFFER_MINUTES)
+    return (start, end)
+
+
+def _windows_overlap(a, b):
+    return a[0] < b[1] and b[0] < a[1]
+
+
+def _active_windows(driver_id):
+    """Busy windows of the driver's active trips (accepted, not yet
+    completed, cancelled or no-show)."""
+    trips = (Booking.query
+             .filter(Booking.accepted_driver_id == driver_id,
+                     Booking.status.in_(ACTIVE_TRIP_STATUSES))
+             .all())
+    return [w for w in (_booking_busy_window(t) for t in trips) if w is not None]
+
+
+def _driver_time_conflict(driver_id, candidate):
+    """True if the candidate booking overlaps an active trip of this
+    driver, so the driver must not be offered (or accept) it."""
+    window = _booking_busy_window(candidate)
+    if window is None:
+        return False
+    return any(_windows_overlap(window, w) for w in _active_windows(driver_id))
+
 
 def _refunded_booking_ids():
     return {p.booking_id for p in Payment.query.filter_by(status="refunded").all()}
@@ -1310,15 +1384,20 @@ def driver_offers():
     driver, error = require_driver()
     if error:
         return error
-    if not driver.available:
-        return jsonify([])
+    # Owner decision 2026-11-16: job offers reach every registered
+    # driver, available or offline — the "Go available" toggle no
+    # longer gates offers. The time-conflict rule below still applies.
     excluded_ids = [e.booking_id for e in BookingExclusion.query.filter_by(driver_id=driver.id).all()]
     # Only PAID bookings reach drivers: status "offered" means payment
     # succeeded. Unpaid bookings (awaiting_payment) never appear here.
     # Class filtering: one-way bookings reach only drivers whose car
     # class matches the booking's class; hourly rides (no class) reach
-    # every available driver.
+    # every driver, available or offline.
     driver_class = driver_vehicle_class(driver)
+    # No double-booking: jobs overlapping a ride this driver already
+    # accepted are hidden. Fetched once: the same busy windows apply
+    # to every candidate offer.
+    busy_windows = _active_windows(driver.id)
     query = Booking.query.filter_by(status="offered").order_by(Booking.created_at, Booking.id)
     if excluded_ids:
         query = query.filter(~Booking.id.in_(excluded_ids))
@@ -1329,6 +1408,13 @@ def driver_offers():
         if b.assigned_driver_id is not None and b.assigned_driver_id != driver.id:
             continue
         if b.ride_type == "one_way" and booking_vehicle_class(b) != driver_class:
+            continue
+        # No double-booking: hide jobs whose time overlaps a ride
+        # this driver has already accepted (pickup time + driving
+        # duration + buffer). A later, non-overlapping job still shows.
+        candidate_window = _booking_busy_window(b)
+        if candidate_window is not None and any(
+                _windows_overlap(candidate_window, w) for w in busy_windows):
             continue
         # Driver sees ONLY his own pay — never miles, fare, total,
         # gratuity, tax, or the booking fee. Earnings include any toll;
@@ -1371,6 +1457,10 @@ def driver_accept(booking_id):
     # by the driver it was assigned to.
     if booking.assigned_driver_id is not None and booking.assigned_driver_id != driver.id:
         return err("This booking is assigned to another driver.", 409)
+    # No double-booking: a driver with an accepted ride cannot accept
+    # a second ride whose time overlaps it (owner decision 2026-11-16).
+    if _driver_time_conflict(driver.id, booking):
+        return err("This ride overlaps another ride you have accepted.", 409)
     # Atomic first-accept-wins: only one driver can flip offered -> accepted.
     rows = (db.session.query(Booking)
             .filter(Booking.id == booking_id, Booking.status == "offered")
@@ -1818,6 +1908,10 @@ def owner_assign_booking(booking_id):
     if (booking.ride_type == "one_way"
             and booking_vehicle_class(booking) != driver_vehicle_class(driver)):
         return err("This driver’s vehicle class does not match the booking.", 409)
+    # No double-booking: the owner cannot assign a ride that overlaps
+    # a ride this driver has already accepted (owner decision 2026-11-16).
+    if _driver_time_conflict(driver.id, booking):
+        return err("This driver already has a ride at that time.", 409)
     booking.assigned_driver_id = driver.id
     add_event(booking.id, "booking_assigned",
               f"Owner assigned booking #{booking.id} to driver {driver.name}.")

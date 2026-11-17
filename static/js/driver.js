@@ -6,7 +6,7 @@
    sounds when a new offer arrives so the driver knows a job came in.
    Job offers reach only drivers whose vehicle class matches the
    booking's class (Business Class / Business SUV); hourly rides reach
-   every available driver. */
+   every driver, available or offline. */
 (function () {
   "use strict";
 
@@ -363,7 +363,7 @@
       st.classList.remove("on");
       btn.textContent = "Go available";
       btn.classList.remove("on");
-      $("avail-note").textContent = "Go available to receive job offers.";
+      $("avail-note").textContent = "Job offers will appear below as they arrive, even while you are offline.";
     }
   }
   $("avail-toggle").addEventListener("click", function () {
@@ -385,9 +385,8 @@
 
   /* ---------- New-offer tone ---------- */
   /* Browsers only allow sound after the driver has tapped something,
-     so the audio context is unlocked on the availability tap (and on
-     any other tap that reaches here). The tone is a short chime made
-     with the Web Audio API — no audio file needed. */
+     so the audio context is unlocked on any tap on the page. The tone
+     is a short chime made with the Web Audio API — no audio file needed. */
   function unlockAudio() {
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
@@ -396,6 +395,10 @@
       if (state.audioCtx.state === "suspended") state.audioCtx.resume();
     } catch (e) { /* audio unavailable: offers still show silently */ }
   }
+  /* Any tap on the page unlocks audio, so a driver who never taps the
+     availability toggle still hears the new-offer tone. */
+  document.addEventListener("pointerdown", unlockAudio);
+
   function playOfferTone() {
     try {
       unlockAudio();
@@ -424,7 +427,7 @@
   function startOffersPolling() {
     if (state.offersTimer) clearInterval(state.offersTimer);
     state.offersTimer = setInterval(function () {
-      if (!$("screen-home").classList.contains("hidden") && state.available && !state.trip) {
+      if (!$("screen-home").classList.contains("hidden") && !state.trip) {
         refreshOffers();
       }
     }, 5000);

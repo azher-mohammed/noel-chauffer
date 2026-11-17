@@ -9,8 +9,9 @@ all connected:
   assigned; live map once the chauffeur is on the way, invoice, ride
   history.
 - **Driver app** (`/driver`) — register once with photo-only documents
-  and bank details, go available, receive job offers (earnings only,
-  filtered to the driver's vehicle class), run trips stage by stage,
+  and bank details, receive job offers whether available or offline
+  (earnings only, filtered to the driver's vehicle class, and never
+  overlapping a ride already accepted), run trips stage by stage,
   see earnings grouped in weekly pay periods.
 - **Owner dashboard** (`/owner`, PIN-protected) — per-ride revenue
   breakdown (fare, gratuity, tax, driver share, profit), tax collected,

@@ -222,7 +222,8 @@ check("double pay rejected", resp.status_code == 409, str(resp.status_code))
 
 print("== offers / accept ==")
 resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token2})
-check("unavailable driver sees no offers", resp.get_json() == [], str(resp.get_json()))
+check("offline driver still sees offers (owner decision 2026-11-16)",
+      any(o["booking_id"] == b1["id"] for o in resp.get_json()), str(resp.get_json()))
 resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token1})
 offers = resp.get_json()
 check("offer listed", len(offers) == 1 and offers[0]["booking_id"] == b1["id"], str(offers))

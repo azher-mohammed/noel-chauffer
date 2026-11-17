@@ -172,15 +172,6 @@
       </div>
     </div>
 
-    <div class="chat-box" id="trip-chat">
-      <div class="section-title">Chat with your customer</div>
-      <div class="chat-messages" id="trip-chat-messages"></div>
-      <div class="chat-input-row">
-        <input id="trip-chat-input" type="text" maxlength="500" placeholder="Write a message…" autocomplete="off">
-        <button class="btn-primary btn-gold" type="button" id="trip-chat-send">Send</button>
-      </div>
-    </div>
-
     <ul class="stage-list" id="stage-list">
       <li data-stage="en_route"><span>Head to pickup</span><span class="tick"></span></li>
       <li data-stage="arrived"><span>Arrived at pickup</span><span class="tick"></span></li>
@@ -205,6 +196,16 @@
     <div style="height:10px;"></div>
     <button class="btn-danger" type="button" id="trip-cancel-btn">Cancel this job</button>
     <p class="form-note">If you cancel, the job goes to the next driver automatically.</p>
+
+    <div class="chat-box" id="trip-chat">
+      <div class="section-title">Chat with your customer</div>
+      <div class="chat-messages" id="trip-chat-messages"></div>
+      <div class="chat-input-row">
+        <input id="trip-chat-input" type="text" maxlength="500" placeholder="Write a message…" autocomplete="off">
+        <button class="btn-primary btn-gold" type="button" id="trip-chat-send">Send</button>
+      </div>
+    </div>
+
     <p class="form-error" id="trip-error" role="alert"></p>
   </section>
 

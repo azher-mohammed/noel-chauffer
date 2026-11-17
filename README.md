@@ -110,8 +110,8 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests (309)
-python smoke_test.py                       # backend flow checks (143)
+python -m unittest discover -s tests -v   # unit tests (316)
+python smoke_test.py                       # backend flow checks (145)
 ```
 
 `verify_e2e.py` runs the full HTTP checklist against a **running**
@@ -121,7 +121,7 @@ server with a **fresh** database:
 DATABASE_URL="sqlite:////tmp/noel-verify.db" OWNER_PIN=4321 \
   SECRET_KEY=test-secret ENCRYPTION_KEY="<fernet key>" PORT=5055 python app.py &
 NOEL_BASE_URL=http://127.0.0.1:5055 NOEL_OWNER_PIN=4321 python verify_e2e.py
-# full HTTP checklist (235 checks)
+# full HTTP checklist (237 checks)
 ```
 
 ### Temporary test reset — REMOVE BEFORE REAL LAUNCH

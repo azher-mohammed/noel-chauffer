@@ -547,6 +547,21 @@ check("served driver.js has Pick up / Drop off route labels",
       and b"routeHtml(o.pickup, o.dropoff)" in resp.data
       and b"routeHtml(t.pickup, t.dropoff)" in resp.data,
       str(resp.status_code))
+# --- staged trip navigation (served driver JS) -----------------------------
+check("served driver.js stages trip navigation (pickup until picked up)",
+      resp.status_code == 200
+      and b"function tripNavDestination(stageIndex, pickup, dropoff)" in resp.data
+      and b"if (stageIndex < 3) return pickup || null;" in resp.data
+      and b"return dropoff || null;" in resp.data
+      and b"tripNavLinksHtml(state.stageIndex, t.pickup, t.dropoff)" in resp.data
+      and b"renderTripNavLinks();" in resp.data,
+      str(resp.status_code))
+check("served driver.js keeps offer-card links, trip screen drops payload URLs",
+      b"esc(o.route_url)" in resp.data
+      and b"esc(o.route_waze_url)" in resp.data
+      and b"esc(t.route_url)" not in resp.data
+      and b"esc(t.route_waze_url)" not in resp.data,
+      "offer-card links changed or trip screen still uses un-staged URLs")
 resp = client.get("/static/css/driver.css")
 check("served driver.css styles route labels",
       resp.status_code == 200 and b".route-label" in resp.data,

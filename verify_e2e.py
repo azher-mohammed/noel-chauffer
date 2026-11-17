@@ -966,6 +966,19 @@ check("served driver.js has embedded map (markers + OSM tiles + route line)",
       and "L.polyline" in r.text and "initTripMap(mapEl, o.map)" in r.text
       and "initTripMap(el, t.map)" in r.text and "state.tripMapId === t.id" in r.text,
       "map markers, tiles, route line or wiring missing from served driver.js")
+check("served driver.js stages trip navigation (pickup until picked up)",
+      "function tripNavDestination(stageIndex, pickup, dropoff)" in r.text
+      and "if (stageIndex < 3) return pickup || null;" in r.text
+      and "return dropoff || null;" in r.text
+      and "tripNavLinksHtml(state.stageIndex, t.pickup, t.dropoff)" in r.text
+      and "renderTripNavLinks();" in r.text,
+      "staged navigation helpers or wiring missing from served driver.js")
+check("served driver.js keeps offer-card links, trip screen drops payload URLs",
+      "esc(o.route_url)" in r.text
+      and "esc(o.route_waze_url)" in r.text
+      and "esc(t.route_url)" not in r.text
+      and "esc(t.route_waze_url)" not in r.text,
+      "offer-card links changed or trip screen still uses un-staged URLs")
 r = anon.get(BASE + "/driver", timeout=TIMEOUT)
 check("served driver page includes Leaflet + trip map container",
       "leaflet@1.9.4/dist/leaflet.css" in r.text

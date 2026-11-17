@@ -738,6 +738,38 @@
       .catch(function () { refreshOffers(); });
   }
 
+  /* Staged navigation on the trip screen (Uber-driver-style): until
+     the customer is picked up, the route links navigate the driver
+     TO THE PICKUP from his current location; only after pickup do
+     they navigate to the drop-off. stageIndex counts completed
+     stages, so the customer is picked up once it reaches 3 (the
+     "complete" stage is current, server status in_progress). Hourly
+     rides have no drop-off: after pickup there is nowhere to
+     navigate, so the links are hidden rather than pointing at an
+     empty destination. The offer card is untouched: its links keep
+     previewing the whole trip (pickup -> drop-off) while the driver
+     decides. Google Maps gets a destination with no origin, so it
+     routes from the driver's current location; Waze navigates to
+     the single destination from the current location. */
+  function tripNavDestination(stageIndex, pickup, dropoff) {
+    if (stageIndex < 3) return pickup || null;
+    return dropoff || null;
+  }
+  function tripNavLinksHtml(stageIndex, pickup, dropoff) {
+    var dest = tripNavDestination(stageIndex, pickup, dropoff);
+    if (!dest) return "";
+    var google = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest);
+    var waze = "https://waze.com/ul?q=" + encodeURIComponent(dest) + "&navigate=yes";
+    return '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(google) + '" target="_blank" rel="noopener">Google Maps ↗</a>' +
+      '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(waze) + '" target="_blank" rel="noopener">Waze ↗</a>';
+  }
+  function renderTripNavLinks() {
+    var el = $("trip-route-link");
+    if (!el) return;
+    var t = state.trip;
+    el.innerHTML = t ? tripNavLinksHtml(state.stageIndex, t.pickup, t.dropoff) : "";
+  }
+
   /* ---------- Trip screen ---------- */
   function renderTrip() {
     var t = state.trip;
@@ -789,14 +821,10 @@
       tripEarningsHtml += '<div class="toll-line"><span class="label">Toll</span><span class="amount">' + esc(money(tripToll)) + "</span></div>";
     }
     $("trip-earnings").innerHTML = tripEarningsHtml;
-    var routeLinks = "";
-    if (t.route_url) {
-      routeLinks += '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(t.route_url) + '" target="_blank" rel="noopener">Google Maps ↗</a>';
-    }
-    if (t.route_waze_url) {
-      routeLinks += '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(t.route_waze_url) + '" target="_blank" rel="noopener">Waze ↗</a>';
-    }
-    $("trip-route-link").innerHTML = routeLinks;
+    /* Navigation links are staged (pickup until picked up, then
+       drop-off) and re-render with the stages — see
+       renderTripNavLinks. */
+    renderTripNavLinks();
     /* Digital name sign: airport pickups only. The driver holds the
        phone up at arrivals so the customer can spot their name. */
     var signBtn = $("trip-namesign-btn");
@@ -831,6 +859,10 @@
       hide($("waiting-field"));
       hide($("extra-miles-field"));
     }
+    /* The navigation destination follows the stage: a stage advance
+       (e.g. "Start trip" after pickup) must switch the links from
+       the pickup to the drop-off at once, without a full re-render. */
+    renderTripNavLinks();
     refreshNoShowButton();
   }
   /* Customer no-show is only offered once the driver has waited the

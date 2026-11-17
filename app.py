@@ -232,18 +232,21 @@ class Booking(db.Model):
     driver_earnings = db.Column(Numeric(10, 2), nullable=False)
     gratuity = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     booking_fee = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
-    # Fare (miles x class rate) and NYC sales tax (8.875% of the fare),
-    # stored so the owner breakdown never has to recompute them.
-    # Nullable: bookings created before the class/tax change read via
-    # the recompute fallback in booking_fare/booking_tax below.
+    # Fare (miles x class rate) and the stored tax column. Tax and
+    # gratuity were REMOVED from new bookings by owner orders
+    # 2026-11-17, so new rows store $0.00 in both; rides booked
+    # before the removal keep their stored values (history is not
+    # rewritten). Nullable: bookings created before the class/tax
+    # change read via the recompute fallback in
+    # booking_fare/booking_tax below.
     fare = db.Column(Numeric(10, 2), nullable=True)
     tax = db.Column(Numeric(10, 2), nullable=True)
     waiting_minutes = db.Column(db.Integer, nullable=False, default=0)
     waiting_charge = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     # Extra miles driven beyond the booked route, entered by the driver
     # at completion (one-way rides only). extra_distance_charge is the
-    # customer-side addition (added fare + gratuity + tax); the fare,
-    # gratuity, tax, fare_total and driver_earnings columns are all
+    # customer-side addition (added fare only — no gratuity, no tax);
+    # the fare, fare_total and driver_earnings columns are all
     # increased by their share at completion, so the invoice and owner
     # breakdown stay consistent.
     extra_miles = db.Column(Numeric(6, 1), nullable=False, default=Decimal("0"))
@@ -552,8 +555,10 @@ def booking_tax(booking):
 
 
 def booking_profit(booking):
-    # Owner profit per ride: total + waiting - driver pay - tax.
-    # Tax is pass-through, so it never counts as profit.
+    # Owner profit per ride: total + waiting - driver pay - stored tax.
+    # New rides store $0.00 tax (removed 2026-11-17), so this is
+    # total + waiting - driver pay; rides booked before the removal
+    # keep their stored tax subtracted so their profit stays exact.
     return (money(booking.fare_total) + money(booking.waiting_charge)
             - money(booking.driver_earnings) - booking_tax(booking))
 
@@ -687,7 +692,9 @@ def _group_payout_weeks(bookings):
 
 def recompute_booking_fare(booking):
     """Recompute fare/driver/gratuity/tax/fee from miles/hours +
-    current toll + vehicle class.
+    current toll + vehicle class, at the CURRENT pricing formula
+    (total = fare + toll; gratuity and tax are $0.00 for new
+    computations — see pricing.py).
 
     Referral codes are accepted but give a $0 discount for now (the
     old $20-fee waiver no longer applies; a new benefit is TBD).
@@ -1715,7 +1722,7 @@ def driver_trip_event(booking_id):
         booking.waiting_charge = waiting_charge(booking.pickup, booking.waiting_minutes)
         # Extra miles driven beyond the booked route (one-way rides
         # only). Priced with the SAME formula as the booked fare:
-        # added fare + 10% gratuity + 8.875% tax to the customer
+        # added fare only (no gratuity, no tax) to the customer
         # total, driver rate per mile to the driver. Toll unchanged.
         extra_dec = Decimal("0")
         if data.get("extra_miles") is not None:
@@ -1881,7 +1888,10 @@ def owner_summary():
             gross += money(b.fare_total) + money(b.waiting_charge)
             # Tax collected on paid, non-refunded rides only (refunded
             # payments have status "refunded", so they are not in
-            # paid_ids). Tax is pass-through, never profit.
+            # paid_ids). New rides store $0.00 tax (removed
+            # 2026-11-17); only pre-removal rides contribute. The
+            # field stays in the API for the stored records; the
+            # dashboard no longer shows a Tax card.
             tax_collected += booking_tax(b)
     refunded_ids = _refunded_booking_ids()
     driver_owed = Decimal("0.00")

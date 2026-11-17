@@ -310,15 +310,15 @@ class PricingTotalsCase(unittest.TestCase):
         sedan = compute_one_way(Decimal("18.0"), toll=Decimal("0"))
         suv = compute_one_way(Decimal("18.0"), toll=Decimal("0"),
                               vehicle_class="suv")
-        self.assertEqual(sedan["total"], Decimal("192.58"))
-        self.assertEqual(suv["total"], Decimal("213.98"))
+        self.assertEqual(sedan["total"], Decimal("162.00"))
+        self.assertEqual(suv["total"], Decimal("180.00"))
 
     def test_totals_with_midtown_tunnel_toll(self):
         sedan = compute_one_way(Decimal("18.0"), toll=Decimal("7.46"))
         suv = compute_one_way(Decimal("18.0"), toll=Decimal("7.46"),
                               vehicle_class="suv")
-        self.assertEqual(sedan["total"], Decimal("200.04"))
-        self.assertEqual(suv["total"], Decimal("221.44"))
+        self.assertEqual(sedan["total"], Decimal("169.46"))
+        self.assertEqual(suv["total"], Decimal("187.46"))
 
 
 class TypedTextMatchesSuggestionCase(_CacheGuard):

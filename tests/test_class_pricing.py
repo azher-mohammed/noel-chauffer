@@ -1,11 +1,11 @@
-"""Tests for vehicle classes + new pricing + NYC tax (decided 2026-11-16).
+"""Tests for vehicle classes + new pricing (decided 2026-11-16; tax
+and gratuity removed by owner orders 2026-11-17).
 
 Settled rules under test:
 - TWO classes only: sedan (Business Class) $9/mile, SUV (Business
   SUV) $10/mile. NO booking fee. Driver: sedan $4/mile, SUV $7/mile.
-- Gratuity 10% of the fare (owner profit); NYC tax 8.875% of the fare
-  (pass-through, neither profit nor driver pay); toll untaxed,
-  passed to the driver. Total = fare + gratuity + tax + toll.
+- NO tax, NO gratuity on any new booking. Toll passed to the driver.
+  Total = fare + toll. Profit = total - driver earnings.
 - Referral codes give a $0 discount for now (TBD). Hourly unchanged.
 - The customer picks a class on the separate "Choose your experience"
   page before paying; dispatch is filtered by class; driver payloads
@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles (same as the
-# other API test modules): sedan total $192.58, SUV total $213.98.
+# other API test modules): sedan total $162.00, SUV total $180.00.
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -45,8 +45,6 @@ import car_models as car_models_module  # noqa: E402
 from pricing import (  # noqa: E402
     BOOKING_FEE,
     CLASS_LABELS,
-    GRATUITY_RATE,
-    TAX_RATE,
     class_label,
     compute_class_totals,
     compute_hourly,
@@ -61,16 +59,18 @@ FORBIDDEN_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fee",
 CARD = {"card_number": "4242424242424242", "card_exp": "12/30",
         "card_cvc": "123", "card_name": "Class Customer"}
 
-# (miles, class) -> (fare, gratuity, tax, total, driver, profit)
+# (miles, class) -> (fare, gratuity, tax, total, driver, profit).
+# Gratuity and tax are $0.00 on every new booking (removed 2026-11-17);
+# the keys stay so stored records and the owner API keep their shape.
 EXPECTED = {
-    ("10.0", "sedan"): ("90.00", "9.00", "7.99", "106.99", "40.00", "59.00"),
-    ("10.0", "suv"): ("100.00", "10.00", "8.88", "118.88", "70.00", "40.00"),
-    ("18.0", "sedan"): ("162.00", "16.20", "14.38", "192.58", "72.00", "106.20"),
-    ("18.0", "suv"): ("180.00", "18.00", "15.98", "213.98", "126.00", "72.00"),
-    ("20.0", "sedan"): ("180.00", "18.00", "15.98", "213.98", "80.00", "118.00"),
-    ("20.0", "suv"): ("200.00", "20.00", "17.75", "237.75", "140.00", "80.00"),
-    ("35.0", "sedan"): ("315.00", "31.50", "27.96", "374.46", "140.00", "206.50"),
-    ("35.0", "suv"): ("350.00", "35.00", "31.06", "416.06", "245.00", "140.00"),
+    ("10.0", "sedan"): ("90.00", "0.00", "0.00", "90.00", "40.00", "50.00"),
+    ("10.0", "suv"): ("100.00", "0.00", "0.00", "100.00", "70.00", "30.00"),
+    ("18.0", "sedan"): ("162.00", "0.00", "0.00", "162.00", "72.00", "90.00"),
+    ("18.0", "suv"): ("180.00", "0.00", "0.00", "180.00", "126.00", "54.00"),
+    ("20.0", "sedan"): ("180.00", "0.00", "0.00", "180.00", "80.00", "100.00"),
+    ("20.0", "suv"): ("200.00", "0.00", "0.00", "200.00", "140.00", "60.00"),
+    ("35.0", "sedan"): ("315.00", "0.00", "0.00", "315.00", "140.00", "175.00"),
+    ("35.0", "suv"): ("350.00", "0.00", "0.00", "350.00", "245.00", "105.00"),
 }
 
 
@@ -91,38 +91,37 @@ class TestClassPricingPure(unittest.TestCase):
             self.assertEqual(r["vehicle_class"], cls)
 
     def test_owner_verified_20_mile_examples(self):
-        # The exact figures the owner was shown in the 2026-11-16 call.
+        # The exact figures for the 20-mile examples (tax and gratuity
+        # removed 2026-11-17: total = fare, profit = total - driver).
         suv = compute_one_way(D("20.0"), vehicle_class="suv")
         self.assertEqual((suv["fare"], suv["gratuity"], suv["tax"], suv["total"],
                           suv["driver_earnings"], suv["profit"]),
-                         (D("200.00"), D("20.00"), D("17.75"), D("237.75"),
-                          D("140.00"), D("80.00")))
+                         (D("200.00"), D("0.00"), D("0.00"), D("200.00"),
+                          D("140.00"), D("60.00")))
         sedan = compute_one_way(D("20.0"), vehicle_class="sedan")
         self.assertEqual((sedan["fare"], sedan["gratuity"], sedan["tax"], sedan["total"],
                           sedan["driver_earnings"], sedan["profit"]),
-                         (D("180.00"), D("18.00"), D("15.98"), D("213.98"),
-                          D("80.00"), D("118.00")))
+                         (D("180.00"), D("0.00"), D("0.00"), D("180.00"),
+                          D("80.00"), D("100.00")))
 
     def test_zero_booking_fee(self):
         self.assertEqual(BOOKING_FEE, D("0"))
         for cls in ("sedan", "suv"):
             self.assertEqual(compute_one_way(D("18.0"), vehicle_class=cls)["booking_fee"], D("0"))
 
-    def test_tax_is_exactly_8_875_percent_of_fare(self):
-        self.assertEqual(TAX_RATE, D("0.08875"))
+    def test_no_tax_no_gratuity_on_any_new_booking(self):
+        # Owner orders 2026-11-17: tax and gratuity are gone from
+        # every new booking, both classes, any distance, with or
+        # without a toll. Total = fare + toll.
         for miles in ("1.0", "7.3", "10.0", "18.0", "20.0", "35.0", "61.5"):
             for cls in ("sedan", "suv"):
-                r = compute_one_way(D(miles), vehicle_class=cls)
-                self.assertEqual(r["tax"], money(r["fare"] * TAX_RATE), (miles, cls))
+                for toll in ("0.00", "7.46", "18.50"):
+                    r = compute_one_way(D(miles), toll=D(toll), vehicle_class=cls)
+                    self.assertEqual(r["tax"], D("0.00"), (miles, cls, toll))
+                    self.assertEqual(r["gratuity"], D("0.00"), (miles, cls, toll))
+                    self.assertEqual(r["total"], r["fare"] + D(toll), (miles, cls, toll))
 
-    def test_gratuity_is_10_percent_of_fare(self):
-        self.assertEqual(GRATUITY_RATE, D("0.10"))
-        for miles in ("10.0", "18.0", "35.0"):
-            for cls in ("sedan", "suv"):
-                r = compute_one_way(D(miles), vehicle_class=cls)
-                self.assertEqual(r["gratuity"], money(r["fare"] * GRATUITY_RATE), (miles, cls))
-
-    def test_toll_passes_through_untaxed(self):
+    def test_toll_passes_through_to_driver(self):
         for cls in ("sedan", "suv"):
             base = compute_one_way(D("18.0"), vehicle_class=cls)
             tolled = compute_one_way(D("18.0"), toll=D("18.50"), vehicle_class=cls)
@@ -147,9 +146,10 @@ class TestClassPricingPure(unittest.TestCase):
             for cls in ("sedan", "suv"):
                 r = compute_one_way(D(miles), toll=D("5.00"), vehicle_class=cls)
                 self.assertEqual(r["profit"], r["total"] - r["driver_earnings"] - r["tax"])
-                # Profit = fare + gratuity - driver pay (toll cancels out).
+                # Profit = fare - driver pay before toll (toll cancels
+                # out; tax and gratuity are $0.00 on new bookings).
                 self.assertEqual(r["profit"],
-                                 r["fare"] + r["gratuity"]
+                                 r["fare"]
                                  - (r["driver_earnings"] - r["toll"]))
 
     def test_referral_code_is_zero_discount_for_now(self):
@@ -170,9 +170,9 @@ class TestClassPricingPure(unittest.TestCase):
 
     def test_class_totals_helper(self):
         totals = compute_class_totals(D("20.0"))
-        self.assertEqual(totals, {"sedan": D("213.98"), "suv": D("237.75")})
+        self.assertEqual(totals, {"sedan": D("180.00"), "suv": D("200.00")})
         totals = compute_class_totals(D("18.0"), toll=D("10.00"))
-        self.assertEqual(totals, {"sedan": D("202.58"), "suv": D("223.98")})
+        self.assertEqual(totals, {"sedan": D("172.00"), "suv": D("190.00")})
 
     def test_class_display_names(self):
         self.assertEqual(CLASS_LABELS, {"sedan": "Business Class", "suv": "Business SUV"})
@@ -324,13 +324,13 @@ class ClassApiCase(unittest.TestCase):
         self.assertEqual(booking["status"], "awaiting_payment")
         self.assertEqual(booking["vehicle_class"], "sedan")
         self.assertEqual(booking["vehicle_class_label"], "Business Class")
-        self.assertTrue(approx(booking["total"], "192.58"), booking)
-        self.assertTrue(approx(booking["class_totals"]["sedan"], "192.58"), booking)
-        self.assertTrue(approx(booking["class_totals"]["suv"], "213.98"), booking)
+        self.assertTrue(approx(booking["total"], "162.00"), booking)
+        self.assertTrue(approx(booking["class_totals"]["sedan"], "162.00"), booking)
+        self.assertTrue(approx(booking["class_totals"]["suv"], "180.00"), booking)
         got = self.client.get(f"/api/bookings/{booking['id']}").get_json()["booking"]
         self.assertEqual(got["vehicle_class"], "sedan")
         self.assertEqual(got["vehicle_class_label"], "Business Class")
-        self.assertTrue(approx(got["class_totals"]["suv"], "213.98"), got)
+        self.assertTrue(approx(got["class_totals"]["suv"], "180.00"), got)
 
     def test_hourly_booking_has_no_class_or_totals(self):
         resp = self.client.post("/api/bookings", json={
@@ -350,23 +350,23 @@ class ClassApiCase(unittest.TestCase):
         switched = resp.get_json()["booking"]
         self.assertEqual(switched["vehicle_class"], "suv")
         self.assertEqual(switched["vehicle_class_label"], "Business SUV")
-        self.assertTrue(approx(switched["total"], "213.98"), switched)
+        self.assertTrue(approx(switched["total"], "180.00"), switched)
         self.owner_login()
         detail = self.owner_detail(booking["id"])
         self.assertEqual(detail["vehicle_class"], "suv")
         self.assertEqual(detail["vehicle_class_label"], "Business SUV")
         self.assertTrue(approx(detail["fare"], "180.00"), detail)
-        self.assertTrue(approx(detail["gratuity"], "18.00"), detail)
-        self.assertTrue(approx(detail["tax"], "15.98"), detail)
+        self.assertTrue(approx(detail["gratuity"], "0.00"), detail)
+        self.assertTrue(approx(detail["tax"], "0.00"), detail)
         self.assertTrue(approx(detail["driver_earnings"], "126.00"), detail)
-        self.assertTrue(approx(detail["profit"], "72.00"), detail)
+        self.assertTrue(approx(detail["profit"], "54.00"), detail)
         # Switch back: sedan totals return exactly.
         resp = self.switch_class(booking["id"], "sedan")
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(approx(resp.get_json()["booking"]["total"], "192.58"))
+        self.assertTrue(approx(resp.get_json()["booking"]["total"], "162.00"))
         detail = self.owner_detail(booking["id"])
-        self.assertTrue(approx(detail["tax"], "14.38"), detail)
-        self.assertTrue(approx(detail["profit"], "106.20"), detail)
+        self.assertTrue(approx(detail["tax"], "0.00"), detail)
+        self.assertTrue(approx(detail["profit"], "90.00"), detail)
 
     def test_class_switch_rejected_after_payment(self):
         booking = self.book()
@@ -490,8 +490,8 @@ class ClassApiCase(unittest.TestCase):
         self.assertEqual(self.client.get("/api/drivers/me/offers",
                                          headers={"X-Driver-Token": sedan_token}).get_json(), [])
 
-    # -- owner reconciliation incl. tax --------------------------------------
-    def test_owner_summary_reconciliation_incl_tax(self):
+    # -- owner reconciliation (no tax, no gratuity on new rides) -----------
+    def test_owner_summary_reconciliation(self):
         _, sedan_token = self.register_driver("Cadillac CT6")
         _, suv_token = self.register_driver("Cadillac Escalade")
         b1 = self.book()
@@ -502,8 +502,8 @@ class ClassApiCase(unittest.TestCase):
         self.owner_login()
         rows = {r["id"]: r for r in self.client.get("/api/owner/bookings").get_json()}
         for booking_id, fare, grat, tax, total, driver, profit in (
-                (b1["id"], "162.00", "16.20", "14.38", "192.58", "72.00", "106.20"),
-                (b2["id"], "180.00", "18.00", "15.98", "213.98", "126.00", "72.00")):
+                (b1["id"], "162.00", "0.00", "0.00", "162.00", "72.00", "90.00"),
+                (b2["id"], "180.00", "0.00", "0.00", "180.00", "126.00", "54.00")):
             row = rows[booking_id]
             self.assertTrue(approx(row["fare"], fare), row)
             self.assertTrue(approx(row["gratuity"], grat), row)
@@ -515,13 +515,13 @@ class ClassApiCase(unittest.TestCase):
                             - D(str(row["driver_earnings"])) - D(str(row["tax"])),
                             row["profit"]), row)
         summary = self.client.get("/api/owner/summary").get_json()
-        self.assertTrue(approx(summary["gross"], "406.56"), summary)
+        self.assertTrue(approx(summary["gross"], "342.00"), summary)
         self.assertTrue(approx(summary["driver_owed"], "198.00"), summary)
-        self.assertTrue(approx(summary["tax_collected"], "30.36"), summary)
+        self.assertTrue(approx(summary["tax_collected"], "0.00"), summary)
         self.assertTrue(approx(summary["profit"],
                                D(str(summary["gross"])) - D(str(summary["driver_owed"]))), summary)
 
-    def test_refunded_ride_excluded_from_tax_collected(self):
+    def test_refunded_ride_excluded_from_gross_and_tax_collected(self):
         _, token = self.register_driver("Cadillac CT6")
         booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
@@ -535,7 +535,7 @@ class ClassApiCase(unittest.TestCase):
         self.assertTrue(approx(summary["tax_collected"], "0.00"), summary)
         self.assertTrue(approx(summary["gross"], "0.00"), summary)
 
-    def test_toll_recompute_keeps_class_and_tax(self):
+    def test_toll_recompute_keeps_class_and_zero_tax(self):
         booking = self.book()
         self.switch_class(booking["id"], "suv")
         self.owner_login()
@@ -544,9 +544,9 @@ class ClassApiCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         row = resp.get_json()["booking"]
         self.assertEqual(row["vehicle_class"], "suv")
-        self.assertTrue(approx(row["customer_total"], "232.48"), row)
+        self.assertTrue(approx(row["customer_total"], "198.50"), row)
         self.assertTrue(approx(row["driver_earnings"], "144.50"), row)
-        self.assertTrue(approx(row["tax"], "15.98"), row)
+        self.assertTrue(approx(row["tax"], "0.00"), row)
         self.assertTrue(approx(row["fare"], "180.00"), row)
 
     def test_referral_code_gives_zero_discount_via_api(self):
@@ -554,9 +554,9 @@ class ClassApiCase(unittest.TestCase):
         code = first["referral_code"]
         self.assertTrue(code)
         referred = self.book(referral_code=code)
-        self.assertTrue(approx(referred["total"], "192.58"), referred)
+        self.assertTrue(approx(referred["total"], "162.00"), referred)
         resp = self.pay(referred["id"])
-        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "192.58"))
+        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "162.00"))
 
     # -- static copy: options page + no rates anywhere customer-facing -------
     def test_static_options_page_copy(self):

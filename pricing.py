@@ -8,16 +8,16 @@ classes, each with its own per-mile rate and driver rate. NO booking fee.
 - Business Class (sedan): customer $9/mile, driver $4/mile.
 - Business SUV (SUV): customer $10/mile, driver $7/mile.
 - fare = miles x class rate.
-- gratuity = 10% of the fare (before toll and before tax), charged to
-  the customer, goes to the OWNER's profit (never the driver).
-- NYC TAX = 8.875% of the fare, added to the CUSTOMER total, for BOTH
-  classes. Verified: NYC311/TLC confirm 8.875% on car-service /
-  limousine / black-car passenger fares, and Blacklane's own quote
-  applied exactly 8.875% to the base fare. Tax is pass-through: it is
-  NOT driver pay and NOT owner profit. Tolls are NOT taxed.
-- customer total = fare + gratuity + tax + toll.
+- NO TAX, NO GRATUITY (owner orders 2026-11-17: "Tax nikal doh
+  mere ismein se" and "10 percent gratuity bhi nikal doh mere").
+  The 8.875% NYC sales tax and the 10% gratuity were REMOVED from
+  all new bookings on 2026-11-17. The breakdown dicts still carry
+  "tax" and "gratuity" keys at $0.00 so stored records and the
+  owner API keep their shape; rides booked before the removal keep
+  their stored tax/gratuity values (history is not rewritten).
+- customer total = fare + toll.
 - driver earnings = miles x driver rate + toll.
-- owner profit = total - driver earnings - tax.
+- owner profit = total - driver earnings.
 - UP-FRONT TOLL (owner decision 2026-11-16, extended 2026-11-17):
   the toll estimate at booking creation comes from the MAP: every
   tolled crossing the route passes through is charged at the
@@ -36,10 +36,10 @@ classes, each with its own per-mile rate and driver rate. NO booking fee.
   is no fee. A new referral benefit is TBD pending the owner's
   decision — do not invent one.
 - HOURLY: total = $90/hour; driver = $50/hour. No fee, no gratuity,
-  no tax. Whether hourly rides get tax is TBD pending the owner's
-  decision; do not add tax to hourly.
+  no tax. Unchanged by the tax/gratuity removal (hourly never had
+  either).
 - WAITING: 60 free minutes at airport pickups, else 15; then $1/minute.
-  No gratuity on waiting. Waiting money goes to owner profit.
+  Waiting money goes to owner profit.
 - CANCELLATION: free (full refund) if cancelled MORE than 1 hour before
   the pickup datetime (America/New_York); 1 hour or less keeps the full
   price.
@@ -70,9 +70,9 @@ DRIVER_SUV = Decimal("7")
 CLASS_RATES = {"sedan": SEDAN_RATE, "suv": SUV_RATE}
 CLASS_DRIVER_RATES = {"sedan": DRIVER_SEDAN, "suv": DRIVER_SUV}
 CLASS_LABELS = {"sedan": "Business Class", "suv": "Business SUV"}
-TAX_RATE = Decimal("0.08875")
+# No tax rate, no gratuity rate: both were removed by owner orders
+# 2026-11-17. "tax"/"gratuity" breakdown keys stay at $0.00.
 BOOKING_FEE = Decimal("0")
-GRATUITY_RATE = Decimal("0.10")
 # Referral discount is $0 for now — TBD pending the owner's decision.
 REFERRAL_DISCOUNT = Decimal("0")
 HOURLY_CUSTOMER = Decimal("90")
@@ -159,8 +159,7 @@ def estimate_upfront_toll(pickup_state, dropoff_state, pickup_text="",
 
     This is the ONE helper for the estimate: booking creation stores
     its result on the booking, and the options-page quote reads the
-    same stored toll, so quote and charge always agree exactly. The
-    toll is never taxed (see compute_one_way).
+    same stored toll, so quote and charge always agree exactly.
     """
     pickup_code = _state_code(pickup_state) or _text_state(pickup_text)
     dropoff_code = _state_code(dropoff_state) or _text_state(dropoff_text)
@@ -203,13 +202,13 @@ def compute_one_way(miles, toll=Decimal("0"), vehicle_class="sedan", referral: b
     if vehicle_class not in CLASS_RATES:
         raise ValueError("vehicle_class must be 'sedan' or 'suv'")
     fare = money(CLASS_RATES[vehicle_class] * miles)
-    gratuity = money(fare * GRATUITY_RATE)
-    tax = money(fare * TAX_RATE)
-    total = money(fare + gratuity + tax + toll)
+    gratuity = Decimal("0.00")
+    tax = Decimal("0.00")
+    total = money(fare + toll)
     if referral:
         total = money(total - REFERRAL_DISCOUNT)
     driver_earnings = money(CLASS_DRIVER_RATES[vehicle_class] * miles + toll)
-    profit = money(total - driver_earnings - tax)
+    profit = money(total - driver_earnings)
     return {
         "miles": miles,
         "fare": fare,
@@ -237,9 +236,8 @@ def compute_extra_distance(extra_miles, vehicle_class="sedan") -> dict:
 
     One-way rides only: the driver enters the extra miles at
     completion. Uses the SAME formula as the booked fare — added fare
-    = extra miles x class rate, gratuity 10% of the added fare, NYC
-    tax 8.875% of the added fare; toll unchanged. Driver addition =
-    extra miles x driver rate. All values Decimal.
+    = extra miles x class rate, no gratuity, no tax; toll unchanged.
+    Driver addition = extra miles x driver rate. All values Decimal.
     """
     miles = miles_1dp(extra_miles)
     if miles < 0:
@@ -248,9 +246,9 @@ def compute_extra_distance(extra_miles, vehicle_class="sedan") -> dict:
     if vehicle_class not in CLASS_RATES:
         raise ValueError("vehicle_class must be 'sedan' or 'suv'")
     fare = money(CLASS_RATES[vehicle_class] * miles)
-    gratuity = money(fare * GRATUITY_RATE)
-    tax = money(fare * TAX_RATE)
-    total = money(fare + gratuity + tax)
+    gratuity = Decimal("0.00")
+    tax = Decimal("0.00")
+    total = money(fare)
     driver_addition = money(CLASS_DRIVER_RATES[vehicle_class] * miles)
     return {
         "miles": miles,
@@ -293,7 +291,7 @@ def free_waiting_minutes(pickup_text: str) -> int:
 
 
 def waiting_charge(pickup_text: str, minutes: int) -> Decimal:
-    """Waiting charge: $1/min beyond the free allowance. No gratuity."""
+    """Waiting charge: $1/min beyond the free allowance."""
     minutes = max(0, int(minutes or 0))
     billable = max(0, minutes - free_waiting_minutes(pickup_text))
     return money(Decimal(billable) * WAITING_RATE_PER_MIN)

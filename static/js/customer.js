@@ -985,7 +985,7 @@
       return "Waiting is free for 60 minutes at airports and 15 minutes at other pickups. After that, waiting is charged at $1/min. A no-show is charged the full price.";
     }
     if (has("price", "cost", "much", "total", "charge", "pay", "payment")) {
-      return "After you complete the booking form, choose Business Class or Business SUV — each class shows its own single total, tax included, with no breakdown and no hidden charges. You pay by card on this page, and then your chauffeur is assigned.";
+      return "After you complete the booking form, choose Business Class or Business SUV — each class shows its own single total, with no breakdown and no hidden charges. You pay by card on this page, and then your chauffeur is assigned.";
     }
     if (has("lost", "left", "forgot", "belonging", "item")) {
       return "I am sorry to hear that. Please report it here as soon as you can, and within 7 days. The driver checks the car after every ride. Unclaimed items go to the police station after one week.";

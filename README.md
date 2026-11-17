@@ -24,9 +24,10 @@ all connected:
   the short side, enforced server-side. Shape/size only: no face
   detection (owner's pick of the light option).
 - **Owner dashboard** (`/owner`, PIN-protected) — per-ride revenue
-  breakdown (fare, gratuity, tax, driver share, profit), tax collected,
-  alerts, messages outbox, driver documents, toll entry, and driver
-  payout weeks (mark paid).
+  breakdown (fare, driver share, toll, waiting, profit), alerts,
+  messages outbox, driver documents, toll entry, and driver payout
+  weeks (mark paid). No Tax/Gratuity columns: tax and gratuity were
+  removed from all new bookings by owner orders 2026-11-17.
 
 Stack: Python + Flask + SQLAlchemy, vanilla HTML/CSS/JS, no build step.
 Driver documents and photos are stored as BLOBs inside the database —
@@ -44,28 +45,26 @@ never a breakdown, never rates, never miles.
   booking form (sedan pre-selected); each class shows its own single
   total. The form button says "View options".
 - **One-way:** fare = miles × class rate (sedan $9/mile, SUV
-  $10/mile); gratuity = 10% of the fare (owner profit, never driver
-  pay); NYC tax = 8.875% of the fare (pass-through — not profit, not
-  driver pay); toll added untaxed, passed to the driver. Customer
-  total = fare + gratuity + tax + toll. Driver earnings = miles ×
-  driver rate (sedan $4/mile, SUV $7/mile) + toll. Owner profit =
-  total − driver − tax. **No booking fee ($0).** This supersedes the
-  old $20 fee + $7/mile formula entirely.
-- **NYC tax verification:** NYC311/TLC confirm 8.875% on car-service /
-  limousine / black-car passenger fares, and Blacklane's own quote
-  applied exactly 8.875% to the base fare. Tolls are not taxed.
+  $10/mile); NO tax, NO gratuity (both removed by owner orders
+  2026-11-17); toll added, passed to the driver. Customer total =
+  fare + toll. Driver earnings = miles × driver rate (sedan $4/mile,
+  SUV $7/mile) + toll. Owner profit = total − driver. **No booking
+  fee ($0).** This supersedes the old $20 fee + $7/mile formula
+  entirely, and the fare + gratuity + tax + toll formula that ran
+  until 2026-11-17. Rides booked before the removal keep their
+  stored tax/gratuity values; history is not rewritten.
 - **Referral codes** are accepted but give a $0 discount for now (the
   old $20-fee waiver no longer applies since there is no fee). A new
   referral benefit is TBD pending the owner's decision.
 - **Hourly rides are unchanged:** $90/hour customer, $50/hour driver,
-  no fee, no gratuity, no tax. Whether hourly rides get tax is TBD.
+  no fee, no gratuity, no tax.
 - **Driver vehicle class** is derived from the registered car model
   via the explicit 133-model mapping in `car_models.py` (85 SUVs, 48
   sedans; judgment calls documented in `static/NOTES.md`). Dispatch
   is class-filtered: sedan bookings only to sedan drivers, SUV
   bookings only to SUV drivers; hourly rides reach every driver.
-- **Verified examples:** 20-mile SUV = $237.75 total, driver $140,
-  profit $80. 20-mile sedan = $213.98 total, driver $80, profit $118.
+- **Verified examples:** 20-mile SUV = $200.00 total, driver $140,
+  profit $60. 20-mile sedan = $180.00 total, driver $80, profit $100.
 
 ## Test-mode limits (read this first)
 
@@ -122,7 +121,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests (358)
+python -m unittest discover -s tests -v   # unit tests (362)
 python smoke_test.py                       # backend flow checks (148)
 ```
 
@@ -168,7 +167,7 @@ Four free Blacklane-style features, no paid services:
   Messages never carry fare, miles, gratuity, tax or totals.
 - **Extra distance at completion** — one-way rides only: the driver
   enters extra miles at completion; the customer total gains the
-  extra fare + 10% gratuity + 8.875% tax, the driver gains the extra
+  extra fare only (no gratuity, no tax), the driver gains the extra
   miles at his rate, and the owner dashboard shows an
   extra-distance line per ride. Hourly rides reject extra miles.
 - **Dispatcher-lite** — on a paid, not-yet-accepted booking the owner

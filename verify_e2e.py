@@ -18,7 +18,7 @@ Pricing assertions use the live geo result: miles are read back from the
 owner booking detail and the expected totals are computed with the same
 pricing module the server uses. When live geo returns 18.0 miles for
 JFK Airport -> Times Square (as verified before), the exact figures
-$192.58 / $72.00 / $192.58 / $211.08 / $90.50 / $207.58 are asserted too.
+$162.00 / $72.00 / $162.00 / $180.50 / $90.50 / $177.00 are asserted too.
 """
 
 import io
@@ -274,10 +274,10 @@ check("one-way driver matches pricing formula",
       approx(detail["driver_earnings"], expected1["driver_earnings"]),
       f"got {detail['driver_earnings']} expected {expected1['driver_earnings']}")
 if miles1 == Decimal("18.0"):
-    check("18.0 mi total is $192.58 + stored toll",
-          approx(detail["customer_total"], Decimal("192.58") + toll1))
+    check("18.0 mi total is $162.00 + stored toll",
+          approx(detail["customer_total"], Decimal("162.00") + toll1))
     check("18.0 mi fare/tax/gratuity", approx(detail["fare"], "162.00")
-          and approx(detail["tax"], "14.38") and approx(detail["gratuity"], "16.20"), str(detail))
+          and approx(detail["tax"], "0.00") and approx(detail["gratuity"], "0.00"), str(detail))
     check("18.0 mi driver is $72.00 + stored toll",
           approx(detail["driver_earnings"], Decimal("72.00") + toll1))
 
@@ -306,8 +306,8 @@ check("referral total = formula (discount $0 for now)",
       approx(detail_ref["customer_total"], expected_ref["total"]),
       f"got {detail_ref['customer_total']} expected {expected_ref['total']}")
 if Decimal(str(detail_ref["miles"])) == Decimal("18.0"):
-    check("18.0 mi referral total is $192.58 + stored toll (no discount)",
-          approx(detail_ref["customer_total"], Decimal("192.58") + toll_ref))
+    check("18.0 mi referral total is $162.00 + stored toll (no discount)",
+          approx(detail_ref["customer_total"], Decimal("162.00") + toll_ref))
 
 # Exact-miles regression (live 2026-11-17 booking NOEL-9TR127): the typed
 # text "JFK Terminal 1 Arrivals" matches nothing in Nominatim, so the
@@ -367,7 +367,7 @@ check("toll $18.50 recomputes total per formula",
 check("toll $18.50 recomputes driver per formula",
       approx(detail_t["driver_earnings"], expected_t["driver_earnings"]))
 if Decimal(str(detail_t["miles"])) == Decimal("18.0"):
-    check("18.0 mi + toll total is exactly $211.08", approx(detail_t["customer_total"], "211.08"))
+    check("18.0 mi + toll total is exactly $180.50", approx(detail_t["customer_total"], "180.50"))
     check("18.0 mi + toll driver is exactly $90.50", approx(detail_t["driver_earnings"], "90.50"))
 
 # Up-front NJ return toll: NY -> NJ trips carry the $16.79 estimate
@@ -599,8 +599,8 @@ check("waiting 75 min at airport = $15.00", approx(inv.get("waiting_charge"), ex
 check("invoice = fare + waiting",
       approx(inv.get("total"), Decimal(str(expected1["total"])) + expected_wait), str(inv))
 if miles1 == Decimal("18.0"):
-    check("invoice total is $207.58 + stored toll",
-          approx(inv.get("total"), Decimal("207.58") + toll1))
+    check("invoice total is $177.00 + stored toll",
+          approx(inv.get("total"), Decimal("177.00") + toll1))
 resp = anon.get(BASE + f"/api/bookings/{b1['id']}", timeout=TIMEOUT)
 got = resp.json()["booking"]
 check("GET invoice after complete", got["invoice"] and approx(got["invoice"]["total"], inv.get("total")))
@@ -966,7 +966,8 @@ detail_before = s.get(BASE + f"/api/owner/bookings/{bx['id']}", timeout=TIMEOUT)
 miles_x = Decimal(str(detail_before["miles"]))
 expected_x = compute_one_way(miles_x, toll=Decimal(str(detail_before["toll"])))
 extra = compute_extra_distance(Decimal("4"), "sedan")
-check("extra distance pricing: 4mi sedan", extra["total"] == Decimal("42.80")
+check("extra distance pricing: 4mi sedan", extra["total"] == Decimal("36.00")
+      and extra["gratuity"] == Decimal("0.00") and extra["tax"] == Decimal("0.00")
       and extra["driver_addition"] == Decimal("16.00"), str(extra))
 check("trip en_route ok", trip_event(bx["id"], "en_route", token1).status_code == 200)
 check("trip arrived ok", trip_event(bx["id"], "arrived", token1).status_code == 200)

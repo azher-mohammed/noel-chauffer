@@ -137,11 +137,15 @@ separate options page; picking a class proceeds to payment.
 - PIN gate → `POST /api/owner/login` (session cookie); session checked
   with `GET /api/owner/summary`; `POST /api/owner/logout`
 - Summary cards → `GET /api/owner/summary` (gross, profit, driver
-  owed, tax collected, per-status counts)
+  owed, per-status counts). The API still returns `tax_collected`
+  (stored tax on pre-removal rides); the dashboard no longer shows
+  a Tax card.
 - Bookings table with full per-ride breakdown, as returned by the API
-  (customer total, fare, tax, driver share, toll, gratuity, waiting,
-  profit = total + waiting − driver − tax, plus the class display name)
-  → `GET /api/owner/bookings`
+  (customer total, fare, driver share, toll, waiting,
+  profit = total + waiting − driver − stored tax, plus the class
+  display name) → `GET /api/owner/bookings`. The API rows still
+  carry `tax`/`gratuity` ($0.00 on new rides); the dashboard table
+  no longer shows Tax/Gratuity columns.
 - Booking detail view → `GET /api/owner/bookings/<id>`
 - Toll entry per booking → `POST /api/owner/bookings/<id>/toll`
 - Driver payouts: per-driver, per-week totals
@@ -167,28 +171,25 @@ dashboard holds the full breakdown. The driver sees only earnings.
   display names are `Business Class` / `Business SUV` on the options
   page, in trip summaries, and in owner/driver views.
 - One-way: fare = miles × class rate (sedan $9/mile, SUV $10/mile);
-  gratuity = 10% of the fare (owner profit, never driver pay); NYC tax
-  = 8.875% of the fare (pass-through, neither profit nor driver pay);
-  toll is added untaxed and passed to the driver. Customer total =
-  fare + gratuity + tax + toll. Driver earnings = miles × driver rate
-  (sedan $4/mile, SUV $7/mile) + toll. Owner profit = total − driver
-  − tax (+ waiting, which goes to owner profit). NO booking fee ($0).
-  This supersedes the old $20 fee + $7/mile formula entirely.
-- NYC tax verification (checked 2026-11-16): NYC311/TLC confirm
-  8.875% on car-service/limousine/black-car passenger fares, and
-  Blacklane's own quote applied exactly 8.875% to the base fare.
-  Tolls are not taxed (pass-through, as Blacklane shows fees untaxed).
+  NO tax, NO gratuity (both removed by owner orders 2026-11-17 —
+  the 8.875% NYC sales tax and the 10% gratuity no longer apply to
+  any new booking); toll is added and passed to the driver.
+  Customer total = fare + toll. Driver earnings = miles × driver
+  rate (sedan $4/mile, SUV $7/mile) + toll. Owner profit = total
+  − driver (+ waiting, which goes to owner profit). NO booking fee
+  ($0). This supersedes the old $20 fee + $7/mile formula entirely,
+  and the fare + gratuity + tax + toll formula that ran until
+  2026-11-17. Rides booked before the removal keep their stored
+  tax/gratuity values; history is not rewritten.
+- Hourly rides are UNCHANGED: $90/hour customer, $50/hour driver, no
+  fee, no gratuity, no tax.
+- Verified examples: 20-mile SUV = fare $200 = total $200.00,
+  driver $140, profit $60. 20-mile sedan = fare $180 = total
+  $180.00, driver $80, profit $100.
 - Referral codes are accepted but give a $0 discount for now: the old
   benefit (waiving the $20 booking fee) no longer applies since there
   is no fee. A new referral benefit is TBD pending the owner's
   decision — do not invent one.
-- Hourly rides are UNCHANGED: $90/hour customer, $50/hour driver, no
-  fee, no gratuity, no tax. Whether hourly rides get tax is TBD
-  pending the owner's decision; do not add tax to hourly.
-- Verified examples: 20-mile SUV = fare $200 + gratuity $20 + tax
-  $17.75 = total $237.75, driver $140, profit $80. 20-mile sedan =
-  fare $180 + gratuity $18 + tax $15.98 = total $213.98, driver $80,
-  profit $118.
 
 ## Model → class mapping (car_models.py)
 

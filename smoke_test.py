@@ -51,22 +51,22 @@ def approx(a, b):
 # --- 1. pricing unit cases --------------------------------------------------
 print("== pricing ==")
 r = compute_one_way(Decimal("18.0"))
-check("18mi sedan total 192.58", r["total"] == Decimal("192.58"), str(r["total"]))
+check("18mi sedan total 162.00", r["total"] == Decimal("162.00"), str(r["total"]))
 check("18mi sedan fare/tax/gratuity", r["fare"] == Decimal("162.00")
-      and r["tax"] == Decimal("14.38") and r["gratuity"] == Decimal("16.20"), str(r))
+      and r["tax"] == Decimal("0.00") and r["gratuity"] == Decimal("0.00"), str(r))
 check("18mi sedan driver 72.00", r["driver_earnings"] == Decimal("72.00"))
-check("18mi sedan profit 106.20", r["profit"] == Decimal("106.20"))
+check("18mi sedan profit 90.00", r["profit"] == Decimal("90.00"))
 check("18mi booking fee 0", r["booking_fee"] == Decimal("0"))
 r = compute_one_way(Decimal("18.0"), vehicle_class="suv")
-check("18mi SUV total 213.98", r["total"] == Decimal("213.98"), str(r["total"]))
+check("18mi SUV total 180.00", r["total"] == Decimal("180.00"), str(r["total"]))
 check("18mi SUV driver 126.00", r["driver_earnings"] == Decimal("126.00"))
-check("18mi SUV profit 72.00", r["profit"] == Decimal("72.00"))
+check("18mi SUV profit 54.00", r["profit"] == Decimal("54.00"))
 r = compute_one_way(Decimal("18.0"), referral=True)
-check("18mi referral total 192.58 (discount $0)", r["total"] == Decimal("192.58"), str(r["total"]))
+check("18mi referral total 162.00 (discount $0)", r["total"] == Decimal("162.00"), str(r["total"]))
 r = compute_one_way(Decimal("18.0"), toll=Decimal("18.50"))
-check("18mi toll total 211.08", r["total"] == Decimal("211.08"))
+check("18mi toll total 180.50", r["total"] == Decimal("180.50"))
 check("18mi toll driver 90.50", r["driver_earnings"] == Decimal("90.50"))
-check("18mi toll tax unchanged 14.38", r["tax"] == Decimal("14.38"))
+check("18mi toll: tax/gratuity stay 0.00", r["tax"] == Decimal("0.00") and r["gratuity"] == Decimal("0.00"))
 r = compute_hourly(3)
 check("hourly 3h total 270.00", r["total"] == Decimal("270.00"))
 check("hourly 3h driver 150.00", r["driver_earnings"] == Decimal("150.00"))
@@ -201,7 +201,7 @@ resp = client.post("/api/bookings", json={
 check("booking create 201", resp.status_code == 201, resp.get_data(as_text=True)[:200])
 b1 = resp.get_json()["booking"]
 check("booking awaiting_payment", b1["status"] == "awaiting_payment")
-check("total shown at booking", approx(b1["total"], 192.58), str(b1))
+check("total shown at booking", approx(b1["total"], 162.00), str(b1))
 referral_code = b1["referral_code"]
 check("referral code issued", bool(referral_code), str(b1))
 resp = client.post("/api/bookings", json={
@@ -212,7 +212,7 @@ resp = client.post("/api/bookings", json={
 check("invalid referral rejected", resp.status_code == 400, str(resp.status_code))
 resp = client.get(f"/api/bookings/{b1['id']}")
 got = resp.get_json()["booking"]
-check("total visible, driver null before accept", approx(got["total"], 192.58) and got["driver"] is None, str(got))
+check("total visible, driver null before accept", approx(got["total"], 162.00) and got["driver"] is None, str(got))
 
 print("== vehicle class selection (options page) ==")
 resp = client.post("/api/bookings", json={
@@ -224,23 +224,23 @@ check("class booking create 201", resp.status_code == 201, resp.get_data(as_text
 bc = resp.get_json()["booking"]
 check("class booking defaults to sedan", bc["vehicle_class"] == "sedan"
       and bc["vehicle_class_label"] == "Business Class", str(bc))
-check("class_totals sedan 192.58 / SUV 213.98",
-      approx(bc["class_totals"]["sedan"], 192.58) and approx(bc["class_totals"]["suv"], 213.98), str(bc))
+check("class_totals sedan 162.00 / SUV 180.00",
+      approx(bc["class_totals"]["sedan"], 162.00) and approx(bc["class_totals"]["suv"], 180.00), str(bc))
 resp = client.post(f"/api/bookings/{bc['id']}/vehicle-class", json={"vehicle_class": "suv"})
 check("switch to SUV 200", resp.status_code == 200, resp.get_data(as_text=True)[:200])
-check("SUV total 213.98 + label", approx(resp.get_json()["booking"]["total"], 213.98)
+check("SUV total 180.00 + label", approx(resp.get_json()["booking"]["total"], 180.00)
       and resp.get_json()["booking"]["vehicle_class_label"] == "Business SUV",
       resp.get_data(as_text=True)[:200])
 resp = client.post(f"/api/bookings/{bc['id']}/vehicle-class", json={"vehicle_class": "luxury"})
 check("invalid class -> 400", resp.status_code == 400, str(resp.status_code))
 resp = client.post(f"/api/bookings/{bc['id']}/vehicle-class", json={"vehicle_class": "sedan"})
-check("switch back to sedan 192.58", resp.status_code == 200
-      and approx(resp.get_json()["booking"]["total"], 192.58), resp.get_data(as_text=True)[:200])
+check("switch back to sedan 162.00", resp.status_code == 200
+      and approx(resp.get_json()["booking"]["total"], 162.00), resp.get_data(as_text=True)[:200])
 resp = client.post(f"/api/bookings/{bc['id']}/pay", json={
     "card_number": "4242424242424242", "card_exp": "12/30",
     "card_cvc": "123", "card_name": "Class Customer"})
-check("class booking pays 192.58", resp.status_code == 200
-      and approx(resp.get_json()["payment"]["amount"], 192.58), resp.get_data(as_text=True)[:200])
+check("class booking pays 162.00", resp.status_code == 200
+      and approx(resp.get_json()["payment"]["amount"], 162.00), resp.get_data(as_text=True)[:200])
 resp = client.post(f"/api/bookings/{bc['id']}/vehicle-class", json={"vehicle_class": "suv"})
 check("class switch after payment -> 409", resp.status_code == 409, str(resp.status_code))
 resp = client.post(f"/api/bookings/{bc['id']}/cancel", json={"phone": "+15550004444"})
@@ -261,7 +261,7 @@ check("pay 200", resp.status_code == 200, resp.get_data(as_text=True)[:200])
 pay = resp.get_json()["payment"]
 check("payment test + last4", pay["test"] is True and pay["last4"] == "4242"
       and pay["status"] == "succeeded", str(pay))
-check("payment amount 192.58", approx(pay["amount"], 192.58))
+check("payment amount 162.00", approx(pay["amount"], 162.00))
 check("status offered after payment", resp.get_json()["booking"]["status"] == "offered")
 resp = client.post(f"/api/bookings/{b1['id']}/pay", json={
     "card_number": "4242424242424242", "card_exp": "12/30",
@@ -289,7 +289,7 @@ resp = client.post(f"/api/drivers/me/offers/{b1['id']}/accept", headers={"X-Driv
 check("second accept -> 409", resp.status_code == 409, str(resp.status_code))
 resp = client.get(f"/api/bookings/{b1['id']}")
 got = resp.get_json()["booking"]
-check("total visible after accept", approx(got["total"], 192.58), str(got["total"]))
+check("total visible after accept", approx(got["total"], 162.00), str(got["total"]))
 check("driver visible after accept", got["driver"] and got["driver"]["name"] == "Test Driver")
 check("tracking hidden before en_route", got["tracking"]["visible"] is False)
 
@@ -317,10 +317,10 @@ resp = trip("complete", waiting_minutes=75)
 check("complete ok", resp.status_code == 200, resp.get_data(as_text=True)[:200])
 inv = resp.get_json().get("invoice", {})
 check("invoice waiting 15.00", approx(inv.get("waiting_charge"), 15.00), str(inv))
-check("invoice total 207.58", approx(inv.get("total"), 207.58), str(inv))
+check("invoice total 177.00", approx(inv.get("total"), 177.00), str(inv))
 resp = client.get(f"/api/bookings/{b1['id']}")
 got = resp.get_json()["booking"]
-check("GET invoice after complete", got["invoice"] and approx(got["invoice"]["total"], 207.58))
+check("GET invoice after complete", got["invoice"] and approx(got["invoice"]["total"], 177.00))
 resp = client.get("/api/drivers/me/earnings", headers={"X-Driver-Token": token1})
 earn = resp.get_json()
 check("driver earnings 72.00 / 1 ride", earn["completed_rides"] == 1
@@ -336,17 +336,17 @@ resp = client.post("/api/owner/login", json={"pin": "9999"})
 check("owner login ok", resp.status_code == 200)
 resp = client.get("/api/owner/summary")
 s = resp.get_json()
-check("summary gross 207.58", approx(s["gross"], 207.58), str(s))
+check("summary gross 177.00", approx(s["gross"], 177.00), str(s))
 check("summary driver_owed 72.00", approx(s["driver_owed"], 72.00), str(s))
-check("summary profit reconciles", approx(s["profit"], 135.58)
+check("summary profit reconciles", approx(s["profit"], 105.00)
       and approx(s["gross"] - s["driver_owed"], s["profit"]), str(s))
 resp = client.get("/api/owner/bookings")
 rows = resp.get_json()
 row1 = next((r for r in rows if r["id"] == b1["id"]), None)
-check("owner breakdown profit", row1 and approx(row1["profit"], 121.20), str(rows))
+check("owner breakdown profit", row1 and approx(row1["profit"], 105.00), str(rows))
 check("owner breakdown fare/tax/gratuity", row1 and approx(row1["fare"], 162.00)
-      and approx(row1["tax"], 14.38) and approx(row1["gratuity"], 16.20), str(rows))
-check("summary tax_collected 14.38", approx(s["tax_collected"], 14.38), str(s))
+      and approx(row1["tax"], 0.00) and approx(row1["gratuity"], 0.00), str(rows))
+check("summary tax_collected is 0 (no tax on new rides)", approx(s["tax_collected"], 0.00), str(s))
 resp = client.get("/api/owner/outbox")
 bodies = [m["body"] for m in resp.get_json() if m["booking_id"] == b1["id"]]
 check("outbox has booking+accept+invoice", len(bodies) >= 6, f"{len(bodies)} messages")
@@ -359,7 +359,7 @@ detail = resp.get_json()
 check("owner detail has pi_test_ payment", detail["payments"]
       and detail["payments"][0]["stripe_test_id"].startswith("pi_test_")
       and detail["payments"][0]["test"] is True, str(detail.get("payments")))
-check("owner detail invoice math", approx(detail["invoice"]["total"], 207.58), str(detail.get("invoice")))
+check("owner detail invoice math", approx(detail["invoice"]["total"], 177.00), str(detail.get("invoice")))
 
 print("== referral + re-dispatch + toll ==")
 resp = client.post("/api/bookings", json={
@@ -375,8 +375,8 @@ with app_module.app.app_context():
 resp = client.post(f"/api/bookings/{b2['id']}/pay", json={
     "card_number": "5555555555554444", "card_exp": "01/31",
     "card_cvc": "321", "card_name": "Second Customer"})
-check("b2 pay 192.58 (referral, $0 discount)", resp.status_code == 200
-      and approx(resp.get_json()["payment"]["amount"], 192.58),
+check("b2 pay 162.00 (referral, $0 discount)", resp.status_code == 200
+      and approx(resp.get_json()["payment"]["amount"], 162.00),
       resp.get_data(as_text=True)[:150])
 resp = client.post(f"/api/drivers/me/offers/{b2['id']}/accept", headers={"X-Driver-Token": token2})
 check("driver2 accepts b2", resp.status_code == 200)
@@ -387,12 +387,12 @@ check("driver cancel re-dispatches", resp.status_code == 200
 resp = client.get(f"/api/bookings/{b2['id']}")
 got = resp.get_json()["booking"]
 check("driver null, total still visible after re-dispatch", got["driver"] is None
-      and approx(got["total"], 192.58), str(got))
+      and approx(got["total"], 162.00), str(got))
 resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token2})
 check("cancelling driver excluded", all(o["booking_id"] != b2["id"] for o in resp.get_json()))
 resp = client.post(f"/api/owner/bookings/{b2['id']}/toll", json={"toll": 18.50})
 check("toll recompute w/ referral", resp.status_code == 200
-      and approx(resp.get_json()["booking"]["customer_total"], 211.08)
+      and approx(resp.get_json()["booking"]["customer_total"], 180.50)
       and approx(resp.get_json()["booking"]["driver_earnings"], 90.50),
       resp.get_data(as_text=True)[:250])
 resp = client.post(f"/api/drivers/me/offers/{b2['id']}/accept", headers={"X-Driver-Token": token1})
@@ -432,7 +432,7 @@ check("hourly owner row fare 270, tax 0, no class",
       and hrow["vehicle_class"] is None, str(hrow))
 resp = client.get("/api/bookings", query_string={"phone": "+15550009999"})
 hist = resp.get_json()
-check("ride history total for paid ride", len(hist) == 1 and approx(hist[0]["total"], 192.58), str(hist))
+check("ride history total for paid ride", len(hist) == 1 and approx(hist[0]["total"], 162.00), str(hist))
 resp = client.get("/")
 check("home page route 200", resp.status_code == 200, str(resp.status_code))
 resp = client.get("/api/drivers/me/lookup", json={})
@@ -445,11 +445,11 @@ token1 = resp.get_json()["token"]
 print("== free features: name sign, chat, extra distance, assign ==")
 from pricing import compute_extra_distance  # noqa: E402
 r = compute_extra_distance(Decimal("5"), "sedan")
-check("extra distance 5mi sedan 53.49 / driver 20.00",
-      r["total"] == Decimal("53.49") and r["driver_addition"] == Decimal("20.00"), str(r))
+check("extra distance 5mi sedan 45.00 / driver 20.00",
+      r["total"] == Decimal("45.00") and r["driver_addition"] == Decimal("20.00"), str(r))
 r = compute_extra_distance(Decimal("2.5"), "suv")
-check("extra distance 2.5mi SUV 29.72 / driver 17.50",
-      r["total"] == Decimal("29.72") and r["driver_addition"] == Decimal("17.50"), str(r))
+check("extra distance 2.5mi SUV 25.00 / driver 17.50",
+      r["total"] == Decimal("25.00") and r["driver_addition"] == Decimal("17.50"), str(r))
 # Fresh booking for the assign + chat + extra-distance flow.
 client.post("/api/drivers/me/availability", json={"available": True},
             headers={"X-Driver-Token": token1})
@@ -516,12 +516,12 @@ resp = client.post(f"/api/drivers/me/trip/{bx['id']}/event",
 check("complete with extra miles ok", resp.status_code == 200, resp.get_data(as_text=True)[:150])
 resp = client.get(f"/api/bookings/{bx['id']}")
 inv = resp.get_json()["booking"]["invoice"]
-check("invoice includes extra distance 53.49",
-      approx(inv["total"], 246.07) and approx(inv["extra_distance_charge"], 53.49), str(inv))
+check("invoice includes extra distance 45.00",
+      approx(inv["total"], 207.00) and approx(inv["extra_distance_charge"], 45.00), str(inv))
 resp = client.get(f"/api/owner/bookings/{bx['id']}")
 row = resp.get_json()
 check("owner row extra-distance line",
-      approx(row["extra_distance_charge"], 53.49) and approx(row["extra_miles"], 5.0)
+      approx(row["extra_distance_charge"], 45.00) and approx(row["extra_miles"], 5.0)
       and approx(row["driver_earnings"], 92.00), str(row))
 
 # --- 8. owner clear all rides (TEMPORARY TEST-ONLY: remove with the endpoint) ---

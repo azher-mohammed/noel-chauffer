@@ -12,11 +12,7 @@ all connected:
   and bank details, receive job offers whether available or offline
   (earnings only, filtered to the driver's vehicle class, and never
   overlapping a ride already accepted), run trips stage by stage,
-  see earnings grouped in weekly pay periods. Each job card and the
-  trip screen show an embedded map (Leaflet + OpenStreetMap, free)
-  with 'Pick up' / 'Drop off' markers and the route line when
-  geometry is available; endpoints + route shape only, never miles
-  or money.
+  see earnings grouped in weekly pay periods.
 - **Owner dashboard** (`/owner`, PIN-protected) — per-ride revenue
   breakdown (fare, gratuity, tax, driver share, profit), tax collected,
   alerts, messages outbox, driver documents, toll entry, and driver
@@ -110,8 +106,8 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests (316)
-python smoke_test.py                       # backend flow checks (145)
+python -m unittest discover -s tests -v   # unit tests (300)
+python smoke_test.py                       # backend flow checks (142)
 ```
 
 `verify_e2e.py` runs the full HTTP checklist against a **running**
@@ -121,7 +117,7 @@ server with a **fresh** database:
 DATABASE_URL="sqlite:////tmp/noel-verify.db" OWNER_PIN=4321 \
   SECRET_KEY=test-secret ENCRYPTION_KEY="<fernet key>" PORT=5055 python app.py &
 NOEL_BASE_URL=http://127.0.0.1:5055 NOEL_OWNER_PIN=4321 python verify_e2e.py
-# full HTTP checklist (237 checks)
+# full HTTP checklist (231 checks)
 ```
 
 ### Temporary test reset — REMOVE BEFORE REAL LAUNCH

@@ -453,74 +453,6 @@ def waze_url_for(booking):
     return "https://waze.com/ul?q=" + quote_plus(dest) + "&navigate=yes"
 
 
-# Driver map payload: endpoints + route shape ONLY. The driver map
-# shows where to pick up and drop off — never miles, fare, or any
-# money figure. Geometry is decimated so the offers payload, polled
-# every few seconds, stays small; the endpoints are always exact.
-_MAP_GEOMETRY_MAX_POINTS = 400
-
-
-def _decimate_geometry(geometry, max_points):
-    """Evenly sample a route polyline down to max_points, keeping the
-    first and last points. Short polylines pass through unchanged
-    (as lists, for JSON). Returns None when there is no line."""
-    if not geometry or len(geometry) < 2:
-        return None
-    points = [list(p) for p in geometry]
-    if len(points) <= max_points:
-        return points
-    step = (len(points) - 1) / float(max_points - 1)
-    return [points[int(round(i * step))] for i in range(max_points)]
-
-
-def _coords_or_geocode(lat, lng, address):
-    """Stored coords first; the cached server-side geocode as fallback
-    for bookings created before coordinates were stored. Never raises:
-    returns [lat, lng] or None."""
-    try:
-        if lat is not None and lng is not None:
-            return [float(lat), float(lng)]
-        coords = geo_module.geocode(address)
-        if coords:
-            return [float(coords[0]), float(coords[1])]
-    except Exception:
-        pass
-    return None
-
-
-def driver_map_data(booking):
-    """Map data for the driver app: pickup/drop-off points + route line.
-
-    Endpoints + route shape ONLY — no miles, fare, or any money figure
-    is ever included. Coordinates come from the columns stored at
-    booking creation, falling back to the cached server-side geocode.
-    The route line comes from the cached OSRM geometry via the
-    cache-only route_geometry helper — the same contract as the toll
-    estimation: booking creation warms the cache on the serving
-    process, and a cold cache simply means no route line (markers
-    still show). This helper NEVER fetches upstream itself, so
-    polling offers can never change toll estimation or slow the
-    endpoint. Hourly rides have no drop-off: pickup point only, no
-    route line. Never raises: any failure degrades to fewer map
-    fields, never an error response.
-    """
-    try:
-        pickup = _coords_or_geocode(
-            booking.pickup_lat, booking.pickup_lng, booking.pickup)
-        dropoff = None
-        route = None
-        if booking.ride_type != "hourly" and booking.dropoff:
-            dropoff = _coords_or_geocode(
-                booking.dropoff_lat, booking.dropoff_lng, booking.dropoff)
-        if pickup and dropoff:
-            geometry = geo_module.route_geometry(
-                pickup[0], pickup[1], dropoff[0], dropoff[1])
-            route = _decimate_geometry(geometry, _MAP_GEOMETRY_MAX_POINTS)
-        return {"pickup": pickup, "dropoff": dropoff, "route": route}
-    except Exception:
-        return {"pickup": None, "dropoff": None, "route": None}
-
-
 def driver_docs_status(driver):
     present = {d.doc_type for d in driver.documents}
     status = {}
@@ -1456,7 +1388,6 @@ def driver_active_trip():
         "toll": num(booking.toll),
         "route_url": route_url_for(booking),
         "route_waze_url": waze_url_for(booking),
-        "map": driver_map_data(booking),
         "free_waiting_minutes": free_waiting_minutes(booking.pickup),
         "airport_pickup": is_airport_pickup(booking.pickup),
         "status": booking.status,
@@ -1532,7 +1463,6 @@ def driver_offers():
             "toll": num(b.toll),
             "route_url": route_url_for(b),
             "route_waze_url": waze_url_for(b),
-            "map": driver_map_data(b),
         })
     return jsonify(offers)
 
@@ -1597,7 +1527,6 @@ def driver_accept(booking_id):
         "toll": num(booking.toll),
         "route_url": route_url_for(booking),
         "route_waze_url": waze_url_for(booking),
-        "map": driver_map_data(booking),
         "free_waiting_minutes": free_waiting_minutes(booking.pickup),
         "airport_pickup": is_airport_pickup(booking.pickup),
         "status": booking.status,

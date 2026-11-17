@@ -69,9 +69,6 @@
     toneStopAt: 0,
     toneOfferIds: {},
     lastOffersSig: "",
-    offerMaps: {},
-    tripMap: null,
-    tripMapId: null,
     chatTimer: null,
     lastChatSig: "",
     audioCtx: null
@@ -140,11 +137,6 @@
     }
     window.scrollTo(0, 0);
     if (name === "home") { refreshOffers(); }
-    if (name === "trip" && state.tripMap) {
-      /* The map was built while its screen was hidden; re-measure
-         once the screen is visible so the tiles fill the box. */
-      setTimeout(function () { if (state.tripMap) state.tripMap.invalidateSize(); }, 100);
-    }
     if (name === "earnings") { loadEarnings(); }
     if (name === "documents") { renderDocuments(); }
     if (name === "profile") { renderProfile(); }
@@ -204,7 +196,6 @@
       toll: pickNumber(b, ["toll"]),
       route_url: b.route_url,
       route_waze_url: b.route_waze_url,
-      map: b.map || null,
       free_waiting_minutes: b.free_waiting_minutes,
       airport_pickup: b.airport_pickup,
       customer_name: b.customer_name,
@@ -561,92 +552,6 @@
     if (dropoff) html += '  →  <span class="route-label">Drop off</span> ' + esc(dropoff);
     return html;
   }
-
-  /* ---------- Embedded trip maps (Leaflet + OpenStreetMap, free) ----------
-     The same free stack as the customer live map: no API key, no paid
-     service. Each map shows a 'Pick up' marker and, for one-way rides,
-     a 'Drop off' marker, plus the route line when geometry arrived.
-     Hourly rides have no drop-off: pickup marker only. A map is
-     created once per card/trip and never rebuilt by polling. */
-  function mapPoint(mapData, key) {
-    var p = mapData && mapData[key];
-    if (!Array.isArray(p) || p.length < 2) return null;
-    var lat = Number(p[0]), lng = Number(p[1]);
-    if (isNaN(lat) || isNaN(lng)) return null;
-    return [lat, lng];
-  }
-  function initTripMap(el, mapData) {
-    /* Returns the Leaflet map, or null when there is nothing to show
-       (Leaflet failed to load, or no pickup point arrived). The route
-       line draws only when geometry arrived; the markers alone still
-       show the trip ends. */
-    if (!el || typeof window.L === "undefined") return null;
-    var pickup = mapPoint(mapData, "pickup");
-    if (!pickup) return null;
-    var dropoff = mapPoint(mapData, "dropoff");
-    var map = window.L.map(el, { scrollWheelZoom: false }).setView(pickup, 13);
-    window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "© OpenStreetMap contributors"
-    }).addTo(map);
-    window.L.marker(pickup).addTo(map)
-      .bindTooltip("Pick up", { permanent: true, direction: "top", offset: [0, -10], className: "map-marker-label" });
-    var bounds = [pickup];
-    if (dropoff) {
-      window.L.marker(dropoff).addTo(map)
-        .bindTooltip("Drop off", { permanent: true, direction: "top", offset: [0, -10], className: "map-marker-label" });
-      bounds.push(dropoff);
-    }
-    var route = mapData && mapData.route;
-    if (Array.isArray(route) && route.length >= 2) {
-      var pts = [];
-      route.forEach(function (p) {
-        if (Array.isArray(p) && p.length >= 2) {
-          var lat = Number(p[0]), lng = Number(p[1]);
-          if (!isNaN(lat) && !isNaN(lng)) pts.push([lat, lng]);
-        }
-      });
-      if (pts.length >= 2) {
-        window.L.polyline(pts, { color: "#1a1a1a", weight: 4, opacity: 0.85 }).addTo(map);
-        bounds = pts;
-      }
-    }
-    if (bounds.length > 1) { map.fitBounds(bounds, { padding: [24, 24] }); }
-    else { map.setView(pickup, 14); }
-    setTimeout(function () { map.invalidateSize(); }, 150);
-    return map;
-  }
-  function removeOfferMaps() {
-    /* Cards are rebuilt only when the offers signature changes; take
-       their Leaflet maps down first so no orphaned map lingers. */
-    Object.keys(state.offerMaps).forEach(function (id) {
-      try { state.offerMaps[id].remove(); } catch (e) { /* ignore */ }
-    });
-    state.offerMaps = {};
-  }
-  function renderTripMap(t) {
-    var el = $("trip-map");
-    if (!el) return;
-    /* One map per trip: re-rendering the same trip must not rebuild
-       the map — only re-measure it. A different trip replaces it. */
-    if (state.tripMap && state.tripMapId === t.id) {
-      setTimeout(function () { if (state.tripMap) state.tripMap.invalidateSize(); }, 150);
-      return;
-    }
-    if (state.tripMap) {
-      try { state.tripMap.remove(); } catch (e) { /* ignore */ }
-      state.tripMap = null;
-      state.tripMapId = null;
-    }
-    var m = initTripMap(el, t.map);
-    if (m) {
-      state.tripMap = m;
-      state.tripMapId = t.id;
-      show(el);
-    } else {
-      hide(el);
-    }
-  }
   function renderOffers(list) {
     var box = $("offers-list");
     /* The job stays put until the driver accepts or declines it: when
@@ -658,7 +563,6 @@
     }).join("|");
     if (sig === state.lastOffersSig) return;
     state.lastOffersSig = sig;
-    removeOfferMaps();
     box.innerHTML = "";
     if (!list.length) { show($("offers-empty")); return; }
     hide($("offers-empty"));
@@ -680,12 +584,8 @@
         baseEarnings = Math.max(0, Math.round((earnings - toll) * 100) / 100);
       }
       var html = '<div class="route">' + route + "</div>" +
-        '<div class="when">' + esc(when) + "</div>";
-      /* Embedded map, only when the offer carries a pickup point and
-         Leaflet loaded: no map data, no empty box. */
-      var hasMapPoint = !!mapPoint(o.map, "pickup") && typeof window.L !== "undefined";
-      if (hasMapPoint) html += '<div class="offer-map"></div>';
-      html += '<div class="earnings"><span class="label">Your earnings</span><span class="amount">' + esc(money(baseEarnings)) + "</span></div>";
+        '<div class="when">' + esc(when) + "</div>" +
+        '<div class="earnings"><span class="label">Your earnings</span><span class="amount">' + esc(money(baseEarnings)) + "</span></div>";
       if (toll > 0) {
         html += '<div class="toll-line"><span class="label">Toll</span><span class="amount">' + esc(money(toll)) + "</span></div>";
       }
@@ -702,18 +602,6 @@
       card.querySelector(".btn-accept").addEventListener("click", function () { respondToOffer(offerId(o), "accept"); });
       card.querySelector(".btn-decline").addEventListener("click", function () { respondToOffer(offerId(o), "decline"); });
       box.appendChild(card);
-      /* One map per card, created once when the card is built: the
-         signature early-return above keeps polling from rebuilding
-         it, so the map never flickers under the driver. */
-      if (hasMapPoint) {
-        var mapEl = card.querySelector(".offer-map");
-        var offerMap = initTripMap(mapEl, o.map);
-        if (offerMap) {
-          state.offerMaps[offerId(o)] = offerMap;
-        } else if (mapEl && mapEl.parentNode) {
-          mapEl.parentNode.removeChild(mapEl);
-        }
-      }
     });
   }
   function respondToOffer(id, action) {
@@ -833,7 +721,6 @@
     } else {
       hide(signBtn);
     }
-    renderTripMap(t);
     renderStages();
     startNoShowTimer();
     startChatPolling();
@@ -1035,12 +922,6 @@
     stopNoShowTimer();
     stopChatPolling();
     hide($("namesign-overlay"));
-    if (state.tripMap) {
-      try { state.tripMap.remove(); } catch (e) { /* ignore */ }
-      state.tripMap = null;
-      state.tripMapId = null;
-    }
-    hide($("trip-map"));
     state.trip = null;
     state.stageIndex = 0;
     hide($("loc-note"));

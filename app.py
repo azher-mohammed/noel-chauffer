@@ -2059,6 +2059,52 @@ def owner_outbox():
     } for m in messages])
 
 
+# TEMPORARY TEST-ONLY endpoint (owner decision 2026-11-17, "filhal ke
+# vaaste"): REMOVE this endpoint, the dashboard button, and their
+# tests before real launch. It must never be called automatically and
+# no automatic deletion/expiry of ride records may ever be added —
+# driver ride history is retained for a minimum of one year.
+@app.route("/api/owner/clear-rides", methods=["POST"])
+def owner_clear_rides():
+    """Owner-only MANUAL test reset: delete ALL rides and every
+    ride-related row so the driver app starts empty again.
+
+    TEMPORARY, testing only — see the banner comment above. This is
+    only ever a manual, owner-PIN-confirmed reset from the dashboard
+    button (itself guarded by a confirm dialog). Nothing calls it
+    automatically, and ride history is otherwise retained for a
+    minimum of one year.
+
+    Deleted: bookings, chat messages, booking events (alerts),
+    payments, decline exclusions and outbox messages. Kept
+    untouched: drivers, their documents and profile photos.
+    Referral codes stay valid: a code issued by a deleted booking
+    keeps its code and used_count — only the link to the deleted
+    booking is detached (issued_booking_id set to NULL) — because
+    the code is what a customer holds and may still present.
+    """
+    error = require_owner()
+    if error:
+        return error
+    # Children first: their booking FKs have no ON DELETE CASCADE,
+    # so the bookings themselves go last.
+    deleted = {
+        "chat_messages": ChatMessage.query.delete(synchronize_session=False),
+        "booking_events": BookingEvent.query.delete(synchronize_session=False),
+        "payments": Payment.query.delete(synchronize_session=False),
+        "booking_exclusions": BookingExclusion.query.delete(synchronize_session=False),
+        "outbox_messages": OutboxMessage.query.delete(synchronize_session=False),
+    }
+    detached = ReferralCode.query.filter(
+        ReferralCode.issued_booking_id.isnot(None)
+    ).update({"issued_booking_id": None}, synchronize_session=False)
+    deleted["bookings"] = Booking.query.delete(synchronize_session=False)
+    deleted["referral_codes_detached"] = detached
+    db.session.commit()
+    log.info("owner cleared all rides: %s", deleted)
+    return jsonify({"cleared": True, "deleted": deleted})
+
+
 @app.route("/api/owner/drivers", methods=["GET"])
 def owner_drivers():
     error = require_owner()

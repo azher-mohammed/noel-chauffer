@@ -973,6 +973,46 @@ check("postgres:// rewrite code path exists",
 check("uploads stored as DB BLOBs (LargeBinary, no file writes)",
       "LargeBinary" in app_src and "open(" not in app_src.replace("openViewer", ""))
 
+# ------------------------------------------------- clear all rides --------
+# TEMPORARY TEST-ONLY (remove with the endpoint, before real launch).
+# Runs LAST: it deletes every booking, so nothing after it may need
+# ride state. Owner decision 2026-11-17: clear the test rides and
+# restart the same test fresh; drivers and documents stay untouched.
+
+section("owner clear all rides")
+r = anon.post(BASE + "/api/owner/clear-rides", json={}, timeout=TIMEOUT)
+check("clear-rides without login -> 401", r.status_code == 401, str(r.status_code))
+r = s.get(BASE + "/api/owner/bookings", timeout=TIMEOUT)
+before = len(r.json()) if r.status_code == 200 else 0
+check("bookings exist before clear", before > 0, str(before))
+r = s.post(BASE + "/api/owner/clear-rides", json={}, timeout=TIMEOUT)
+check("clear-rides ok", r.status_code == 200 and r.json().get("cleared") is True, r.text[:150])
+deleted = r.json().get("deleted", {}) if r.status_code == 200 else {}
+check("clear-rides deleted all bookings", deleted.get("bookings") == before, str(deleted))
+check("clear-rides deleted chat/events/outbox/payments",
+      deleted.get("chat_messages", 0) > 0 and deleted.get("booking_events", 0) > 0
+      and deleted.get("outbox_messages", 0) > 0 and deleted.get("payments", 0) > 0, str(deleted))
+r = s.get(BASE + "/api/owner/bookings", timeout=TIMEOUT)
+check("owner bookings empty after clear", r.status_code == 200 and r.json() == [], r.text[:100])
+r = s.get(BASE + "/api/owner/alerts", timeout=TIMEOUT)
+check("owner alerts empty after clear", r.status_code == 200 and r.json() == [], r.text[:100])
+r = s.get(BASE + "/api/owner/outbox", timeout=TIMEOUT)
+check("owner outbox empty after clear", r.status_code == 200 and r.json() == [], r.text[:100])
+r = s.get(BASE + "/api/owner/drivers", timeout=TIMEOUT)
+drivers = r.json() if r.status_code == 200 else []
+check("drivers kept after clear", len(drivers) >= 1, str(drivers)[:150])
+r = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("driver token still works, offers empty after clear",
+      r.status_code == 200 and r.json() == [], r.text[:100])
+r = anon.get(BASE + "/owner", timeout=TIMEOUT)
+check("owner page has Clear all rides button",
+      r.status_code == 200 and 'id="clear-rides-btn"' in r.text and "Clear all rides" in r.text,
+      str(r.status_code))
+r = anon.get(BASE + "/static/js/owner.js", timeout=TIMEOUT)
+check("owner.js wires clear-rides with confirm",
+      r.status_code == 200 and "/api/owner/clear-rides" in r.text and "window.confirm(" in r.text,
+      str(r.status_code))
+
 print(f"\n{CHECKS['passed']} passed, {CHECKS['failed']} failed")
 if FAILURES:
     print("Failures:", "; ".join(FAILURES))

@@ -476,5 +476,51 @@ check("owner row extra-distance line",
       approx(row["extra_distance_charge"], 65.38) and approx(row["extra_miles"], 5.0)
       and approx(row["driver_earnings"], 92.00), str(row))
 
+# --- 8. owner clear all rides (TEMPORARY TEST-ONLY: remove with the endpoint) ---
+print("== owner clear all rides ==")
+anon_client = app_module.app.test_client()
+resp = anon_client.post("/api/owner/clear-rides", json={})
+check("clear-rides without login -> 401", resp.status_code == 401, str(resp.status_code))
+resp = client.get("/api/owner/bookings")
+before_rides = len(resp.get_json())
+check("bookings exist before clear", before_rides > 0, str(before_rides))
+resp = client.post("/api/owner/clear-rides", json={})
+body = resp.get_json()
+check("clear-rides ok", resp.status_code == 200 and body.get("cleared") is True,
+      resp.get_data(as_text=True)[:150])
+deleted = body.get("deleted", {})
+check("clear-rides deleted all bookings", deleted.get("bookings") == before_rides, str(deleted))
+check("clear-rides deleted chat/events/outbox/payments",
+      deleted.get("chat_messages", 0) > 0 and deleted.get("booking_events", 0) > 0
+      and deleted.get("outbox_messages", 0) > 0 and deleted.get("payments", 0) > 0, str(deleted))
+resp = client.get("/api/owner/bookings")
+check("owner bookings empty after clear", resp.get_json() == [], str(resp.get_json())[:100])
+resp = client.get("/api/owner/alerts")
+check("owner alerts empty after clear", resp.get_json() == [], str(resp.get_json())[:100])
+resp = client.get("/api/owner/outbox")
+check("owner outbox empty after clear", resp.get_json() == [], str(resp.get_json())[:100])
+resp = client.get("/api/owner/summary")
+summary = resp.get_json()
+check("owner summary zeroed after clear",
+      summary.get("counts") == {} and approx(summary.get("gross"), 0), str(summary))
+resp = client.get("/api/owner/drivers")
+drivers = resp.get_json()
+test_driver = next((d for d in drivers if d["phone"] == "+15550001111"), None)
+check("drivers kept after clear", test_driver is not None, str(drivers)[:150])
+if test_driver:
+    resp = client.get(f"/api/owner/drivers/{test_driver['id']}/photo")
+    check("driver photo bytes kept after clear",
+          resp.status_code == 200 and resp.data == photo_bytes, str(resp.status_code))
+    check("driver docs kept after clear",
+          test_driver["docs"].get("dmv_license") == "completed"
+          and test_driver["docs"].get("fh1_insurance") == "completed", str(test_driver["docs"]))
+resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token1})
+check("driver token still works, offers empty after clear",
+      resp.status_code == 200 and resp.get_json() == [], resp.get_data(as_text=True)[:150])
+resp = client.post("/api/owner/clear-rides", json={})
+check("clear-rides idempotent on empty db",
+      resp.status_code == 200 and resp.get_json()["deleted"]["bookings"] == 0,
+      resp.get_data(as_text=True)[:150])
+
 print(f"\n{CHECKS['passed']} passed, {CHECKS['failed']} failed")
 sys.exit(1 if CHECKS["failed"] else 0)

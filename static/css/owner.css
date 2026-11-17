@@ -41,6 +41,10 @@ input, select { font: inherit; }
 .dash-head .sub { font-size: 13px; color: #cfcfcf; }
 .dash-head button { background: transparent; color: var(--white); border: 1px solid #555; border-radius: 4px; padding: 9px 16px; }
 .dash-head button:hover { border-color: var(--gold); }
+/* TEMPORARY TEST-ONLY (remove with the Clear all rides button, before real launch). */
+.dash-head button.danger-btn { border-color: #c0392b; color: #f5c6c0; margin-right: 8px; }
+.dash-head button.danger-btn:hover { border-color: #e74c3c; }
+.dash-head button:disabled { opacity: 0.5; cursor: default; }
 .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }
 .wrap h2 { font-family: Georgia, serif; font-weight: 400; font-size: 26px; margin: 34px 0 12px; }
 .wrap h2:first-child { margin-top: 6px; }

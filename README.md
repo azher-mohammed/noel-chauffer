@@ -106,8 +106,8 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests (236)
-python smoke_test.py                       # backend flow checks (124)
+python -m unittest discover -s tests -v   # unit tests (288)
+python smoke_test.py                       # backend flow checks (138)
 ```
 
 `verify_e2e.py` runs the full HTTP checklist against a **running**
@@ -117,8 +117,28 @@ server with a **fresh** database:
 DATABASE_URL="sqlite:////tmp/noel-verify.db" OWNER_PIN=4321 \
   SECRET_KEY=test-secret ENCRYPTION_KEY="<fernet key>" PORT=5055 python app.py &
 NOEL_BASE_URL=http://127.0.0.1:5055 NOEL_OWNER_PIN=4321 python verify_e2e.py
-# full HTTP checklist (215 checks)
+# full HTTP checklist (227 checks)
 ```
+
+### Temporary test reset — REMOVE BEFORE REAL LAUNCH
+
+Owner decision 2026-11-17 ("filhal ke vaaste", testing only): the
+owner dashboard has a **Clear all rides** button (POST
+`/api/owner/clear-rides`, owner PIN session + confirm dialog) that
+deletes all bookings, chat messages, alerts, payments, decline
+exclusions and outbox messages so a test can restart fresh. Drivers,
+their documents and profile photos are untouched, and referral codes
+stay valid. This is a **manual test reset only** — nothing calls it
+automatically, and **driver ride history is retained for a minimum
+of one year**: no automatic deletion, expiry or retention cleanup of
+ride records exists anywhere in this codebase, and none may be added.
+
+To remove it before launch, delete: the `owner_clear_rides` endpoint
+in `app.py` (marked TEMPORARY TEST-ONLY), the button in
+`static/owner.html`, its handler in `static/js/owner.js`, the
+`.danger-btn` style in `static/css/owner.css`,
+`tests/test_clear_rides.py`, and the clear-rides sections in
+`smoke_test.py` and `verify_e2e.py`.
 
 ### Free driver features (added 2026-11-16)
 

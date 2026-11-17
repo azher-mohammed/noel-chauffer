@@ -107,6 +107,32 @@
       .catch(function () { window.location.reload(); });
   });
 
+  /* ---------- Clear all rides (TEMPORARY TEST-ONLY: remove before real launch) ---------- */
+  $("clear-rides-btn").addEventListener("click", function () {
+    if (!window.confirm("Delete ALL rides? This removes every booking, chat message, alert and outbox message. Drivers and their documents are kept. This cannot be undone.")) return;
+    var btn = $("clear-rides-btn");
+    btn.disabled = true;
+    fetch("/api/owner/clear-rides", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: "{}"
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }).catch(function () { return { ok: r.ok, j: {} }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) return;
+        hide($("booking-detail"));
+        $("booking-detail").innerHTML = "";
+        loadSummaryThenEnterSoft();
+        loadBookings();
+        loadPayouts();
+        loadAlerts();
+        loadOutbox();
+      })
+      .catch(function () { btn.disabled = false; });
+  });
+
   /* ---------- Summary ---------- */
   function renderSummary(s) {
     s = s || {};

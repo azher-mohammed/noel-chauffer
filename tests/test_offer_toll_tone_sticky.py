@@ -6,7 +6,12 @@ Owner decisions 2026-11-16 (voice call):
   Earnings from the API include the toll; the card shows the driving
   pay on its own and the toll on its own line.
 - When a ride/job arrives, the driver hears a tone so he knows a job
-  came in. The tone rings once per new offer.
+  came in. The tone repeats the chime pattern for 30 seconds and
+  stops when he accepts/declines, when the offer disappears, or when
+  the 30 seconds are up. Offer IDs already alerted to are kept in
+  localStorage, so a page refresh never re-rings an old offer — and
+  a genuinely new offer rings even on the first poll after a
+  refresh (the old "prime on first poll" gate hid the tone).
 - The job must NOT disappear until the driver accepts it: no expiry,
   and the card does not rebuild while the driver is looking at it.
 
@@ -193,8 +198,54 @@ class OfferTollToneCase(unittest.TestCase):
         self.assertIn("unlockAudio", driver_js)
         self.assertIn("AudioContext", driver_js)
         self.assertIn("seenOfferIds", driver_js)
-        self.assertIn("offersPrimed", driver_js)
         self.assertIn("vibrate", driver_js)
+        # The refresh bug: the old "prime on first poll" gate meant an
+        # offer already on screen after a refresh never rang. It must
+        # stay gone; the persisted seen set replaces it.
+        self.assertNotIn("offersPrimed", driver_js)
+
+    def test_driver_js_tone_rings_30_seconds_and_stops(self):
+        driver_js = read("static/js/driver.js")
+        # A repeating 30-second alert, not one short beep.
+        self.assertIn("TONE_DURATION_MS = 30000", driver_js)
+        self.assertIn("TONE_REPEAT_MS", driver_js)
+        self.assertIn("startOfferTone", driver_js)
+        self.assertIn("stopOfferTone", driver_js)
+        self.assertIn("toneStopAt", driver_js)
+        self.assertIn("toneOfferIds", driver_js)
+        self.assertIn("Date.now() + TONE_DURATION_MS", driver_js)
+        # The ring repeats on an interval and ends on its own.
+        self.assertIn("setInterval(function ()", driver_js)
+        self.assertIn("if (Date.now() >= state.toneStopAt) { stopOfferTone(); return; }", driver_js)
+        # Stops the moment the driver answers: accept and decline
+        # alike, without waiting for the next poll.
+        start = driver_js.index("function respondToOffer")
+        end = driver_js.index("/* ---------- Trip screen", start)
+        self.assertIn("stopOfferTone();", driver_js[start:end])
+        # Stops when every offer being rung for has disappeared.
+        self.assertIn("if (!anyLeft) stopOfferTone();", driver_js)
+        # A second new offer while ringing extends the window instead
+        # of stacking a second interval.
+        self.assertIn("if (state.toneTimer) return;", driver_js)
+
+    def test_driver_js_persists_seen_offers_across_refresh(self):
+        driver_js = read("static/js/driver.js")
+        self.assertIn("SEEN_OFFERS_KEY", driver_js)
+        self.assertIn("loadSeenOfferIds", driver_js)
+        self.assertIn("saveSeenOfferIds", driver_js)
+        self.assertIn("clearSeenOfferIds", driver_js)
+        self.assertIn("localStorage.getItem(SEEN_OFFERS_KEY)", driver_js)
+        self.assertIn("localStorage.setItem(SEEN_OFFERS_KEY", driver_js)
+        # Loaded before the first poll, so a genuinely new offer rings
+        # on the first poll after a refresh.
+        self.assertIn("loadSeenOfferIds();", driver_js)
+        self.assertIn("startOfferTone(freshIds)", driver_js)
+        # The stored set is bounded so it cannot grow forever.
+        self.assertIn("MAX_SEEN_OFFERS", driver_js)
+        # Signing out clears the stored set: a different driver on the
+        # same device must hear fresh offers.
+        start = driver_js.index("reset-driver-btn")
+        self.assertIn("clearSeenOfferIds();", driver_js[start:start + 400])
 
     def test_driver_js_keeps_cards_put_while_unchanged(self):
         driver_js = read("static/js/driver.js")

@@ -3,7 +3,8 @@
    toll on its own line when a toll applies. No other money figure
    is ever displayed. A job offer stays on screen until the driver
    accepts or declines it — it never expires on its own — and a tone
-   sounds when a new offer arrives so the driver knows a job came in.
+   repeats for 30 seconds when a new offer arrives so the driver
+   knows a job came in, stopping when he answers or the offer goes.
    Job offers reach only drivers whose vehicle class matches the
    booking's class (Business Class / Business SUV); hourly rides reach
    every driver, available or offline. */
@@ -11,6 +12,16 @@
   "use strict";
 
   var TOKEN_KEY = "noel_driver_token";
+  /* Offer IDs the driver has already been alerted to, kept across
+     page refreshes so a refresh never re-rings an old offer — and so
+     a genuinely new offer still rings on the very first poll. */
+  var SEEN_OFFERS_KEY = "noel_seen_offers";
+  var MAX_SEEN_OFFERS = 200;
+  /* A new offer rings for 30 seconds: the chime pattern repeats
+     until the driver accepts or declines, the offer disappears, or
+     the 30 seconds are up. */
+  var TONE_DURATION_MS = 30000;
+  var TONE_REPEAT_MS = 1500;
   var FILE_FIELDS = [
     "profile_photo",
     "doc_dmv_license",
@@ -54,7 +65,9 @@
     stageIndex: 0,
     watchId: null,
     seenOfferIds: {},
-    offersPrimed: false,
+    toneTimer: null,
+    toneStopAt: 0,
+    toneOfferIds: {},
     lastOffersSig: "",
     chatTimer: null,
     lastChatSig: "",
@@ -158,6 +171,9 @@
     state.available = !!state.driver.available;
     renderHello();
     renderAvailability();
+    /* Load the alerted-offer set before the first poll, so a refresh
+       never re-rings an old offer and a new offer rings at once. */
+    loadSeenOfferIds();
     showScreen("home");
     startOffersPolling();
     restoreActiveTrip();
@@ -386,7 +402,11 @@
   /* ---------- New-offer tone ---------- */
   /* Browsers only allow sound after the driver has tapped something,
      so the audio context is unlocked on any tap on the page. The tone
-     is a short chime made with the Web Audio API — no audio file needed. */
+     is a short chime made with the Web Audio API — no audio file
+     needed. A new offer repeats that chime for 30 seconds so the
+     driver cannot miss it; it stops the moment he accepts or
+     declines, when the offer disappears, or when the 30 seconds are
+     up. The tone only plays while this page is open in the browser. */
   function unlockAudio() {
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
@@ -399,6 +419,37 @@
      availability toggle still hears the new-offer tone. */
   document.addEventListener("pointerdown", unlockAudio);
 
+  /* Offer IDs already alerted to, kept in localStorage across page
+     refreshes. Without this, a refresh wiped the in-memory set and
+     the first poll only "primed" — an offer already on screen would
+     never ring. With it, the first poll after a refresh rings for
+     genuinely new offers only, and never re-rings an old one. */
+  function loadSeenOfferIds() {
+    try {
+      var raw = window.localStorage.getItem(SEEN_OFFERS_KEY);
+      var ids = raw ? JSON.parse(raw) : [];
+      var seen = {};
+      if (Array.isArray(ids)) {
+        ids.forEach(function (id) { seen[id] = true; });
+      }
+      state.seenOfferIds = seen;
+    } catch (e) { state.seenOfferIds = {}; }
+  }
+  function saveSeenOfferIds() {
+    try {
+      var ids = Object.keys(state.seenOfferIds);
+      /* Booking IDs grow over time, so keeping the newest entries
+         bounds the stored list; old offers never come back. */
+      if (ids.length > MAX_SEEN_OFFERS) ids = ids.slice(ids.length - MAX_SEEN_OFFERS);
+      window.localStorage.setItem(SEEN_OFFERS_KEY, JSON.stringify(ids));
+    } catch (e) { /* private mode: ringing still works for this session */ }
+  }
+  function clearSeenOfferIds() {
+    state.seenOfferIds = {};
+    try { window.localStorage.removeItem(SEEN_OFFERS_KEY); } catch (e) { /* ignore */ }
+  }
+
+  /* One chime burst: the three-note pattern plus a vibration. */
   function playOfferTone() {
     try {
       unlockAudio();
@@ -423,6 +474,28 @@
     } catch (e) { /* keep silent on failure */ }
   }
 
+  /* Ring for up to 30 seconds for the given offer IDs. A second new
+     offer arriving while already ringing extends the window to 30
+     seconds from its arrival; an offer already alerted to never
+     starts the tone again. */
+  function startOfferTone(ids) {
+    ids.forEach(function (id) { state.toneOfferIds[id] = true; });
+    state.toneStopAt = Date.now() + TONE_DURATION_MS;
+    if (state.toneTimer) return;
+    playOfferTone();
+    state.toneTimer = setInterval(function () {
+      if (Date.now() >= state.toneStopAt) { stopOfferTone(); return; }
+      playOfferTone();
+    }, TONE_REPEAT_MS);
+  }
+  function stopOfferTone() {
+    if (state.toneTimer) clearInterval(state.toneTimer);
+    state.toneTimer = null;
+    state.toneOfferIds = {};
+    state.toneStopAt = 0;
+    try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) { /* ignore */ }
+  }
+
   /* ---------- Job offers (earnings only) ---------- */
   function startOffersPolling() {
     if (state.offersTimer) clearInterval(state.offersTimer);
@@ -438,18 +511,33 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var list = Array.isArray(j) ? j : (j.offers || []);
-        /* Ring once for each offer the driver has not seen before.
-           The first load only records what is already there, so
-           opening the app does not ring for old offers. */
-        var fresh = false;
+        /* Ring for every offer the driver has never been alerted to —
+           including on the very first poll after a refresh, because
+           the seen set is loaded from storage before polling starts.
+           An offer already alerted to never rings again, even if it
+           leaves the list and comes back. */
+        var freshIds = [];
         list.forEach(function (o) {
-          if (!state.seenOfferIds[offerId(o)]) fresh = true;
+          var id = offerId(o);
+          if (!state.seenOfferIds[id]) {
+            state.seenOfferIds[id] = true;
+            freshIds.push(id);
+          }
         });
-        if (state.offersPrimed && fresh) playOfferTone();
-        var seen = {};
-        list.forEach(function (o) { seen[offerId(o)] = true; });
-        state.seenOfferIds = seen;
-        state.offersPrimed = true;
+        if (freshIds.length) {
+          saveSeenOfferIds();
+          startOfferTone(freshIds);
+        }
+        /* Stop ringing when every offer being rung for has gone. */
+        if (state.toneTimer) {
+          var present = {};
+          list.forEach(function (o) { present[offerId(o)] = true; });
+          var anyLeft = false;
+          for (var ringingId in state.toneOfferIds) {
+            if (present[ringingId]) { anyLeft = true; break; }
+          }
+          if (!anyLeft) stopOfferTone();
+        }
         renderOffers(list);
       })
       .catch(function () { /* keep the current list on a failed check */ });
@@ -509,6 +597,9 @@
     });
   }
   function respondToOffer(id, action) {
+    /* The driver answered: stop the tone at once, for accept and
+       decline alike, without waiting for the next poll. */
+    stopOfferTone();
     fetch("/api/drivers/me/offers/" + encodeURIComponent(id) + "/" + action, {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
@@ -991,6 +1082,8 @@
     if (!window.confirm("Sign out this driver on this device and show registration again?")) return;
     stopLocationSharing();
     clearToken();
+    /* A different driver on this device must hear fresh offers. */
+    clearSeenOfferIds();
     state.driver = null;
     state.trip = null;
     window.location.reload();

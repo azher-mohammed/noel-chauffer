@@ -342,3 +342,28 @@ def waiting_time_elapsed(date_str: str, time_str: str, pickup_text: str, now=Non
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
     return now >= pickup_dt + timedelta(minutes=free_waiting_minutes(pickup_text))
+
+
+# Driver cancel lock (owner decision 2026-11-17): once an accepted ride's
+# pickup is within this many hours, the driver cannot cancel it normally.
+# More than this before pickup, cancelling works as before and the job
+# auto re-dispatches. Declining an offer before accepting is untouched,
+# and so is the customer's 1-hour cancel/refund rule.
+DRIVER_CANCEL_LOCK_HOURS = 2
+
+
+def driver_cancel_locked(date_str: str, time_str: str, now=None) -> bool:
+    """True when a driver may no longer cancel an accepted ride.
+
+    Locked once the pickup datetime (America/New_York) is within
+    DRIVER_CANCEL_LOCK_HOURS — including a pickup time already past.
+    `now` may be given (aware datetime) for testing; otherwise the
+    current UTC time is used.
+    """
+    pickup_naive = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    pickup_dt = pickup_naive.replace(tzinfo=_pickup_timezone())
+    if now is None:
+        now = datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return (pickup_dt - now) <= timedelta(hours=DRIVER_CANCEL_LOCK_HOURS)

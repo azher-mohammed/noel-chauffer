@@ -751,6 +751,29 @@
        the pickup to the drop-off at once, without a full re-render. */
     renderTripNavLinks();
     refreshNoShowButton();
+    refreshCancelButton();
+  }
+  /* Driver cancel lock (owner rule 2026-11-17): once pickup is within
+     2 hours, the driver cannot cancel the accepted job. The button is
+     hidden and a short note explains why; the server enforces the
+     same rule with a 409, so this is only the visible side of it.
+     More than 2 hours out, cancelling works as before. When the
+     pickup time is missing or unparseable the button stays visible
+     and the server decides — a bad date must not hide the button. */
+  function refreshCancelButton() {
+    var btn = $("trip-cancel-btn");
+    var note = $("trip-cancel-note");
+    var locked = $("trip-cancel-locked-note");
+    var t = state.trip;
+    var showCancel = true;
+    if (t && t.date && t.time) {
+      var pickup = new Date(t.date + "T" + t.time);
+      if (!isNaN(pickup.getTime()) && pickup.getTime() - Date.now() <= 2 * 60 * 60000) {
+        showCancel = false;
+      }
+    }
+    if (showCancel) { show(btn); show(note); hide(locked); }
+    else { hide(btn); hide(note); show(locked); }
   }
   /* Customer no-show is only offered once the driver has waited the
      FULL free waiting time (60 min at airports, else 15) from the
@@ -773,7 +796,7 @@
   function startNoShowTimer() {
     if (state.noShowTimer) clearInterval(state.noShowTimer);
     state.noShowTimer = setInterval(function () {
-      if (state.trip) refreshNoShowButton();
+      if (state.trip) { refreshNoShowButton(); refreshCancelButton(); }
     }, 30000);
   }
   function stopNoShowTimer() {
@@ -910,7 +933,16 @@
   $("trip-cancel-btn").addEventListener("click", function () {
     if (!state.trip) return;
     if (!window.confirm("Cancel this job? The job goes to the next driver automatically.")) return;
-    postTripEvent("cancel", {}).then(function () { endTrip(); }).catch(function () { endTrip(); });
+    /* Only leave the trip screen when the server accepted the cancel.
+       A locked cancel (409) keeps the driver on the trip and shows
+       the reason; the button then hides itself via the lock check. */
+    postTripEvent("cancel", {}).then(function (res) {
+      if (res.ok) { endTrip(); return; }
+      $("trip-error").textContent = (res.j && (res.j.error || res.j.message)) || "This job could not be cancelled.";
+      refreshCancelButton();
+    }).catch(function () {
+      $("trip-error").textContent = "Could not reach the service. Please try again.";
+    });
   });
   $("trip-noshow-btn").addEventListener("click", function () {
     if (!state.trip) return;

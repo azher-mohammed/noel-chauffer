@@ -546,6 +546,20 @@ check("served driver.js keeps offer-card links, trip screen drops payload URLs",
       and b"esc(t.route_url)" not in resp.data
       and b"esc(t.route_waze_url)" not in resp.data,
       "offer-card links changed or trip screen still uses un-staged URLs")
+# --- driver cancel lock (owner rule 2026-11-17) --------------------------
+check("served driver.js hides cancel button within 2 hours of pickup",
+      resp.status_code == 200
+      and b"function refreshCancelButton()" in resp.data
+      and b"pickup.getTime() - Date.now() <= 2 * 60 * 60000" in resp.data
+      and b"trip-cancel-locked-note" in resp.data
+      and b"refreshCancelButton();" in resp.data,
+      str(resp.status_code))
+resp = client.get("/driver")
+check("driver page carries the cancel-locked note",
+      resp.status_code == 200
+      and b"trip-cancel-locked-note" in resp.data
+      and b"pickup is within 2 hours" in resp.data,
+      str(resp.status_code))
 resp = client.get("/static/css/driver.css")
 check("served driver.css styles route labels",
       resp.status_code == 200 and b".route-label" in resp.data,

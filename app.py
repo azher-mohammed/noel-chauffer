@@ -53,6 +53,7 @@ from pricing import (
     compute_extra_distance,
     compute_hourly,
     compute_one_way,
+    driver_cancel_locked,
     estimate_upfront_toll,
     free_waiting_minutes,
     is_airport_pickup,
@@ -1642,6 +1643,12 @@ def driver_trip_event(booking_id):
     elif event == "cancel":
         if booking.status not in ("accepted", "en_route", "arrived"):
             return err("Cannot cancel a ride in this state.", 409)
+        # Owner rule 2026-11-17: once pickup is within 2 hours, the
+        # driver cannot cancel. Earlier, cancelling works as before
+        # and the job goes back to the other drivers automatically.
+        if driver_cancel_locked(booking.date, booking.time):
+            return err("This job can no longer be cancelled because "
+                       "pickup is within 2 hours.", 409)
         booking.status = "offered"
         booking.accepted_driver_id = None
         booking.assigned_driver_id = None

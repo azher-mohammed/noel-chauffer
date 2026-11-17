@@ -948,6 +948,17 @@ check("served driver.js keeps offer-card links, trip screen drops payload URLs",
       and "esc(t.route_url)" not in r.text
       and "esc(t.route_waze_url)" not in r.text,
       "offer-card links changed or trip screen still uses un-staged URLs")
+check("served driver.js hides cancel button within 2 hours of pickup",
+      "function refreshCancelButton()" in r.text
+      and "pickup.getTime() - Date.now() <= 2 * 60 * 60000" in r.text
+      and "trip-cancel-locked-note" in r.text
+      and "refreshCancelButton();" in r.text,
+      "cancel-lock gating missing from served driver.js")
+r = anon.get(BASE + "/driver", timeout=TIMEOUT)
+check("driver page carries the cancel-locked note",
+      "trip-cancel-locked-note" in r.text
+      and "pickup is within 2 hours" in r.text,
+      "cancel-locked note missing from served driver page")
 r = anon.get(BASE + "/static/css/driver.css", timeout=TIMEOUT)
 check("served driver.css styles route labels",
       ".route-label" in r.text, "route-label rule missing from served driver.css")

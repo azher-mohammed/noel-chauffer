@@ -15,6 +15,7 @@ from pricing import (  # noqa: E402
     cancellation_refundable,
     compute_hourly,
     compute_one_way,
+    driver_cancel_locked,
     free_waiting_minutes,
     is_airport_pickup,
     waiting_charge,
@@ -157,6 +158,42 @@ class TestCancellation(unittest.TestCase):
         self.assertFalse(cancellation_refundable("2030-06-01", "12:00", now=now))
         now = datetime(2030, 6, 1, 15, 30, tzinfo=timezone.utc)  # 30 min before
         self.assertFalse(cancellation_refundable("2030-06-01", "12:00", now=now))
+
+
+class TestDriverCancelLocked(unittest.TestCase):
+    # Owner rule 2026-11-17: an accepted ride cannot be cancelled once
+    # pickup is within 2 hours. Pickup 2030-06-01 12:00 New York =
+    # 16:00 UTC (EDT), same clock basis as the other time gates.
+    def test_more_than_two_hours_before_is_not_locked(self):
+        now = datetime(2030, 6, 1, 13, 59, tzinfo=timezone.utc)  # 09:59 EDT
+        self.assertFalse(driver_cancel_locked("2030-06-01", "12:00", now=now))
+
+    def test_exactly_two_hours_before_is_locked(self):
+        # Boundary: exactly 2 hours before pickup counts as within.
+        now = datetime(2030, 6, 1, 14, 0, tzinfo=timezone.utc)  # 10:00 EDT
+        self.assertTrue(driver_cancel_locked("2030-06-01", "12:00", now=now))
+
+    def test_under_two_hours_is_locked(self):
+        now = datetime(2030, 6, 1, 14, 1, tzinfo=timezone.utc)  # 10:01 EDT
+        self.assertTrue(driver_cancel_locked("2030-06-01", "12:00", now=now))
+        now = datetime(2030, 6, 1, 15, 30, tzinfo=timezone.utc)  # 30 min before
+        self.assertTrue(driver_cancel_locked("2030-06-01", "12:00", now=now))
+
+    def test_pickup_in_the_past_is_locked(self):
+        now = datetime(2030, 6, 1, 16, 30, tzinfo=timezone.utc)  # 30 min after pickup
+        self.assertTrue(driver_cancel_locked("2030-06-01", "12:00", now=now))
+
+    def test_naive_now_treated_as_utc(self):
+        self.assertTrue(driver_cancel_locked("2030-06-01", "12:00",
+                                              now=datetime(2030, 6, 1, 15, 0)))
+        self.assertFalse(driver_cancel_locked("2030-06-01", "12:00",
+                                               now=datetime(2030, 6, 1, 13, 0)))
+
+    def test_now_defaults_to_current_time(self):
+        # A pickup far in the future is not locked; one far in the
+        # past is — deterministic whatever the real clock says.
+        self.assertFalse(driver_cancel_locked("2030-06-01", "12:00"))
+        self.assertTrue(driver_cancel_locked("2020-01-01", "12:00"))
 
 
 if __name__ == "__main__":

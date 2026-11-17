@@ -84,7 +84,8 @@ def _boom(url):
 geo_module._http_get_json = _boom
 try:
     miles, pc, dc = geo_module.distance_miles("Nowhere Street 1", "Elsewhere Ave 2")
-    check("geo failure still returns miles", miles == geo_module.FALLBACK_MILES, str(miles))
+    check("geo failure returns no miles (never an invented distance)",
+          miles is None and pc is None and dc is None, str((miles, pc, dc)))
     expected = round(geo_module.haversine_miles(40.6413, -73.7781, 40.7580, -73.9855) * 1.3, 1)
     got = geo_module.route_miles(40.6413, -73.7781, 40.7580, -73.9855)
     check("route fallback = haversine*1.3", got == expected, f"{got} != {expected}")

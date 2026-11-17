@@ -70,9 +70,15 @@ never a breakdown, never rates, never miles.
   front, like Uber), so the driver sees the separate Toll line before
   accepting. The owner can still adjust the toll per ride in the
   dashboard (not on completed rides). There is no toll API.
-- **Fares use live geocoding/routing** (Nominatim + OSRM, no keys). If
-  those services are unreachable, the app falls back to straight-line
-  distance × 1.3, or 10.0 miles if an address cannot be geocoded at all.
+- **Fares use live geocoding/routing** (Nominatim + OSRM, no keys). A
+  picked suggestion's coordinates are priced as-is; typed text is
+  geocoded (USA-only, with one retry stripping "arrivals" /
+  "departures" for terminal phrasing). If an address cannot be
+  resolved to coordinates at all, the booking is rejected with a
+  clear error — the fare is never computed from an invented
+  distance. If the routing service itself is unreachable after
+  coordinates are known, the app falls back to straight-line
+  distance × 1.3 for that route.
 - **Prices are settled business rules** in `pricing.py`. Do not change
   them without the owner's say-so.
 - **Driver payouts are tracking only.** Every 14 days the driver gets
@@ -106,7 +112,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests (321)
+python -m unittest discover -s tests -v   # unit tests (337)
 python smoke_test.py                       # backend flow checks (146)
 ```
 
@@ -117,7 +123,7 @@ server with a **fresh** database:
 DATABASE_URL="sqlite:////tmp/noel-verify.db" OWNER_PIN=4321 \
   SECRET_KEY=test-secret ENCRYPTION_KEY="<fernet key>" PORT=5055 python app.py &
 NOEL_BASE_URL=http://127.0.0.1:5055 NOEL_OWNER_PIN=4321 python verify_e2e.py
-# full HTTP checklist (235 checks)
+# full HTTP checklist (239 checks)
 ```
 
 ### Temporary test reset — REMOVE BEFORE REAL LAUNCH

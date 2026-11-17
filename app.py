@@ -787,6 +787,25 @@ def _booking_create_view(booking, referral_code=None):
     return view
 
 
+def _payload_coords(data, prefix):
+    """(lat, lng) from a booking payload, or None.
+
+    The booking form sends the picked suggestion's coordinates when
+    the customer picked one; typed text sends none. Values must be
+    finite numbers in range — anything else is ignored and the
+    address text is geocoded instead. (The range check alone rejects
+    NaN and infinities: both fail every comparison.)
+    """
+    try:
+        lat = float(data.get(prefix + "_lat"))
+        lng = float(data.get(prefix + "_lng"))
+    except (TypeError, ValueError):
+        return None
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0):
+        return None
+    return (lat, lng)
+
+
 @app.route("/api/bookings", methods=["POST"])
 def create_booking():
     data = request.get_json(silent=True) or {}
@@ -849,7 +868,27 @@ def create_booking():
     else:
         if not booking.dropoff:
             return err("dropoff is required for one-way rides.")
-        miles, pickup_coords, dropoff_coords = geo_module.distance_miles(booking.pickup, booking.dropoff)
+        # Coordinates from a picked suggestion are priced as-is (never
+        # re-geocoded); a side without them is resolved from its text.
+        # Coordinates are passed only when present, so the plain
+        # two-argument call keeps working for typed addresses.
+        geo_kwargs = {}
+        payload_pickup = _payload_coords(data, "pickup")
+        if payload_pickup is not None:
+            geo_kwargs["pickup_coords"] = payload_pickup
+        payload_dropoff = _payload_coords(data, "dropoff")
+        if payload_dropoff is not None:
+            geo_kwargs["dropoff_coords"] = payload_dropoff
+        miles, pickup_coords, dropoff_coords = geo_module.distance_miles(
+            booking.pickup, booking.dropoff, **geo_kwargs)
+        if miles is None:
+            # No invented distance: an address that cannot be resolved
+            # to coordinates must not be priced. Nothing is stored;
+            # the customer picks the address from the suggestions and
+            # tries again.
+            return err("We couldn't find one of the addresses you entered. "
+                       "Please pick the pickup and drop-off from the address "
+                       "suggestions and try again.")
         booking.miles = Decimal(str(miles))
         if pickup_coords:
             booking.pickup_lat, booking.pickup_lng = pickup_coords
@@ -863,11 +902,14 @@ def create_booking():
         # separate Toll line BEFORE accepting. This stored toll is
         # the single source for the fare total AND the options-page
         # class totals (both read booking.toll), so quote and
-        # charge always agree. The geocoder state cache is warm:
-        # distance_miles above geocoded both addresses first; on a
-        # geocoding failure the helper falls back to the address
-        # display text. The route cache is warm too: distance_miles
-        # fetched the route first, so route_geometry is cache-only
+        # charge always agree. The geocoder state cache is warm for
+        # each side resolved from text (distance_miles above geocoded
+        # it first); a side priced from picked-suggestion coordinates
+        # skips geocoding, so its state resolves from the address
+        # display text instead — and on a geocoding failure the helper
+        # likewise falls back to the display text. The route cache is
+        # warm too: distance_miles fetched the route first, so
+        # route_geometry is cache-only
         # and never fetches upstream; when it returns None (OSRM
         # failure) the helper applies the compulsory NY<->NJ
         # fallback.

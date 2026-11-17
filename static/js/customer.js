@@ -124,9 +124,11 @@
   /* Typing in Pickup / Drop-off shows USA-only suggestions below the
      field, including airport terminals (with arrivals/departures
      entries where the map data has them). Picking a suggestion fills
-     the field. There is deliberately NO map inside the booking form
-     and NO pin-drop. The post-accept live tracking map further down
-     is separate and untouched. Suggestions show address text only —
+     the field and stores its coordinates, which are sent with the
+     booking so the fare is priced for exactly the place picked.
+     There is deliberately NO map inside the booking form and NO
+     pin-drop. The post-accept live tracking map further down is
+     separate and untouched. Suggestions show address text only —
      never any fare. */
 
   function clearBookingPlaces() {
@@ -286,6 +288,19 @@
     } else {
       var h = parseInt($("bk-hours").value, 10);
       if (!isNaN(h) && h > 0) payload.hours = h;
+    }
+    /* When the customer picked a suggestion, send its coordinates so
+       the fare is priced for exactly the place picked — the server
+       never has to re-resolve the address text. Typed text without a
+       pick sends no coordinates and the server resolves the text;
+       editing a field clears the stored pick (see clearStored). */
+    if (state.pickupPlace && isFinite(state.pickupPlace.lat) && isFinite(state.pickupPlace.lon)) {
+      payload.pickup_lat = state.pickupPlace.lat;
+      payload.pickup_lng = state.pickupPlace.lon;
+    }
+    if (state.rideType === "one_way" && state.dropoffPlace && isFinite(state.dropoffPlace.lat) && isFinite(state.dropoffPlace.lon)) {
+      payload.dropoff_lat = state.dropoffPlace.lat;
+      payload.dropoff_lng = state.dropoffPlace.lon;
     }
     if (!payload.customer_name || !payload.phone || !payload.email || !payload.pickup || !payload.date || !payload.time) {
       err.textContent = "Please fill in your name, phone, email, pickup, date and time.";

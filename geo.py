@@ -1,9 +1,15 @@
 """Geocoding + routing + USA place search for Noel Chauffer.
 
 Public no-key endpoints only: Nominatim for geocoding and address
-suggestions, OSRM demo server for driving routes. Fallback: haversine
-distance * 1.3. Never raises to the caller on geo failure — always
-returns a miles value via fallback, or an empty suggestion list.
+suggestions, OSRM demo server for driving routes. When an address
+cannot be resolved to coordinates, distance_miles returns miles=None
+— the fare is NEVER computed from an invented distance (there is no
+default-miles fallback: a booking with an unresolvable address is
+rejected with a clear error instead of being priced on a guess).
+Route fallback: haversine distance * 1.3, used only when the routing
+service itself fails after coordinates are known. Suggestions return
+an empty list on failure. Nothing here raises to the caller on geo
+failure.
 """
 
 from __future__ import annotations
@@ -11,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import re
 import urllib.parse
 import urllib.request
 
@@ -19,7 +26,15 @@ log = logging.getLogger(__name__)
 USER_AGENT = "NoelChauffer/1.0"
 TIMEOUT = 10
 METERS_PER_MILE = 1609.344
-FALLBACK_MILES = 10.0  # used only when geocoding fails outright (no coords)
+
+# Words stripped on the single retry when a geocode query returns no
+# result: typed airport-terminal phrasing such as "JFK Terminal 1
+# Arrivals" matches nothing in Nominatim, while "JFK Terminal 1"
+# resolves to the terminal. Only whole-word matches are stripped, and
+# only when the stripped query is still non-empty. The retry runs
+# only on an empty result — never on a request error — and never
+# replaces a result the original query already returned.
+_RETRY_STRIP_WORDS = ("arrivals", "departures")
 
 _geocode_cache: dict = {}
 _geocode_address_cache: dict = {}
@@ -44,8 +59,51 @@ def _http_get_json(url: str):
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _geocode_query(address: str):
+    """One USA-only Nominatim lookup.
+
+    Returns (coords, address_details, errored): coords is a (lat, lng)
+    tuple or None when the query matched nothing; errored is True only
+    when the request itself failed. Never raises.
+    """
+    try:
+        url = (
+            "https://nominatim.openstreetmap.org/search?format=json&limit=1"
+            "&addressdetails=1&countrycodes=us&q="
+            + urllib.parse.quote(address)
+        )
+        data = _http_get_json(url)
+        if data:
+            coords = (float(data[0]["lat"]), float(data[0]["lon"]))
+            raw_address = data[0].get("address")
+            details = raw_address if isinstance(raw_address, dict) else None
+            return coords, details, False
+        return None, None, False
+    except Exception as exc:  # never raise: caller handles the miss
+        log.warning("geocode failed for %r: %s", address, exc)
+        return None, None, True
+
+
+def _strip_retry_words(address: str):
+    """Query with standalone arrivals/departures words removed, or None.
+
+    Returns None when nothing was stripped or nothing is left, so the
+    caller only retries with a genuinely different, non-empty query.
+    """
+    words = re.split(r"\s+", (address or "").strip())
+    kept = [w for w in words if w.strip(",.").lower() not in _RETRY_STRIP_WORDS]
+    if len(kept) == len(words):
+        return None
+    stripped = " ".join(kept).strip(" ,")
+    return stripped or None
+
+
 def geocode(address: str):
-    """Return (lat, lng) floats, or None on any failure. Cached.
+    """Return (lat, lng) floats, or None when the address cannot be resolved.
+
+    Cached on success only: failures and empty results are NEVER
+    cached, so a transient outage cannot poison the process cache and
+    keep mispricing or rejecting that address until a restart.
 
     The response's address details are cached alongside the
     coordinates (see geocode_state): the booking flow reads the US
@@ -56,26 +114,16 @@ def geocode(address: str):
         return None
     if key in _geocode_cache:
         return _geocode_cache[key]
-    result = None
-    address_details = None
-    try:
-        url = (
-            "https://nominatim.openstreetmap.org/search?format=json&limit=1"
-            "&addressdetails=1&q="
-            + urllib.parse.quote(address)
-        )
-        data = _http_get_json(url)
-        if data:
-            result = (float(data[0]["lat"]), float(data[0]["lon"]))
-            raw_address = data[0].get("address")
-            if isinstance(raw_address, dict):
-                address_details = raw_address
-    except Exception as exc:  # never raise: caller falls back
-        log.warning("geocode failed for %r: %s", address, exc)
-    if len(_geocode_cache) < _CACHE_LIMIT:
-        _geocode_cache[key] = result
-    if len(_geocode_address_cache) < _CACHE_LIMIT:
-        _geocode_address_cache[key] = address_details
+    result, address_details, errored = _geocode_query(address)
+    if result is None and not errored:
+        stripped = _strip_retry_words(address)
+        if stripped is not None and stripped.strip().lower() != key:
+            result, address_details, _errored = _geocode_query(stripped)
+    if result is not None:
+        if len(_geocode_cache) < _CACHE_LIMIT:
+            _geocode_cache[key] = result
+        if len(_geocode_address_cache) < _CACHE_LIMIT:
+            _geocode_address_cache[key] = address_details
     return result
 
 
@@ -84,11 +132,13 @@ def geocode_state(address: str):
 
     Cache-only on purpose: it reads the address details stored by
     geocode() and NEVER makes an upstream request itself. The booking
-    flow always geocodes both addresses first (distance_miles), so the
-    cache is warm exactly when the state is needed, and no second
-    Nominatim call is made. Returns None when the address was never
-    geocoded or its lookup failed — callers fall back to matching the
-    address display text. Never raises.
+    flow geocodes each address it has no coordinates for
+    (distance_miles), so the cache is warm exactly when the state is
+    needed for a geocoded address; when the customer picked a
+    suggestion, its coordinates arrive with the booking, no geocode
+    runs, and the cache stays cold — callers then fall back to
+    matching the address display text. Returns None when the address
+    was never geocoded or its lookup failed. Never raises.
     """
     key = (address or "").strip().lower()
     if not key:
@@ -385,21 +435,44 @@ def route_geometry(lat1, lng1, lat2, lng2):
     return entry[1]
 
 
-def distance_miles(pickup: str, dropoff: str):
+def _valid_coords(coords):
+    """True for a (lat, lng) pair of finite numbers in range."""
+    try:
+        lat, lng = coords
+        lat = float(lat)
+        lng = float(lng)
+    except (TypeError, ValueError):
+        return False
+    return -90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0
+
+
+def distance_miles(pickup: str, dropoff: str, pickup_coords=None, dropoff_coords=None):
     """Return (miles, pickup_coords, dropoff_coords). Never raises.
 
-    Coords are (lat, lng) tuples or None. If either address cannot be
-    geocoded, miles falls back to FALLBACK_MILES.
+    Coords are (lat, lng) tuples or None. Caller-supplied coordinates
+    (from a picked autocomplete suggestion) are used as-is and never
+    re-geocoded, so the priced route is exactly the place the customer
+    picked; a side without coordinates is geocoded from its text. If
+    either address cannot be resolved to coordinates, miles is None —
+    the caller must reject the booking. There is deliberately NO
+    default-miles fallback: a fare must never be computed from an
+    invented distance.
     """
     try:
-        pickup_coords = geocode(pickup)
-        dropoff_coords = geocode(dropoff)
+        if _valid_coords(pickup_coords):
+            pickup_coords = (float(pickup_coords[0]), float(pickup_coords[1]))
+        else:
+            pickup_coords = geocode(pickup)
+        if _valid_coords(dropoff_coords):
+            dropoff_coords = (float(dropoff_coords[0]), float(dropoff_coords[1]))
+        else:
+            dropoff_coords = geocode(dropoff)
         if pickup_coords and dropoff_coords:
             miles = route_miles(
                 pickup_coords[0], pickup_coords[1], dropoff_coords[0], dropoff_coords[1]
             )
             return miles, pickup_coords, dropoff_coords
-        return FALLBACK_MILES, pickup_coords, dropoff_coords
+        return None, pickup_coords, dropoff_coords
     except Exception as exc:  # absolute safety net
         log.warning("distance_miles failed: %s", exc)
-        return FALLBACK_MILES, None, None
+        return None, None, None

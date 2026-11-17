@@ -260,6 +260,31 @@ if Decimal(str(detail_ref["miles"])) == Decimal("18.0"):
     check("18.0 mi referral total is $192.58 + stored toll (no discount)",
           approx(detail_ref["customer_total"], Decimal("192.58") + toll_ref))
 
+# Exact-miles regression (live 2026-11-17 booking NOEL-9TR127): the typed
+# text "JFK Terminal 1 Arrivals" matches nothing in Nominatim, so the
+# old code priced it on an invented 10.0 miles. Picked-suggestion
+# coordinates are now priced as-is, so the same text WITH coordinates
+# must book at the true road miles (~18) and match the pricing formula.
+resp = anon.post(BASE + "/api/bookings", json={
+    "customer_name": "Coords Customer", "phone": "+15550007777", "email": "coords@test.com",
+    "pickup": "JFK Terminal 1 Arrivals", "dropoff": "Times Square, New York",
+    "pickup_lat": 40.6434795, "pickup_lng": -73.7900299,
+    "dropoff_lat": 40.7570095, "dropoff_lng": -73.9859724,
+    "date": "2030-06-03", "time": "12:00", "ride_type": "one_way",
+}, timeout=TIMEOUT)
+check("coords booking with unresolvable text 201", resp.status_code == 201, resp.text[:200])
+b_coords = resp.json()["booking"]
+detail_coords = s.get(BASE + f"/api/owner/bookings/{b_coords['id']}", timeout=TIMEOUT).json()
+miles_coords = Decimal(str(detail_coords["miles"]))
+toll_coords = Decimal(str(detail_coords["toll"]))
+expected_coords = compute_one_way(miles_coords, toll=toll_coords)
+print(f"  INFO coords-booking miles for JFK T1 -> Times Square: {miles_coords}")
+check("coords booking uses true road miles (15-20, never the old 10.0)",
+      Decimal("15") <= miles_coords <= Decimal("20"), f"miles={miles_coords}")
+check("coords booking total matches pricing formula",
+      approx(detail_coords["customer_total"], expected_coords["total"]),
+      f"got {detail_coords['customer_total']} expected {expected_coords['total']} at {miles_coords} mi")
+
 # Hourly booking
 resp = anon.post(BASE + "/api/bookings", json={
     "customer_name": "Hourly Customer", "phone": "+15550006666", "email": "h@test.com",
@@ -954,6 +979,13 @@ check("served driver.js hides cancel button within 2 hours of pickup",
       and "trip-cancel-locked-note" in r.text
       and "refreshCancelButton();" in r.text,
       "cancel-lock gating missing from served driver.js")
+r = anon.get(BASE + "/static/js/customer.js", timeout=TIMEOUT)
+check("served customer.js sends picked-suggestion coordinates with bookings",
+      "payload.pickup_lat = state.pickupPlace.lat" in r.text
+      and "payload.pickup_lng = state.pickupPlace.lon" in r.text
+      and "payload.dropoff_lat = state.dropoffPlace.lat" in r.text
+      and "payload.dropoff_lng = state.dropoffPlace.lon" in r.text,
+      "suggestion coordinates missing from served customer.js booking payload")
 r = anon.get(BASE + "/driver", timeout=TIMEOUT)
 check("driver page carries the cancel-locked note",
       "trip-cancel-locked-note" in r.text

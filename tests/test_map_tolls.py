@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles (same as the other
-# API test modules): sedan total $235.37, driver $72.00 before toll.
+# API test modules): sedan total $192.58, driver $72.00 before toll.
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -416,51 +416,51 @@ class MapTollBookingCase(unittest.TestCase):
     def test_midtown_route_quote_and_booking_carry_toll(self):
         self.seed_geometry(MIDTOWN_TUNNEL)
         booking = self.book()
-        # 18.0 mi sedan: $198.00 + $19.80 + $17.57 + $7.46 = $242.83.
-        # SUV: $216.00 + $21.60 + $19.17 + $7.46 = $264.23.
-        self.assertTrue(approx(booking["total"], "242.83"), booking)
-        self.assertTrue(approx(booking["class_totals"]["sedan"], "242.83"), booking)
-        self.assertTrue(approx(booking["class_totals"]["suv"], "264.23"), booking)
+        # 18.0 mi sedan: $162.00 + $16.20 + $14.38 + $7.46 = $200.04.
+        # SUV: $180.00 + $18.00 + $15.98 + $7.46 = $221.44.
+        self.assertTrue(approx(booking["total"], "200.04"), booking)
+        self.assertTrue(approx(booking["class_totals"]["sedan"], "200.04"), booking)
+        self.assertTrue(approx(booking["class_totals"]["suv"], "221.44"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "7.46"))
         got = self.client.get(f"/api/bookings/{booking['id']}").get_json()["booking"]
-        self.assertTrue(approx(got["total"], "242.83"), got)
-        self.assertTrue(approx(got["class_totals"]["suv"], "264.23"), got)
+        self.assertTrue(approx(got["total"], "200.04"), got)
+        self.assertTrue(approx(got["class_totals"]["suv"], "221.44"), got)
 
     def test_queensboro_route_quote_has_zero_toll(self):
         self.seed_geometry(QUEENSBORO_BRIDGE)
         booking = self.book()
-        self.assertTrue(approx(booking["total"], "235.37"), booking)
-        self.assertTrue(approx(booking["class_totals"]["sedan"], "235.37"), booking)
-        self.assertTrue(approx(booking["class_totals"]["suv"], "256.77"), booking)
+        self.assertTrue(approx(booking["total"], "192.58"), booking)
+        self.assertTrue(approx(booking["class_totals"]["sedan"], "192.58"), booking)
+        self.assertTrue(approx(booking["class_totals"]["suv"], "213.98"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "0.00"))
 
     def test_rfk_route_quote_carries_toll(self):
         self.seed_geometry(RFK_QUEENS)
         booking = self.book()
-        self.assertTrue(approx(booking["total"], "242.83"), booking)
+        self.assertTrue(approx(booking["total"], "200.04"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "7.46"))
 
     def test_nj_trip_route_toll_plus_return_no_double_count(self):
         self.seed_geometry(MIDTOWN_THEN_HOLLAND_WEST)
         booking = self.book(dropoff=JERSEY_CITY_DISPLAY)
         # $7.46 route toll + $16.79 return toll = $24.25.
-        # Sedan: $198.00 + $19.80 + $17.57 + $24.25 = $259.62.
-        # SUV: $216.00 + $21.60 + $19.17 + $24.25 = $281.02.
-        self.assertTrue(approx(booking["total"], "259.62"), booking)
-        self.assertTrue(approx(booking["class_totals"]["sedan"], "259.62"), booking)
-        self.assertTrue(approx(booking["class_totals"]["suv"], "281.02"), booking)
+        # Sedan: $162.00 + $16.20 + $14.38 + $24.25 = $216.83.
+        # SUV: $180.00 + $18.00 + $15.98 + $24.25 = $238.23.
+        self.assertTrue(approx(booking["total"], "216.83"), booking)
+        self.assertTrue(approx(booking["class_totals"]["sedan"], "216.83"), booking)
+        self.assertTrue(approx(booking["class_totals"]["suv"], "238.23"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "24.25"))
 
     def test_no_geometry_nj_to_ny_falls_back_to_return_toll(self):
         # No seeded geometry (OSRM failure): the compulsory fallback
         # charges the Hudson toll in EITHER direction.
         booking = self.book(pickup=EWR_DISPLAY, dropoff="Times Square, New York")
-        self.assertTrue(approx(booking["total"], "252.16"), booking)
+        self.assertTrue(approx(booking["total"], "209.37"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "16.79"))
 
     def test_no_geometry_ny_to_ny_stays_zero(self):
         booking = self.book()
-        self.assertTrue(approx(booking["total"], "235.37"), booking)
+        self.assertTrue(approx(booking["total"], "192.58"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "0.00"))
 
     def test_hourly_ride_unaffected_by_geometry(self):

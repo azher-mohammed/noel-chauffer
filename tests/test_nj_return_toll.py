@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles (same as the other
-# API test modules): sedan total $235.37, driver $72.00 before toll.
+# API test modules): sedan total $192.58, driver $72.00 before toll.
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -250,17 +250,17 @@ class NjReturnTollBookingCase(unittest.TestCase):
     # -- quote + stored booking -------------------------------------------
     def test_nj_trip_quote_and_booking_carry_toll(self):
         booking = self.book()
-        # 18.0 mi sedan: $198.00 fare + $19.80 gratuity + $17.57 tax
-        # + $16.79 toll = $252.16. SUV: $216.00 + $21.60 + $19.17
-        # + $16.79 = $273.56.
-        self.assertTrue(approx(booking["total"], "252.16"), booking)
-        self.assertTrue(approx(booking["class_totals"]["sedan"], "252.16"), booking)
-        self.assertTrue(approx(booking["class_totals"]["suv"], "273.56"), booking)
+        # 18.0 mi sedan: $162.00 fare + $16.20 gratuity + $14.38 tax
+        # + $16.79 toll = $209.37. SUV: $180.00 + $18.00 + $15.98
+        # + $16.79 = $230.77.
+        self.assertTrue(approx(booking["total"], "209.37"), booking)
+        self.assertTrue(approx(booking["class_totals"]["sedan"], "209.37"), booking)
+        self.assertTrue(approx(booking["class_totals"]["suv"], "230.77"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "16.79"))
         # The customer GET (options page reload) shows the same totals.
         got = self.client.get(f"/api/bookings/{booking['id']}").get_json()["booking"]
-        self.assertTrue(approx(got["total"], "252.16"), got)
-        self.assertTrue(approx(got["class_totals"]["suv"], "273.56"), got)
+        self.assertTrue(approx(got["total"], "209.37"), got)
+        self.assertTrue(approx(got["class_totals"]["suv"], "230.77"), got)
 
     def test_nj_trip_class_switch_keeps_toll(self):
         booking = self.book()
@@ -268,22 +268,22 @@ class NjReturnTollBookingCase(unittest.TestCase):
                                 json={"vehicle_class": "suv"})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         switched = resp.get_json()["booking"]
-        self.assertTrue(approx(switched["total"], "273.56"), switched)
+        self.assertTrue(approx(switched["total"], "230.77"), switched)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "16.79"))
         self.assertTrue(approx(self.pay(booking["id"]).get_json()["payment"]["amount"],
-                               "273.56"))
+                               "230.77"))
 
     def test_ny_to_ny_trip_gets_zero_toll(self):
         booking = self.book(pickup="JFK Airport",
                             dropoff="Times Square, New York")
-        self.assertTrue(approx(booking["total"], "235.37"), booking)
-        self.assertTrue(approx(booking["class_totals"]["sedan"], "235.37"), booking)
-        self.assertTrue(approx(booking["class_totals"]["suv"], "256.77"), booking)
+        self.assertTrue(approx(booking["total"], "192.58"), booking)
+        self.assertTrue(approx(booking["class_totals"]["sedan"], "192.58"), booking)
+        self.assertTrue(approx(booking["class_totals"]["suv"], "213.98"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "0.00"))
 
     def test_nj_to_nj_trip_gets_zero_toll(self):
         booking = self.book(pickup=EWR_DISPLAY, dropoff=JERSEY_CITY_DISPLAY)
-        self.assertTrue(approx(booking["total"], "235.37"), booking)
+        self.assertTrue(approx(booking["total"], "192.58"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "0.00"))
 
     def test_geocoder_state_path_with_bare_names(self):
@@ -293,7 +293,7 @@ class NjReturnTollBookingCase(unittest.TestCase):
         geo_module._geocode_address_cache["jersey city"] = {"state": "New Jersey"}
         booking = self.book(pickup="JFK", dropoff="Jersey City")
         self.assertTrue(approx(self.stored_toll(booking["id"]), "16.79"))
-        self.assertTrue(approx(booking["total"], "252.16"), booking)
+        self.assertTrue(approx(booking["total"], "209.37"), booking)
 
     def test_hourly_ride_unaffected(self):
         booking = self.book(ride_type="hourly", hours=2, dropoff="",

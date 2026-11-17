@@ -33,8 +33,8 @@ never a breakdown, never rates, never miles.
   class on the separate "Choose your experience" page after the
   booking form (sedan pre-selected); each class shows its own single
   total. The form button says "View options".
-- **One-way:** fare = miles × class rate (sedan $11/mile, SUV
-  $12/mile); gratuity = 10% of the fare (owner profit, never driver
+- **One-way:** fare = miles × class rate (sedan $9/mile, SUV
+  $10/mile); gratuity = 10% of the fare (owner profit, never driver
   pay); NYC tax = 8.875% of the fare (pass-through — not profit, not
   driver pay); toll added untaxed, passed to the driver. Customer
   total = fare + gratuity + tax + toll. Driver earnings = miles ×
@@ -54,8 +54,8 @@ never a breakdown, never rates, never miles.
   sedans; judgment calls documented in `static/NOTES.md`). Dispatch
   is class-filtered: sedan bookings only to sedan drivers, SUV
   bookings only to SUV drivers; hourly rides reach every driver.
-- **Verified examples:** 20-mile SUV = $285.30 total, driver $140,
-  profit $124. 20-mile sedan = $261.53 total, driver $80, profit $162.
+- **Verified examples:** 20-mile SUV = $237.75 total, driver $140,
+  profit $80. 20-mile sedan = $213.98 total, driver $80, profit $118.
 
 ## Test-mode limits (read this first)
 

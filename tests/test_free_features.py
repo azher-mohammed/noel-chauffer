@@ -38,7 +38,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles (same as the other
-# API test modules): sedan total $235.37, driver $72.00 before toll.
+# API test modules): sedan total $192.58, driver $72.00 before toll.
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -134,18 +134,18 @@ class FreeFeaturesCase(unittest.TestCase):
     # -- pricing: extra distance ------------------------------------------
     def test_extra_distance_sedan_math(self):
         r = pricing.compute_extra_distance(Decimal("5"), "sedan")
-        self.assertEqual(r["fare"], Decimal("55.00"))
-        self.assertEqual(r["gratuity"], Decimal("5.50"))
-        self.assertEqual(r["tax"], Decimal("4.88"))
-        self.assertEqual(r["total"], Decimal("65.38"))
+        self.assertEqual(r["fare"], Decimal("45.00"))
+        self.assertEqual(r["gratuity"], Decimal("4.50"))
+        self.assertEqual(r["tax"], Decimal("3.99"))
+        self.assertEqual(r["total"], Decimal("53.49"))
         self.assertEqual(r["driver_addition"], Decimal("20.00"))
 
     def test_extra_distance_suv_math(self):
         r = pricing.compute_extra_distance(Decimal("5"), "suv")
-        self.assertEqual(r["fare"], Decimal("60.00"))
-        self.assertEqual(r["gratuity"], Decimal("6.00"))
-        self.assertEqual(r["tax"], Decimal("5.33"))
-        self.assertEqual(r["total"], Decimal("71.33"))
+        self.assertEqual(r["fare"], Decimal("50.00"))
+        self.assertEqual(r["gratuity"], Decimal("5.00"))
+        self.assertEqual(r["tax"], Decimal("4.44"))
+        self.assertEqual(r["total"], Decimal("59.44"))
         self.assertEqual(r["driver_addition"], Decimal("35.00"))
 
     def test_extra_distance_zero_and_negative(self):
@@ -309,21 +309,21 @@ class FreeFeaturesCase(unittest.TestCase):
         # Customer invoice: fare_total now includes the extra distance.
         resp = self.client.get(f"/api/bookings/{booking['id']}")
         got = resp.get_json()["booking"]
-        self.assertTrue(approx(got["invoice"]["total"], "300.75"))
-        self.assertTrue(approx(got["invoice"]["extra_distance_charge"], "65.38"))
-        self.assertTrue(approx(got["total"], "300.75"))
+        self.assertTrue(approx(got["invoice"]["total"], "246.07"))
+        self.assertTrue(approx(got["invoice"]["extra_distance_charge"], "53.49"))
+        self.assertTrue(approx(got["total"], "246.07"))
         # Owner breakdown: fare/gratuity/tax/driver all increased.
         self.owner_login()
         resp = self.client.get(f"/api/owner/bookings/{booking['id']}")
         row = resp.get_json()
-        self.assertTrue(approx(row["fare"], "253.00"))
-        self.assertTrue(approx(row["gratuity"], "25.30"))
-        self.assertTrue(approx(row["tax"], "22.45"))
+        self.assertTrue(approx(row["fare"], "207.00"))
+        self.assertTrue(approx(row["gratuity"], "20.70"))
+        self.assertTrue(approx(row["tax"], "18.37"))
         self.assertTrue(approx(row["driver_earnings"], "92.00"))
-        self.assertTrue(approx(row["extra_distance_charge"], "65.38"))
+        self.assertTrue(approx(row["extra_distance_charge"], "53.49"))
         self.assertTrue(approx(row["extra_miles"], "5.0"))
-        self.assertTrue(approx(row["profit"], "186.30"))
-        self.assertTrue(approx(row["invoice"]["extra_distance_charge"], "65.38"))
+        self.assertTrue(approx(row["profit"], "135.70"))
+        self.assertTrue(approx(row["invoice"]["extra_distance_charge"], "53.49"))
 
     def test_complete_without_extra_miles_unchanged(self):
         _, token = self.register_driver()

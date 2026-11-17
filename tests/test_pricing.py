@@ -26,50 +26,50 @@ D = Decimal
 
 class TestOneWay(unittest.TestCase):
     def test_18_miles_sedan_no_toll_no_referral(self):
-        # fare $198.00 + gratuity $19.80 + tax $17.57 = $235.37.
+        # fare $162.00 + gratuity $16.20 + tax $14.38 = $192.58.
         r = compute_one_way(D("18.0"))
         self.assertEqual(r["vehicle_class"], "sedan")
-        self.assertEqual(r["fare"], D("198.00"))
-        self.assertEqual(r["gratuity"], D("19.80"))
-        self.assertEqual(r["tax"], D("17.57"))
+        self.assertEqual(r["fare"], D("162.00"))
+        self.assertEqual(r["gratuity"], D("16.20"))
+        self.assertEqual(r["tax"], D("14.38"))
         self.assertEqual(r["booking_fee"], D("0"))
-        self.assertEqual(r["total"], D("235.37"))
+        self.assertEqual(r["total"], D("192.58"))
         self.assertEqual(r["driver_earnings"], D("72.00"))
-        self.assertEqual(r["profit"], D("145.80"))
+        self.assertEqual(r["profit"], D("106.20"))
 
     def test_18_miles_suv(self):
-        # fare $216.00 + gratuity $21.60 + tax $19.17 = $256.77.
+        # fare $180.00 + gratuity $18.00 + tax $15.98 = $213.98.
         r = compute_one_way(D("18.0"), vehicle_class="suv")
         self.assertEqual(r["vehicle_class"], "suv")
-        self.assertEqual(r["fare"], D("216.00"))
-        self.assertEqual(r["gratuity"], D("21.60"))
-        self.assertEqual(r["tax"], D("19.17"))
-        self.assertEqual(r["total"], D("256.77"))
+        self.assertEqual(r["fare"], D("180.00"))
+        self.assertEqual(r["gratuity"], D("18.00"))
+        self.assertEqual(r["tax"], D("15.98"))
+        self.assertEqual(r["total"], D("213.98"))
         self.assertEqual(r["driver_earnings"], D("126.00"))
-        self.assertEqual(r["profit"], D("111.60"))
+        self.assertEqual(r["profit"], D("72.00"))
 
     def test_18_miles_with_referral_is_no_discount_for_now(self):
         # Referral codes are accepted but give a $0 discount for now
         # (the old $20-fee waiver is dead: there is no fee). TBD.
         r = compute_one_way(D("18.0"), referral=True)
-        self.assertEqual(r["total"], D("235.37"))
-        self.assertEqual(r["gratuity"], D("19.80"))
+        self.assertEqual(r["total"], D("192.58"))
+        self.assertEqual(r["gratuity"], D("16.20"))
         self.assertEqual(r["driver_earnings"], D("72.00"))
 
     def test_18_miles_with_toll(self):
-        # Toll passes through untaxed: tax stays $17.57, total and
+        # Toll passes through untaxed: tax stays $14.38, total and
         # driver earnings both rise by exactly the toll.
         r = compute_one_way(D("18.0"), toll=D("18.50"))
-        self.assertEqual(r["total"], D("253.87"))
+        self.assertEqual(r["total"], D("211.08"))
         self.assertEqual(r["driver_earnings"], D("90.50"))
-        self.assertEqual(r["tax"], D("17.57"))
+        self.assertEqual(r["tax"], D("14.38"))
 
     def test_35_mile_sedan(self):
-        # fare $385.00 + gratuity $38.50 + tax $34.17 = $457.67.
+        # fare $315.00 + gratuity $31.50 + tax $27.96 = $374.46.
         r = compute_one_way(D("35.0"))
-        self.assertEqual(r["total"], D("457.67"))
+        self.assertEqual(r["total"], D("374.46"))
         self.assertEqual(r["driver_earnings"], D("140.00"))
-        self.assertEqual(r["profit"], D("283.50"))
+        self.assertEqual(r["profit"], D("206.50"))
 
     def test_invalid_class_rejected(self):
         with self.assertRaises(ValueError):

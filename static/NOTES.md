@@ -166,7 +166,7 @@ dashboard holds the full breakdown. The driver sees only earnings.
   No S-Class / First Class. Internal keys stay `sedan`/`suv` everywhere;
   display names are `Business Class` / `Business SUV` on the options
   page, in trip summaries, and in owner/driver views.
-- One-way: fare = miles × class rate (sedan $11/mile, SUV $12/mile);
+- One-way: fare = miles × class rate (sedan $9/mile, SUV $10/mile);
   gratuity = 10% of the fare (owner profit, never driver pay); NYC tax
   = 8.875% of the fare (pass-through, neither profit nor driver pay);
   toll is added untaxed and passed to the driver. Customer total =
@@ -185,10 +185,10 @@ dashboard holds the full breakdown. The driver sees only earnings.
 - Hourly rides are UNCHANGED: $90/hour customer, $50/hour driver, no
   fee, no gratuity, no tax. Whether hourly rides get tax is TBD
   pending the owner's decision; do not add tax to hourly.
-- Verified examples: 20-mile SUV = fare $240 + gratuity $24 + tax
-  $21.30 = total $285.30, driver $140, profit $124. 20-mile sedan =
-  fare $220 + gratuity $22 + tax $19.53 = total $261.53, driver $80,
-  profit $162.
+- Verified examples: 20-mile SUV = fare $200 + gratuity $20 + tax
+  $17.75 = total $237.75, driver $140, profit $80. 20-mile sedan =
+  fare $180 + gratuity $18 + tax $15.98 = total $213.98, driver $80,
+  profit $118.
 
 ## Model → class mapping (car_models.py)
 

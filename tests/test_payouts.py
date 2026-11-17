@@ -263,7 +263,7 @@ class PayoutApiCase(unittest.TestCase):
         for ride in body["rides"]:
             self.assertFalse(set(ride) & FORBIDDEN_KEYS, str(ride))
         # The customer fare total must never appear in the driver response.
-        self.assertNotIn("235.37", resp.get_data(as_text=True))
+        self.assertNotIn("192.58", resp.get_data(as_text=True))
 
     # -- mark-paid --------------------------------------------------------
     def test_mark_paid_requires_owner_pin(self):
@@ -386,7 +386,7 @@ class PayoutApiCase(unittest.TestCase):
         summary = self.owner_summary()
         self.assertEqual(D(str(summary["driver_owed"])), D("0.00"))
         # Gross still includes the kept payment.
-        self.assertEqual(D(str(summary["gross"])), D("235.37"))
+        self.assertEqual(D(str(summary["gross"])), D("192.58"))
 
     def test_refunded_completed_trip_is_excluded(self):
         _driver, token = self.register_driver()

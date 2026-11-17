@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles (same as the other
-# API test modules): sedan total $235.37, driver $72.00 before toll.
+# API test modules): sedan total $192.58, driver $72.00 before toll.
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402

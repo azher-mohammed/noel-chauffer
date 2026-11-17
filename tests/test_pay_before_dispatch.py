@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles (same as the other
-# API test modules): total $235.37, driver $72.00, referral $235.37.
+# API test modules): total $192.58, driver $72.00, referral $192.58.
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -112,12 +112,12 @@ class PayBeforeDispatchCase(unittest.TestCase):
     def test_create_returns_total_and_awaiting_payment(self):
         booking = self.book()
         self.assertEqual(booking["status"], "awaiting_payment")
-        self.assertTrue(approx(booking["total"], "235.37"), booking)
+        self.assertTrue(approx(booking["total"], "192.58"), booking)
 
     def test_total_visible_before_any_driver_accept(self):
         booking = self.book()
         got = self.get_booking(booking["id"])
-        self.assertTrue(approx(got["total"], "235.37"), got)
+        self.assertTrue(approx(got["total"], "192.58"), got)
         self.assertIsNone(got["driver"])
         self.assertIs(got["tracking"]["visible"], False)
 
@@ -152,7 +152,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertEqual(payment["status"], "succeeded")
         self.assertIs(payment["test"], True)
         self.assertEqual(payment["last4"], "4242")
-        self.assertTrue(approx(payment["amount"], "235.37"))
+        self.assertTrue(approx(payment["amount"], "192.58"))
         self.assertEqual(resp.get_json()["booking"]["status"], "offered")
         offers = self.client.get("/api/drivers/me/offers",
                                  headers={"X-Driver-Token": token}).get_json()
@@ -187,7 +187,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         got = self.get_booking(booking["id"])
         self.assertEqual(got["driver"]["name"], "Pay Driver 1")
-        self.assertTrue(approx(got["total"], "235.37"))
+        self.assertTrue(approx(got["total"], "192.58"))
         for event in ("en_route", "arrived", "start", "complete"):
             resp = self.client.post(f"/api/drivers/me/trip/{booking['id']}/event",
                                     json={"event": event, "waiting_minutes": 75}
@@ -197,7 +197,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
                              f"{event}: {resp.get_data(as_text=True)[:200]}")
         got = self.get_booking(booking["id"])
         self.assertEqual(got["status"], "completed")
-        self.assertTrue(approx(got["invoice"]["total"], "250.37"))
+        self.assertTrue(approx(got["invoice"]["total"], "207.58"))
 
     def test_driver_cancel_keeps_payment_and_redispatches(self):
         _, token1 = self.register_driver()
@@ -214,7 +214,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         # Customer still sees the total; driver details are gone again.
         got = self.get_booking(booking["id"])
         self.assertIsNone(got["driver"])
-        self.assertTrue(approx(got["total"], "235.37"))
+        self.assertTrue(approx(got["total"], "192.58"))
         # Payment kept; the other driver sees the offer again.
         self.owner_login()
         detail = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
@@ -290,7 +290,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertEqual(detail["status"], "no_show")
         self.assertEqual(detail["payments"][0]["status"], "succeeded")
         summary = self.client.get("/api/owner/summary").get_json()
-        self.assertTrue(approx(summary["gross"], "235.37"), summary)
+        self.assertTrue(approx(summary["gross"], "192.58"), summary)
 
     # -- no-show time gate (owner decision 2026-11-16) -----------------------
     def past_pickup(self, minutes_ago):
@@ -392,10 +392,10 @@ class PayBeforeDispatchCase(unittest.TestCase):
         code = first["referral_code"]
         self.assertTrue(code)
         referred = self.book(referral_code=code)
-        self.assertTrue(approx(referred["total"], "235.37"), referred)
+        self.assertTrue(approx(referred["total"], "192.58"), referred)
         resp = self.pay(referred["id"])
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "235.37"))
+        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "192.58"))
 
     # -- driver visibility boundary ---------------------------------------------
     def test_driver_payloads_never_carry_fare_or_miles(self):
@@ -423,10 +423,10 @@ class PayBeforeDispatchCase(unittest.TestCase):
             phone_p = app_module.db.session.get(app_module.Booking, paid["id"]).phone
         hist_u = self.client.get("/api/bookings", query_string={"phone": phone_u}).get_json()
         self.assertEqual(len(hist_u), 1)
-        self.assertTrue(approx(hist_u[0]["total"], "235.37"), hist_u)
+        self.assertTrue(approx(hist_u[0]["total"], "192.58"), hist_u)
         hist_p = self.client.get("/api/bookings", query_string={"phone": phone_p}).get_json()
         self.assertEqual(len(hist_p), 1)
-        self.assertTrue(approx(hist_p[0]["total"], "235.37"), hist_p)
+        self.assertTrue(approx(hist_p[0]["total"], "192.58"), hist_p)
 
     # -- static copy matches the new flow ----------------------------------------
     def test_static_copy_matches_new_flow(self):

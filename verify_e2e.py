@@ -55,6 +55,25 @@ def approx(a, b):
     return a is not None and b is not None and abs(float(a) - float(b)) < 0.005
 
 
+def valid_map(m):
+    """Driver map payload: exactly endpoints + route shape, each either
+    null or coordinate pairs. Live geo may or may not resolve, so null
+    endpoints are valid here; the shape is what must hold."""
+    if not isinstance(m, dict) or set(m) != {"pickup", "dropoff", "route"}:
+        return False
+    for key in ("pickup", "dropoff"):
+        pt = m[key]
+        if pt is not None and not (isinstance(pt, list) and len(pt) == 2
+                                   and all(isinstance(v, (int, float)) for v in pt)):
+            return False
+    route = m["route"]
+    if route is not None and not (isinstance(route, list) and all(
+            isinstance(p, list) and len(p) == 2
+            and all(isinstance(v, (int, float)) for v in p) for p in route)):
+        return False
+    return True
+
+
 def section(title):
     print(f"== {title} ==")
 
@@ -466,12 +485,16 @@ if offer1:
     check("offer has NO miles/fare/total/gratuity/fee fields", not leaked, f"leaked: {leaked}")
     check("offer earnings = driver share only",
           approx(offer1[0]["earnings"], expected1["driver_earnings"]), str(offer1[0]))
+    check("offer map has endpoints + route shape only",
+          valid_map(offer1[0].get("map")), str(offer1[0].get("map")))
 
 resp = anon.post(BASE + f"/api/drivers/me/offers/{b1['id']}/accept",
                  headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
 check("accept 200", resp.status_code == 200, resp.text[:200])
 check("accept response has earnings only (no fare keys)",
       not (set(resp.json()["booking"]) & FORBIDDEN_OFFER_KEYS), str(resp.json()))
+check("accept response carries driver map",
+      valid_map(resp.json()["booking"].get("map")), str(resp.json()["booking"].get("map")))
 anon.post(BASE + "/api/drivers/me/availability", json={"available": True},
           headers={"X-Driver-Token": token2}, timeout=TIMEOUT)
 resp = anon.post(BASE + f"/api/drivers/me/offers/{b1['id']}/accept",
@@ -484,6 +507,8 @@ active = resp.json()["booking"]
 check("active-trip returns accepted booking", active and active["id"] == b1["id"], str(active))
 check("active-trip has no fare/miles keys",
       active and not (set(active) & FORBIDDEN_OFFER_KEYS), str(active))
+check("active-trip carries driver map",
+      active and valid_map(active.get("map")), str(active.get("map")))
 resp = anon.get(BASE + "/api/drivers/me/active-trip", headers={"X-Driver-Token": token2}, timeout=TIMEOUT)
 check("active-trip null for driver with no trip", resp.json()["booking"] is None, str(resp.json()))
 resp = anon.get(BASE + "/api/drivers/me/active-trip", timeout=TIMEOUT)
@@ -935,9 +960,24 @@ check("served driver.js has Pick up / Drop off route labels",
       and "routeHtml(o.pickup, o.dropoff)" in r.text
       and "routeHtml(t.pickup, t.dropoff)" in r.text,
       "labels or route render calls missing from served driver.js")
+check("served driver.js has embedded map (markers + OSM tiles + route line)",
+      'bindTooltip("Pick up"' in r.text and 'bindTooltip("Drop off"' in r.text
+      and "tile.openstreetmap.org" in r.text and "© OpenStreetMap contributors" in r.text
+      and "L.polyline" in r.text and "initTripMap(mapEl, o.map)" in r.text
+      and "initTripMap(el, t.map)" in r.text and "state.tripMapId === t.id" in r.text,
+      "map markers, tiles, route line or wiring missing from served driver.js")
+r = anon.get(BASE + "/driver", timeout=TIMEOUT)
+check("served driver page includes Leaflet + trip map container",
+      "leaflet@1.9.4/dist/leaflet.css" in r.text
+      and "leaflet@1.9.4/dist/leaflet.js" in r.text
+      and 'id="trip-map"' in r.text,
+      "Leaflet includes or trip-map container missing from served driver page")
 r = anon.get(BASE + "/static/css/driver.css", timeout=TIMEOUT)
 check("served driver.css styles route labels",
       ".route-label" in r.text, "route-label rule missing from served driver.css")
+check("served driver.css styles embedded maps",
+      ".offer-map" in r.text and ".trip-map" in r.text and ".map-marker-label" in r.text,
+      "map rules missing from served driver.css")
 
 banned = [r"\$9", r"\$10", r"\$7", r"\$20", r"\$4", r"\$90", r"\$50", r"\$11", r"\$12",
           "per mile", "booking fee", "gratuity", "dispatch", "Book a ride"]

@@ -232,11 +232,27 @@ check("offer has no miles/fare fields", not leaked, f"leaked: {leaked}")
 check("offer earnings = driver share only", offers and approx(offers[0]["earnings"], 72.00), str(offers))
 check("offer has route_url", offers and offers[0]["route_url"].startswith("https://www.google.com/maps/"))
 check("offer has route_waze_url", offers and offers[0]["route_waze_url"].startswith("https://waze.com/ul?"))
+check("offer map has endpoints only (cold cache: no route line)",
+      offers and set(offers[0]["map"]) == {"pickup", "dropoff", "route"}
+      and offers[0]["map"]["pickup"] == [40.6413, -73.7781]
+      and offers[0]["map"]["dropoff"] == [40.7580, -73.9855]
+      and offers[0]["map"]["route"] is None, str(offers[0].get("map") if offers else None))
 client.post("/api/drivers/me/availability", json={"available": True},
             headers={"X-Driver-Token": token2})
 resp = client.post(f"/api/drivers/me/offers/{b1['id']}/accept", headers={"X-Driver-Token": token1})
 check("accept 200", resp.status_code == 200, resp.get_data(as_text=True)[:200])
 check("accept earnings 72.00", approx(resp.get_json()["booking"]["earnings"], 72.00))
+check("accept response carries driver map endpoints",
+      set(resp.get_json()["booking"]["map"]) == {"pickup", "dropoff", "route"}
+      and resp.get_json()["booking"]["map"]["pickup"] == [40.6413, -73.7781]
+      and resp.get_json()["booking"]["map"]["dropoff"] == [40.7580, -73.9855],
+      str(resp.get_json()["booking"].get("map")))
+resp = client.get("/driver")
+check("driver page includes Leaflet + trip map container",
+      resp.status_code == 200
+      and "leaflet@1.9.4/dist/leaflet.css" in resp.get_data(as_text=True)
+      and "leaflet@1.9.4/dist/leaflet.js" in resp.get_data(as_text=True)
+      and 'id="trip-map"' in resp.get_data(as_text=True))
 resp = client.post(f"/api/drivers/me/offers/{b1['id']}/accept", headers={"X-Driver-Token": token2})
 check("second accept -> 409", resp.status_code == 409, str(resp.status_code))
 resp = client.get(f"/api/bookings/{b1['id']}")

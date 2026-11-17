@@ -16,6 +16,8 @@ import sys
 import tempfile
 from decimal import Decimal
 
+from PIL import Image
+
 # --- test env BEFORE importing the app -------------------------------------
 tmpdir = tempfile.mkdtemp(prefix="noel-smoke-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(tmpdir, "smoke.db")
@@ -105,7 +107,11 @@ FORBIDDEN_OFFER_KEYS = {"miles", "fare", "total", "gratuity", "fee", "booking_fe
                         "fare_total", "customer_total", "subtotal", "profit", "tax"}
 
 print("== driver registration ==")
-photo_bytes = b"\xff\xd8\xff fake jpeg photo"
+# The profile photo must be a real portrait image (server shape/size
+# rules: portrait, at least 300px on the short side).
+_photo_buf = io.BytesIO()
+Image.new("RGB", (400, 500), (200, 30, 30)).save(_photo_buf, format="JPEG")
+photo_bytes = _photo_buf.getvalue()
 resp = client.post("/api/drivers/register", data={
     "name": "Test Driver", "phone": "+15550001111", "email": "driver@test.com",
     "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T12345",

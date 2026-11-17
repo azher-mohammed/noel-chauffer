@@ -86,7 +86,7 @@ td .sub { color: var(--grey); font-size: 13px; }
 .driver-card { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin-bottom: 14px; }
 .driver-card h3 { margin: 0 0 4px; font-family: Georgia, serif; font-weight: 400; font-size: 20px; }
 .driver-card .meta { color: var(--grey); font-size: 14px; }
-.driver-card img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--gold); background: #ddd; }
+.driver-card img { width: 64px; height: 80px; border-radius: 6px; object-fit: cover; border: 2px solid var(--gold); background: #ddd; }
 .doc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .doc-chip { font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; background: var(--paper); }
 .doc-chip button { background: none; border: 0; color: var(--ink); font-weight: 600; padding: 0; text-decoration: underline; }

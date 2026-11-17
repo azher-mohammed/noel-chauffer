@@ -16,7 +16,13 @@ all connected:
   documents are compulsory (owner decision 2026-11-17): registration
   does not complete unless every item is uploaded, and a missing item
   is reported by name ("Missing document: ..."). Drivers registered
-  before the rule are not blocked retroactively.
+  before the rule are not blocked retroactively. The profile photo
+  must be passport-style (owner decision 2026-11-17): it renders as
+  a 4:5 portrait crop everywhere (registration preview, driver
+  profile, customer driver card, owner dashboard), and uploads are
+  shape/size checked — portrait orientation and at least 300px on
+  the short side, enforced server-side. Shape/size only: no face
+  detection (owner's pick of the light option).
 - **Owner dashboard** (`/owner`, PIN-protected) — per-ride revenue
   breakdown (fare, gratuity, tax, driver share, profit), tax collected,
   alerts, messages outbox, driver documents, toll entry, and driver
@@ -116,7 +122,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests (348)
+python -m unittest discover -s tests -v   # unit tests (358)
 python smoke_test.py                       # backend flow checks (148)
 ```
 

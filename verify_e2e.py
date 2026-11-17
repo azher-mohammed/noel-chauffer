@@ -21,6 +21,7 @@ JFK Airport -> Times Square (as verified before), the exact figures
 $192.58 / $72.00 / $192.58 / $211.08 / $90.50 / $207.58 are asserted too.
 """
 
+import io
 import os
 import re
 import sys
@@ -28,6 +29,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import requests
+from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from payouts import completion_date, week_for  # noqa: E402
@@ -85,7 +87,11 @@ check("database starts empty", r.status_code == 200 and r.json() == [])
 # ------------------------------------------------- driver registration -----
 
 section("driver registration: all 8 docs, FH-1 PDF, masked bank")
-photo = b"\xff\xd8\xff fake jpeg photo driver1"
+# The profile photo must be a real portrait image (server shape/size
+# rules: portrait, at least 300px on the short side).
+_photo_buf = io.BytesIO()
+Image.new("RGB", (400, 500), (200, 30, 30)).save(_photo_buf, format="JPEG")
+photo = _photo_buf.getvalue()
 fh1_pdf = b"%PDF-1.4 fake fh1 insurance card"
 png = b"\x89PNG fake document image"
 # All 7 compulsory registration uploads (owner decision 2026-11-17).
@@ -1103,8 +1109,10 @@ app_src = open(os.path.join(repo_dir, "app.py"), encoding="utf-8").read()
 check("postgres:// rewrite code path exists",
       'database_url.startswith("postgres://")' in app_src
       and 'database_url.replace("postgres://", "postgresql://", 1)' in app_src)
+# Image.open() reads from in-memory bytes (BytesIO) for the
+# profile-photo shape/size check — not a filesystem file write.
 check("uploads stored as DB BLOBs (LargeBinary, no file writes)",
-      "LargeBinary" in app_src and "open(" not in app_src.replace("openViewer", ""))
+      "LargeBinary" in app_src and "open(" not in app_src.replace("openViewer", "").replace("Image.open(", ""))
 
 # ------------------------------------------------- clear all rides --------
 # TEMPORARY TEST-ONLY (remove with the endpoint, before real launch).

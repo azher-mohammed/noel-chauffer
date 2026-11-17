@@ -272,6 +272,32 @@
   });
 
   /* ---------- Registration ---------- */
+  /* Passport-style profile-photo pre-check (owner decision
+     2026-11-17): portrait orientation and a minimum size, so a
+     sideways or tiny photo is refused with a clear message before
+     anything is submitted. The server enforces the same rules; an
+     unreadable file here is left for the server to judge. */
+  function checkProfilePhoto(file, done) {
+    if (!file) { done(null); return; }
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if (h <= w) {
+        done("Profile photo must be a portrait photo (taller than it is wide) — please upload a passport-style photo of your face.");
+        return;
+      }
+      if (w < 300) {
+        done("Profile photo is too small — please upload a larger, clear photo of your face (at least 300 pixels wide).");
+        return;
+      }
+      done(null);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); done(null); };
+    img.src = url;
+  }
+
   $("register-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var err = $("register-error");
@@ -308,6 +334,16 @@
         ". Please upload all required documents to complete registration.";
       return;
     }
+    /* Owner decision 2026-11-17: the profile photo must be
+       passport-style — portrait, large enough to show the face
+       properly ("Bas face proper dikhna"). Pre-check here for a
+       fast, clear message; the server enforces the same rules. */
+    checkProfilePhoto($("file-profile_photo").files[0], function (photoError) {
+      if (photoError) { err.textContent = photoError; return; }
+      submitRegistration();
+    });
+
+    function submitRegistration() {
     var fd = new FormData();
     fd.append("name", name);
     fd.append("phone", phone);
@@ -342,6 +378,7 @@
         btn.textContent = "Complete registration";
         err.textContent = "Could not reach the service. Please check your connection and try again.";
       });
+    }
   });
 
   /* ---------- Lookup for a new device ---------- */

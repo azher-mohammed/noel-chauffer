@@ -45,11 +45,12 @@ import geo as geo_module  # noqa: E402
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
+import photo_factory  # noqa: E402
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARD = {"card_number": "4242424242424242", "card_exp": "12/30",
         "card_cvc": "123", "card_name": "Clear Rides Customer"}
-PHOTO_BYTES = b"\xff\xd8\xff clear-test photo"
+PHOTO_BYTES = photo_factory.VALID_PROFILE_PHOTO
 DOC_BYTES = b"\xff\xd8\xff clear-test dmv license"
 
 

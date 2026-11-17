@@ -43,6 +43,7 @@ import geo as geo_module  # noqa: E402
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
+import photo_factory  # noqa: E402
 from payouts import ANCHOR, PAYOUT_INTERVAL_DAYS, WEEK_DAYS, completion_date, week_bounds, week_for  # noqa: E402
 
 D = Decimal
@@ -141,7 +142,7 @@ class PayoutApiCase(unittest.TestCase):
             "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black",
             "plate": f"T{self._driver_seq:05d}",
             "bank_account_number": "123456789", "bank_routing_number": "021000021",
-            "profile_photo": (io.BytesIO(b"\xff\xd8\xff fake"), "photo.jpg"),
+            "profile_photo": (io.BytesIO(photo_factory.VALID_PROFILE_PHOTO), "photo.jpg"),
             "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
             "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
             "doc_fh1": (io.BytesIO(b"fake png"), "fh1.png"),

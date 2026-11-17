@@ -36,6 +36,7 @@ os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app as app_module  # noqa: E402
+import photo_factory  # noqa: E402
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -78,8 +79,16 @@ class CompulsoryDocumentsCase(unittest.TestCase):
                                 content_type="multipart/form-data")
 
     def all_files(self, omit=()):
-        return {field: (io.BytesIO(b"fake doc"), fname)
-                for field, _label, fname in FIELDS if field not in omit}
+        files = {}
+        for field, _label, fname in FIELDS:
+            if field in omit:
+                continue
+            # The profile photo must be a real portrait image
+            # (server shape/size rules); other docs accept any bytes.
+            data = (photo_factory.VALID_PROFILE_PHOTO
+                    if field == "profile_photo" else b"fake doc")
+            files[field] = (io.BytesIO(data), fname)
+        return files
 
     # -- server gate ---------------------------------------------------------
     def test_missing_each_document_rejected_and_named(self):

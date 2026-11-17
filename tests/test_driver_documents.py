@@ -33,6 +33,7 @@ os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app as app_module  # noqa: E402
+import photo_factory  # noqa: E402
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -78,7 +79,7 @@ class DmvDrivingLicenseCase(unittest.TestCase):
     def all_files(self):
         # All 7 compulsory uploads (owner decision 2026-11-17).
         return {
-            "profile_photo": (io.BytesIO(b"fake jpg"), "photo.jpg"),
+            "profile_photo": (io.BytesIO(photo_factory.VALID_PROFILE_PHOTO), "photo.jpg"),
             "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
             "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
             "doc_fh1": (io.BytesIO(b"fake png"), "fh1.png"),

@@ -208,7 +208,7 @@ input, select { font: inherit; }
 
 /* Profile */
 .profile-card { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--paper); margin-bottom: 14px; }
-.profile-card img { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; border: 2px solid var(--gold); background: #ddd; }
+.profile-card img { width: 76px; height: 95px; border-radius: 6px; object-fit: cover; border: 2px solid var(--gold); background: #ddd; }
 .profile-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
 .profile-row:last-child { border-bottom: 0; }
 .profile-row .k { color: var(--grey); }

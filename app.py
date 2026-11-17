@@ -20,6 +20,7 @@ Env vars:
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import secrets
@@ -32,6 +33,7 @@ from urllib.parse import quote_plus
 from cryptography.fernet import Fernet
 from flask import Flask, Response, jsonify, request, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
+from PIL import Image, ImageOps
 from sqlalchemy import Numeric
 from werkzeug.exceptions import HTTPException
 
@@ -1267,6 +1269,38 @@ def driver_chat_send(booking_id):
 
 # ---------------------------------------------------------------- drivers ---
 
+# Profile-photo shape/size rules (owner decision 2026-11-17: "Profile
+# photo should be passport photo jaisa rehna chahiye. Nake kuch bhi
+# dadlo accept nahi karna. Bas face proper dikhna." — the profile
+# photo must stay passport-style; just anything must not be accepted).
+# The owner picked the LIGHT option: shape/size check + passport
+# frame, NOT face detection. So this checks shape and size only — it
+# cannot judge whether a face is actually in the photo. The floor is
+# deliberately low so normal phone portrait photos pass, including
+# tall 9:16 shots: portrait orientation (taller than wide, after
+# EXIF orientation) and at least 300px on the short side.
+PROFILE_PHOTO_MIN_SHORT_SIDE = 300
+
+
+def _profile_photo_error(data):
+    """Return an error message if profile-photo bytes fail the
+    passport-style shape/size rules, else None."""
+    try:
+        with Image.open(io.BytesIO(data)) as im:
+            oriented = ImageOps.exif_transpose(im)
+            width, height = oriented.size
+    except Exception:
+        return ("Profile photo could not be read — please upload a clear "
+                "photo of your face.")
+    if height <= width:
+        return ("Profile photo must be a portrait photo (taller than it is "
+                "wide) — please upload a passport-style photo of your face.")
+    if width < PROFILE_PHOTO_MIN_SHORT_SIDE:
+        return ("Profile photo is too small — please upload a larger, clear "
+                "photo of your face (at least 300 pixels wide).")
+    return None
+
+
 def _validate_upload(storage, allowed_exts, field_name):
     """Return (bytes, mime, original_name) or an error response tuple."""
     data = storage.read()
@@ -1322,6 +1356,11 @@ def register_driver():
         profile_photo, error = _validate_upload(request.files["profile_photo"], IMAGE_EXTS, "profile_photo")
         if error:
             return error
+        # Passport-style shape/size check, profile photo only: the
+        # other document photos keep today's rules (any orientation).
+        shape_error = _profile_photo_error(profile_photo[0])
+        if shape_error:
+            return err(shape_error)
     docs = {}
     for field_name, doc_type in DOC_FIELD_MAP.items():
         storage = request.files.get(field_name)

@@ -12,7 +12,11 @@ all connected:
   and bank details, receive job offers whether available or offline
   (earnings only, filtered to the driver's vehicle class, and never
   overlapping a ride already accepted), run trips stage by stage,
-  see earnings grouped in weekly pay periods.
+  see earnings grouped in weekly pay periods. All 7 registration
+  documents are compulsory (owner decision 2026-11-17): registration
+  does not complete unless every item is uploaded, and a missing item
+  is reported by name ("Missing document: ..."). Drivers registered
+  before the rule are not blocked retroactively.
 - **Owner dashboard** (`/owner`, PIN-protected) — per-ride revenue
   breakdown (fare, gratuity, tax, driver share, profit), tax collected,
   alerts, messages outbox, driver documents, toll entry, and driver

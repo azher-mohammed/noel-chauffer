@@ -31,7 +31,7 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from payouts import completion_date, week_for  # noqa: E402
-from pricing import compute_hourly, compute_one_way, waiting_charge  # noqa: E402
+from pricing import compute_extra_distance, compute_hourly, compute_one_way, waiting_charge  # noqa: E402
 
 BASE = os.environ.get("NOEL_BASE_URL", "http://127.0.0.1:5055").rstrip("/")
 OWNER_PIN = os.environ.get("NOEL_OWNER_PIN", "4321")
@@ -750,6 +750,118 @@ resp = anon.get(BASE + "/api/drivers/me/earnings", headers={"X-Driver-Token": to
 check("driver week shows paid after mark-paid",
       resp.json()["weeks"] and resp.json()["weeks"][0]["status"] == "paid",
       str(resp.json().get("weeks")))
+
+# --------------------------------- free features: name sign, chat, extra distance, assign ---
+
+section("free features: name sign, chat, extra distance, assign")
+resp = anon.post(BASE + "/api/drivers/register", data={
+    "name": "Verify Driver SUV", "phone": "+15550004444", "email": "d3@test.com",
+    "car_model": "Cadillac Escalade", "car_year": "2024", "car_colour": "Black", "plate": "T33333",
+    "bank_account_number": "555555555", "bank_routing_number": "021000021",
+}, files={"profile_photo": ("photo.jpg", photo, "image/jpeg")}, timeout=TIMEOUT)
+check("driver3 (SUV) register 201", resp.status_code == 201, resp.text[:200])
+d3 = resp.json()["driver"]
+token3 = resp.json()["token"]
+anon.post(BASE + "/api/drivers/me/availability", json={"available": True},
+          headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+anon.post(BASE + "/api/drivers/me/availability", json={"available": True},
+          headers={"X-Driver-Token": token2}, timeout=TIMEOUT)
+anon.post(BASE + "/api/drivers/me/availability", json={"available": True},
+          headers={"X-Driver-Token": token3}, timeout=TIMEOUT)
+resp = anon.post(BASE + "/api/bookings", json={
+    "customer_name": "Free Feature Customer", "phone": "+15550007777",
+    "email": "ff@test.com", "pickup": "JFK Airport", "dropoff": "Times Square, New York",
+    "date": "2030-06-06", "time": "12:00", "ride_type": "one_way",
+}, timeout=TIMEOUT)
+check("free-features booking 201", resp.status_code == 201, resp.text[:200])
+bx = resp.json()["booking"]
+resp = s.post(BASE + f"/api/owner/bookings/{bx['id']}/assign",
+              json={"driver_id": d1["id"]}, timeout=TIMEOUT)
+check("assign before payment -> 409", resp.status_code == 409, str(resp.status_code))
+resp = anon.post(BASE + f"/api/bookings/{bx['id']}/pay", json={
+    "card_number": "4242424242424242", "card_exp": "12/30",
+    "card_cvc": "123", "card_name": "Free Feature Customer"}, timeout=TIMEOUT)
+check("free-features booking paid", resp.status_code == 200, resp.text[:150])
+resp = s.post(BASE + f"/api/owner/bookings/{bx['id']}/assign",
+              json={"driver_id": 999999}, timeout=TIMEOUT)
+check("assign unknown driver -> 404", resp.status_code == 404, str(resp.status_code))
+resp = s.post(BASE + f"/api/owner/bookings/{bx['id']}/assign",
+              json={"driver_id": d3["id"]}, timeout=TIMEOUT)
+check("assign wrong-class (SUV) driver -> 409", resp.status_code == 409, str(resp.status_code))
+resp = s.post(BASE + f"/api/owner/bookings/{bx['id']}/assign",
+              json={"driver_id": d1["id"]}, timeout=TIMEOUT)
+check("assign to driver1 200", resp.status_code == 200
+      and resp.json()["booking"]["assigned_driver_id"] == d1["id"], resp.text[:200])
+resp = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token2}, timeout=TIMEOUT)
+check("assigned booking hidden from driver2",
+      all(o["booking_id"] != bx["id"] for o in resp.json()), str(resp.json()))
+resp = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("assigned booking visible to driver1",
+      any(o["booking_id"] == bx["id"] for o in resp.json()), str(resp.json()))
+resp = anon.post(BASE + f"/api/drivers/me/offers/{bx['id']}/accept", json={},
+                 headers={"X-Driver-Token": token2}, timeout=TIMEOUT)
+check("other driver accept -> 409", resp.status_code == 409, str(resp.status_code))
+resp = anon.post(BASE + f"/api/drivers/me/offers/{bx['id']}/accept", json={},
+                 headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("assigned driver accepts", resp.status_code == 200, resp.text[:150])
+trip = resp.json()["booking"]
+check("accept payload carries customer name + airport flag (name sign)",
+      trip["customer_name"] == "Free Feature Customer" and trip["airport_pickup"] is True, str(trip))
+check("accept payload: no forbidden money keys",
+      FORBIDDEN_OFFER_KEYS.isdisjoint(trip.keys()), str(sorted(trip.keys())))
+resp = anon.get(BASE + f"/api/bookings/{bx['id']}/messages",
+                params={"phone": "+10000000000"}, timeout=TIMEOUT)
+check("customer chat wrong phone -> 403", resp.status_code == 403, str(resp.status_code))
+resp = anon.post(BASE + f"/api/drivers/me/trip/{bx['id']}/messages",
+                 json={"text": "I am at Terminal 4 arrivals."},
+                 headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("driver chat send 201", resp.status_code == 201, resp.text[:150])
+resp = anon.get(BASE + f"/api/bookings/{bx['id']}/messages",
+                params={"phone": "+15550007777"}, timeout=TIMEOUT)
+msgs = resp.json()["messages"]
+check("customer reads driver message", resp.status_code == 200 and len(msgs) == 1
+      and msgs[0]["sender"] == "driver", str(msgs))
+check("chat message payload has no money keys",
+      msgs and FORBIDDEN_OFFER_KEYS.isdisjoint(msgs[0].keys())
+      and set(msgs[0].keys()) == {"id", "sender", "text", "created_at"}, str(msgs))
+resp = anon.post(BASE + f"/api/bookings/{bx['id']}/messages",
+                 json={"phone": "+15550007777", "text": "On my way out."}, timeout=TIMEOUT)
+check("customer chat send 201", resp.status_code == 201, resp.text[:150])
+resp = anon.get(BASE + f"/api/drivers/me/trip/{bx['id']}/messages",
+                headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("driver reads both messages", resp.status_code == 200
+      and len(resp.json()["messages"]) == 2, str(resp.json()))
+resp = anon.get(BASE + f"/api/drivers/me/trip/{bx['id']}/messages",
+                headers={"X-Driver-Token": token2}, timeout=TIMEOUT)
+check("other driver chat -> 403", resp.status_code == 403, str(resp.status_code))
+detail_before = s.get(BASE + f"/api/owner/bookings/{bx['id']}", timeout=TIMEOUT).json()
+miles_x = Decimal(str(detail_before["miles"]))
+expected_x = compute_one_way(miles_x)
+extra = compute_extra_distance(Decimal("4"), "sedan")
+check("extra distance pricing: 4mi sedan", extra["total"] == Decimal("52.31")
+      and extra["driver_addition"] == Decimal("16.00"), str(extra))
+check("trip en_route ok", trip_event(bx["id"], "en_route", token1).status_code == 200)
+check("trip arrived ok", trip_event(bx["id"], "arrived", token1).status_code == 200)
+check("trip start ok", trip_event(bx["id"], "start", token1).status_code == 200)
+resp = trip_event(bx["id"], "complete", token1, waiting_minutes=0, extra_miles=4)
+check("complete with 4 extra miles ok", resp.status_code == 200, resp.text[:150])
+check("driver complete response has no extra-distance field",
+      "extra_distance_charge" not in resp.json().get("invoice", {}), str(resp.json()))
+detail_after = s.get(BASE + f"/api/owner/bookings/{bx['id']}", timeout=TIMEOUT).json()
+check("owner total = formula + extra distance",
+      approx(detail_after["customer_total"], expected_x["total"] + extra["total"]),
+      f"got {detail_after['customer_total']} expected {expected_x['total'] + extra['total']}")
+check("owner driver = formula + extra driver pay",
+      approx(detail_after["driver_earnings"], expected_x["driver_earnings"] + extra["driver_addition"]),
+      f"got {detail_after['driver_earnings']}")
+check("owner extra-distance line stored",
+      approx(detail_after["extra_distance_charge"], extra["total"])
+      and approx(detail_after["extra_miles"], "4.0"), str(detail_after))
+resp = anon.get(BASE + f"/api/bookings/{bx['id']}", timeout=TIMEOUT)
+inv = resp.json()["booking"]["invoice"]
+check("customer invoice total includes extra distance",
+      approx(inv["total"], expected_x["total"] + extra["total"])
+      and approx(inv["extra_distance_charge"], extra["total"]), str(inv))
 
 # ------------------------------------------------- static + greps -----------
 

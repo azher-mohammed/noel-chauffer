@@ -102,8 +102,8 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests (148)
-python smoke_test.py                       # backend flow checks (101)
+python -m unittest discover -s tests -v   # unit tests (199)
+python smoke_test.py                       # backend flow checks (124)
 ```
 
 `verify_e2e.py` runs the full HTTP checklist against a **running**
@@ -113,8 +113,29 @@ server with a **fresh** database:
 DATABASE_URL="sqlite:////tmp/noel-verify.db" OWNER_PIN=4321 \
   SECRET_KEY=test-secret ENCRYPTION_KEY="<fernet key>" PORT=5055 python app.py &
 NOEL_BASE_URL=http://127.0.0.1:5055 NOEL_OWNER_PIN=4321 python verify_e2e.py
-# full HTTP checklist (171 checks)
+# full HTTP checklist (208 checks)
 ```
+
+### Free driver features (added 2026-11-16)
+
+Four free Blacklane-style features, no paid services:
+
+- **Digital name sign** — on airport pickups the driver trip screen
+  shows a "Name sign" button; tapping it opens a full-screen overlay
+  with the customer's name in very large type.
+- **In-app chat** — driver and customer exchange plain-text messages
+  (polling, no SMS, no number masking) once a driver has accepted.
+  Messages never carry fare, miles, gratuity, tax or totals.
+- **Extra distance at completion** — one-way rides only: the driver
+  enters extra miles at completion; the customer total gains the
+  extra fare + 10% gratuity + 8.875% tax, the driver gains the extra
+  miles at his rate, and the owner dashboard shows an
+  extra-distance line per ride. Hourly rides reject extra miles.
+- **Dispatcher-lite** — on a paid, not-yet-accepted booking the owner
+  can assign it to one specific registered driver (class must match);
+  it then appears only in that driver's offers. Clearing the
+  assignment, or the assigned driver declining, restores broadcast
+  first-accept-wins.
 
 ## Deploy on Render (free tier, one-month trial)
 

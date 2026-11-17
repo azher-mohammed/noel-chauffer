@@ -167,6 +167,18 @@
       <div class="meta hidden" id="trip-flight"></div>
       <div style="margin-top:12px;" id="trip-earnings"></div>
       <div id="trip-route-link"></div>
+      <div style="margin-top:12px;">
+        <button class="btn-ghost hidden" type="button" id="trip-namesign-btn">Name sign</button>
+      </div>
+    </div>
+
+    <div class="chat-box" id="trip-chat">
+      <div class="section-title">Chat with your customer</div>
+      <div class="chat-messages" id="trip-chat-messages"></div>
+      <div class="chat-input-row">
+        <input id="trip-chat-input" type="text" maxlength="500" placeholder="Write a message…" autocomplete="off">
+        <button class="btn-primary btn-gold" type="button" id="trip-chat-send">Send</button>
+      </div>
     </div>
 
     <ul class="stage-list" id="stage-list">
@@ -179,6 +191,11 @@
     <div class="field hidden" id="waiting-field">
       <label for="waiting-minutes">Waiting minutes at pickup (if any)</label>
       <input id="waiting-minutes" type="number" min="0" step="1" value="0">
+    </div>
+
+    <div class="field hidden" id="extra-miles-field">
+      <label for="extra-miles">Extra miles driven, if the route was longer (one-way rides only)</label>
+      <input id="extra-miles" type="number" min="0" step="0.1" value="0">
     </div>
 
     <button class="btn-primary btn-gold" type="button" id="trip-next-btn">Head to pickup</button>
@@ -232,6 +249,13 @@
     <button type="button" data-screen="documents"><span class="ico">▤</span>Documents</button>
     <button type="button" data-screen="profile"><span class="ico">●</span>Profile</button>
   </nav>
+</div>
+
+<!-- Digital name sign: full-screen customer name for airport arrivals -->
+<div class="namesign-overlay hidden" id="namesign-overlay" role="dialog" aria-label="Name sign">
+  <div class="namesign-name" id="namesign-name"></div>
+  <div class="namesign-sub">Noel Chauffer</div>
+  <button class="btn-primary btn-gold" type="button" id="namesign-close">Close</button>
 </div>
 
 <script src="/static/js/driver.js"></script>

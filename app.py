@@ -50,11 +50,13 @@ from pricing import (
     cancellation_refundable,
     class_label,
     compute_class_totals,
+    compute_extra_distance,
     compute_hourly,
     compute_one_way,
     free_waiting_minutes,
     is_airport_pickup,
     invoice_total,
+    miles_1dp,
     money,
     waiting_charge,
     waiting_time_elapsed,
@@ -222,6 +224,18 @@ class Booking(db.Model):
     tax = db.Column(Numeric(10, 2), nullable=True)
     waiting_minutes = db.Column(db.Integer, nullable=False, default=0)
     waiting_charge = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    # Extra miles driven beyond the booked route, entered by the driver
+    # at completion (one-way rides only). extra_distance_charge is the
+    # customer-side addition (added fare + gratuity + tax); the fare,
+    # gratuity, tax, fare_total and driver_earnings columns are all
+    # increased by their share at completion, so the invoice and owner
+    # breakdown stay consistent.
+    extra_miles = db.Column(Numeric(6, 1), nullable=False, default=Decimal("0"))
+    extra_distance_charge = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    # Dispatcher-lite: when the owner assigns a paid, not-yet-accepted
+    # booking to one specific driver, only that driver sees it in
+    # offers. NULL means the usual broadcast to all matching drivers.
+    assigned_driver_id = db.Column(db.Integer, db.ForeignKey("drivers.id"), nullable=True)
     accepted_driver_id = db.Column(db.Integer, db.ForeignKey("drivers.id"), nullable=True)
     driver_lat = db.Column(db.Float, nullable=True)
     driver_lng = db.Column(db.Float, nullable=True)
@@ -235,8 +249,23 @@ class Booking(db.Model):
     payout_paid = db.Column(db.Boolean, nullable=False, default=False)
 
     accepted_driver = db.relationship("Driver", foreign_keys=[accepted_driver_id])
+    assigned_driver = db.relationship("Driver", foreign_keys=[assigned_driver_id])
     payments = db.relationship("Payment", backref="booking", cascade="all, delete-orphan")
     events = db.relationship("BookingEvent", backref="booking", cascade="all, delete-orphan")
+    chat_messages = db.relationship("ChatMessage", backref="booking", cascade="all, delete-orphan")
+
+
+class ChatMessage(db.Model):
+    """In-app chat between driver and customer. Plain text only, no
+    SMS, no number masking. Messages NEVER carry fare, miles,
+    gratuity, tax or total figures — text only. A new table, so
+    create_all() creates it on the live database too."""
+    __tablename__ = "chat_messages"
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=False)
+    sender = db.Column(db.String(10), nullable=False)  # driver | customer
+    text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
 class BookingExclusion(db.Model):
@@ -344,6 +373,25 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("vehicle_class/fare/tax column check failed: %s", exc)
+    # Same pattern for the extra-distance + dispatcher-lite columns
+    # (added 2026-11-16). DEFAULT 0 backfills existing rows, so the
+    # NOT NULL columns read 0 on bookings that predate them.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _bcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("bookings")]
+        _badds = {
+            "extra_miles": "ALTER TABLE bookings ADD COLUMN extra_miles NUMERIC(6, 1) DEFAULT 0",
+            "extra_distance_charge": "ALTER TABLE bookings ADD COLUMN extra_distance_charge NUMERIC(10, 2) DEFAULT 0",
+            "assigned_driver_id": "ALTER TABLE bookings ADD COLUMN assigned_driver_id INTEGER",
+        }
+        for _name, _ddl in _badds.items():
+            if _name not in _bcols:
+                with db.engine.begin() as _conn:
+                    _conn.execute(_sa_text(_ddl))
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("extra-distance/assigned-driver column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -808,6 +856,7 @@ def get_booking(booking_id):
         invoice = {
             "total": num(invoice_total(booking.fare_total, booking.waiting_charge)),
             "waiting_charge": num(booking.waiting_charge),
+            "extra_distance_charge": num(booking.extra_distance_charge),
         }
     view = {
         "id": booking.id,
@@ -944,6 +993,118 @@ def booking_driver_photo(booking_id):
     if not driver or not driver.profile_photo:
         return err("Driver photo not available.", 404)
     return Response(driver.profile_photo, mimetype=driver.profile_photo_mime or "image/jpeg")
+
+
+# ------------------------------------------------------------- chat -------
+
+MAX_CHAT_TEXT = 500
+# Chat is open once a driver has accepted and until the trip ends
+# (completed rides keep their chat readable; cancelled/no-show rides
+# do not). The same status set gates both sides.
+CHAT_STATUSES = {"accepted", "en_route", "arrived", "in_progress", "completed"}
+
+
+def _chat_message_view(message):
+    # Text only — never any money figure, by construction.
+    return {
+        "id": message.id,
+        "sender": message.sender,
+        "text": message.text,
+        "created_at": iso(message.created_at),
+    }
+
+
+def _chat_messages(booking_id):
+    return [_chat_message_view(m) for m in
+            ChatMessage.query.filter_by(booking_id=booking_id).order_by(ChatMessage.id).all()]
+
+
+def _validate_chat_text(data):
+    text = (data.get("text") or "")
+    if not isinstance(text, str):
+        return None, err("text must be a string.")
+    text = text.strip()
+    if not text:
+        return None, err("Message text is required.")
+    if len(text) > MAX_CHAT_TEXT:
+        return None, err(f"Message is too long (max {MAX_CHAT_TEXT} characters).")
+    return text, None
+
+
+def _require_chat_customer(booking, phone):
+    """The customer side of the chat: same phone check as cancel, and
+    only once a driver has accepted."""
+    if not phone or str(phone) != str(booking.phone):
+        return err("Phone number does not match this booking.", 403)
+    if booking.status not in CHAT_STATUSES:
+        return err("Chat opens once a driver has accepted your ride.", 409)
+    return None
+
+
+@app.route("/api/bookings/<int:booking_id>/messages", methods=["GET"])
+def customer_chat_list(booking_id):
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    error = _require_chat_customer(booking, request.args.get("phone"))
+    if error:
+        return error
+    return jsonify({"messages": _chat_messages(booking.id)})
+
+
+@app.route("/api/bookings/<int:booking_id>/messages", methods=["POST"])
+def customer_chat_send(booking_id):
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    data = request.get_json(silent=True) or {}
+    error = _require_chat_customer(booking, data.get("phone"))
+    if error:
+        return error
+    text, error = _validate_chat_text(data)
+    if error:
+        return error
+    message = ChatMessage(booking_id=booking.id, sender="customer", text=text)
+    db.session.add(message)
+    db.session.commit()
+    return jsonify({"message": _chat_message_view(message)}), 201
+
+
+@app.route("/api/drivers/me/trip/<int:booking_id>/messages", methods=["GET"])
+def driver_chat_list(booking_id):
+    driver, error = require_driver()
+    if error:
+        return error
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.accepted_driver_id != driver.id:
+        return err("This booking is not assigned to you.", 403)
+    if booking.status not in CHAT_STATUSES:
+        return err("Chat is not open for this ride.", 409)
+    return jsonify({"messages": _chat_messages(booking.id)})
+
+
+@app.route("/api/drivers/me/trip/<int:booking_id>/messages", methods=["POST"])
+def driver_chat_send(booking_id):
+    driver, error = require_driver()
+    if error:
+        return error
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.accepted_driver_id != driver.id:
+        return err("This booking is not assigned to you.", 403)
+    if booking.status not in CHAT_STATUSES:
+        return err("Chat is not open for this ride.", 409)
+    data = request.get_json(silent=True) or {}
+    text, error = _validate_chat_text(data)
+    if error:
+        return error
+    message = ChatMessage(booking_id=booking.id, sender="driver", text=text)
+    db.session.add(message)
+    db.session.commit()
+    return jsonify({"message": _chat_message_view(message)}), 201
 
 
 # ---------------------------------------------------------------- drivers ---
@@ -1163,6 +1324,10 @@ def driver_offers():
         query = query.filter(~Booking.id.in_(excluded_ids))
     offers = []
     for b in query.all():
+        # Dispatcher-lite: a booking the owner assigned to one driver
+        # appears only in that driver's offers.
+        if b.assigned_driver_id is not None and b.assigned_driver_id != driver.id:
+            continue
         if b.ride_type == "one_way" and booking_vehicle_class(b) != driver_class:
             continue
         # Driver sees ONLY his own pay — never miles, fare, total,
@@ -1202,6 +1367,10 @@ def driver_accept(booking_id):
     if (booking.ride_type == "one_way"
             and booking_vehicle_class(booking) != driver_vehicle_class(driver)):
         return err("This ride is for a different vehicle class.", 409)
+    # Dispatcher-lite: an owner-assigned booking can only be accepted
+    # by the driver it was assigned to.
+    if booking.assigned_driver_id is not None and booking.assigned_driver_id != driver.id:
+        return err("This booking is assigned to another driver.", 409)
     # Atomic first-accept-wins: only one driver can flip offered -> accepted.
     rows = (db.session.query(Booking)
             .filter(Booking.id == booking_id, Booking.status == "offered")
@@ -1254,8 +1423,20 @@ def driver_decline(booking_id):
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
+    changed = False
     if not BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
         db.session.add(BookingExclusion(booking_id=booking_id, driver_id=driver.id))
+        changed = True
+    # If the assigned driver declines, the assignment clears so the
+    # booking broadcasts to the other drivers again instead of
+    # sitting invisible to everyone.
+    if booking.assigned_driver_id == driver.id:
+        booking.assigned_driver_id = None
+        add_event(booking.id, "assignment_cleared",
+                  f"Driver {driver.name} declined booking #{booking.id}; "
+                  "owner assignment cleared and the booking is broadcast again.")
+        changed = True
+    if changed:
         db.session.commit()
     return jsonify({"excluded": True, "booking_id": booking_id})
 
@@ -1300,23 +1481,51 @@ def driver_trip_event(booking_id):
         waiting_minutes = int(data.get("waiting_minutes") or 0)
         booking.waiting_minutes = max(0, waiting_minutes)
         booking.waiting_charge = waiting_charge(booking.pickup, booking.waiting_minutes)
+        # Extra miles driven beyond the booked route (one-way rides
+        # only). Priced with the SAME formula as the booked fare:
+        # added fare + 10% gratuity + 8.875% tax to the customer
+        # total, driver rate per mile to the driver. Toll unchanged.
+        extra_dec = Decimal("0")
+        if data.get("extra_miles") is not None:
+            if booking.ride_type != "one_way":
+                return err("Extra miles apply to one-way rides only.", 400)
+            try:
+                extra_dec = miles_1dp(data["extra_miles"])
+            except Exception:
+                return err("extra_miles must be a number.")
+            if extra_dec < 0 or extra_dec > 500:
+                return err("extra_miles must be between 0 and 500.")
+        if extra_dec > 0:
+            extra = compute_extra_distance(extra_dec, booking_vehicle_class(booking))
+            booking.extra_miles = extra_dec
+            booking.extra_distance_charge = extra["total"]
+            booking.fare_total = money(booking.fare_total + extra["total"])
+            booking.fare = money(booking_fare(booking) + extra["fare"])
+            booking.gratuity = money(booking.gratuity + extra["gratuity"])
+            booking.tax = money(booking_tax(booking) + extra["tax"])
+            booking.driver_earnings = money(booking.driver_earnings + extra["driver_addition"])
         booking.status = "completed"
         booking.completed_at = utcnow()
         total = invoice_total(booking.fare_total, booking.waiting_charge)
         outbox_to_customer(
             booking,
             f"Noel Chauffer: thank you for riding with us. Your invoice total is ${total} "
-            f"(including ${booking.waiting_charge} waiting charge).",
+            f"(including ${booking.waiting_charge} waiting charge"
+            + (f" and ${booking.extra_distance_charge} extra distance" if extra_dec > 0 else "")
+            + ").",
         )
         add_event(booking.id, "trip_completed",
                   f"Booking #{booking.id} completed. Invoice total ${total} "
-                  f"(fare ${booking.fare_total} + waiting ${booking.waiting_charge}).")
+                  f"(fare ${booking.fare_total} + waiting ${booking.waiting_charge})"
+                  + (f", extra distance {extra_dec} miles (${booking.extra_distance_charge})" if extra_dec > 0 else "")
+                  + ".")
         response_extra["invoice"] = {"total": num(total), "waiting_charge": num(booking.waiting_charge)}
     elif event == "cancel":
         if booking.status not in ("accepted", "en_route", "arrived"):
             return err("Cannot cancel a ride in this state.", 409)
         booking.status = "offered"
         booking.accepted_driver_id = None
+        booking.assigned_driver_id = None
         booking.driver_lat = None
         booking.driver_lng = None
         if not BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
@@ -1474,8 +1683,12 @@ def _owner_booking_row(b):
         "gratuity": num(b.gratuity),
         "booking_fee": num(b.booking_fee),
         "waiting_charge": num(b.waiting_charge),
+        "extra_miles": num(b.extra_miles),
+        "extra_distance_charge": num(b.extra_distance_charge),
         "profit": num(booking_profit(b)),
         "driver_name": b.accepted_driver.name if b.accepted_driver else None,
+        "assigned_driver_id": b.assigned_driver_id,
+        "assigned_driver_name": b.assigned_driver.name if b.assigned_driver else None,
         "payout_paid": bool(b.payout_paid),
     }
     row.update(flight_info(b.flight_number, b.pickup, b.dropoff))
@@ -1510,11 +1723,16 @@ def owner_booking_detail(booking_id):
         "miles": num(booking.miles),
         "referral_code_used": booking.referral_code_used,
         "waiting_minutes": booking.waiting_minutes,
+        "extra_miles": num(booking.extra_miles),
+        "extra_distance_charge": num(booking.extra_distance_charge),
+        "assigned_driver_id": booking.assigned_driver_id,
+        "assigned_driver_name": booking.assigned_driver.name if booking.assigned_driver else None,
         "completed_at": iso(booking.completed_at),
         "payout_paid": bool(booking.payout_paid),
         "invoice": {
             "fare_total": num(booking.fare_total),
             "waiting_charge": num(booking.waiting_charge),
+            "extra_distance_charge": num(booking.extra_distance_charge),
             "total": num(invoice_total(booking.fare_total, booking.waiting_charge)),
         },
         "payments": [{
@@ -1563,6 +1781,48 @@ def owner_set_toll(booking_id):
     else:
         payload["balance_due"] = None
     return jsonify(payload)
+
+
+@app.route("/api/owner/bookings/<int:booking_id>/assign", methods=["POST"])
+def owner_assign_booking(booking_id):
+    """Dispatcher-lite: assign a paid, not-yet-accepted booking to ONE
+    specific driver. The booking then appears only in that driver's
+    offers. Passing driver_id null clears the assignment and the
+    booking broadcasts to all matching drivers again (the default).
+    Only while status is "offered": once a driver has accepted, the
+    assignment no longer applies."""
+    error = require_owner()
+    if error:
+        return error
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.status != "offered":
+        return err("Only a paid booking waiting for a driver can be assigned.", 409)
+    data = request.get_json(silent=True) or {}
+    driver_id = data.get("driver_id")
+    if driver_id is None:
+        booking.assigned_driver_id = None
+        add_event(booking.id, "assignment_cleared",
+                  f"Owner cleared the driver assignment for booking #{booking.id}; "
+                  "the booking is broadcast to all matching drivers.")
+        db.session.commit()
+        return jsonify({"booking": _owner_booking_row(booking)})
+    try:
+        driver_id = int(driver_id)
+    except (TypeError, ValueError):
+        return err("driver_id must be an integer.")
+    driver = db.session.get(Driver, driver_id)
+    if not driver:
+        return err("Driver not found.", 404)
+    if (booking.ride_type == "one_way"
+            and booking_vehicle_class(booking) != driver_vehicle_class(driver)):
+        return err("This driver’s vehicle class does not match the booking.", 409)
+    booking.assigned_driver_id = driver.id
+    add_event(booking.id, "booking_assigned",
+              f"Owner assigned booking #{booking.id} to driver {driver.name}.")
+    db.session.commit()
+    return jsonify({"booking": _owner_booking_row(booking)})
 
 
 @app.route("/api/owner/payouts", methods=["GET"])

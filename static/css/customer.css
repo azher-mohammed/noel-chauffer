@@ -317,3 +317,16 @@ input, select, textarea { font: inherit; }
 .chat-form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--white); }
 .chat-form input { flex: 1; padding: 10px 12px; border: 1px solid #cfccc2; border-radius: 3px; min-width: 0; }
 .chat-form button { background: var(--black); color: var(--white); border: 0; border-radius: 3px; padding: 10px 16px; }
+
+/* Ride chat with the chauffeur (inside the booking status card) */
+#chat-panel { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 16px; }
+#chat-panel h3 { margin: 0 0 10px; font-size: 19px; }
+#chat-panel .chat-messages { max-height: 220px; border: 1px solid var(--line); border-radius: 8px; }
+#chat-panel .chat-empty { color: var(--grey); font-size: 14px; margin: 0; }
+#chat-panel .chat-msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15px; line-height: 1.4; }
+#chat-panel .chat-msg .who { display: block; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--grey); margin-bottom: 2px; }
+#chat-panel .chat-msg.mine { align-self: flex-end; background: #fff4d6; border: 1px solid var(--gold); }
+#chat-panel .chat-msg.theirs { align-self: flex-start; background: var(--white); border: 1px solid var(--line); }
+#chat-panel .chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
+#chat-panel .chat-input-row input { flex: 1; padding: 11px 12px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 16px; min-width: 0; }
+#chat-panel .chat-input-row .btn-primary { width: auto; padding: 11px 18px; }

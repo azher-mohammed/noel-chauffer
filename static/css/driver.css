@@ -217,3 +217,31 @@ input, select { font: inherit; }
 }
 .tabbar button.active { color: var(--gold); font-weight: 700; }
 .tabbar .ico { display: block; font-size: 19px; margin-bottom: 2px; }
+
+/* Digital name sign — full-screen customer name at airport arrivals */
+.namesign-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: var(--white);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; padding: 24px; text-align: center;
+}
+.namesign-name {
+  font-family: Georgia, serif; font-size: 15vw; line-height: 1.1;
+  color: var(--black); word-break: break-word; max-width: 100%;
+}
+@media (min-width: 520px) { .namesign-name { font-size: 76px; } }
+.namesign-sub { font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--grey); }
+.namesign-overlay .btn-primary { width: auto; padding: 13px 34px; }
+
+/* In-app chat (driver side) */
+.chat-box { border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--white); margin-bottom: 16px; }
+.chat-box .section-title { margin-top: 0; }
+.chat-messages { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.chat-empty { color: var(--grey); font-size: 14px; margin: 0; }
+.chat-msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15px; line-height: 1.4; }
+.chat-msg .who { display: block; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--grey); margin-bottom: 2px; }
+.chat-msg.mine { align-self: flex-end; background: #fff4d6; border: 1px solid var(--gold); }
+.chat-msg.theirs { align-self: flex-start; background: var(--paper); border: 1px solid var(--line); }
+.chat-input-row { display: flex; gap: 8px; }
+.chat-input-row input { flex: 1; padding: 11px 12px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 16px; min-width: 0; }
+.chat-input-row .btn-primary { width: auto; margin-top: 0; padding: 11px 18px; }

@@ -180,6 +180,15 @@
         <p class="ride-summary">These details were also sent to your phone and email.</p>
       </div>
 
+      <div id="chat-panel" class="hidden">
+        <h3>Chat with your chauffeur</h3>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-row">
+          <input id="chat-input" type="text" maxlength="500" placeholder="Write a message…" autocomplete="off">
+          <button class="btn-primary" type="button" id="chat-send">Send</button>
+        </div>
+      </div>
+
       <div class="map-wrap hidden" id="map-wrap">
         <h3>Your chauffeur on the way</h3>
         <div id="map" aria-label="Live map"></div>
@@ -242,6 +251,7 @@
           <tbody>
             <tr><td>Ride total</td><td id="invoice-total"></td></tr>
             <tr id="invoice-waiting-row" class="hidden"><td>Waiting charge</td><td id="invoice-waiting"></td></tr>
+            <tr id="invoice-extra-row" class="hidden"><td>Extra distance</td><td id="invoice-extra"></td></tr>
             <tr class="grand"><td>Amount paid</td><td id="invoice-grand"></td></tr>
           </tbody>
         </table>

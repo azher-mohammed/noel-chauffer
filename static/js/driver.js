@@ -56,6 +56,8 @@
     seenOfferIds: {},
     offersPrimed: false,
     lastOffersSig: "",
+    chatTimer: null,
+    lastChatSig: "",
     audioCtx: null
   };
 
@@ -582,8 +584,17 @@
       routeLinks += '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(t.route_waze_url) + '" target="_blank" rel="noopener">Waze ↗</a>';
     }
     $("trip-route-link").innerHTML = routeLinks;
+    /* Digital name sign: airport pickups only. The driver holds the
+       phone up at arrivals so the customer can spot their name. */
+    var signBtn = $("trip-namesign-btn");
+    if (t.airport_pickup && t.customer_name) {
+      show(signBtn);
+    } else {
+      hide(signBtn);
+    }
     renderStages();
     startNoShowTimer();
+    startChatPolling();
     $("trip-error").textContent = "";
   }
   function renderStages() {
@@ -597,7 +608,15 @@
     });
     var current = STAGES[state.stageIndex];
     $("trip-next-btn").textContent = STAGE_BUTTON[current] || "Continue";
-    if (current === "complete") { show($("waiting-field")); } else { hide($("waiting-field")); }
+    if (current === "complete") {
+      show($("waiting-field"));
+      /* Extra miles apply to one-way rides only, never hourly. */
+      if (state.trip && state.trip.ride_type !== "hourly") { show($("extra-miles-field")); }
+      else { hide($("extra-miles-field")); }
+    } else {
+      hide($("waiting-field"));
+      hide($("extra-miles-field"));
+    }
     refreshNoShowButton();
   }
   /* Customer no-show is only offered once the driver has waited the
@@ -628,6 +647,94 @@
     if (state.noShowTimer) clearInterval(state.noShowTimer);
     state.noShowTimer = null;
   }
+
+  /* ---------- Digital name sign (airport pickups) ---------- */
+  $("trip-namesign-btn").addEventListener("click", function () {
+    if (!state.trip || !state.trip.customer_name) return;
+    $("namesign-name").textContent = state.trip.customer_name;
+    show($("namesign-overlay"));
+  });
+  $("namesign-close").addEventListener("click", function () {
+    hide($("namesign-overlay"));
+  });
+  $("namesign-overlay").addEventListener("click", function (e) {
+    if (e.target === $("namesign-overlay")) hide($("namesign-overlay"));
+  });
+
+  /* ---------- In-app chat with the customer (text only) ---------- */
+  /* Simple polling, no SMS. Messages carry text only — the chat
+     never shows any money figure, and the driver still sees only his
+     own earnings elsewhere on this screen. */
+  function chatMessagesUrl() {
+    return "/api/drivers/me/trip/" + encodeURIComponent(state.trip.id) + "/messages";
+  }
+  function startChatPolling() {
+    stopChatPolling();
+    state.lastChatSig = "";
+    loadTripChat();
+    state.chatTimer = setInterval(function () {
+      if (state.trip && !$("screen-trip").classList.contains("hidden")) loadTripChat();
+    }, 4000);
+  }
+  function stopChatPolling() {
+    if (state.chatTimer) clearInterval(state.chatTimer);
+    state.chatTimer = null;
+  }
+  function loadTripChat() {
+    if (!state.trip) return;
+    fetch(chatMessagesUrl(), { headers: authHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        renderTripChat(j.messages || []);
+      })
+      .catch(function () { /* keep the current messages on a failed check */ });
+  }
+  function renderTripChat(messages) {
+    var sig = messages.map(function (m) { return m.id + ":" + (m.text || "").length; }).join("|");
+    if (sig === state.lastChatSig) return;
+    state.lastChatSig = sig;
+    var box = $("trip-chat-messages");
+    box.innerHTML = "";
+    if (!messages.length) {
+      box.innerHTML = '<p class="chat-empty">No messages yet. Say hello to your customer here.</p>';
+      return;
+    }
+    messages.forEach(function (m) {
+      var div = document.createElement("div");
+      var mine = m.sender === "driver";
+      div.className = "chat-msg " + (mine ? "mine" : "theirs");
+      div.innerHTML = '<span class="who">' + (mine ? "You" : "Customer") + "</span>" +
+        '<span class="txt">' + esc(m.text) + "</span>";
+      box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+  function sendTripChat() {
+    if (!state.trip) return;
+    var input = $("trip-chat-input");
+    var text = input.value.trim();
+    if (!text) return;
+    var btn = $("trip-chat-send");
+    btn.disabled = true;
+    fetch(chatMessagesUrl(), {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ text: text })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (res.ok) {
+          input.value = "";
+          loadTripChat();
+        }
+      })
+      .catch(function () { btn.disabled = false; });
+  }
+  $("trip-chat-send").addEventListener("click", sendTripChat);
+  $("trip-chat-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); sendTripChat(); }
+  });
   function postTripEvent(eventName, extra) {
     var payload = Object.assign({ event: eventName }, extra || {});
     return fetch("/api/drivers/me/trip/" + encodeURIComponent(state.trip.id) + "/event", {
@@ -645,6 +752,10 @@
     if (current === "complete") {
       var w = parseInt($("waiting-minutes").value, 10);
       if (!isNaN(w) && w > 0) extra.waiting_minutes = w;
+      if (state.trip && state.trip.ride_type !== "hourly") {
+        var em = parseFloat($("extra-miles").value);
+        if (!isNaN(em) && em > 0) extra.extra_miles = em;
+      }
     }
     postTripEvent(current, extra)
       .then(function (res) {
@@ -676,6 +787,8 @@
   function endTrip() {
     stopLocationSharing();
     stopNoShowTimer();
+    stopChatPolling();
+    hide($("namesign-overlay"));
     state.trip = null;
     state.stageIndex = 0;
     hide($("loc-note"));

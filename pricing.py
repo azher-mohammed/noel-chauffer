@@ -123,6 +123,37 @@ def compute_class_totals(miles, toll=Decimal("0")) -> dict:
     }
 
 
+def compute_extra_distance(extra_miles, vehicle_class="sedan") -> dict:
+    """Pricing for extra miles driven beyond the booked route.
+
+    One-way rides only: the driver enters the extra miles at
+    completion. Uses the SAME formula as the booked fare — added fare
+    = extra miles x class rate, gratuity 10% of the added fare, NYC
+    tax 8.875% of the added fare; toll unchanged. Driver addition =
+    extra miles x driver rate. All values Decimal.
+    """
+    miles = miles_1dp(extra_miles)
+    if miles < 0:
+        raise ValueError("extra miles cannot be negative")
+    vehicle_class = vehicle_class or "sedan"
+    if vehicle_class not in CLASS_RATES:
+        raise ValueError("vehicle_class must be 'sedan' or 'suv'")
+    fare = money(CLASS_RATES[vehicle_class] * miles)
+    gratuity = money(fare * GRATUITY_RATE)
+    tax = money(fare * TAX_RATE)
+    total = money(fare + gratuity + tax)
+    driver_addition = money(CLASS_DRIVER_RATES[vehicle_class] * miles)
+    return {
+        "miles": miles,
+        "fare": fare,
+        "gratuity": gratuity,
+        "tax": tax,
+        "total": total,
+        "driver_addition": driver_addition,
+        "vehicle_class": vehicle_class,
+    }
+
+
 def compute_hourly(hours) -> dict:
     """Return fare breakdown for an hourly ride. No fee, no gratuity, no tax."""
     hours = Decimal(str(hours))

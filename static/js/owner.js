@@ -154,6 +154,7 @@
       toll: pick(b, ["toll", "toll_amount"]) !== null ? pick(b, ["toll", "toll_amount"]) : pick(inv, ["toll"]),
       gratuity: pick(b, ["gratuity", "tip", "gratuity_amount"]),
       waiting: pick(b, ["waiting_charge", "waiting"]) !== null ? pick(b, ["waiting_charge", "waiting"]) : pick(inv, ["waiting_charge"]),
+      extra: pick(b, ["extra_distance_charge", "extra_distance"]) !== null ? pick(b, ["extra_distance_charge", "extra_distance"]) : pick(inv, ["extra_distance_charge"]),
       profit: pick(b, ["profit", "owner_profit", "net"])
     };
   }
@@ -169,7 +170,8 @@
         hide($("bookings-empty"));
         list.forEach(function (b) {
           var f = breakdownFields(b);
-          var driverName = (b.driver && b.driver.name) || b.driver_name || "—";
+          var driverName = (b.driver && b.driver.name) || b.driver_name ||
+            (b.assigned_driver_name ? "Assigned: " + b.assigned_driver_name : "—");
           /* The API returns the ready-made `route` string on list rows. */
           var route = b.route ? esc(b.route) : (esc(b.pickup || "") + (b.dropoff ? " → " + esc(b.dropoff) : ""));
           var tr = document.createElement("tr");
@@ -187,6 +189,7 @@
             '<td class="num">' + esc(money(f.toll)) + "</td>" +
             '<td class="num">' + esc(money(f.gratuity)) + "</td>" +
             '<td class="num">' + esc(money(f.waiting)) + "</td>" +
+            '<td class="num">' + esc(money(f.extra)) + "</td>" +
             '<td class="num">' + esc(money(f.profit)) + "</td>" +
             "<td><input class=\"toll-input\" type=\"number\" min=\"0\" step=\"0.01\" value=\"" +
             esc(f.toll !== null && f.toll !== undefined ? f.toll : "") +
@@ -318,16 +321,72 @@
           ["Driver share", money(f.driver)],
           ["Toll", money(f.toll)],
           ["Waiting charge", money(f.waiting)],
+          ["Extra miles", (b.extra_miles !== null && b.extra_miles !== undefined) ? String(b.extra_miles) : "—"],
+          ["Extra distance charge", money(f.extra)],
+          ["Assigned driver", b.assigned_driver_name || "— (broadcast to all matching drivers)"],
           ["Profit", money(f.profit)]
         ];
         panel.innerHTML = "<h3>Booking detail</h3><div class=\"detail-grid\">" +
           rows.map(function (r) {
             return "<div><div class=\"k\">" + esc(r[0]) + "</div><div>" + esc(r[1]) + "</div></div>";
           }).join("") + "</div>";
+        /* Dispatcher-lite: on a paid booking still waiting for a
+           driver, the owner can assign it to one specific driver —
+           or clear the assignment to broadcast it again. */
+        if (b.status === "offered") {
+          var assignBox = document.createElement("div");
+          assignBox.className = "assign-box";
+          var sel = document.createElement("select");
+          sel.setAttribute("aria-label", "Assign to a driver");
+          var none = document.createElement("option");
+          none.value = "";
+          none.textContent = "Choose a driver…";
+          sel.appendChild(none);
+          (allDrivers || []).forEach(function (d) {
+            var opt = document.createElement("option");
+            opt.value = String(d.id);
+            opt.textContent = d.name + " — " + (d.car_model || d.car || "") + (d.vehicle_class_label ? " (" + d.vehicle_class_label + ")" : "");
+            if (b.assigned_driver_id && Number(b.assigned_driver_id) === Number(d.id)) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          var assignBtn = document.createElement("button");
+          assignBtn.className = "row-btn";
+          assignBtn.type = "button";
+          assignBtn.textContent = "Assign to this driver";
+          assignBtn.addEventListener("click", function () {
+            if (!sel.value) return;
+            assignBooking(b.id, Number(sel.value));
+          });
+          assignBox.appendChild(sel);
+          assignBox.appendChild(assignBtn);
+          if (b.assigned_driver_id) {
+            var clearBtn = document.createElement("button");
+            clearBtn.className = "row-btn";
+            clearBtn.type = "button";
+            clearBtn.textContent = "Clear assignment (broadcast again)";
+            clearBtn.addEventListener("click", function () { assignBooking(b.id, null); });
+            assignBox.appendChild(clearBtn);
+          }
+          panel.appendChild(assignBox);
+        }
         show(panel);
         panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
       })
       .catch(function () { /* leave the previous detail view */ });
+  }
+
+  function assignBooking(id, driverId) {
+    fetch("/api/owner/bookings/" + encodeURIComponent(id) + "/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ driver_id: driverId })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (res.ok) { loadBookings(); loadBookingDetail(id); }
+      })
+      .catch(function () { /* leave the detail view as it was */ });
   }
 
   /* ---------- Alerts ---------- */
@@ -371,6 +430,9 @@
   }
 
   /* ---------- Drivers + document viewer ---------- */
+  /* The drivers list is kept for the dispatcher-lite assign control
+     in the booking detail panel. */
+  var allDrivers = [];
   /* Document types as the API returns them in `docs` (status strings)
      and `doc_ids` (row ids for the viewer). The profile picture has no
      document row: it is served from the driver photo endpoint. */
@@ -404,6 +466,7 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var list = asList(j, "drivers");
+        allDrivers = list;
         var box = $("drivers-list");
         if (!list.length) { box.innerHTML = '<div class="empty">No drivers registered yet.</div>'; return; }
         box.innerHTML = "";

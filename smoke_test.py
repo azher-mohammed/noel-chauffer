@@ -391,6 +391,89 @@ check("lookup needs phone", True)  # placeholder no-op (GET on POST route -> 405
 resp = client.post("/api/drivers/me/lookup", json={"phone": "+15550001111"})
 check("driver lookup re-issues token", resp.status_code == 200
       and resp.get_json()["token"] != token1, resp.get_data(as_text=True)[:150])
+token1 = resp.get_json()["token"]
+
+print("== free features: name sign, chat, extra distance, assign ==")
+from pricing import compute_extra_distance  # noqa: E402
+r = compute_extra_distance(Decimal("5"), "sedan")
+check("extra distance 5mi sedan 65.38 / driver 20.00",
+      r["total"] == Decimal("65.38") and r["driver_addition"] == Decimal("20.00"), str(r))
+r = compute_extra_distance(Decimal("2.5"), "suv")
+check("extra distance 2.5mi SUV 35.66 / driver 17.50",
+      r["total"] == Decimal("35.66") and r["driver_addition"] == Decimal("17.50"), str(r))
+# Fresh booking for the assign + chat + extra-distance flow.
+client.post("/api/drivers/me/availability", json={"available": True},
+            headers={"X-Driver-Token": token1})
+client.post("/api/drivers/me/availability", json={"available": True},
+            headers={"X-Driver-Token": token2})
+resp = client.post("/api/bookings", json={
+    "customer_name": "Chat Customer", "phone": "+15550008888", "email": "chat@test.com",
+    "pickup": "JFK Airport", "dropoff": "Times Square, New York",
+    "date": "2030-06-05", "time": "12:00", "ride_type": "one_way",
+})
+check("chat booking 201", resp.status_code == 201, resp.get_data(as_text=True)[:200])
+bx = resp.get_json()["booking"]
+resp = client.post(f"/api/bookings/{bx['id']}/pay", json={
+    "card_number": "4242424242424242", "card_exp": "12/30",
+    "card_cvc": "123", "card_name": "Chat Customer"})
+check("chat booking paid", resp.status_code == 200, resp.get_data(as_text=True)[:150])
+resp = client.post("/api/owner/login", json={"pin": "9999"})
+check("owner login for assign", resp.status_code == 200)
+resp = client.post(f"/api/owner/bookings/{bx['id']}/assign", json={"driver_id": d1["id"]})
+check("assign to driver1", resp.status_code == 200
+      and resp.get_json()["booking"]["assigned_driver_id"] == d1["id"],
+      resp.get_data(as_text=True)[:200])
+resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token2})
+check("assigned booking hidden from driver2",
+      all(o["booking_id"] != bx["id"] for o in resp.get_json()), str(resp.get_json()))
+resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token1})
+check("assigned booking visible to driver1",
+      any(o["booking_id"] == bx["id"] for o in resp.get_json()), str(resp.get_json()))
+resp = client.post(f"/api/drivers/me/offers/{bx['id']}/accept", json={},
+                   headers={"X-Driver-Token": token1})
+check("assigned driver accepts", resp.status_code == 200, resp.get_data(as_text=True)[:150])
+trip_payload = resp.get_json()["booking"]
+check("accept payload: customer name + airport flag for name sign",
+      trip_payload["customer_name"] == "Chat Customer" and trip_payload["airport_pickup"] is True,
+      str(trip_payload))
+check("accept payload: no money keys beyond earnings/toll",
+      FORBIDDEN_OFFER_KEYS.isdisjoint(trip_payload.keys()), str(sorted(trip_payload.keys())))
+resp = client.post(f"/api/drivers/me/trip/{bx['id']}/messages",
+                   json={"text": "I am outside arrivals."},
+                   headers={"X-Driver-Token": token1})
+check("driver chat send 201", resp.status_code == 201, resp.get_data(as_text=True)[:150])
+resp = client.get(f"/api/bookings/{bx['id']}/messages",
+                  query_string={"phone": "+15550008888"})
+check("customer reads driver message", resp.status_code == 200
+      and len(resp.get_json()["messages"]) == 1
+      and resp.get_json()["messages"][0]["sender"] == "driver", str(resp.get_json()))
+resp = client.post(f"/api/bookings/{bx['id']}/messages",
+                   json={"phone": "+15550008888", "text": "Coming out now."})
+check("customer chat send 201", resp.status_code == 201, resp.get_data(as_text=True)[:150])
+resp = client.get(f"/api/drivers/me/trip/{bx['id']}/messages",
+                  headers={"X-Driver-Token": token1})
+check("driver reads 2 messages", resp.status_code == 200
+      and len(resp.get_json()["messages"]) == 2, str(resp.get_json()))
+resp = client.get(f"/api/bookings/{bx['id']}/messages",
+                  query_string={"phone": "+10000000000"})
+check("chat wrong phone 403", resp.status_code == 403, str(resp.status_code))
+for ev in ("en_route", "arrived", "start"):
+    resp = client.post(f"/api/drivers/me/trip/{bx['id']}/event",
+                       json={"event": ev}, headers={"X-Driver-Token": token1})
+    check(f"trip {ev} ok", resp.status_code == 200, resp.get_data(as_text=True)[:150])
+resp = client.post(f"/api/drivers/me/trip/{bx['id']}/event",
+                   json={"event": "complete", "waiting_minutes": 0, "extra_miles": 5},
+                   headers={"X-Driver-Token": token1})
+check("complete with extra miles ok", resp.status_code == 200, resp.get_data(as_text=True)[:150])
+resp = client.get(f"/api/bookings/{bx['id']}")
+inv = resp.get_json()["booking"]["invoice"]
+check("invoice includes extra distance 65.38",
+      approx(inv["total"], 300.75) and approx(inv["extra_distance_charge"], 65.38), str(inv))
+resp = client.get(f"/api/owner/bookings/{bx['id']}")
+row = resp.get_json()
+check("owner row extra-distance line",
+      approx(row["extra_distance_charge"], 65.38) and approx(row["extra_miles"], 5.0)
+      and approx(row["driver_earnings"], 92.00), str(row))
 
 print(f"\n{CHECKS['passed']} passed, {CHECKS['failed']} failed")
 sys.exit(1 if CHECKS["failed"] else 0)

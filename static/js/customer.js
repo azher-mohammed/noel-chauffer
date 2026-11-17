@@ -26,7 +26,8 @@
     pendingPayload: null,
     selectedClass: "sedan",
     classBooking: null,
-    classPhone: ""
+    classPhone: "",
+    lastChatSig: ""
   };
 
   /* Customer-facing class names. Internal keys stay "sedan"/"suv". */
@@ -500,6 +501,7 @@
     hide($("invoice-panel"));
     hide($("pay-panel"));
     hide($("driver-block"));
+    hide($("chat-panel"));
     hide($("total-box"));
     hide($("map-wrap"));
     hide($("cancel-result"));
@@ -529,6 +531,7 @@
         if (j && j.booking) {
           state.booking = j.booking;
           renderBooking(j.booking);
+          loadChatIfOpen(j.booking);
           var st = j.booking.status;
           if (st === "cancelled" || st === "canceled" || st === "completed" || st === "no_show") {
             stopPolling();
@@ -627,6 +630,12 @@
       } else {
         hide($("invoice-waiting-row"));
       }
+      if (b.invoice.extra_distance_charge) {
+        show($("invoice-extra-row"));
+        $("invoice-extra").textContent = money(b.invoice.extra_distance_charge);
+      } else {
+        hide($("invoice-extra-row"));
+      }
       $("invoice-grand").textContent = money(invTotal);
     }
 
@@ -644,6 +653,73 @@
       hide($("pay-panel"));
     }
   }
+
+  /* ---------- In-app chat with the chauffeur (text only) ---------- */
+  /* Opens once a driver has accepted; messages carry text only and
+     the customer still sees only the single total elsewhere. The
+     chat rides on the same polling loop as the booking status. */
+  var CHAT_OPEN_STATUSES = ["accepted", "en_route", "arrived", "in_progress"];
+  function chatOpenFor(b) {
+    return !!(b && b.driver && b.driver.name && CHAT_OPEN_STATUSES.indexOf(b.status || "") !== -1);
+  }
+  function loadChatIfOpen(b) {
+    if (!chatOpenFor(b) || !state.bookingId || !state.bookingPhone) {
+      hide($("chat-panel"));
+      return;
+    }
+    show($("chat-panel"));
+    fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/messages?phone=" +
+          encodeURIComponent(state.bookingPhone))
+      .then(function (r) { return r.json(); })
+      .then(function (j) { renderChat(j.messages || []); })
+      .catch(function () { /* keep the current messages on a failed check */ });
+  }
+  function renderChat(messages) {
+    var sig = messages.map(function (m) { return m.id + ":" + (m.text || "").length; }).join("|");
+    if (sig === state.lastChatSig) return;
+    state.lastChatSig = sig;
+    var box = $("chat-messages");
+    box.innerHTML = "";
+    if (!messages.length) {
+      box.innerHTML = '<p class="chat-empty">No messages yet. Your chauffeur can read your messages here.</p>';
+      return;
+    }
+    messages.forEach(function (m) {
+      var div = document.createElement("div");
+      var mine = m.sender === "customer";
+      div.className = "chat-msg " + (mine ? "mine" : "theirs");
+      div.innerHTML = '<span class="who">' + (mine ? "You" : "Chauffeur") + "</span>" +
+        '<span class="txt">' + esc(m.text) + "</span>";
+      box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+  function sendChat() {
+    if (!state.bookingId || !state.bookingPhone) return;
+    var input = $("chat-input");
+    var text = input.value.trim();
+    if (!text) return;
+    var btn = $("chat-send");
+    btn.disabled = true;
+    fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: state.bookingPhone, text: text })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (res.ok) {
+          input.value = "";
+          loadChatIfOpen(state.booking);
+        }
+      })
+      .catch(function () { btn.disabled = false; });
+  }
+  $("chat-send").addEventListener("click", sendChat);
+  $("chat-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); sendChat(); }
+  });
 
   function showThankYou(b) {
     show($("thankyou-block"));

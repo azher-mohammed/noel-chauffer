@@ -212,7 +212,11 @@ check("create status is awaiting_payment (pay before dispatch)",
 
 detail = s.get(BASE + f"/api/owner/bookings/{b1['id']}", timeout=TIMEOUT).json()
 miles1 = Decimal(str(detail["miles"]))
-expected1 = compute_one_way(miles1)
+# Live geo: the stored toll comes from the map (the OSRM route via
+# the Midtown Tunnel detects $7.46). Expectations use the stored
+# toll, so the formula check holds whatever the map returns.
+toll1 = Decimal(str(detail["toll"]))
+expected1 = compute_one_way(miles1, toll=toll1)
 print(f"  INFO live geo miles for JFK->Times Square: {miles1}")
 check("one-way total matches pricing formula for returned miles",
       approx(detail["customer_total"], expected1["total"]),
@@ -221,10 +225,12 @@ check("one-way driver matches pricing formula",
       approx(detail["driver_earnings"], expected1["driver_earnings"]),
       f"got {detail['driver_earnings']} expected {expected1['driver_earnings']}")
 if miles1 == Decimal("18.0"):
-    check("18.0 mi total is exactly $235.37", approx(detail["customer_total"], "235.37"))
+    check("18.0 mi total is $235.37 + stored toll",
+          approx(detail["customer_total"], Decimal("235.37") + toll1))
     check("18.0 mi fare/tax/gratuity", approx(detail["fare"], "198.00")
           and approx(detail["tax"], "17.57") and approx(detail["gratuity"], "19.80"), str(detail))
-    check("18.0 mi driver is exactly $72.00", approx(detail["driver_earnings"], "72.00"))
+    check("18.0 mi driver is $72.00 + stored toll",
+          approx(detail["driver_earnings"], Decimal("72.00") + toll1))
 
 resp = anon.get(BASE + f"/api/bookings/{b1['id']}", timeout=TIMEOUT)
 got = resp.json()["booking"]
@@ -244,13 +250,15 @@ resp = anon.post(BASE + "/api/bookings", json={
 check("referral booking 201", resp.status_code == 201, resp.text[:200])
 b_ref = resp.json()["booking"]
 detail_ref = s.get(BASE + f"/api/owner/bookings/{b_ref['id']}", timeout=TIMEOUT).json()
-expected_ref = compute_one_way(Decimal(str(detail_ref["miles"])), referral=True)
+toll_ref = Decimal(str(detail_ref["toll"]))
+expected_ref = compute_one_way(Decimal(str(detail_ref["miles"])),
+                               referral=True, toll=toll_ref)
 check("referral total = formula (discount $0 for now)",
       approx(detail_ref["customer_total"], expected_ref["total"]),
       f"got {detail_ref['customer_total']} expected {expected_ref['total']}")
 if Decimal(str(detail_ref["miles"])) == Decimal("18.0"):
-    check("18.0 mi referral total is exactly $235.37 (no discount)",
-          approx(detail_ref["customer_total"], "235.37"))
+    check("18.0 mi referral total is $235.37 + stored toll (no discount)",
+          approx(detail_ref["customer_total"], Decimal("235.37") + toll_ref))
 
 # Hourly booking
 resp = anon.post(BASE + "/api/bookings", json={
@@ -299,19 +307,23 @@ resp = anon.post(BASE + "/api/bookings", json={
 check("NJ booking 201", resp.status_code == 201, resp.text[:200])
 b_nj = resp.json()["booking"]
 detail_nj = s.get(BASE + f"/api/owner/bookings/{b_nj['id']}", timeout=TIMEOUT).json()
-expected_nj = compute_one_way(Decimal(str(detail_nj["miles"])), toll=Decimal("16.79"))
-check("NJ trip stored toll is $16.79 at creation",
-      approx(detail_nj["toll"], "16.79"), str(detail_nj.get("toll")))
-check("NJ trip total matches formula incl. $16.79 toll",
+# The stored toll is the $16.79 return toll PLUS any toll the map
+# detects on the outbound route (the OSRM route currently detects
+# none, but the check must hold whatever the map returns).
+toll_nj = Decimal(str(detail_nj["toll"]))
+expected_nj = compute_one_way(Decimal(str(detail_nj["miles"])), toll=toll_nj)
+check("NJ trip stored toll includes the $16.79 return toll at creation",
+      toll_nj >= Decimal("16.79"), str(detail_nj.get("toll")))
+check("NJ trip total matches formula incl. stored toll",
       approx(detail_nj["customer_total"], expected_nj["total"]),
       f"got {detail_nj['customer_total']} expected {expected_nj['total']}")
-check("NJ trip driver matches formula incl. $16.79 toll",
+check("NJ trip driver matches formula incl. stored toll",
       approx(detail_nj["driver_earnings"], expected_nj["driver_earnings"]))
 check("NJ trip options page totals include the toll",
       approx(b_nj["class_totals"]["sedan"], expected_nj["total"])
       and approx(b_nj["class_totals"]["suv"],
                  compute_one_way(Decimal(str(detail_nj["miles"])),
-                                 toll=Decimal("16.79"),
+                                 toll=toll_nj,
                                  vehicle_class="suv")["total"]),
       str(b_nj.get("class_totals")))
 
@@ -344,8 +356,9 @@ check("class booking create 201", resp.status_code == 201, resp.text[:200])
 b_class = resp.json()["booking"]
 detail_c = s.get(BASE + f"/api/owner/bookings/{b_class['id']}", timeout=TIMEOUT).json()
 miles_c = Decimal(str(detail_c["miles"]))
-exp_sedan = compute_one_way(miles_c)
-exp_suv = compute_one_way(miles_c, vehicle_class="suv")
+toll_c = Decimal(str(detail_c["toll"]))
+exp_sedan = compute_one_way(miles_c, toll=toll_c)
+exp_suv = compute_one_way(miles_c, vehicle_class="suv", toll=toll_c)
 check("class booking defaults to sedan (Business Class)",
       b_class["vehicle_class"] == "sedan"
       and b_class["vehicle_class_label"] == "Business Class", str(b_class))
@@ -512,7 +525,8 @@ check("waiting 75 min at airport = $15.00", approx(inv.get("waiting_charge"), ex
 check("invoice = fare + waiting",
       approx(inv.get("total"), Decimal(str(expected1["total"])) + expected_wait), str(inv))
 if miles1 == Decimal("18.0"):
-    check("invoice total is exactly $250.37", approx(inv.get("total"), "250.37"))
+    check("invoice total is $250.37 + stored toll",
+          approx(inv.get("total"), Decimal("250.37") + toll1))
 resp = anon.get(BASE + f"/api/bookings/{b1['id']}", timeout=TIMEOUT)
 got = resp.json()["booking"]
 check("GET invoice after complete", got["invoice"] and approx(got["invoice"]["total"], inv.get("total")))
@@ -876,7 +890,7 @@ resp = anon.get(BASE + f"/api/drivers/me/trip/{bx['id']}/messages",
 check("other driver chat -> 403", resp.status_code == 403, str(resp.status_code))
 detail_before = s.get(BASE + f"/api/owner/bookings/{bx['id']}", timeout=TIMEOUT).json()
 miles_x = Decimal(str(detail_before["miles"]))
-expected_x = compute_one_way(miles_x)
+expected_x = compute_one_way(miles_x, toll=Decimal(str(detail_before["toll"])))
 extra = compute_extra_distance(Decimal("4"), "sedan")
 check("extra distance pricing: 4mi sedan", extra["total"] == Decimal("52.31")
       and extra["driver_addition"] == Decimal("16.00"), str(extra))

@@ -23,6 +23,10 @@ FALLBACK_MILES = 10.0  # used only when geocoding fails outright (no coords)
 
 _geocode_cache: dict = {}
 _geocode_address_cache: dict = {}
+# Route cache: key -> (miles, geometry). Geometry is a list of
+# (lat, lng) pairs from the same OSRM call, or None when the route
+# came from the haversine fallback. Keeping both in one entry means
+# clearing _route_cache clears geometry too (tests rely on this).
 _route_cache: dict = {}
 _search_cache: dict = {}
 _CACHE_LIMIT = 500
@@ -320,29 +324,65 @@ def haversine_miles(lat1, lng1, lat2, lng2) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
-def route_miles(lat1, lng1, lat2, lng2) -> float:
-    """Driving miles via OSRM; falls back to haversine * 1.3. Never raises."""
-    key = (round(lat1, 5), round(lng1, 5), round(lat2, 5), round(lng2, 5))
+def _route_key(lat1, lng1, lat2, lng2):
+    return (round(lat1, 5), round(lng1, 5), round(lat2, 5), round(lng2, 5))
+
+
+def _fetch_route(lat1, lng1, lat2, lng2):
+    """One OSRM call returning (miles, geometry). Never raises.
+
+    Geometry is a list of (lat, lng) pairs in travel order, or None
+    when OSRM fails (the haversine fallback has no geometry).
+    """
+    key = _route_key(lat1, lng1, lat2, lng2)
     if key in _route_cache:
         return _route_cache[key]
     miles = None
+    geometry = None
     try:
         url = (
             "https://router.project-osrm.org/route/v1/driving/"
-            f"{lng1},{lat1};{lng2},{lat2}?overview=false"
+            f"{lng1},{lat1};{lng2},{lat2}?overview=full&geometries=geojson"
         )
         data = _http_get_json(url)
         routes = data.get("routes") or []
         if routes:
             miles = routes[0]["distance"] / METERS_PER_MILE
+            coords = (routes[0].get("geometry") or {}).get("coordinates") or []
+            geometry = [(lat, lng) for lng, lat in coords]
+            if len(geometry) < 2:
+                geometry = None
     except Exception as exc:
         log.warning("OSRM route failed: %s", exc)
     if miles is None:
         miles = haversine_miles(lat1, lng1, lat2, lng2) * 1.3
+        geometry = None
     miles = round(float(miles), 1)
+    entry = (miles, geometry)
     if len(_route_cache) < _CACHE_LIMIT:
-        _route_cache[key] = miles
+        _route_cache[key] = entry
+    return entry
+
+
+def route_miles(lat1, lng1, lat2, lng2) -> float:
+    """Driving miles via OSRM; falls back to haversine * 1.3. Never raises."""
+    miles, _geometry = _fetch_route(lat1, lng1, lat2, lng2)
     return miles
+
+
+def route_geometry(lat1, lng1, lat2, lng2):
+    """Route polyline for a previously fetched route, or None.
+
+    Cache-only on purpose: this never fetches upstream itself (same
+    contract as geocode_state). The booking flow always calls
+    distance_miles/route_miles first, which warms the cache; callers
+    must treat None as "no geometry" and apply the fallback toll rule.
+    Returns a list of (lat, lng) pairs in travel order, or None.
+    """
+    entry = _route_cache.get(_route_key(lat1, lng1, lat2, lng2))
+    if entry is None:
+        return None
+    return entry[1]
 
 
 def distance_miles(pickup: str, dropoff: str):

@@ -18,15 +18,19 @@ per-mile rate and driver rate. NO booking fee.
 - customer total = fare + gratuity + tax + toll.
 - driver earnings = miles x driver rate + toll.
 - owner profit = total - driver earnings - tax.
-- UP-FRONT NJ RETURN TOLL (owner decision 2026-11-16): a trip from
-  New York to New Jersey carries a $16.79 toll estimate from booking
-  creation — the Port Authority return crossing (Holland Tunnel /
-  Lincoln Tunnel / George Washington Bridge), E-ZPass peak rate,
-  verified 2026-11-16. The estimate is part of the single total the
-  customer pays and the driver sees as a separate Toll line BEFORE
-  accepting. All other trips start at a $0 toll. The owner can still
-  adjust the toll afterwards in the dashboard (not on completed
-  rides).
+- UP-FRONT TOLL (owner decision 2026-11-16, extended 2026-11-17):
+  the toll estimate at booking creation comes from the MAP: every
+  tolled crossing the route passes through is charged at the
+  verified E-ZPass rate (see tolls.py), PLUS the $16.79 Port
+  Authority return crossing (Holland Tunnel / Lincoln Tunnel /
+  George Washington Bridge, E-ZPass peak rate, verified
+  2026-11-16) on New York -> New Jersey trips. When no route
+  geometry is available the Hudson toll is compulsory: ANY trip
+  between New York and New Jersey in EITHER direction carries
+  $16.79. The estimate is part of the single total the customer
+  pays and the driver sees as a separate Toll line BEFORE
+  accepting. The owner can still adjust the toll afterwards in
+  the dashboard (not on completed rides).
 - Referral codes are accepted but give a $0 discount for now: the old
   benefit (waiving the $20 booking fee) no longer applies since there
   is no fee. A new referral benefit is TBD pending the owner's
@@ -46,6 +50,8 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
+
+from tolls import detect_crossing_tolls
 
 try:
     from zoneinfo import ZoneInfo
@@ -131,6 +137,42 @@ def estimate_return_toll(pickup_state, dropoff_state, pickup_text="", dropoff_te
     if pickup_code == "NY" and dropoff_code == "NJ":
         return NJ_RETURN_TOLL
     return Decimal("0.00")
+
+
+def estimate_upfront_toll(pickup_state, dropoff_state, pickup_text="",
+                          dropoff_text="", geometry=None) -> Decimal:
+    """Up-front toll estimate for a one-way ride, from the map. Decimal.
+
+    With route geometry: the tolls for every tolled crossing the
+    route polyline passes through (see tolls.py), PLUS the $16.79
+    return toll when the trip goes New York -> New Jersey. The
+    outbound Hudson crossing westbound is free, so geometry adds $0
+    for it — the $16.79 is the return leg, with no double-counting.
+
+    Without geometry (OSRM failure / no geometry): the compulsory
+    fallback — $16.79 for ANY trip between New York and New Jersey
+    in EITHER direction (the Hudson crossings' toll applies whether
+    or not the map is connected, per the owner's rule); $0.00 for
+    all other trips. State evidence resolves the same way as
+    estimate_return_toll: geocoder state first, address text
+    fallback.
+
+    This is the ONE helper for the estimate: booking creation stores
+    its result on the booking, and the options-page quote reads the
+    same stored toll, so quote and charge always agree exactly. The
+    toll is never taxed (see compute_one_way).
+    """
+    pickup_code = _state_code(pickup_state) or _text_state(pickup_text)
+    dropoff_code = _state_code(dropoff_state) or _text_state(dropoff_text)
+    if not geometry:
+        if {pickup_code, dropoff_code} == {"NY", "NJ"}:
+            return NJ_RETURN_TOLL
+        return Decimal("0.00")
+    detected, _names = detect_crossing_tolls(geometry)
+    total = detected
+    if pickup_code == "NY" and dropoff_code == "NJ":
+        total += NJ_RETURN_TOLL
+    return money(total)
 
 
 def money(value) -> Decimal:

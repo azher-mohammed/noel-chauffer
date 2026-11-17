@@ -53,7 +53,7 @@ from pricing import (
     compute_extra_distance,
     compute_hourly,
     compute_one_way,
-    estimate_return_toll,
+    estimate_upfront_toll,
     free_waiting_minutes,
     is_airport_pickup,
     invoice_total,
@@ -854,20 +854,33 @@ def create_booking():
             booking.pickup_lat, booking.pickup_lng = pickup_coords
         if dropoff_coords:
             booking.dropoff_lat, booking.dropoff_lng = dropoff_coords
-        # Up-front NJ return-toll estimate (owner decision 2026-11-16):
-        # NY -> NJ trips carry the $16.79 Port Authority return
-        # crossing from the start, so the driver sees the separate
-        # Toll line BEFORE accepting. This stored toll is the single
-        # source for the fare total AND the options-page class totals
-        # (both read booking.toll), so quote and charge always agree.
-        # The geocoder state cache is warm: distance_miles above
-        # geocoded both addresses first; on a geocoding failure the
-        # helper falls back to the address display text.
-        booking.toll = estimate_return_toll(
+        # Up-front toll estimate from the map (owner decision
+        # 2026-11-16, extended 2026-11-17): every tolled crossing
+        # the route passes through is charged at the verified
+        # E-ZPass rate, plus the $16.79 Port Authority return
+        # crossing on NY -> NJ trips, so the driver sees the
+        # separate Toll line BEFORE accepting. This stored toll is
+        # the single source for the fare total AND the options-page
+        # class totals (both read booking.toll), so quote and
+        # charge always agree. The geocoder state cache is warm:
+        # distance_miles above geocoded both addresses first; on a
+        # geocoding failure the helper falls back to the address
+        # display text. The route cache is warm too: distance_miles
+        # fetched the route first, so route_geometry is cache-only
+        # and never fetches upstream; when it returns None (OSRM
+        # failure) the helper applies the compulsory NY<->NJ
+        # fallback.
+        geometry = None
+        if pickup_coords and dropoff_coords:
+            geometry = geo_module.route_geometry(
+                pickup_coords[0], pickup_coords[1],
+                dropoff_coords[0], dropoff_coords[1])
+        booking.toll = estimate_upfront_toll(
             geo_module.geocode_state(booking.pickup),
             geo_module.geocode_state(booking.dropoff),
             booking.pickup,
             booking.dropoff,
+            geometry,
         )
         # Default class is sedan (Business Class, pre-selected on the
         # options page); the customer may switch to SUV before paying.

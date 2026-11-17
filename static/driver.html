@@ -260,6 +260,17 @@
   <button class="btn-primary btn-gold" type="button" id="namesign-close">Close</button>
 </div>
 
+<!-- Navigation chooser: after "Head to pickup" / "Start trip", the driver picks Google Maps or Waze -->
+<div class="nav-chooser-overlay hidden" id="nav-chooser-overlay" role="dialog" aria-label="Choose navigation app">
+  <div class="nav-chooser-card">
+    <div class="nav-chooser-title" id="nav-chooser-title">Navigate to pickup</div>
+    <div class="nav-chooser-dest" id="nav-chooser-dest"></div>
+    <button class="btn-primary btn-gold" type="button" id="nav-chooser-google">Google Maps</button>
+    <button class="btn-primary btn-gold" type="button" id="nav-chooser-waze">Waze</button>
+    <button class="btn-ghost" type="button" id="nav-chooser-close">Not now</button>
+  </div>
+</div>
+
 <script src="/static/js/driver.js"></script>
 </body>
 </html>

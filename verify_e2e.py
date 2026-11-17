@@ -959,6 +959,22 @@ check("driver page carries the cancel-locked note",
       "trip-cancel-locked-note" in r.text
       and "pickup is within 2 hours" in r.text,
       "cancel-locked note missing from served driver page")
+r = anon.get(BASE + "/static/js/driver.js", timeout=TIMEOUT)
+check("served driver.js pops a nav chooser on heading/pickup stages",
+      "function showNavChooser(dest, title)" in r.text
+      and "function maybeShowNavChooser(advancedStage)" in r.text
+      and "maybeShowNavChooser(current);" in r.text
+      and "nav-chooser-overlay" in r.text
+      and 'window.open(urls.google, "_blank", "noopener");' in r.text
+      and 'window.open(urls.waze, "_blank", "noopener");' in r.text,
+      "nav chooser helpers or wiring missing from served driver.js")
+r = anon.get(BASE + "/driver", timeout=TIMEOUT)
+check("driver page carries the nav chooser overlay",
+      "nav-chooser-overlay" in r.text
+      and "nav-chooser-google" in r.text
+      and "nav-chooser-waze" in r.text
+      and "nav-chooser-close" in r.text,
+      "nav chooser overlay missing from served driver page")
 r = anon.get(BASE + "/static/css/driver.css", timeout=TIMEOUT)
 check("served driver.css styles route labels",
       ".route-label" in r.text, "route-label rule missing from served driver.css")

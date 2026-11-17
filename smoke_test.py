@@ -560,6 +560,25 @@ check("driver page carries the cancel-locked note",
       and b"trip-cancel-locked-note" in resp.data
       and b"pickup is within 2 hours" in resp.data,
       str(resp.status_code))
+# --- navigation chooser on stage advance (owner request 2026-11-17) --
+resp = client.get("/static/js/driver.js")
+check("served driver.js pops a nav chooser on heading/pickup stages",
+      resp.status_code == 200
+      and b"function showNavChooser(dest, title)" in resp.data
+      and b"function maybeShowNavChooser(advancedStage)" in resp.data
+      and b"maybeShowNavChooser(current);" in resp.data
+      and b"nav-chooser-overlay" in resp.data
+      and b'window.open(urls.google, "_blank", "noopener");' in resp.data
+      and b'window.open(urls.waze, "_blank", "noopener");' in resp.data,
+      str(resp.status_code))
+resp = client.get("/driver")
+check("driver page carries the nav chooser overlay",
+      resp.status_code == 200
+      and b"nav-chooser-overlay" in resp.data
+      and b"nav-chooser-google" in resp.data
+      and b"nav-chooser-waze" in resp.data
+      and b"nav-chooser-close" in resp.data,
+      str(resp.status_code))
 resp = client.get("/static/css/driver.css")
 check("served driver.css styles route labels",
       resp.status_code == 200 and b".route-label" in resp.data,

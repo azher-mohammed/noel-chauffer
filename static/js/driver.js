@@ -658,6 +658,50 @@
     el.innerHTML = t ? tripNavLinksHtml(state.stageIndex, t.pickup, t.dropoff) : "";
   }
 
+  /* Navigation chooser (owner request 2026-11-17): tapping "Head
+     to pickup" or "Start trip" pops a small chooser offering Google
+     Maps or Waze, so Maps opens straight to the pickup or the
+     drop-off without the driver hunting for the links. It appears
+     ONLY on those two stage advances — never on "arrived" or on
+     completion — and dismissing it changes nothing: the stage has
+     already advanced. The destination reuses tripNavDestination,
+     so hourly rides (no drop-off) never get a drop-off chooser.
+     The external URL opens from the chooser button's own tap
+     handler, a direct user gesture, so mobile browsers do not
+     block it. The trip-screen links stay as a manual fallback. */
+  function navChooserUrls(dest) {
+    return {
+      google: "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest),
+      waze: "https://waze.com/ul?q=" + encodeURIComponent(dest) + "&navigate=yes"
+    };
+  }
+  function showNavChooser(dest, title) {
+    if (!dest) return;
+    var urls = navChooserUrls(dest);
+    $("nav-chooser-title").textContent = title;
+    $("nav-chooser-dest").textContent = dest;
+    $("nav-chooser-google").onclick = function () { hideNavChooser(); window.open(urls.google, "_blank", "noopener"); };
+    $("nav-chooser-waze").onclick = function () { hideNavChooser(); window.open(urls.waze, "_blank", "noopener"); };
+    show($("nav-chooser-overlay"));
+  }
+  function hideNavChooser() {
+    hide($("nav-chooser-overlay"));
+  }
+  function maybeShowNavChooser(advancedStage) {
+    var t = state.trip;
+    if (!t) return;
+    var dest = tripNavDestination(state.stageIndex, t.pickup, t.dropoff);
+    if (advancedStage === "en_route") {
+      showNavChooser(dest, "Navigate to pickup");
+    } else if (advancedStage === "start") {
+      showNavChooser(dest, "Navigate to drop-off");
+    }
+  }
+  $("nav-chooser-close").addEventListener("click", hideNavChooser);
+  $("nav-chooser-overlay").addEventListener("click", function (e) {
+    if (e.target === $("nav-chooser-overlay")) hideNavChooser();
+  });
+
   /* ---------- Trip screen ---------- */
   function renderTrip() {
     var t = state.trip;
@@ -924,6 +968,11 @@
         if (current === "complete") { endTrip(); return; }
         state.stageIndex++;
         renderStages();
+        /* "Head to pickup" and "Start trip" offer navigation straight
+           to the pickup / drop-off; the other stages do not. The
+           stage has already advanced, so dismissing the chooser is
+           harmless. */
+        maybeShowNavChooser(current);
       })
       .catch(function () {
         btn.disabled = false;
@@ -954,6 +1003,7 @@
     stopNoShowTimer();
     stopChatPolling();
     hide($("namesign-overlay"));
+    hideNavChooser();
     state.trip = null;
     state.stageIndex = 0;
     hide($("loc-note"));

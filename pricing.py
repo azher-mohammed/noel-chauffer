@@ -18,6 +18,15 @@ per-mile rate and driver rate. NO booking fee.
 - customer total = fare + gratuity + tax + toll.
 - driver earnings = miles x driver rate + toll.
 - owner profit = total - driver earnings - tax.
+- UP-FRONT NJ RETURN TOLL (owner decision 2026-11-16): a trip from
+  New York to New Jersey carries a $16.79 toll estimate from booking
+  creation — the Port Authority return crossing (Holland Tunnel /
+  Lincoln Tunnel / George Washington Bridge), E-ZPass peak rate,
+  verified 2026-11-16. The estimate is part of the single total the
+  customer pays and the driver sees as a separate Toll line BEFORE
+  accepting. All other trips start at a $0 toll. The owner can still
+  adjust the toll afterwards in the dashboard (not on completed
+  rides).
 - Referral codes are accepted but give a $0 discount for now: the old
   benefit (waiving the $20 booking fee) no longer applies since there
   is no fee. A new referral benefit is TBD pending the owner's
@@ -34,6 +43,7 @@ per-mile rate and driver rate. NO booking fee.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -63,7 +73,64 @@ HOURLY_CUSTOMER = Decimal("90")
 HOURLY_DRIVER = Decimal("50")
 WAITING_RATE_PER_MIN = Decimal("1")
 
+# Up-front NJ return-toll estimate (owner decision 2026-11-16): the
+# Port Authority E-ZPass peak rate for the return crossing into New
+# York (Holland Tunnel / Lincoln Tunnel / George Washington Bridge),
+# verified 2026-11-16. Applied at booking creation to New York ->
+# New Jersey trips only; see estimate_return_toll.
+NJ_RETURN_TOLL = Decimal("16.79")
+
 AIRPORT_KEYWORDS = ("airport", "jfk", "lga", "ewr", "laguardia", "newark", "liberty")
+
+_NY_STATE_NAMES = ("new york", "ny", "us-ny")
+_NJ_STATE_NAMES = ("new jersey", "nj", "us-nj")
+
+
+def _state_code(state):
+    """Normalize a geocoder state value to "NY", "NJ", or None."""
+    text = (state or "").strip().lower()
+    if text in _NY_STATE_NAMES:
+        return "NY"
+    if text in _NJ_STATE_NAMES:
+        return "NJ"
+    return None
+
+
+def _text_state(text):
+    """Best-effort state from an address display string: "NY", "NJ", or None.
+
+    Fallback only, used when the geocoder state is unavailable. Matches
+    the full state name or a standalone state abbreviation. "Newark"
+    matches neither, and a bare place name with no state yields None —
+    the estimate must never be guessed from a city name alone.
+    """
+    lowered = (text or "").lower()
+    if re.search(r"\bnew jersey\b", lowered) or re.search(r"\bnj\b", lowered):
+        return "NJ"
+    if re.search(r"\bnew york\b", lowered) or re.search(r"\bny\b", lowered):
+        return "NY"
+    return None
+
+
+def estimate_return_toll(pickup_state, dropoff_state, pickup_text="", dropoff_text="") -> Decimal:
+    """Up-front toll estimate for a one-way ride. Decimal.
+
+    $16.79 when the trip goes from New York to New Jersey (the Port
+    Authority return crossing); $0.00 for every other trip, including
+    New Jersey -> New York and New Jersey -> New Jersey. Each side
+    resolves from the geocoder state field first and falls back to the
+    address display text when the state is unavailable, so a geocoding
+    failure never blocks the estimate — it only falls back to what the
+    customer typed or picked. This is the ONE helper for the estimate:
+    booking creation stores its result on the booking, and the
+    options-page quote reads the same stored toll, so quote and charge
+    always agree exactly.
+    """
+    pickup_code = _state_code(pickup_state) or _text_state(pickup_text)
+    dropoff_code = _state_code(dropoff_state) or _text_state(dropoff_text)
+    if pickup_code == "NY" and dropoff_code == "NJ":
+        return NJ_RETURN_TOLL
+    return Decimal("0.00")
 
 
 def money(value) -> Decimal:

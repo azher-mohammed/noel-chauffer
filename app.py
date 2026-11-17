@@ -53,6 +53,7 @@ from pricing import (
     compute_extra_distance,
     compute_hourly,
     compute_one_way,
+    estimate_return_toll,
     free_waiting_minutes,
     is_airport_pickup,
     invoice_total,
@@ -853,10 +854,25 @@ def create_booking():
             booking.pickup_lat, booking.pickup_lng = pickup_coords
         if dropoff_coords:
             booking.dropoff_lat, booking.dropoff_lng = dropoff_coords
+        # Up-front NJ return-toll estimate (owner decision 2026-11-16):
+        # NY -> NJ trips carry the $16.79 Port Authority return
+        # crossing from the start, so the driver sees the separate
+        # Toll line BEFORE accepting. This stored toll is the single
+        # source for the fare total AND the options-page class totals
+        # (both read booking.toll), so quote and charge always agree.
+        # The geocoder state cache is warm: distance_miles above
+        # geocoded both addresses first; on a geocoding failure the
+        # helper falls back to the address display text.
+        booking.toll = estimate_return_toll(
+            geo_module.geocode_state(booking.pickup),
+            geo_module.geocode_state(booking.dropoff),
+            booking.pickup,
+            booking.dropoff,
+        )
         # Default class is sedan (Business Class, pre-selected on the
         # options page); the customer may switch to SUV before paying.
         booking.vehicle_class = "sedan"
-        result = compute_one_way(booking.miles, toll=Decimal("0.00"),
+        result = compute_one_way(booking.miles, toll=booking.toll,
                                  vehicle_class="sedan", referral=referral_valid)
 
     booking.fare_total = result["total"]

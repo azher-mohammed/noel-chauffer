@@ -288,6 +288,46 @@ if Decimal(str(detail_t["miles"])) == Decimal("18.0"):
     check("18.0 mi + toll total is exactly $253.87", approx(detail_t["customer_total"], "253.87"))
     check("18.0 mi + toll driver is exactly $90.50", approx(detail_t["driver_earnings"], "90.50"))
 
+# Up-front NJ return toll: NY -> NJ trips carry the $16.79 estimate
+# from creation (live geo resolves the states); NJ -> NJ trips $0.
+resp = anon.post(BASE + "/api/bookings", json={
+    "customer_name": "NJ Toll Customer", "phone": "+15550005454", "email": "nj@test.com",
+    "pickup": "Terminal 1, JFK Access Road, Queens, New York, 11430, United States",
+    "dropoff": "Jersey City, Hudson County, New Jersey, United States",
+    "date": "2030-06-06", "time": "12:00", "ride_type": "one_way",
+}, timeout=TIMEOUT)
+check("NJ booking 201", resp.status_code == 201, resp.text[:200])
+b_nj = resp.json()["booking"]
+detail_nj = s.get(BASE + f"/api/owner/bookings/{b_nj['id']}", timeout=TIMEOUT).json()
+expected_nj = compute_one_way(Decimal(str(detail_nj["miles"])), toll=Decimal("16.79"))
+check("NJ trip stored toll is $16.79 at creation",
+      approx(detail_nj["toll"], "16.79"), str(detail_nj.get("toll")))
+check("NJ trip total matches formula incl. $16.79 toll",
+      approx(detail_nj["customer_total"], expected_nj["total"]),
+      f"got {detail_nj['customer_total']} expected {expected_nj['total']}")
+check("NJ trip driver matches formula incl. $16.79 toll",
+      approx(detail_nj["driver_earnings"], expected_nj["driver_earnings"]))
+check("NJ trip options page totals include the toll",
+      approx(b_nj["class_totals"]["sedan"], expected_nj["total"])
+      and approx(b_nj["class_totals"]["suv"],
+                 compute_one_way(Decimal(str(detail_nj["miles"])),
+                                 toll=Decimal("16.79"),
+                                 vehicle_class="suv")["total"]),
+      str(b_nj.get("class_totals")))
+
+resp = anon.post(BASE + "/api/bookings", json={
+    "customer_name": "NJ Local Customer", "phone": "+15550005353", "email": "njl@test.com",
+    "pickup": "Newark Liberty International Airport, Newark, Essex County, New Jersey, United States",
+    "dropoff": "Jersey City, Hudson County, New Jersey, United States",
+    "date": "2030-06-07", "time": "12:00", "ride_type": "one_way",
+}, timeout=TIMEOUT)
+check("NJ->NJ booking 201", resp.status_code == 201, resp.text[:200])
+b_njlocal = resp.json()["booking"]
+detail_njlocal = s.get(BASE + f"/api/owner/bookings/{b_njlocal['id']}",
+                       timeout=TIMEOUT).json()
+check("NJ->NJ trip stored toll is $0.00",
+      approx(detail_njlocal["toll"], "0.00"), str(detail_njlocal.get("toll")))
+
 # ------------------------------------------------- class selection ---------
 
 section("options page: form -> class totals -> pick class -> pay -> class-filtered dispatch")

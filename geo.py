@@ -22,6 +22,7 @@ METERS_PER_MILE = 1609.344
 FALLBACK_MILES = 10.0  # used only when geocoding fails outright (no coords)
 
 _geocode_cache: dict = {}
+_geocode_address_cache: dict = {}
 _route_cache: dict = {}
 _search_cache: dict = {}
 _CACHE_LIMIT = 500
@@ -40,26 +41,67 @@ def _http_get_json(url: str):
 
 
 def geocode(address: str):
-    """Return (lat, lng) floats, or None on any failure. Cached."""
+    """Return (lat, lng) floats, or None on any failure. Cached.
+
+    The response's address details are cached alongside the
+    coordinates (see geocode_state): the booking flow reads the US
+    state from them without a second upstream request.
+    """
     key = (address or "").strip().lower()
     if not key:
         return None
     if key in _geocode_cache:
         return _geocode_cache[key]
     result = None
+    address_details = None
     try:
         url = (
-            "https://nominatim.openstreetmap.org/search?format=json&limit=1&q="
+            "https://nominatim.openstreetmap.org/search?format=json&limit=1"
+            "&addressdetails=1&q="
             + urllib.parse.quote(address)
         )
         data = _http_get_json(url)
         if data:
             result = (float(data[0]["lat"]), float(data[0]["lon"]))
+            raw_address = data[0].get("address")
+            if isinstance(raw_address, dict):
+                address_details = raw_address
     except Exception as exc:  # never raise: caller falls back
         log.warning("geocode failed for %r: %s", address, exc)
     if len(_geocode_cache) < _CACHE_LIMIT:
         _geocode_cache[key] = result
+    if len(_geocode_address_cache) < _CACHE_LIMIT:
+        _geocode_address_cache[key] = address_details
     return result
+
+
+def geocode_state(address: str):
+    """Return the US state string for an address, or None.
+
+    Cache-only on purpose: it reads the address details stored by
+    geocode() and NEVER makes an upstream request itself. The booking
+    flow always geocodes both addresses first (distance_miles), so the
+    cache is warm exactly when the state is needed, and no second
+    Nominatim call is made. Returns None when the address was never
+    geocoded or its lookup failed — callers fall back to matching the
+    address display text. Never raises.
+    """
+    key = (address or "").strip().lower()
+    if not key:
+        return None
+    try:
+        details = _geocode_address_cache.get(key)
+    except Exception:
+        return None
+    if not isinstance(details, dict):
+        return None
+    state = details.get("state")
+    if state:
+        return str(state)
+    iso = details.get("ISO3166-2-lvl4")
+    if iso:
+        return str(iso)
+    return None
 
 
 def _parse_place(item):

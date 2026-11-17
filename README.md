@@ -65,8 +65,11 @@ never a breakdown, never rates, never miles.
 - **No SMS or email is ever sent.** Customer messages are written to the
   owner-dashboard outbox only, so the owner can see exactly what would
   have been sent. Connecting a messaging service is a later step.
-- **Tolls are entered by the owner** per ride in the dashboard. There is
-  no toll API.
+- **Tolls:** New York -> New Jersey trips get the $16.79 Port Authority
+  return-crossing estimate automatically at booking creation (up
+  front, like Uber), so the driver sees the separate Toll line before
+  accepting. The owner can still adjust the toll per ride in the
+  dashboard (not on completed rides). There is no toll API.
 - **Fares use live geocoding/routing** (Nominatim + OSRM, no keys). If
   those services are unreachable, the app falls back to straight-line
   distance × 1.3, or 10.0 miles if an address cannot be geocoded at all.
@@ -103,7 +106,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests (199)
+python -m unittest discover -s tests -v   # unit tests (236)
 python smoke_test.py                       # backend flow checks (124)
 ```
 
@@ -114,7 +117,7 @@ server with a **fresh** database:
 DATABASE_URL="sqlite:////tmp/noel-verify.db" OWNER_PIN=4321 \
   SECRET_KEY=test-secret ENCRYPTION_KEY="<fernet key>" PORT=5055 python app.py &
 NOEL_BASE_URL=http://127.0.0.1:5055 NOEL_OWNER_PIN=4321 python verify_e2e.py
-# full HTTP checklist (208 checks)
+# full HTTP checklist (215 checks)
 ```
 
 ### Free driver features (added 2026-11-16)

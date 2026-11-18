@@ -570,6 +570,32 @@ check("clear-rides idempotent on empty db",
       resp.status_code == 200 and resp.get_json()["deleted"]["bookings"] == 0,
       resp.get_data(as_text=True)[:150])
 
+# --- 8b. owner remove all drivers (TEMPORARY TEST-ONLY: remove with the endpoint) ---
+print("== owner remove all drivers ==")
+resp = anon_client.post("/api/owner/clear-drivers", json={})
+check("clear-drivers without login -> 401", resp.status_code == 401, str(resp.status_code))
+resp = client.get("/api/owner/drivers")
+before_drivers = len(resp.get_json())
+check("drivers exist before clear", before_drivers > 0, str(before_drivers))
+resp = client.post("/api/owner/clear-drivers", json={})
+body = resp.get_json()
+check("clear-drivers ok", resp.status_code == 200 and body.get("cleared") is True,
+      resp.get_data(as_text=True)[:150])
+deleted = body.get("deleted", {})
+check("clear-drivers removed all drivers and documents",
+      deleted.get("drivers") == before_drivers and deleted.get("documents", 0) > 0, str(deleted))
+check("clear-drivers unlinked zero bookings (rides already cleared)",
+      deleted.get("bookings_unlinked") == 0, str(deleted))
+resp = client.get("/api/owner/drivers")
+check("owner drivers empty after clear", resp.get_json() == [], str(resp.get_json())[:100])
+resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token1})
+check("driver token rejected after removal", resp.status_code == 401,
+      resp.get_data(as_text=True)[:150])
+resp = client.post("/api/owner/clear-drivers", json={})
+check("clear-drivers idempotent on empty db",
+      resp.status_code == 200 and resp.get_json()["deleted"]["drivers"] == 0,
+      resp.get_data(as_text=True)[:150])
+
 # --- route labels (served driver JS/CSS) ------------------------------------
 resp = client.get("/static/js/driver.js")
 check("served driver.js has Pick up / Drop off route labels",

@@ -154,11 +154,25 @@ automatically, and **driver ride history is retained for a minimum
 of one year**: no automatic deletion, expiry or retention cleanup of
 ride records exists anywhere in this codebase, and none may be added.
 
+Owner decision 2026-11-17 (voice call): the dashboard also has a
+**Remove all drivers** button (POST `/api/owner/clear-drivers`, owner
+PIN session + confirm dialog) that removes every driver registration,
+document and profile photo so everyone re-registers fresh with the
+state selector. Ride history is **kept**: bookings stay, only their
+driver links are detached, and payments, chat messages, alerts,
+outbox messages and referral codes are untouched. A removed driver's
+phone number becomes free to register again. Also manual test-only —
+nothing calls it automatically.
+
 To remove it before launch, delete: the `owner_clear_rides` endpoint
 in `app.py` (marked TEMPORARY TEST-ONLY), the button in
 `static/owner.html`, its handler in `static/js/owner.js`, the
 `.danger-btn` style in `static/css/owner.css`,
 `tests/test_clear_rides.py`, and the clear-rides sections in
+`smoke_test.py` and `verify_e2e.py`. Remove the driver reset the same
+way: the `owner_clear_drivers` endpoint in `app.py`, the button in
+`static/owner.html`, its handler in `static/js/owner.js`,
+`tests/test_clear_drivers.py`, and the clear-drivers sections in
 `smoke_test.py` and `verify_e2e.py`.
 
 ### Free driver features (added 2026-11-16)

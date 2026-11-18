@@ -133,6 +133,33 @@
       .catch(function () { btn.disabled = false; });
   });
 
+  /* ---------- Remove all drivers (TEMPORARY TEST-ONLY: remove before real launch) ---------- */
+  $("clear-drivers-btn").addEventListener("click", function () {
+    if (!window.confirm("Remove ALL drivers? This deletes every driver registration, document and profile photo. Ride history is kept, but bookings will no longer show a driver. Drivers must re-register. This cannot be undone.")) return;
+    var btn = $("clear-drivers-btn");
+    btn.disabled = true;
+    fetch("/api/owner/clear-drivers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: "{}"
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }).catch(function () { return { ok: r.ok, j: {} }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) return;
+        var d = res.j.deleted || {};
+        window.alert("Removed " + (d.drivers || 0) + " driver(s), " + (d.documents || 0) + " document(s) and " + (d.booking_exclusions || 0) + " exclusion(s). " + (d.bookings_unlinked || 0) + " booking(s) unlinked. Ride history was kept.");
+        loadSummaryThenEnterSoft();
+        loadBookings();
+        loadPayouts();
+        loadAlerts();
+        loadOutbox();
+        loadDrivers();
+      })
+      .catch(function () { btn.disabled = false; });
+  });
+
   /* ---------- Summary ---------- */
   function renderSummary(s) {
     s = s || {};

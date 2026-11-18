@@ -1155,6 +1155,42 @@ check("owner.js wires clear-rides with confirm",
       r.status_code == 200 and "/api/owner/clear-rides" in r.text and "window.confirm(" in r.text,
       str(r.status_code))
 
+# ------------------------------------------------- remove all drivers -----
+# TEMPORARY TEST-ONLY (remove with the endpoint, before real launch).
+# Runs LAST, after clear-rides: it removes every driver, so nothing
+# after it may need driver state. Owner decision 2026-11-17: remove
+# all registered drivers so everyone re-registers fresh with the
+# state selector. Ride history is kept (bookings were already cleared
+# above, so bookings_unlinked is 0 here).
+
+section("owner remove all drivers")
+r = anon.post(BASE + "/api/owner/clear-drivers", json={}, timeout=TIMEOUT)
+check("clear-drivers without login -> 401", r.status_code == 401, str(r.status_code))
+r = s.get(BASE + "/api/owner/drivers", timeout=TIMEOUT)
+before_drivers = len(r.json()) if r.status_code == 200 else 0
+check("drivers exist before clear", before_drivers > 0, str(before_drivers))
+r = s.post(BASE + "/api/owner/clear-drivers", json={}, timeout=TIMEOUT)
+check("clear-drivers ok", r.status_code == 200 and r.json().get("cleared") is True, r.text[:150])
+deleted = r.json().get("deleted", {}) if r.status_code == 200 else {}
+check("clear-drivers removed all drivers and documents",
+      deleted.get("drivers") == before_drivers and deleted.get("documents", 0) > 0, str(deleted))
+r = s.get(BASE + "/api/owner/drivers", timeout=TIMEOUT)
+check("owner drivers empty after clear", r.status_code == 200 and r.json() == [], r.text[:100])
+r = anon.get(BASE + "/api/drivers/me/offers", headers={"X-Driver-Token": token1}, timeout=TIMEOUT)
+check("driver token rejected after removal", r.status_code == 401, str(r.status_code))
+r = s.post(BASE + "/api/owner/clear-drivers", json={}, timeout=TIMEOUT)
+check("clear-drivers idempotent on empty db",
+      r.status_code == 200 and r.json()["deleted"]["drivers"] == 0, r.text[:150])
+r = anon.get(BASE + "/owner", timeout=TIMEOUT)
+check("owner page has Remove all drivers button",
+      r.status_code == 200 and 'id="clear-drivers-btn"' in r.text and "Remove all drivers" in r.text,
+      str(r.status_code))
+r = anon.get(BASE + "/static/js/owner.js", timeout=TIMEOUT)
+check("owner.js wires clear-drivers with confirm and counts",
+      r.status_code == 200 and "/api/owner/clear-drivers" in r.text
+      and "window.confirm(" in r.text and "window.alert(" in r.text,
+      str(r.status_code))
+
 print(f"\n{CHECKS['passed']} passed, {CHECKS['failed']} failed")
 if FAILURES:
     print("Failures:", "; ".join(FAILURES))

@@ -2460,6 +2460,62 @@ def owner_clear_rides():
     return jsonify({"cleared": True, "deleted": deleted})
 
 
+# TEMPORARY TEST-ONLY endpoint (owner decision 2026-11-17, voice call):
+# REMOVE this endpoint, the dashboard button, and their tests before
+# real launch. The owner asked to remove every currently registered
+# driver ("jitne bhi") so everyone re-registers fresh with the new
+# state selector. It must never be called automatically. Ride history
+# is KEPT — only the driver links are detached — because driver ride
+# records are retained for a minimum of one year.
+@app.route("/api/owner/clear-drivers", methods=["POST"])
+def owner_clear_drivers():
+    """Owner-only MANUAL test reset: remove ALL driver registrations
+    so every driver re-registers fresh (e.g. with the state selector).
+
+    TEMPORARY, testing only — see the banner comment above. This is
+    only ever a manual, owner-PIN-confirmed reset from the dashboard
+    button (itself guarded by a confirm dialog). Nothing calls it
+    automatically.
+
+    Removed: every Driver row, every DriverDocument row (via the ORM
+    cascade on Driver.documents), and every BookingExclusion row
+    (they reference drivers). Detached, never deleted: bookings keep
+    their records — accepted_driver_id / assigned_driver_id are set
+    to NULL — and payments, chat messages, booking events, outbox
+    messages and referral codes are untouched. A removed driver's
+    phone number becomes free to register again.
+    """
+    error = require_owner()
+    if error:
+        return error
+    # Bookings are KEPT: only the driver links are detached, so ride
+    # history survives (retained for a minimum of one year).
+    unlinked_accepted = Booking.query.filter(
+        Booking.accepted_driver_id.isnot(None)
+    ).update({"accepted_driver_id": None}, synchronize_session=False)
+    unlinked_assigned = Booking.query.filter(
+        Booking.assigned_driver_id.isnot(None)
+    ).update({"assigned_driver_id": None}, synchronize_session=False)
+    exclusions = BookingExclusion.query.delete(synchronize_session=False)
+    # Per-driver ORM delete: Driver.documents cascades "all,
+    # delete-orphan", so every DriverDocument row goes with its
+    # driver. A bulk Driver.query.delete() would NOT cascade and
+    # would orphan documents / hit the FK constraint.
+    documents = DriverDocument.query.count()
+    drivers = Driver.query.all()
+    for driver in drivers:
+        db.session.delete(driver)
+    db.session.commit()
+    removed = {
+        "drivers": len(drivers),
+        "documents": documents,
+        "booking_exclusions": exclusions,
+        "bookings_unlinked": unlinked_accepted + unlinked_assigned,
+    }
+    log.info("owner cleared all drivers: %s", removed)
+    return jsonify({"cleared": True, "deleted": removed})
+
+
 @app.route("/api/owner/drivers", methods=["GET"])
 def owner_drivers():
     error = require_owner()

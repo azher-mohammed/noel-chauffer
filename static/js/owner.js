@@ -396,6 +396,26 @@
           rows.map(function (r) {
             return "<div><div class=\"k\">" + esc(r[0]) + "</div><div>" + esc(r[1]) + "</div></div>";
           }).join("") + "</div>";
+        /* Emergency cancels inside the 2-hour window (owner decision
+           2026-11-18): read-only information — reason, automatic
+           judgment, suspension or not. No action required, no
+           approval step. */
+        if (Array.isArray(b.emergency_cancels) && b.emergency_cancels.length) {
+          var ecBox = document.createElement("div");
+          ecBox.className = "emergency-cancels";
+          var ecHtml = "<h4>Emergency cancels</h4>";
+          b.emergency_cancels.forEach(function (c) {
+            ecHtml += "<div class=\"emergency-cancel\">" +
+              "<div><strong>" + esc(c.driver_name || "Driver") + "</strong> — " + esc(c.created_at || "") + "</div>" +
+              "<div>Reason: " + esc(c.reason_label || c.reason || "") + (c.detail ? " — " + esc(c.detail) : "") + "</div>" +
+              "<div>Automatic judgment: " + esc(c.judgment || "") +
+              (c.flagged ? " (flagged for owner review)" : "") + "</div>" +
+              "<div>" + (c.suspended_until ? "Driver app blocked until " + esc(c.suspended_until) : "No suspension") + "</div>" +
+              "</div>";
+          });
+          ecBox.innerHTML = ecHtml;
+          panel.appendChild(ecBox);
+        }
         /* Dispatcher-lite: on a paid booking still waiting for a
            driver, the owner can assign it to one specific driver —
            or clear the assignment to broadcast it again. */

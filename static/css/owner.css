@@ -109,3 +109,9 @@ td .sub { color: var(--grey); font-size: 13px; }
 /* Dispatcher-lite assign control in the booking detail panel */
 .assign-box { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); align-items: center; }
 .assign-box select { padding: 9px 10px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 15px; min-width: 240px; background: var(--white); }
+
+/* Emergency-cancel records in the booking detail panel (owner
+   decision 2026-11-18): read-only information, no actions. */
+.emergency-cancels { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.emergency-cancels h4 { margin: 0 0 10px; font-size: 16px; }
+.emergency-cancel { font-size: 14.5px; line-height: 1.5; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--line); border-left: 4px solid var(--gold); border-radius: 8px; background: var(--white); }

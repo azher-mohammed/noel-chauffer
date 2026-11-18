@@ -2157,6 +2157,18 @@ class Driver(db.Model):
     profile_photo = db.Column(db.LargeBinary, nullable=True)
     profile_photo_mime = db.Column(db.String(60), nullable=True)
     available = db.Column(db.Boolean, nullable=False, default=False)
+    # Suspension end (owner decision 2026-11-18, voice call): when a
+    # driver cancels inside the 2-hour window and the automatic
+    # judgment finds the reason is his fault, the driver app is
+    # blocked for 48 hours. NULL means no suspension; a timestamp in
+    # the past means the suspension has auto-lifted (enforcement is
+    # purely time-based — no cron, no manual step). Sign-in still
+    # works while suspended so the driver sees the notice; he cannot
+    # go available and gets no offers until it lifts. Nullable: the
+    # column is added to the live database by the startup ALTER
+    # below, and drivers registered before it existed read as
+    # unsuspended.
+    suspended_until = db.Column(db.DateTime(timezone=True), nullable=True)
     bank_encrypted = db.Column(db.LargeBinary, nullable=True)
     bank_last4 = db.Column(db.String(4), nullable=True)
     token = db.Column(db.String(64), unique=True, nullable=False)
@@ -2369,6 +2381,35 @@ class BookingEvent(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
+class EmergencyCancel(db.Model):
+    """One emergency cancel inside the 2-hour window (owner decision
+    2026-11-18, voice call). The driver MUST give a reason; the
+    reason is judged automatically by the rule-based judge below —
+    never by the owner, never by an external AI service. One row per
+    cancel, so a booking cancelled twice keeps both records. The
+    owner dashboard shows these read-only (information only, no
+    action, no approval). `driver_id` has no foreign key and
+    `driver_name` is a snapshot, so the record survives the
+    test-only driver clear. A new table, so create_all() creates it
+    on the live database too."""
+    __tablename__ = "emergency_cancels"
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=False)
+    driver_id = db.Column(db.Integer, nullable=True)
+    driver_name = db.Column(db.String(120), nullable=False, default="")
+    reason = db.Column(db.String(40), nullable=False)
+    reason_label = db.Column(db.String(120), nullable=False, default="")
+    detail = db.Column(db.Text, nullable=True)
+    judgment = db.Column(db.String(10), nullable=False)  # genuine | fault
+    # True when an "Other" free-text reason matched neither the
+    # emergency nor the fault keywords: the benefit of the doubt
+    # (genuine, no suspension) was given, and the case is flagged
+    # for owner visibility.
+    flagged = db.Column(db.Boolean, nullable=False, default=False)
+    suspended_until = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
 class SupportMessage(db.Model):
     """A typed message from the pre-booking 'Chat with us' widget.
     The widget is available always (no booking, no trip), and its
@@ -2573,6 +2614,24 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("outbox sent_at column check failed: %s", exc)
+    # Same pattern for the driver suspension end (added with the
+    # AI-judged emergency cancel, 2026-11-18). Nullable, so existing
+    # driver rows keep reading as unsuspended.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "suspended_until" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text(
+                        "ALTER TABLE drivers ADD COLUMN suspended_until "
+                        "TIMESTAMP WITH TIME ZONE"
+                    )
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("suspended_until column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -2605,6 +2664,102 @@ def generate_referral_code() -> str:
 
 def add_event(booking_id, event_type, message):
     db.session.add(BookingEvent(booking_id=booking_id, type=event_type, message=message))
+
+
+# --- Emergency cancel inside the 2-hour window (owner decision --------
+# 2026-11-18, voice call — SUPERSEDES the 2026-11-17 deferral of the
+# emergency flow). DRIVER ONLY: the customer is never penalised and
+# never sees any of this; every driver cancel auto re-dispatches.
+# Inside 2 hours the driver CAN cancel but MUST give a reason. The
+# reason is judged AUTOMATICALLY by the rules below — no manual
+# review by the owner, and NO external AI/LLM API call (no keys, no
+# cost, no driver PII sent anywhere). A fault judgment blocks the
+# driver's app for 48 hours; a genuine emergency never blocks.
+# DEFAULTS (flagged for the owner — he can change any of them): the
+# reason list, the keyword lists, the benefit-of-the-doubt default,
+# and the 48-hour length are all defaults picked for this build.
+EMERGENCY_CANCEL_REASONS = (
+    ("breakdown", "Car breakdown or accident", "genuine"),
+    ("medical", "Medical emergency", "genuine"),
+    ("family", "Family emergency", "genuine"),
+    ("other_job", "I took another job", "fault"),
+    ("dont_want", "I do not want this trip", "fault"),
+    ("running_late", "Running late / overslept", "fault"),
+    ("other", "Other (please explain)", None),  # judged from free text
+)
+EMERGENCY_CANCEL_REASON_LABELS = {k: label for k, label, _ in EMERGENCY_CANCEL_REASONS}
+_EMERGENCY_CANCEL_FIXED_JUDGMENT = {k: j for k, _, j in EMERGENCY_CANCEL_REASONS if j}
+# "Other" free-text keyword match. Emergency signals win over fault
+# signals (benefit of the doubt); neither matching also defaults to
+# genuine, flagged for owner visibility.
+EMERGENCY_CANCEL_FAULT_KEYWORDS = (
+    "another job", "other job", "don't want", "do not want",
+    "dont want", "too far", "pay too low", "not worth",
+    "changed my mind", "overslept", "running late", "don't feel",
+    "dont feel", "tired", "too tired",
+)
+EMERGENCY_CANCEL_EMERGENCY_KEYWORDS = (
+    "accident", "breakdown", "broke down", "hospital", "emergency",
+    "ambulance", "sick", "injured", "injury", "flat tire",
+    "flat tyre", "car won't start", "car wont start", "police",
+    "towed", "tow truck",
+)
+SUSPENSION_HOURS = 48
+
+
+def judge_emergency_cancel(reason, detail):
+    """Automatic judgment for an emergency cancel. Returns
+    (judgment, flagged): judgment is \"genuine\" or \"fault\"; flagged
+    is True only when an \"Other\" reason matched no keywords and
+    the benefit of the doubt was given. Pure function — no I/O."""
+    fixed = _EMERGENCY_CANCEL_FIXED_JUDGMENT.get(reason)
+    if fixed:
+        return fixed, False
+    text = (detail or "").lower()
+    if any(kw in text for kw in EMERGENCY_CANCEL_EMERGENCY_KEYWORDS):
+        return "genuine", False
+    if any(kw in text for kw in EMERGENCY_CANCEL_FAULT_KEYWORDS):
+        return "fault", False
+    return "genuine", True
+
+
+def _as_aware(dt):
+    """Naive datetimes (SQLite) read as UTC, same as iso() does."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def driver_suspension_end(driver):
+    """The driver's suspension end as an aware datetime, or None.
+    getattr-based so a driver row read before the column existed
+    degrades to 'not suspended' instead of raising."""
+    return _as_aware(getattr(driver, "suspended_until", None))
+
+
+def is_driver_suspended(driver, now=None):
+    end = driver_suspension_end(driver)
+    if end is None:
+        return False
+    return end > (now or utcnow())
+
+
+def suspension_message(driver):
+    """Plain-English suspension notice with the exact end date/time
+    in New York time, for API errors and the driver app banner."""
+    end = driver_suspension_end(driver)
+    if end is None:
+        return "Your driver app is paused."
+    try:
+        from zoneinfo import ZoneInfo
+        shown = end.astimezone(ZoneInfo("America/New_York"))
+    except Exception:
+        shown = end
+    return ("Your driver app is paused until "
+            + shown.strftime("%B %d, %Y at %I:%M %p")
+            + " (New York time). You will not get job offers until then.")
 
 
 # Neutral subject for queued emails whose caller passes no subject
@@ -4076,6 +4231,7 @@ def driver_me():
         "docs": driver_docs_status(driver),
         "bank_masked": bank_masked(driver),
         "available": driver.available,
+        "suspended_until": iso(driver_suspension_end(driver)),
     }})
 
 
@@ -4089,7 +4245,9 @@ def driver_lookup():
         return err("No driver found with that phone number.", 404)
     driver.token = uuid.uuid4().hex  # re-issue token (trial only)
     db.session.commit()
-    return jsonify({"driver": {"id": driver.id, "name": driver.name}, "token": driver.token})
+    return jsonify({"driver": {"id": driver.id, "name": driver.name,
+                               "suspended_until": iso(driver_suspension_end(driver))},
+                    "token": driver.token})
 
 
 @app.route("/api/drivers/me/signin", methods=["POST"])
@@ -4115,7 +4273,9 @@ def driver_signin():
         return err("Email or password is incorrect.", 401)
     driver.token = uuid.uuid4().hex  # re-issue token (same as lookup)
     db.session.commit()
-    return jsonify({"driver": {"id": driver.id, "name": driver.name}, "token": driver.token})
+    return jsonify({"driver": {"id": driver.id, "name": driver.name,
+                               "suspended_until": iso(driver_suspension_end(driver))},
+                    "token": driver.token})
 
 
 # Password reset (owner decision 2026-11-18, drivers keep forgetting
@@ -4296,6 +4456,10 @@ def driver_availability():
     data = request.get_json(silent=True) or {}
     if "available" not in data:
         return err("available is required.")
+    # A suspended driver cannot go available (owner decision
+    # 2026-11-18); going offline is always allowed.
+    if data["available"] and is_driver_suspended(driver):
+        return err(suspension_message(driver), 409)
     driver.available = bool(data["available"])
     db.session.commit()
     return jsonify({"available": driver.available})
@@ -4306,6 +4470,11 @@ def driver_offers():
     driver, error = require_driver()
     if error:
         return error
+    # A suspended driver gets no offers until the suspension lifts
+    # (owner decision 2026-11-18). The app shows the suspension
+    # notice from /api/drivers/me, so an empty list is enough here.
+    if is_driver_suspended(driver):
+        return jsonify([])
     # Owner decision 2026-11-16: job offers reach every registered
     # driver, available or offline — the "Go available" toggle no
     # longer gates offers. The time-conflict rule below still applies.
@@ -4365,6 +4534,10 @@ def driver_accept(booking_id):
     driver, error = require_driver()
     if error:
         return error
+    # Defense in depth: a suspended driver sees no offers, but a
+    # direct accept call must fail too.
+    if is_driver_suspended(driver):
+        return err(suspension_message(driver), 409)
     if BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
         return err("You have declined this booking.", 409)
     # Class match is enforced here too, so a driver can never accept a
@@ -4595,12 +4768,49 @@ def driver_trip_event(booking_id):
     elif event == "cancel":
         if booking.status not in ("accepted", "en_route", "arrived"):
             return err("Cannot cancel a ride in this state.", 409)
-        # Owner rule 2026-11-17: once pickup is within 2 hours, the
-        # driver cannot cancel. Earlier, cancelling works as before
-        # and the job goes back to the other drivers automatically.
-        if driver_cancel_locked(booking.date, booking.time):
-            return err("This job can no longer be cancelled because "
-                       "pickup is within 2 hours.", 409)
+        # Owner rule 2026-11-18 (SUPERSEDES the 2026-11-17 lock that
+        # blocked every cancel inside 2 hours): once pickup is
+        # within 2 hours, the driver CAN still cancel, but MUST give
+        # a reason, and the reason is judged automatically — no
+        # manual review. A fault judgment blocks the driver's app
+        # for 48 hours; a genuine emergency never blocks. More than
+        # 2 hours out, cancelling works exactly as before: no reason
+        # required, no judgment, no suspension. In EVERY case the
+        # job goes back to the other drivers automatically and the
+        # customer is never told about the cancel or re-dispatch.
+        locked = driver_cancel_locked(booking.date, booking.time)
+        emergency = None
+        if locked:
+            reason = (data.get("reason") or "").strip()
+            detail = (data.get("detail") or "").strip()
+            if reason not in EMERGENCY_CANCEL_REASON_LABELS:
+                return err("Pickup is within 2 hours, so cancelling "
+                           "needs a reason. Please pick a reason.", 409)
+            if reason == "other" and not detail:
+                return err("Please say what happened.", 409)
+            judgment, flagged = judge_emergency_cancel(reason, detail)
+            now = utcnow()
+            suspended_until = (now + timedelta(hours=SUSPENSION_HOURS)
+                               if judgment == "fault" else None)
+            if suspended_until is not None:
+                driver.suspended_until = suspended_until
+                driver.available = False
+            db.session.add(EmergencyCancel(
+                booking_id=booking.id,
+                driver_id=driver.id,
+                driver_name=driver.name,
+                reason=reason,
+                reason_label=EMERGENCY_CANCEL_REASON_LABELS[reason],
+                detail=detail or None,
+                judgment=judgment,
+                flagged=flagged,
+                suspended_until=suspended_until,
+            ))
+            emergency = {
+                "judgment": judgment,
+                "flagged": flagged,
+                "suspended_until": iso(suspended_until),
+            }
         booking.status = "offered"
         booking.accepted_driver_id = None
         booking.assigned_driver_id = None
@@ -4613,8 +4823,19 @@ def driver_trip_event(booking_id):
             db.session.add(BookingExclusion(booking_id=booking_id, driver_id=driver.id))
         # Payment was taken before dispatch, so it is kept; the booking
         # goes back to the other drivers automatically.
-        add_event(booking.id, "driver_cancelled",
-                  f"Driver {driver.name} cancelled booking #{booking.id}; sent back to other drivers. Payment kept.")
+        if locked:
+            add_event(booking.id, "emergency_cancel",
+                      f"Driver {driver.name} cancelled booking #{booking.id} within 2 hours of pickup. "
+                      f"Reason: {EMERGENCY_CANCEL_REASON_LABELS[reason]}"
+                      + (f" — {detail}" if detail else "")
+                      + f". Automatic judgment: {judgment}"
+                      + (" (flagged for owner review)" if flagged else "")
+                      + (f"; driver app blocked until {iso(suspended_until)}" if suspended_until is not None else "; no suspension")
+                      + ". Sent back to other drivers. Payment kept.")
+            response_extra["emergency_cancel"] = emergency
+        else:
+            add_event(booking.id, "driver_cancelled",
+                      f"Driver {driver.name} cancelled booking #{booking.id}; sent back to other drivers. Payment kept.")
     elif event == "no_show":
         if booking.status not in ("en_route", "arrived"):
             return err("No-show can only be marked while heading to or at pickup.", 409)
@@ -4827,6 +5048,22 @@ def owner_booking_detail(booking_id):
         "events": [{
             "id": e.id, "type": e.type, "message": e.message, "created_at": iso(e.created_at),
         } for e in sorted(booking.events, key=lambda e: e.id)],
+        # Emergency cancels inside the 2-hour window (owner decision
+        # 2026-11-18): read-only information for the owner — reason,
+        # automatic judgment, suspension or not. No action required,
+        # no approval step.
+        "emergency_cancels": [{
+            "id": c.id,
+            "driver_id": c.driver_id,
+            "driver_name": c.driver_name,
+            "reason": c.reason,
+            "reason_label": c.reason_label,
+            "detail": c.detail,
+            "judgment": c.judgment,
+            "flagged": bool(c.flagged),
+            "suspended_until": iso(_as_aware(c.suspended_until)),
+            "created_at": iso(c.created_at),
+        } for c in EmergencyCancel.query.filter_by(booking_id=booking.id).order_by(EmergencyCancel.id).all()],
     })
     return jsonify(row)
 
@@ -5090,8 +5327,9 @@ def owner_clear_rides():
     minimum of one year.
 
     Deleted: bookings, chat messages, booking events (alerts),
-    payments, decline exclusions and outbox messages. Kept
-    untouched: drivers, their documents and profile photos.
+    emergency cancel records, payments, decline exclusions and
+    outbox messages. Kept untouched: drivers, their documents and
+    profile photos.
     Referral codes stay valid: a code issued by a deleted booking
     keeps its code and used_count — only the link to the deleted
     booking is detached (issued_booking_id set to NULL) — because
@@ -5105,6 +5343,7 @@ def owner_clear_rides():
     deleted = {
         "chat_messages": ChatMessage.query.delete(synchronize_session=False),
         "booking_events": BookingEvent.query.delete(synchronize_session=False),
+        "emergency_cancels": EmergencyCancel.query.delete(synchronize_session=False),
         "payments": Payment.query.delete(synchronize_session=False),
         "booking_exclusions": BookingExclusion.query.delete(synchronize_session=False),
         "outbox_messages": OutboxMessage.query.delete(synchronize_session=False),

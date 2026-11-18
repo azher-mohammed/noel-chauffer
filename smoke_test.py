@@ -620,18 +620,21 @@ check("served driver.js keeps offer-card links, trip screen drops payload URLs",
       and b"esc(t.route_url)" not in resp.data
       and b"esc(t.route_waze_url)" not in resp.data,
       "offer-card links changed or trip screen still uses un-staged URLs")
-# --- driver cancel lock (owner rule 2026-11-17) --------------------------
-check("served driver.js hides cancel button within 2 hours of pickup",
+# --- emergency cancel reason step (owner rule 2026-11-18, SUPERSEDES
+# the 2026-11-17 lock that hid the button) --------------------------------
+check("served driver.js shows emergency-cancel reason step within 2 hours of pickup",
       resp.status_code == 200
       and b"function refreshCancelButton()" in resp.data
       and b"pickup.getTime() - Date.now() <= 2 * 60 * 60000" in resp.data
-      and b"trip-cancel-locked-note" in resp.data
+      and b"trip-cancel-reason-panel" in resp.data
+      and b"cancel-reason-confirm" in resp.data
       and b"refreshCancelButton();" in resp.data,
       str(resp.status_code))
 resp = client.get("/driver")
-check("driver page carries the cancel-locked note",
+check("driver page carries the emergency-cancel reason panel",
       resp.status_code == 200
-      and b"trip-cancel-locked-note" in resp.data
+      and b"trip-cancel-reason-panel" in resp.data
+      and b"Why are you cancelling?" in resp.data
       and b"pickup is within 2 hours" in resp.data,
       str(resp.status_code))
 # --- navigation chooser on stage advance (owner request 2026-11-17) --

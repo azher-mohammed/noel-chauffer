@@ -218,6 +218,7 @@
 
   <!-- ============ HOME / OFFERS ============ -->
   <section class="screen hidden" id="screen-home">
+    <div class="suspension-banner hidden" id="suspension-banner" role="status"></div>
     <div class="avail-card">
       <div class="state" id="avail-state">You are offline</div>
       <p id="avail-note">Go available to receive job offers.</p>
@@ -273,7 +274,28 @@
     <div style="height:10px;"></div>
     <button class="btn-danger" type="button" id="trip-cancel-btn">Cancel this job</button>
     <p class="form-note" id="trip-cancel-note">If you cancel, the job goes to the next driver automatically.</p>
-    <p class="form-note hidden" id="trip-cancel-locked-note">This job can no longer be cancelled — pickup is within 2 hours.</p>
+
+    <div class="cancel-reason-panel hidden" id="trip-cancel-reason-panel">
+      <div class="section-title">Why are you cancelling?</div>
+      <p class="form-note">Your pickup is within 2 hours. Please pick a reason. Your reason is checked automatically.</p>
+      <div role="radiogroup" aria-label="Cancel reason" id="cancel-reason-options">
+        <label class="reason-option"><input type="radio" name="cancel-reason" value="breakdown"> Car breakdown or accident</label>
+        <label class="reason-option"><input type="radio" name="cancel-reason" value="medical"> Medical emergency</label>
+        <label class="reason-option"><input type="radio" name="cancel-reason" value="family"> Family emergency</label>
+        <label class="reason-option"><input type="radio" name="cancel-reason" value="other_job"> I took another job</label>
+        <label class="reason-option"><input type="radio" name="cancel-reason" value="dont_want"> I do not want this trip</label>
+        <label class="reason-option"><input type="radio" name="cancel-reason" value="running_late"> Running late / overslept</label>
+        <label class="reason-option"><input type="radio" name="cancel-reason" value="other"> Other (please explain)</label>
+      </div>
+      <div class="field">
+        <label for="cancel-reason-detail">More detail (needed if you pick Other)</label>
+        <textarea id="cancel-reason-detail" rows="3" placeholder="Say what happened"></textarea>
+      </div>
+      <p class="form-error" id="cancel-reason-error" role="alert"></p>
+      <button class="btn-danger" type="button" id="cancel-reason-confirm">Cancel this job</button>
+      <div style="height:10px;"></div>
+      <button class="btn-ghost" type="button" id="cancel-reason-back">Back</button>
+    </div>
 
     <div class="chat-box" id="trip-chat">
       <div class="section-title">Chat with your customer</div>

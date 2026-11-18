@@ -1033,12 +1033,13 @@ check("served driver.js keeps offer-card links, trip screen drops payload URLs",
       and "esc(t.route_url)" not in r.text
       and "esc(t.route_waze_url)" not in r.text,
       "offer-card links changed or trip screen still uses un-staged URLs")
-check("served driver.js hides cancel button within 2 hours of pickup",
+check("served driver.js shows emergency-cancel reason step within 2 hours of pickup",
       "function refreshCancelButton()" in r.text
       and "pickup.getTime() - Date.now() <= 2 * 60 * 60000" in r.text
-      and "trip-cancel-locked-note" in r.text
+      and "trip-cancel-reason-panel" in r.text
+      and "cancel-reason-confirm" in r.text
       and "refreshCancelButton();" in r.text,
-      "cancel-lock gating missing from served driver.js")
+      "emergency-cancel reason step missing from served driver.js")
 r = anon.get(BASE + "/static/js/customer.js", timeout=TIMEOUT)
 check("served customer.js sends picked-suggestion coordinates with bookings",
       "payload.pickup_lat = state.pickupPlace.lat" in r.text
@@ -1047,10 +1048,11 @@ check("served customer.js sends picked-suggestion coordinates with bookings",
       and "payload.dropoff_lng = state.dropoffPlace.lon" in r.text,
       "suggestion coordinates missing from served customer.js booking payload")
 r = anon.get(BASE + "/driver", timeout=TIMEOUT)
-check("driver page carries the cancel-locked note",
-      "trip-cancel-locked-note" in r.text
+check("driver page carries the emergency-cancel reason panel",
+      "trip-cancel-reason-panel" in r.text
+      and "Why are you cancelling?" in r.text
       and "pickup is within 2 hours" in r.text,
-      "cancel-locked note missing from served driver page")
+      "emergency-cancel reason panel missing from served driver page")
 r = anon.get(BASE + "/static/js/driver.js", timeout=TIMEOUT)
 check("served driver.js pops a nav chooser on heading/pickup stages",
       "function showNavChooser(dest, title)" in r.text

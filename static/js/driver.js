@@ -1439,9 +1439,56 @@
   });
 
   /* ---------- Availability ---------- */
+  /* Suspension (owner rule 2026-11-18): after a fault emergency
+     cancel, the driver app is blocked for 48 hours. Sign-in still
+     works so the driver sees this notice with the exact end
+     date/time; he cannot go available and gets no offers until
+     it lifts. The end time comes from /api/drivers/me. */
+  function suspensionEnd() {
+    var until = state.driver && state.driver.suspended_until;
+    if (!until) return null;
+    var d = new Date(until);
+    if (isNaN(d.getTime()) || d.getTime() <= Date.now()) return null;
+    return d;
+  }
+  function renderSuspension() {
+    var banner = $("suspension-banner");
+    var end = suspensionEnd();
+    if (!end) { hide(banner); return; }
+    var when = end.toLocaleString(undefined, {
+      month: "long", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit"
+    });
+    banner.textContent = "Your driver app is paused until " + when + ". You will not get job offers until then.";
+    show(banner);
+  }
+  function refreshDriverState() {
+    fetch("/api/drivers/me", { headers: authHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var d = unwrapDriver(j);
+        if (d) {
+          state.driver = d;
+          state.available = !!d.available;
+          renderAvailability();
+        }
+      })
+      .catch(function () { /* leave the toggle as it was */ });
+  }
   function renderAvailability() {
     var st = $("avail-state");
     var btn = $("avail-toggle");
+    renderSuspension();
+    if (suspensionEnd()) {
+      st.textContent = "Your driver app is paused";
+      st.classList.remove("on");
+      btn.textContent = "Go available";
+      btn.classList.remove("on");
+      btn.disabled = true;
+      $("avail-note").textContent = "Job offers are paused until your suspension ends.";
+      return;
+    }
+    btn.disabled = false;
     if (state.available) {
       st.textContent = "You are available";
       st.classList.add("on");
@@ -1464,8 +1511,14 @@
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ available: next })
     })
-      .then(function (r) { return r.json(); })
-      .then(function () {
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          /* e.g. suspended: re-read the driver record so the
+             suspension banner shows instead of a flipped toggle. */
+          refreshDriverState();
+          return;
+        }
         state.available = next;
         renderAvailability();
         refreshOffers();
@@ -1975,27 +2028,29 @@
     refreshCancelButton();
     refreshGateNote();
   }
-  /* Driver cancel lock (owner rule 2026-11-17): once pickup is within
-     2 hours, the driver cannot cancel the accepted job. The button is
-     hidden and a short note explains why; the server enforces the
-     same rule with a 409, so this is only the visible side of it.
-     More than 2 hours out, cancelling works as before. When the
-     pickup time is missing or unparseable the button stays visible
-     and the server decides — a bad date must not hide the button. */
+  /* Emergency cancel (owner rule 2026-11-18, SUPERSEDES the
+     2026-11-17 lock that hid the button): the Cancel button ALWAYS
+     stays visible. More than 2 hours out, cancelling works as
+     before. Once pickup is within 2 hours, tapping Cancel opens
+     the reason step instead: the driver must pick a reason, which
+     is checked automatically. The server enforces the same rule
+     with a 409, so this is only the visible side of it. When the
+     pickup time is missing or unparseable the plain confirm is
+     used and the server decides. */
   function refreshCancelButton() {
-    var btn = $("trip-cancel-btn");
     var note = $("trip-cancel-note");
-    var locked = $("trip-cancel-locked-note");
     var t = state.trip;
-    var showCancel = true;
+    var locked = false;
     if (t && t.date && t.time) {
       var pickup = new Date(t.date + "T" + t.time);
       if (!isNaN(pickup.getTime()) && pickup.getTime() - Date.now() <= 2 * 60 * 60000) {
-        showCancel = false;
+        locked = true;
       }
     }
-    if (showCancel) { show(btn); show(note); hide(locked); }
-    else { hide(btn); hide(note); show(locked); }
+    state.cancelLocked = locked;
+    note.textContent = locked
+      ? "Pickup is within 2 hours. You can still cancel, but you must give a reason."
+      : "If you cancel, the job goes to the next driver automatically.";
   }
   /* Customer no-show is only offered once the driver has waited the
      FULL free waiting time (60 min at airports, else 15) from the
@@ -2268,18 +2323,76 @@
         refreshGateNote();
       });
   }
+  /* Emergency-cancel reason step (owner rule 2026-11-18): inside
+     2 hours the driver must pick a reason before cancelling. The
+     reason is checked automatically by the server — no human
+     review, and nothing about this flow is ever shown to the
+     customer. */
+  function showCancelReasonPanel() {
+    hide($("trip-cancel-btn"));
+    hide($("trip-cancel-note"));
+    $("cancel-reason-error").textContent = "";
+    show($("trip-cancel-reason-panel"));
+  }
+  function hideCancelReasonPanel() {
+    hide($("trip-cancel-reason-panel"));
+    var radios = document.querySelectorAll('input[name="cancel-reason"]');
+    for (var i = 0; i < radios.length; i++) { radios[i].checked = false; }
+    $("cancel-reason-detail").value = "";
+    $("cancel-reason-error").textContent = "";
+    show($("trip-cancel-btn"));
+    show($("trip-cancel-note"));
+    refreshCancelButton();
+  }
   $("trip-cancel-btn").addEventListener("click", function () {
     if (!state.trip) return;
+    /* Inside 2 hours: open the reason step instead of cancelling
+       straight away. More than 2 hours out: the plain confirm, as
+       before. */
+    if (state.cancelLocked) { showCancelReasonPanel(); return; }
     if (!window.confirm("Cancel this job? The job goes to the next driver automatically.")) return;
     /* Only leave the trip screen when the server accepted the cancel.
-       A locked cancel (409) keeps the driver on the trip and shows
-       the reason; the button then hides itself via the lock check. */
+       A rejected cancel (409) keeps the driver on the trip and shows
+       the reason. */
     postTripEvent("cancel", {}).then(function (res) {
       if (res.ok) { endTrip(); return; }
       $("trip-error").textContent = (res.j && (res.j.error || res.j.message)) || "This job could not be cancelled.";
       refreshCancelButton();
     }).catch(function () {
       $("trip-error").textContent = "Could not reach the service. Please try again.";
+    });
+  });
+  $("cancel-reason-back").addEventListener("click", function () {
+    hideCancelReasonPanel();
+  });
+  $("cancel-reason-confirm").addEventListener("click", function () {
+    if (!state.trip) return;
+    var picked = null;
+    var radios = document.querySelectorAll('input[name="cancel-reason"]');
+    for (var i = 0; i < radios.length; i++) { if (radios[i].checked) { picked = radios[i].value; break; } }
+    var detail = ($("cancel-reason-detail").value || "").trim();
+    var errEl = $("cancel-reason-error");
+    if (!picked) { errEl.textContent = "Please pick a reason."; return; }
+    if (picked === "other" && !detail) { errEl.textContent = "Please say what happened."; return; }
+    errEl.textContent = "";
+    postTripEvent("cancel", { reason: picked, detail: detail }).then(function (res) {
+      if (res.ok) {
+        /* A fault judgment suspends the driver app for 48 hours:
+           carry the end time into the home screen so the suspension
+           banner shows at once. */
+        var ec = res.j && res.j.emergency_cancel;
+        if (ec && ec.suspended_until) {
+          state.driver = state.driver || {};
+          state.driver.suspended_until = ec.suspended_until;
+        }
+        hideCancelReasonPanel();
+        endTrip();
+        renderAvailability();
+        return;
+      }
+      errEl.textContent = (res.j && (res.j.error || res.j.message)) || "This job could not be cancelled.";
+    }).catch(function () {
+      errEl.textContent = "Could not reach the service. Please try again.";
     });
   });
   $("trip-noshow-btn").addEventListener("click", function () {
@@ -2295,6 +2408,11 @@
     hide($("namesign-overlay"));
     hideNavChooser();
     hide($("trip-reminder-banner"));
+    hide($("trip-cancel-reason-panel"));
+    var cancelRadios = document.querySelectorAll('input[name="cancel-reason"]');
+    for (var ri = 0; ri < cancelRadios.length; ri++) { cancelRadios[ri].checked = false; }
+    $("cancel-reason-detail").value = "";
+    $("cancel-reason-error").textContent = "";
     state.reminderChimedBookingId = null;
     state.trip = null;
     state.stageIndex = 0;

@@ -993,8 +993,15 @@
   });
 
   /* ---------- Chat widget (scripted answers only) ---------- */
-  var chatPanel = $("chat-panel");
-  var chatMessages = $("chat-messages");
+  /* The support widget is a SEPARATE chat from the ride chat above:
+     it is available always, with no booking and no trip. Its element
+     IDs are prefixed support-chat-* so they can never collide with
+     the ride chat's chat-panel/chat-messages/chat-input IDs — the
+     duplicate IDs were why tapping "Chat with us" looked dead:
+     getElementById returned the ride-chat elements and the floating
+     panel never opened. */
+  var chatPanel = $("support-chat-panel");
+  var chatMessages = $("support-chat-messages");
   var chatOpened = false;
 
   function openChat() {
@@ -1003,7 +1010,7 @@
       chatOpened = true;
       addMsg("bot", "Hello, and welcome to Noel Chauffer. How can I help — booking, cancellation, waiting time, or something about a ride?");
     }
-    $("chat-input").focus();
+    $("support-chat-input").focus();
   }
   function closeChat() { hide(chatPanel); }
   function addMsg(who, text) {
@@ -1067,20 +1074,35 @@
     addMsg("user", q);
     setTimeout(function () { addMsg("bot", answer(q)); }, 350);
   }
+  /* Typed messages also reach the owner (owner dashboard, "Support
+     messages"), so a problem or lost item is actually seen — the
+     scripted answers already promise owner escalation. Fire-and-
+     forget: a failed POST changes nothing in the widget, and the
+     scripted answer above is never gated on it. Chip taps are FAQ
+     navigation, not messages, so only typed text is reported. */
+  function reportToOwner(q) {
+    if (!q) return;
+    fetch("/api/support-messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: q })
+    }).catch(function () { /* widget answers work with or without the server */ });
+  }
 
   $("chat-fab").addEventListener("click", function () {
     if (chatPanel.classList.contains("hidden")) { openChat(); } else { closeChat(); }
   });
   $("chat-close").addEventListener("click", closeChat);
   $("open-chat-btn").addEventListener("click", openChat);
-  $("chat-form").addEventListener("submit", function (e) {
+  $("support-chat-form").addEventListener("submit", function (e) {
     e.preventDefault();
-    var input = $("chat-input");
+    var input = $("support-chat-input");
     var q = input.value.trim();
     input.value = "";
     handleQuestion(q);
+    reportToOwner(q);
   });
-  document.querySelectorAll("#chat-chips button").forEach(function (chip) {
+  document.querySelectorAll("#support-chat-chips button").forEach(function (chip) {
     chip.addEventListener("click", function () { handleQuestion(chip.getAttribute("data-q")); });
   });
 })();

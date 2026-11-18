@@ -98,6 +98,7 @@
     loadPayouts();
     loadAlerts();
     loadOutbox();
+    loadSupportMessages();
     loadDrivers();
   }
 
@@ -473,6 +474,24 @@
         }).join("");
       })
       .catch(function () { $("outbox-feed").innerHTML = '<div class="empty">Could not load the outbox.</div>'; });
+  }
+
+  /* ---------- Support messages ---------- */
+  function loadSupportMessages() {
+    fetch("/api/owner/support-messages", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var list = asList(j, "messages");
+        var feed = $("support-feed");
+        if (!list.length) { feed.innerHTML = '<div class="empty">No support messages yet.</div>'; return; }
+        feed.innerHTML = list.map(function (m) {
+          var flag = m.flagged ? '<div class="ch">Needs attention</div>' : "";
+          var when = m.created_at || "";
+          return '<div class="feed-item">' + flag +
+            '<div class="body">' + esc(m.text || "") + '</div><div class="t">' + esc(when) + "</div></div>";
+        }).join("");
+      })
+      .catch(function () { $("support-feed").innerHTML = '<div class="empty">Could not load support messages.</div>'; });
   }
 
   /* ---------- Drivers + document viewer ---------- */

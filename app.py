@@ -2327,6 +2327,24 @@ class BookingEvent(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
+class SupportMessage(db.Model):
+    """A typed message from the pre-booking 'Chat with us' widget.
+    The widget is available always (no booking, no trip), and its
+    scripted answers promise owner escalation and a reply within 24
+    hours — so typed messages are stored here for the owner
+    dashboard instead of vanishing. Text only, no name/phone/email
+    fields; the widget never asks for them. `flagged` marks
+    problem/escalation keywords (see SUPPORT_FLAG_KEYWORDS). A new
+    table, so create_all() creates it on the live database too. It
+    has no booking link, so the test-only clear-rides reset (which
+    deletes ride-related rows) leaves it untouched."""
+    __tablename__ = "support_messages"
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    flagged = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
 with app.app_context():
     db.create_all()
     # create_all() never alters an existing table, so add the
@@ -3458,6 +3476,42 @@ def driver_chat_send(booking_id):
     return jsonify({"message": _chat_message_view(message, "driver", sender_language)}), 201
 
 
+# ------------------------------------------- support widget ("Chat with us") --
+
+# Keywords that flag a support message as needing the owner's
+# attention (the problem/escalation + lost-item branches of the
+# widget's scripted answers). Flagging only marks the row for the
+# owner dashboard; every typed message is stored either way.
+SUPPORT_FLAG_KEYWORDS = ("problem", "complaint", "issue", "unhappy",
+                         "escalat", "manager", "owner",
+                         "lost", "left", "forgot", "belonging", "item")
+
+
+def _support_flagged(text):
+    lowered = text.lower()
+    return any(kw in lowered for kw in SUPPORT_FLAG_KEYWORDS)
+
+
+@app.route("/api/support-messages", methods=["POST"])
+def support_message_create():
+    """Store one typed 'Chat with us' message for the owner. No
+    login and no booking required — the widget is available before
+    booking. Text only, same 500-character limit as the trip chat.
+    The widget fires this and forgets: any failure here must never
+    break the scripted answers, which are answered client-side."""
+    data = request.get_json(silent=True) or {}
+    text, error = _validate_chat_text(data)
+    if error:
+        return error
+    message = SupportMessage(text=text, flagged=_support_flagged(text))
+    db.session.add(message)
+    db.session.commit()
+    return jsonify({"message": {
+        "id": message.id, "text": message.text,
+        "flagged": message.flagged, "created_at": iso(message.created_at),
+    }}), 201
+
+
 # ---------------------------------------------------------------- drivers ---
 
 # Profile-photo shape/size rules (owner decision 2026-11-17: "Profile
@@ -4551,6 +4605,18 @@ def owner_outbox():
     return jsonify([{
         "id": m.id, "channel": m.channel, "recipient": m.recipient,
         "body": m.body, "booking_id": m.booking_id, "created_at": iso(m.created_at),
+    } for m in messages])
+
+
+@app.route("/api/owner/support-messages", methods=["GET"])
+def owner_support_messages():
+    error = require_owner()
+    if error:
+        return error
+    messages = (SupportMessage.query.order_by(SupportMessage.id.desc()).limit(200).all())
+    return jsonify([{
+        "id": m.id, "text": m.text, "flagged": m.flagged,
+        "created_at": iso(m.created_at),
     } for m in messages])
 
 

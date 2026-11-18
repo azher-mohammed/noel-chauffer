@@ -568,7 +568,10 @@
     { key: "wa_chauffeur_addendum", label: "Limousine Carrier Chauffeur Addendum" },
     { key: "wa_fh_registration", label: "Vehicle Registration Certificate (Use Class F/H)" },
     { key: "wa_inspection_report", label: "Vehicle Inspection Report" },
-    { key: "wa_insurance_certificate", label: "Certificate of Insurance" }
+    { key: "wa_insurance_certificate", label: "Certificate of Insurance" },
+    { key: "dallas_commercial_insurance", label: "Commercial Insurance Certificate" },
+    { key: "dallas_driver_permit", label: "Dallas Driver Permit" },
+    { key: "dallas_limo_permit", label: "City Limo Permit (Dallas / Fort Worth)" }
   ];
 
   function docIsComplete(value) {
@@ -608,7 +611,7 @@
             '<div class="meta">' + esc(d.phone || "") + (d.email ? " · " + esc(d.email) : "") + "</div>" +
             '<div class="meta">' + esc(carBits) + (d.plate ? " · Plate " + esc(d.plate) : "") + "</div>" +
             '<div class="meta">Vehicle class: ' + esc(d.vehicle_class_label || d.vehicle_class || "—") + "</div>" +
-            (d.state ? '<div class="meta">State: ' + esc(d.state) + "</div>" : "") +
+            (d.state ? '<div class="meta">State: ' + esc(d.state) + (d.city ? " · City: " + esc(d.city) : "") + "</div>" : "") +
             '<div class="meta">Bank account: ' + esc(maskBank(bank)) + "</div></div></div>";
           card.innerHTML = head;
           var chips = document.createElement("div");

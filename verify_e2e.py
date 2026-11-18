@@ -1231,6 +1231,29 @@ check("states payload carries no count or quantity field",
       "count" not in payload and "quantity" not in payload
       and all("count" not in req and "quantity" not in req
               for req in reqs.values()))
+# --- city picker over HTTP (owner order 2026-11-17, Uber-style) ------
+cities = payload.get("cities", {})
+overrides = payload.get("city_requirements", {})
+check("cities served for all 51 jurisdictions, Other city fallback last",
+      len(cities) == 51
+      and all(names and names[-1] == "Other city"
+              and names[:-1] == sorted(names[:-1])
+              for names in cities.values()), str(len(cities)))
+check("Dallas is the only city-specific list, Fort Worth falls back",
+      set(overrides) == {"Texas"}
+      and set(overrides["Texas"]) == {"Dallas"}
+      and overrides["Texas"]["Dallas"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "dallas_commercial_insurance", "dallas_driver_permit",
+          "dallas_limo_permit"]
+      and overrides["Texas"]["Dallas"]["local_note"] is False,
+      str(overrides))
+r = anon.get(BASE + "/driver", timeout=TIMEOUT)
+check("served driver page has the city picker after the state picker",
+      r.status_code == 200 and 'id="reg-city"' in r.text
+      and 'id="city-list"' in r.text
+      and r.text.index('id="reg-state"') < r.text.index('id="reg-city"')
+      < r.text.index('id="reg-car-model"'), str(r.status_code))
 r = anon.get(BASE + "/static/js/driver.js", timeout=TIMEOUT)
 check("served driver.js shows no document count in the required note",
       r.status_code == 200 and "required.length" not in r.text

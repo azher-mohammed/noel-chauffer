@@ -190,7 +190,10 @@
     doc_wa_chauffeur_addendum: "Limousine Carrier Chauffeur Addendum",
     doc_wa_fh_registration: "Vehicle Registration Certificate (Use Class F/H)",
     doc_wa_inspection_report: "Vehicle Inspection Report",
-    doc_wa_insurance_certificate: "Certificate of Insurance"
+    doc_wa_insurance_certificate: "Certificate of Insurance",
+    doc_dallas_commercial_insurance: "Commercial Insurance Certificate",
+    doc_dallas_driver_permit: "Dallas Driver Permit",
+    doc_dallas_limo_permit: "City Limo Permit (Dallas / Fort Worth)"
   };
   /* Document types as the API keys them in `docs` (status strings),
      in display order: the New York list first, then the items only
@@ -280,13 +283,17 @@
     wa_chauffeur_addendum: "Limousine Carrier Chauffeur Addendum",
     wa_fh_registration: "Vehicle Registration Certificate (Use Class F/H)",
     wa_inspection_report: "Vehicle Inspection Report",
-    wa_insurance_certificate: "Certificate of Insurance"
+    wa_insurance_certificate: "Certificate of Insurance",
+    dallas_commercial_insurance: "Commercial Insurance Certificate",
+    dallas_driver_permit: "Dallas Driver Permit",
+    dallas_limo_permit: "City Limo Permit (Dallas / Fort Worth)"
   };
   var DOC_TYPE_ORDER = [
     "profile_picture", "dmv_license", "tlc_license", "fh1_insurance",
     "registration", "inspection", "vehicle_permit",
     "nj_qualification", "nj_municipal_license", "nj_limo_registration",
     "nj_insurance", "vehicle_registration", "insurance_card",
+    "dallas_commercial_insurance", "dallas_driver_permit", "dallas_limo_permit",
     "al_certificate", "al_form_e", "ca_tcp_permit", "ca_driver_statement",
     "ca_commercial_registration", "ca_inspection_declaration", "co_ll_permit", "co_inspection",
     "co_form_e", "ct_livery_permit", "de_certificate", "de_limo_registration",
@@ -398,7 +405,10 @@
     wa_chauffeur_addendum: "doc_wa_chauffeur_addendum",
     wa_fh_registration: "doc_wa_fh_registration",
     wa_inspection_report: "doc_wa_inspection_report",
-    wa_insurance_certificate: "doc_wa_insurance_certificate"
+    wa_insurance_certificate: "doc_wa_insurance_certificate",
+    dallas_commercial_insurance: "doc_dallas_commercial_insurance",
+    dallas_driver_permit: "doc_dallas_driver_permit",
+    dallas_limo_permit: "doc_dallas_limo_permit"
   };
   var STAGES = ["en_route", "arrived", "start", "complete"];
   var STAGE_BUTTON = {
@@ -678,13 +688,14 @@
     var phone = $("reg-phone").value.trim();
     var email = $("reg-email").value.trim();
     var stateName = $("reg-state").value.trim();
+    var cityName = $("reg-city").value.trim();
     var carModel = $("reg-car-model").value.trim();
     var carYear = $("reg-car-year").value.trim();
     var carColour = $("reg-car-colour").value.trim();
     var plate = $("reg-plate").value.trim();
     var acct = $("reg-bank-account").value.trim();
     var routing = $("reg-bank-routing").value.trim();
-    if (!name || !phone || !email || !stateName || !carModel || !carYear || !carColour || !plate || !acct || !routing) {
+    if (!name || !phone || !email || !stateName || !cityName || !carModel || !carYear || !carColour || !plate || !acct || !routing) {
       err.textContent = "Please fill in every field, including your bank details.";
       return;
     }
@@ -696,11 +707,17 @@
       err.textContent = "Please choose your state from the list.";
       return;
     }
-    /* Which documents are compulsory depends on the state (New York
-       keeps its 7; other states have their own list or the generic
-       base list). Without a state the list is unknown, so the form
-       cannot submit yet. */
-    var requiredFields = requiredFileFields(stateName);
+    if (cityListLoaded && citiesForState(stateName).indexOf(cityName) === -1) {
+      err.textContent = "Please choose your city from the list.";
+      return;
+    }
+    /* Which documents are compulsory depends on the state and the
+       city (New York keeps its 7; other states have their own list
+       or the generic base list; a city with a verified
+       city-specific list, Dallas today, overrides its state list).
+       Without a state the list is unknown, so the form cannot
+       submit yet. */
+    var requiredFields = requiredFileFields(stateName, cityName);
     if (!requiredFields.length) {
       err.textContent = "Please choose your state from the list.";
       return;
@@ -735,6 +752,7 @@
     fd.append("phone", phone);
     fd.append("email", email);
     fd.append("state", stateName);
+    fd.append("city", cityName);
     fd.append("car_model", carModel);
     fd.append("car_year", carYear);
     fd.append("car_colour", carColour);
@@ -1753,6 +1771,7 @@
       '<div class="profile-row"><span class="k">Phone</span><span>' + esc(d.phone || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Email</span><span>' + esc(d.email || "—") + "</span></div>" +
       (d.state ? '<div class="profile-row"><span class="k">State</span><span>' + esc(d.state) + "</span></div>" : "") +
+      (d.city ? '<div class="profile-row"><span class="k">City</span><span>' + esc(d.city) + "</span></div>" : "") +
       '<div class="profile-row"><span class="k">Car</span><span>' + esc(carBits || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Vehicle class</span><span>' + esc(classLabelFor(d) || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Plate</span><span>' + esc(d.plate || "—") + "</span></div>" +
@@ -1904,19 +1923,52 @@
      value must match a list entry exactly. The chosen state decides
      which document items the form shows, because the compulsory list
      differs by state (New York keeps its 7; New Jersey has its own
-     verified list; every other state uses the generic base list). */
+     verified list; every other state uses the generic base list) —
+     unless the chosen city has a verified city-specific list
+     (Dallas today), which overrides its state list. The same
+     payload feeds the city picker right after the state picker:
+     cities of the chosen state, alphabetical, type to filter, with
+     an "Other city" fallback for unlisted towns. */
   var stateNames = [];
   var stateListLoaded = false;
   var stateRequirements = null;
   var stateDocuments = null;
+  /* City picker data, from the same /api/states payload: city names
+     per state, and the verified city-specific lists that override
+     their state list. */
+  var cityNamesByState = null;
+  var cityRequirements = null;
+  var cityListLoaded = false;
 
-  /* Multipart field names the chosen state's list requires, in form
-     order. Empty when no valid state is chosen (or the list has not
-     loaded yet), which blocks the submit handler. */
-  function requiredFileFields(stateName) {
-    if (!stateRequirements || !stateRequirements[stateName]) return [];
+  /* City names for a state, in picker order (alphabetical, "Other
+     city" last). Empty when the data has not loaded or the state is
+     unknown. */
+  function citiesForState(stateName) {
+    if (!cityNamesByState || !cityNamesByState[stateName]) return [];
+    return cityNamesByState[stateName];
+  }
+
+  /* The requirement in force for a state + city: a city with a
+     verified city-specific list overrides its state list; every
+     other city — including "Other city" and no city yet — uses the
+     state list unchanged. Null when no valid state is chosen. */
+  function effectiveRequirement(stateName, cityName) {
+    if (!stateRequirements || !stateRequirements[stateName]) return null;
+    if (cityName && cityRequirements && cityRequirements[stateName] &&
+        cityRequirements[stateName][cityName]) {
+      return cityRequirements[stateName][cityName];
+    }
+    return stateRequirements[stateName];
+  }
+
+  /* Multipart field names the chosen state + city list requires, in
+     form order. Empty when no valid state is chosen (or the list has
+     not loaded yet), which blocks the submit handler. */
+  function requiredFileFields(stateName, cityName) {
+    var req = effectiveRequirement(stateName, cityName);
+    if (!req) return [];
     var fields = [];
-    (stateRequirements[stateName].docs || []).forEach(function (docType) {
+    (req.docs || []).forEach(function (docType) {
       var field = FIELD_FOR_DOC_TYPE[docType];
       if (field) fields.push(field);
     });
@@ -1958,11 +2010,14 @@
     return item;
   }
 
-  /* Show exactly the chosen state's document items, in the state's
-     order, and update the required-items note. With no state chosen,
-     every item stays hidden behind the choose-your-state note. */
-  function renderDocsForState(stateName) {
-    var req = stateName && stateRequirements ? stateRequirements[stateName] : null;
+  /* Show exactly the chosen state + city document items, in the
+     effective list's order, and update the required-items note. A
+     city with a verified city-specific list overrides its state
+     list; every other city shows the state list. With no state
+     chosen, every item stays hidden behind the choose-your-state
+     note. */
+  function renderDocsForState(stateName, cityName) {
+    var req = effectiveRequirement(stateName, cityName);
     var required = req ? (req.docs || []) : [];
     var note = $("docs-required-note");
     var localNote = $("docs-local-note");
@@ -1988,6 +2043,27 @@
     }
     note.textContent = "All items are required — registration cannot be completed until every document is uploaded.";
     if (req.local_note) show(localNote); else hide(localNote);
+  }
+
+  /* Keep the city picker in step with the chosen state: the city
+     list belongs to the state, so a state change resets a city that
+     does not belong to the new state, and no valid state means no
+     city picker yet. */
+  function refreshCityForState(stateName) {
+    var input = $("reg-city");
+    var valid = !!(stateRequirements && stateRequirements[stateName]);
+    if (!valid || !cityListLoaded) {
+      input.value = "";
+      input.disabled = true;
+      input.placeholder = "Choose your state first…";
+      return;
+    }
+    input.disabled = false;
+    input.placeholder = "Start typing your city…";
+    var current = input.value.trim();
+    if (current && citiesForState(stateName).indexOf(current) === -1) {
+      input.value = "";
+    }
   }
 
   function initStateDropdown() {
@@ -2023,7 +2099,8 @@
     function choose(name) {
       input.value = name;
       closeList();
-      renderDocsForState(name);
+      refreshCityForState(name);
+      renderDocsForState(name, $("reg-city").value.trim());
       input.focus();
     }
     function render(matches) {
@@ -2059,9 +2136,15 @@
         return !q || name.toLowerCase().indexOf(q) === 0;
       });
       render(matches);
-      /* Typing a full state name shows its documents at once. */
+      /* Typing a full state name shows its documents at once, and
+         opens the city picker for that state. */
       var exact = input.value.trim();
-      if (stateRequirements && stateRequirements[exact]) renderDocsForState(exact);
+      refreshCityForState(exact);
+      if (stateRequirements && stateRequirements[exact]) {
+        renderDocsForState(exact, $("reg-city").value.trim());
+      } else if (!exact) {
+        renderDocsForState(null);
+      }
     }
     input.addEventListener("input", filter);
     input.addEventListener("focus", filter);
@@ -2096,6 +2179,11 @@
         stateDocuments = j.documents || null;
         stateListLoaded = stateNames.length > 0 && !!stateRequirements;
         if (!stateListLoaded) { throw new Error("empty list"); }
+        cityNamesByState = j.cities || null;
+        cityRequirements = j.city_requirements || {};
+        cityListLoaded = !!cityNamesByState &&
+          Object.keys(cityNamesByState).length > 0;
+        refreshCityForState($("reg-state").value.trim());
       })
       .catch(function () {
         note.textContent = "The state list could not be loaded. Please check your connection and reload this page.";
@@ -2104,7 +2192,115 @@
       });
   }
 
+  /* City picker, Uber-style: the same searchable-dropdown pattern as
+     the state picker, fed by the same /api/states payload. Cities of
+     the chosen state only, alphabetical, type to filter: typing a
+     letter shows every city starting with it, more letters narrow
+     the list. The list ends with "Other city" for drivers in
+     unlisted towns. Free text is not accepted. Picking a city with
+     a verified city-specific list (Dallas) swaps the document items
+     to that city's list; every other city keeps the state list. */
+  function initCityDropdown() {
+    var input = $("reg-city");
+    var list = $("city-list");
+    var activeIndex = -1;
+    var items = [];
+
+    function currentState() { return $("reg-state").value.trim(); }
+    function closeList() {
+      hide(list);
+      list.innerHTML = "";
+      items = [];
+      activeIndex = -1;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+    }
+    function paintActive() {
+      var btns = list.querySelectorAll("button");
+      btns.forEach(function (b, i) {
+        b.classList.toggle("active", i === activeIndex);
+        b.setAttribute("aria-selected", i === activeIndex ? "true" : "false");
+      });
+      if (activeIndex >= 0 && btns[activeIndex]) {
+        input.setAttribute("aria-activedescendant", btns[activeIndex].id);
+      } else {
+        input.removeAttribute("aria-activedescendant");
+      }
+    }
+    function choose(name) {
+      input.value = name;
+      closeList();
+      renderDocsForState(currentState(), name);
+      input.focus();
+    }
+    function render(matches) {
+      items = matches;
+      activeIndex = -1;
+      list.innerHTML = "";
+      if (!matches.length) { closeList(); return; }
+      matches.forEach(function (name, idx) {
+        var li = document.createElement("li");
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.setAttribute("role", "option");
+        btn.setAttribute("aria-selected", "false");
+        btn.id = "city-list-opt-" + idx;
+        btn.textContent = name;
+        /* mousedown fires before the input loses focus, so a tap or
+           click always lands on the suggestion. */
+        btn.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          choose(name);
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+      show(list);
+      input.setAttribute("aria-expanded", "true");
+    }
+    function filter() {
+      var q = input.value.trim().toLowerCase();
+      /* Prefix match, list order kept: one letter shows every city
+         starting with it; more letters narrow the list. */
+      var matches = citiesForState(currentState()).filter(function (name) {
+        return !q || name.toLowerCase().indexOf(q) === 0;
+      });
+      render(matches);
+      /* Typing a full city name swaps the documents at once when the
+         city has its own list. */
+      var exact = input.value.trim();
+      if (citiesForState(currentState()).indexOf(exact) !== -1) {
+        renderDocsForState(currentState(), exact);
+      }
+    }
+    input.addEventListener("input", filter);
+    input.addEventListener("focus", filter);
+    input.addEventListener("blur", function () {
+      /* A tap on a suggestion fires mousedown first; the short delay
+         keeps that working on touch screens. */
+      setTimeout(closeList, 150);
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (!items.length) return;
+        e.preventDefault();
+        activeIndex = e.key === "ArrowDown"
+          ? (activeIndex + 1) % items.length
+          : (activeIndex - 1 + items.length) % items.length;
+        paintActive();
+      } else if (e.key === "Enter") {
+        if (activeIndex >= 0 && items[activeIndex]) {
+          e.preventDefault();
+          choose(items[activeIndex]);
+        }
+      } else if (e.key === "Escape") {
+        closeList();
+      }
+    });
+  }
+
   initCarModelDropdown();
   initStateDropdown();
+  initCityDropdown();
   boot();
 })();

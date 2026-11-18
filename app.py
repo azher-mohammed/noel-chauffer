@@ -204,6 +204,9 @@ DOC_FIELD_MAP = {
     "doc_wa_fh_registration": "wa_fh_registration",
     "doc_wa_inspection_report": "wa_inspection_report",
     "doc_wa_insurance_certificate": "wa_insurance_certificate",
+    "doc_dallas_commercial_insurance": "dallas_commercial_insurance",
+    "doc_dallas_driver_permit": "dallas_driver_permit",
+    "doc_dallas_limo_permit": "dallas_limo_permit",
 }
 # doc_type -> multipart field name (profile_picture comes from profile_photo)
 FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
@@ -454,6 +457,145 @@ def required_docs_for_state(state):
     return STATE_DOC_REQUIREMENTS.get(state, GENERIC_DOC_TYPES)
 
 
+# --- City picker (owner decision 2026-11-17, "City picker bana do,
+# Uber jaisa") ------------------------------------------------------------
+# Registration asks for the city the driver drives in, right after the
+# state, in the same searchable-dropdown pattern (type a letter, see
+# every matching city in that state, alphabetical). Uber asks for the
+# city at signup and varies requirements by city; Noel keeps the state
+# picker and adds the city picker after it.
+#
+# City NAMES only come from the Census Bureau's July 1, 2025 estimates
+# as tabulated on Wikipedia ("List of largest cities of U.S. states
+# and territories by population"): the five most populous incorporated
+# places per state, plus the capital where it is not among the five.
+# Names carry no requirements of their own. Every state's list ends
+# with the "Other city" fallback, so a driver in an unlisted town is
+# never blocked; "Other city" uses the state list.
+#
+# EFFECTIVE LIST RULE: a city with a verified city-specific list
+# overrides its state list; every other city uses the state list
+# unchanged (including the owner-review note where the state has it).
+# Dallas, Texas is the FIRST and ONLY city-specific list. Its items
+# come from Uber's official pages only — the Uber Help livery article
+# (valid state-issued DMV driving license, commercial insurance,
+# vehicle registration, and the City of Dallas or Fort Worth limo
+# permit) and the Uber Dallas vehicle-requirements page (Dallas
+# Driver Permit required, commercial insurance):
+#   https://help.uber.com/en-GB/driving-and-delivering/article/becoming-a-driver-livery?nodeId=d17a342c-ad81-403b-8a4a-14e9ef7300af
+#   https://www.uber.com/us/en/drive/requirements/vehicle-requirements/?city=dallas
+# Fort Worth was researched the same night (Uber Help + City of Fort
+# Worth Ground Transportation Office, Chapter 34 Article VI): Fort
+# Worth licenses the OPERATING business, not the individual driver —
+# no Fort Worth driver permit document is named anywhere — so Fort
+# Worth has NO city-specific list and falls back to the Texas state
+# list. Never assume Fort Worth = Dallas. Process-type requirements
+# (background checks, exams, courses) are never upload slots, and no
+# document count is ever shown ("Quantity nahi").
+OTHER_CITY = "Other city"
+
+CITIES_BY_STATE = {
+    "Alabama": ["Birmingham", "Huntsville", "Mobile", "Montgomery", "Tuscaloosa"],
+    "Alaska": ["Anchorage", "Fairbanks", "Juneau", "Sitka", "Wasilla"],
+    "Arizona": ["Chandler", "Gilbert", "Mesa", "Phoenix", "Tucson"],
+    "Arkansas": ["Fayetteville", "Fort Smith", "Jonesboro", "Little Rock", "Springdale"],
+    "California": ["Fresno", "Los Angeles", "Sacramento", "San Diego", "San Francisco", "San Jose"],
+    "Colorado": ["Aurora", "Colorado Springs", "Denver", "Fort Collins", "Lakewood"],
+    "Connecticut": ["Bridgeport", "Hartford", "New Haven", "Stamford", "Waterbury"],
+    "Delaware": ["Dover", "Middletown", "Milford", "Newark", "Wilmington"],
+    "District of Columbia": ["Washington, D.C."],
+    "Florida": ["Jacksonville", "Miami", "Orlando", "Port St. Lucie", "Tallahassee", "Tampa"],
+    "Georgia": ["Atlanta", "Augusta", "Columbus", "Macon", "Savannah"],
+    "Hawaii": ["East Honolulu", "Hilo", "Honolulu", "Pearl City", "Waipahu"],
+    "Idaho": ["Boise", "Caldwell", "Idaho Falls", "Meridian", "Nampa"],
+    "Illinois": ["Aurora", "Chicago", "Joliet", "Naperville", "Rockford", "Springfield"],
+    "Indiana": ["Carmel", "Evansville", "Fishers", "Fort Wayne", "Indianapolis"],
+    "Iowa": ["Ankeny", "Cedar Rapids", "Davenport", "Des Moines", "Sioux City"],
+    "Kansas": ["Kansas City", "Olathe", "Overland Park", "Topeka", "Wichita"],
+    "Kentucky": ["Bowling Green", "Covington", "Frankfort", "Lexington", "Louisville", "Owensboro"],
+    "Louisiana": ["Baton Rouge", "Lafayette", "Lake Charles", "New Orleans", "Shreveport"],
+    "Maine": ["Auburn", "Augusta", "Bangor", "Lewiston", "Portland", "South Portland"],
+    "Maryland": ["Annapolis", "Baltimore", "Bowie", "Frederick", "Gaithersburg", "Rockville"],
+    "Massachusetts": ["Boston", "Cambridge", "Lowell", "Springfield", "Worcester"],
+    "Michigan": ["Ann Arbor", "Detroit", "Grand Rapids", "Lansing", "Sterling Heights", "Warren"],
+    "Minnesota": ["Bloomington", "Duluth", "Minneapolis", "Rochester", "Saint Paul"],
+    "Mississippi": ["Biloxi", "Gulfport", "Hattiesburg", "Jackson", "Southaven"],
+    "Missouri": ["Columbia", "Independence", "Jefferson City", "Kansas City", "Saint Louis", "Springfield"],
+    "Montana": ["Billings", "Bozeman", "Butte", "Great Falls", "Helena", "Missoula"],
+    "Nebraska": ["Bellevue", "Grand Island", "Kearney", "Lincoln", "Omaha"],
+    "Nevada": ["Carson City", "Henderson", "Las Vegas", "North Las Vegas", "Reno", "Sparks"],
+    "New Hampshire": ["Concord", "Derry", "Dover", "Manchester", "Nashua"],
+    "New Jersey": ["Elizabeth", "Jersey City", "Lakewood", "Newark", "Paterson", "Trenton"],
+    "New Mexico": ["Albuquerque", "Las Cruces", "Rio Rancho", "Roswell", "Santa Fe"],
+    "New York": ["Albany", "Buffalo", "New York", "Rochester", "Syracuse", "Yonkers"],
+    "North Carolina": ["Charlotte", "Durham", "Greensboro", "Raleigh", "Winston-Salem"],
+    "North Dakota": ["Bismarck", "Fargo", "Grand Forks", "Minot", "West Fargo"],
+    "Ohio": ["Akron", "Cincinnati", "Cleveland", "Columbus", "Toledo"],
+    "Oklahoma": ["Broken Arrow", "Edmond", "Norman", "Oklahoma City", "Tulsa"],
+    "Oregon": ["Eugene", "Gresham", "Hillsboro", "Portland", "Salem"],
+    "Pennsylvania": ["Allentown", "Erie", "Harrisburg", "Philadelphia", "Pittsburgh", "Reading"],
+    "Rhode Island": ["Cranston", "East Providence", "Pawtucket", "Providence", "Warwick"],
+    "South Carolina": ["Charleston", "Columbia", "Mount Pleasant", "North Charleston", "Rock Hill"],
+    "South Dakota": ["Aberdeen", "Brookings", "Pierre", "Rapid City", "Sioux Falls", "Watertown"],
+    "Tennessee": ["Chattanooga", "Clarksville", "Knoxville", "Memphis", "Nashville"],
+    "Texas": ["Austin", "Dallas", "Fort Worth", "Houston", "San Antonio"],
+    "Utah": ["Provo", "Salt Lake City", "St. George", "West Jordan", "West Valley City"],
+    "Vermont": ["Bennington", "Burlington", "Colchester", "Montpelier", "Rutland", "South Burlington"],
+    "Virginia": ["Chesapeake", "Newport News", "Norfolk", "Richmond", "Virginia Beach"],
+    "Washington": ["Bellevue", "Olympia", "Seattle", "Spokane", "Tacoma", "Vancouver"],
+    "West Virginia": ["Charleston", "Huntington", "Morgantown", "Parkersburg", "Wheeling"],
+    "Wisconsin": ["Green Bay", "Kenosha", "Madison", "Milwaukee", "Racine"],
+    "Wyoming": ["Casper", "Cheyenne", "Gillette", "Laramie", "Rock Springs"],
+}
+
+# Dallas, Texas (VERIFIED from the Uber official pages above). The
+# limo-permit slot accepts either city's permit, exactly as Uber
+# words it ("City of Dallas or Fort Worth limo permit"). No
+# background check, no age/experience gate: the owner declined the
+# background check outright ("nahi background check nahi chahiye").
+DALLAS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "dallas_commercial_insurance",
+    "dallas_driver_permit",
+    "dallas_limo_permit",
+]
+
+# (state, city) -> city-specific list. Only Dallas today; a city is
+# added here ONLY with a verified official source naming its items.
+CITY_DOC_REQUIREMENTS = {
+    ("Texas", "Dallas"): DALLAS_DOC_TYPES,
+}
+
+
+def cities_for_state(state):
+    """City names for the picker: the state's largest cities,
+    alphabetical, with the "Other city" fallback last."""
+    return list(CITIES_BY_STATE.get(state, [])) + [OTHER_CITY]
+
+
+def required_docs_for(state, city=None):
+    """Ordered compulsory doc types for a state + city. A city with a
+    verified city-specific list overrides its state list; every other
+    city — including "Other city" and no city on file — uses the
+    state list unchanged."""
+    if city:
+        city_docs = CITY_DOC_REQUIREMENTS.get((state, city))
+        if city_docs is not None:
+            return city_docs
+    return required_docs_for_state(state)
+
+
+def local_note_for(state, city=None):
+    """Whether the owner-review note shows for the effective list: it
+    hides only for a verified list (a verified state, or a city with
+    a verified city-specific list)."""
+    if city and (state, city) in CITY_DOC_REQUIREMENTS:
+        return False
+    return state not in VERIFIED_DOC_STATES
+
+
 # Labels for every doc type in every state's list, in the same
 # owner-words style as DOC_LABELS. DOC_LABELS above stays the
 # New York list (existing tests pin it); this is the superset the
@@ -536,6 +678,9 @@ ALL_DOC_LABELS.update({
     "wa_fh_registration": "Vehicle Registration Certificate (Use Class F/H)",
     "wa_inspection_report": "Vehicle Inspection Report",
     "wa_insurance_certificate": "Certificate of Insurance",
+    "dallas_commercial_insurance": "Commercial Insurance Certificate",
+    "dallas_driver_permit": "Dallas Driver Permit",
+    "dallas_limo_permit": "City Limo Permit (Dallas / Fort Worth)",
 })
 # Hint line under each document item in the registration form.
 DOC_HINTS = {
@@ -622,6 +767,9 @@ DOC_HINTS = {
     "wa_fh_registration": "Photo of your Vehicle Registration Certificate (Use Class F/H), straight and fully visible.",
     "wa_inspection_report": "Photo of your Vehicle Inspection Report, straight and fully visible.",
     "wa_insurance_certificate": "Photo of your Certificate of Insurance, straight and fully visible.",
+    "dallas_commercial_insurance": "Photo of your Commercial Insurance Certificate, straight and fully visible.",
+    "dallas_driver_permit": "Photo of your Dallas Driver Permit, straight and fully visible.",
+    "dallas_limo_permit": "Photo of your City Limo Permit (Dallas / Fort Worth), straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived
@@ -650,6 +798,12 @@ class Driver(db.Model):
     # drivers registered before the state selector existed have no
     # state on file and keep working exactly as before.
     state = db.Column(db.String(40), nullable=True)
+    # City the driver drives in, picked from the searchable city
+    # dropdown right after the state (owner decision 2026-11-17,
+    # "City picker bana do, Uber jaisa"). Nullable: drivers
+    # registered before the city picker existed have no city on file
+    # and keep working exactly as before, on their state list.
+    city = db.Column(db.String(80), nullable=True)
     car_model = db.Column(db.String(120), nullable=False)
     car_year = db.Column(db.Integer, nullable=True)  # nullable: drivers registered before the year field existed
     # Vehicle class derived from car_model at registration ("sedan" |
@@ -911,6 +1065,19 @@ with app.app_context():
                 _conn.execute(_sa_text("ALTER TABLE drivers ADD COLUMN state VARCHAR(40)"))
     except Exception as exc:  # logged, never fatal at startup
         log.warning("state column check failed: %s", exc)
+    # Same pattern for the driver city column (added with the
+    # Uber-style city picker, 2026-11-17). Nullable, so existing
+    # driver rows keep working with no city on file.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "city" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(_sa_text("ALTER TABLE drivers ADD COLUMN city VARCHAR(80)"))
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("city column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -972,12 +1139,15 @@ def waze_url_for(booking):
 
 
 def driver_docs_status(driver):
-    # Statuses for the documents the driver's state requires. Drivers
-    # registered before the state selector (no state on file) read as
-    # New York, the list they registered under — unchanged behaviour.
+    # Statuses for the documents the driver's state + city require. A
+    # city with a verified city-specific list (Dallas) overrides its
+    # state list; drivers registered before the state selector (no
+    # state on file) read as New York, the list they registered under
+    # — unchanged behaviour.
     present = {d.doc_type for d in driver.documents}
     status = {}
-    for doc_type in required_docs_for_state(driver.state or "New York"):
+    for doc_type in required_docs_for(driver.state or "New York",
+                                      getattr(driver, "city", None)):
         if doc_type == "profile_picture":
             status[doc_type] = "completed" if driver.profile_photo else "missing"
         else:
@@ -1851,9 +2021,29 @@ def list_states():
     state whose list is not fully verified (partial lists and the
     generic base list), where requirements vary by locality and
     the owner reviews each application.
+
+    The same payload serves the city picker (owner decision
+    2026-11-17, Uber-style): `cities` lists each state's largest
+    cities, alphabetical, with the "Other city" fallback last, and
+    `city_requirements` carries the verified city-specific lists
+    that override their state list (Dallas only today). Every other
+    city uses its state list unchanged.
     """
     return jsonify({
         "states": US_STATES,
+        "cities": {state: cities_for_state(state) for state in US_STATES},
+        "city_requirements": {
+            state: {
+                city: {
+                    "docs": docs,
+                    "local_note": local_note_for(state, city),
+                }
+                for (s, city), docs in sorted(CITY_DOC_REQUIREMENTS.items())
+                if s == state
+            }
+            for state in US_STATES
+            if any(s == state for (s, _c) in CITY_DOC_REQUIREMENTS)
+        },
         "documents": {
             doc_type: {
                 "label": ALL_DOC_LABELS[doc_type],
@@ -1893,6 +2083,17 @@ def register_driver():
     if state not in US_STATES:
         return err("Please choose your state from the list.")
 
+    # City must come from the dropdown list for that state (exact
+    # match, same rule as the state). Optional in the API so drivers
+    # registered before the city picker existed keep working, and so
+    # older clients are not broken; the registration form always
+    # sends it. A city with a verified city-specific list (Dallas)
+    # overrides the state list; every other city — including "Other
+    # city" — uses the state list unchanged.
+    city = (form.get("city") or "").strip() or None
+    if city is not None and city not in cities_for_state(state):
+        return err("Please choose your city from the list.")
+
     # Car model must come from the eligible list (dropdown), and the
     # model year must be 2022 or newer (owner decision 2026-11-16).
     car_model, model_error = validate_car_model(form.get("car_model"))
@@ -1928,13 +2129,14 @@ def register_driver():
     # documents un log upload karna hi zaroori hai. Nahi to registration
     # nahi hoga."). The rejection names each missing item in the
     # owner's words: "Missing document: ...". Which items are required
-    # depends on the driver's state (New York keeps the original 7;
-    # other states have their own verified list or the generic base
-    # list). This gates only new registrations: drivers registered
-    # before this change keep signing in and going available exactly
-    # as before.
+    # depends on the driver's state and city (New York keeps the
+    # original 7; other states have their own verified list or the
+    # generic base list; a city with a verified city-specific list,
+    # Dallas today, overrides its state list). This gates only new
+    # registrations: drivers registered before this change keep
+    # signing in and going available exactly as before.
     missing = []
-    for doc_type in required_docs_for_state(state):
+    for doc_type in required_docs_for(state, city):
         if doc_type == "profile_picture":
             present = profile_photo is not None
         else:
@@ -1952,6 +2154,7 @@ def register_driver():
         phone=phone,
         email=(form.get("email") or "").strip(),
         state=state,
+        city=city,
         car_model=car_model,
         car_year=car_year,
         # Vehicle class is derived from the car model, never typed in.
@@ -1978,6 +2181,7 @@ def register_driver():
         "phone": driver.phone,
         "email": driver.email,
         "state": driver.state,
+        "city": driver.city,
         "car_model": driver.car_model,
         "car_year": driver.car_year,
         "vehicle_class": driver_vehicle_class(driver),
@@ -2000,6 +2204,7 @@ def driver_me():
         "phone": driver.phone,
         "email": driver.email,
         "state": driver.state,
+        "city": driver.city,
         "car_model": driver.car_model,
         "car_year": driver.car_year,
         "vehicle_class": driver_vehicle_class(driver),
@@ -2914,6 +3119,7 @@ def owner_drivers():
         "phone": d.phone,
         "email": d.email,
         "state": d.state,
+        "city": d.city,
         "car": f"{d.car_model} ({d.car_colour})",
         "car_model": d.car_model,
         "car_year": d.car_year,

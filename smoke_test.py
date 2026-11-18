@@ -697,6 +697,30 @@ check("owner-review note only hidden for the 6 verified states",
 check("states payload carries no count or quantity field",
       "count" not in payload and "quantity" not in payload
       and all("count" not in r and "quantity" not in r for r in reqs.values()))
+# --- city picker (owner order 2026-11-17, Uber-style) -----------------
+cities = payload.get("cities", {})
+overrides = payload.get("city_requirements", {})
+check("cities served for all 51 jurisdictions, Other city fallback last",
+      len(cities) == 51
+      and all(names and names[-1] == "Other city"
+              and names[:-1] == sorted(names[:-1])
+              for names in cities.values()), str(len(cities)))
+check("Texas cities include Dallas and Fort Worth",
+      cities.get("Texas") == ["Austin", "Dallas", "Fort Worth",
+                              "Houston", "San Antonio", "Other city"],
+      str(cities.get("Texas")))
+check("Dallas is the only city-specific list, Fort Worth falls back",
+      set(overrides) == {"Texas"}
+      and set(overrides["Texas"]) == {"Dallas"}
+      and overrides["Texas"]["Dallas"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "dallas_commercial_insurance", "dallas_driver_permit",
+          "dallas_limo_permit"]
+      and overrides["Texas"]["Dallas"]["local_note"] is False,
+      str(overrides))
+check("city payload carries no count or quantity field",
+      all("count" not in c and "quantity" not in c
+          for state_reqs in overrides.values() for c in state_reqs.values()))
 resp = client.get("/static/js/driver.js")
 check("served driver.js shows no document count in the required note",
       resp.status_code == 200 and b"required.length" not in resp.data

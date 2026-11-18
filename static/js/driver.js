@@ -822,6 +822,13 @@
 
   /* ---------- Boot: registered drivers never see registration again ---------- */
   function boot() {
+    /* Password reset: a /driver?reset=<token> link opens the
+       set-new-password form instead of the normal view, even on a
+       device with a saved sign-in (the reset rotates the token, so
+       the old session stops working anyway). */
+    var resetToken = null;
+    try { resetToken = new URLSearchParams(window.location.search).get("reset"); } catch (e) { /* old browser */ }
+    if (resetToken) { showResetForm(resetToken); return; }
     var token = getToken();
     if (!token) { showScreen("register"); return; }
     state.token = token;
@@ -1012,6 +1019,8 @@
     var name = $("reg-name").value.trim();
     var phone = $("reg-phone").value.trim();
     var email = $("reg-email").value.trim();
+    var password = $("reg-password").value;
+    var passwordConfirm = $("reg-password-confirm").value;
     var stateName = $("reg-state").value.trim();
     var cityName = $("reg-city").value.trim();
     var carModel = $("reg-car-model").value.trim();
@@ -1020,8 +1029,19 @@
     var plate = $("reg-plate").value.trim();
     var acct = $("reg-bank-account").value.trim();
     var routing = $("reg-bank-routing").value.trim();
-    if (!name || !phone || !email || !stateName || !cityName || !carModel || !carYear || !carColour || !plate || !acct || !routing) {
+    if (!name || !phone || !email || !password || !passwordConfirm || !stateName || !cityName || !carModel || !carYear || !carColour || !plate || !acct || !routing) {
       err.textContent = "Please fill in every field, including your bank details.";
+      return;
+    }
+    /* Password for email+password sign-in: at least 6 characters and
+       matching confirmation. The server enforces the same rules and
+       stores only a hash, never the password itself. */
+    if (password.length < 6) {
+      err.textContent = "Password must be at least 6 characters.";
+      return;
+    }
+    if (password !== passwordConfirm) {
+      err.textContent = "Passwords do not match.";
       return;
     }
     if (carListLoaded && carModels.indexOf(carModel) === -1) {
@@ -1085,6 +1105,8 @@
     fd.append("name", name);
     fd.append("phone", phone);
     fd.append("email", email);
+    fd.append("password", password);
+    fd.append("password_confirm", passwordConfirm);
     fd.append("state", stateName);
     fd.append("city", cityName);
     fd.append("car_model", carModel);
@@ -1118,6 +1140,143 @@
         err.textContent = "Could not reach the service. Please check your connection and try again.";
       });
     }
+  });
+
+  /* ---------- Email + password sign-in ---------- */
+  /* Owner decision 2026-11-18, complete sign-in process: the
+     primary sign-in is email + password. On success it uses the
+     same token mechanism as the phone lookup below (re-issued
+     token, saved on this device), so signing in on a new phone
+     signs the old one out. On failure the server's generic error
+     is shown — it never says whether the email or the password
+     was wrong. Drivers registered before passwords existed have
+     no password and keep using the phone lookup below. */
+  $("signin-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var err = $("signin-error");
+    err.textContent = "";
+    var email = $("signin-email").value.trim();
+    var password = $("signin-password").value;
+    if (!email || !password) { err.textContent = "Please enter your email and password."; return; }
+    var btn = $("signin-submit");
+    btn.disabled = true;
+    fetch("/api/drivers/me/signin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, password: password })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok || !res.j.token) {
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "Email or password is incorrect.";
+          return;
+        }
+        saveToken(res.j.token);
+        /* Sign-in returns only id + name: fetch the full record so the
+           Documents and Profile tabs are populated on this device. */
+        fetch("/api/drivers/me", { headers: authHeaders() })
+          .then(function (r) { return r.json(); })
+          .then(function (j) { enterApp(unwrapDriver(j) || unwrapDriver(res.j) || {}); })
+          .catch(function () { enterApp(unwrapDriver(res.j) || {}); });
+      })
+      .catch(function () {
+        btn.disabled = false;
+        err.textContent = "Could not reach the service. Please try again.";
+      });
+  });
+
+  /* ---------- Forgot password ---------- */
+  /* The driver enters an email and always sees the same message,
+     whether or not the email is registered — the server never
+     reveals that. The reset link is queued to the owner-dashboard
+     outbox (recorded, not sent) until an email service is
+     connected, so today the owner shares the link with the
+     driver. */
+  $("forgot-link").addEventListener("click", function () {
+    hide($("signin-form"));
+    hide($("forgot-link"));
+    show($("forgot-form"));
+  });
+  $("forgot-back-link").addEventListener("click", function () {
+    hide($("forgot-form"));
+    show($("signin-form"));
+    show($("forgot-link"));
+  });
+  $("forgot-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var msg = $("forgot-message");
+    msg.textContent = "";
+    var email = $("forgot-email").value.trim();
+    if (!email) { msg.textContent = "Please enter your email."; return; }
+    var btn = $("forgot-submit");
+    btn.disabled = true;
+    fetch("/api/drivers/me/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        btn.disabled = false;
+        msg.textContent = (j && j.message) || "If an account exists for that email, password reset instructions have been sent.";
+      })
+      .catch(function () {
+        btn.disabled = false;
+        msg.textContent = "Could not reach the service. Please try again.";
+      });
+  });
+
+  /* ---------- Password reset via link ---------- */
+  /* A /driver?reset=<token> link opens the set-new-password form
+     instead of the normal registration/sign-in view (see boot()).
+     The token itself is only ever sent back to the server — it is
+     never shown on screen or logged. */
+  function showResetForm(resetToken) {
+    state.resetToken = resetToken;
+    hide($("register-form"));
+    hide($("signin-block"));
+    var intro = $("register-intro");
+    if (intro) hide(intro);
+    var heading = document.querySelector("#screen-register > h2");
+    if (heading) hide(heading);
+    show($("reset-block"));
+    showScreen("register");
+  }
+  $("reset-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var err = $("reset-error");
+    err.textContent = "";
+    var password = $("reset-password").value;
+    var passwordConfirm = $("reset-password-confirm").value;
+    if (password.length < 6) { err.textContent = "Password must be at least 6 characters."; return; }
+    if (password !== passwordConfirm) { err.textContent = "Passwords do not match."; return; }
+    var btn = $("reset-submit");
+    btn.disabled = true;
+    fetch("/api/drivers/me/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: state.resetToken, password: password, password_confirm: passwordConfirm })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) {
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "This reset link is invalid or has expired.";
+          return;
+        }
+        hide($("reset-form-fields"));
+        show($("reset-done"));
+      })
+      .catch(function () {
+        btn.disabled = false;
+        err.textContent = "Could not reach the service. Please try again.";
+      });
+  });
+  $("reset-back-btn").addEventListener("click", function () {
+    /* Reload without the query string, so the used token leaves the
+       address bar and the normal sign-in view returns. */
+    window.location.assign("/driver");
   });
 
   /* ---------- Lookup for a new device ---------- */

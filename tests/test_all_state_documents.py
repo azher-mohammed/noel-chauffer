@@ -142,7 +142,7 @@ class AllStateListsCase(unittest.TestCase):
         self._seq += 1
         data = {
             "name": "All States Driver", "phone": f"+1555011{self._seq:04d}",
-            "email": "allstates@test.com", "state": state,
+            "email": f"allstates{self._seq}@test.com", "state": state,
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"AS{self._seq:05d}",
             "bank_account_number": "123456789", "bank_routing_number": "021000021",

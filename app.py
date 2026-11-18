@@ -29,6 +29,7 @@ Env vars:
 from __future__ import annotations
 
 import io
+import hashlib
 import hmac
 import logging
 import os
@@ -43,8 +44,9 @@ from cryptography.fernet import Fernet
 from flask import Flask, Response, jsonify, request, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from PIL import Image, ImageOps
-from sqlalchemy import Numeric
+from sqlalchemy import Numeric, func
 from werkzeug.exceptions import HTTPException
+from werkzeug.security import check_password_hash, generate_password_hash
 
 import geo as geo_module
 from car_models import (
@@ -55,6 +57,7 @@ from car_models import (
     validate_car_model,
     validate_car_year,
 )
+from email_sender import SENT as EMAIL_SENT, send_email
 from flights import flight_info, normalize_flight_number
 from payouts import completion_date, week_bounds, week_for
 from translation import (
@@ -2118,6 +2121,13 @@ class Driver(db.Model):
     name = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(40), unique=True, nullable=False)
     email = db.Column(db.String(200), nullable=False, default="")
+    # Password hash for email+password sign-in (owner decision
+    # 2026-11-18, "complete sign in process banao"). Nullable:
+    # drivers registered before passwords existed have no hash and
+    # keep signing in via the phone lookup exactly as before. Only
+    # the hash is ever stored — never the plaintext password — and
+    # it is never returned by any API response.
+    password_hash = db.Column(db.String(255), nullable=True)
     # US state the driver drives in, picked from the searchable state
     # dropdown at registration (owner decision 2026-11-17). Nullable:
     # drivers registered before the state selector existed have no
@@ -2324,6 +2334,29 @@ class OutboxMessage(db.Model):
     recipient = db.Column(db.String(200), nullable=False)
     body = db.Column(db.Text, nullable=False)
     booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=True)
+    # Set only when Resend confirms the email was sent (owner
+    # decision 2026-11-18, Resend sender). NULL means queued only:
+    # no key configured, a failed send, or an SMS row (Resend is
+    # email-only, SMS is never sent). Nullable, so rows queued
+    # before sending existed read as queued, exactly as before.
+    sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class PasswordResetToken(db.Model):
+    """Single-use password reset token (owner decision 2026-11-18,
+    drivers keep forgetting passwords). Only the SHA-256 hash of
+    the token is stored — never the token itself — plus a 1-hour
+    expiry and a used flag. A new table, so create_all() creates
+    it on the live database too. The reset link is queued via the
+    existing outbox (recorded, not sent — no email service is
+    connected) and never appears in any API response or log."""
+    __tablename__ = "password_reset_tokens"
+    id = db.Column(db.Integer, primary_key=True)
+    driver_id = db.Column(db.Integer, db.ForeignKey("drivers.id"), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    used_at = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
@@ -2507,6 +2540,39 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("pickup-reminder column check failed: %s", exc)
+    # Same pattern for the driver password hash (added with the
+    # email+password sign-in, 2026-11-18). Nullable, so existing
+    # driver rows keep working with no hash on file (phone lookup).
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "password_hash" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE drivers ADD COLUMN password_hash VARCHAR(255)")
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("password-hash column check failed: %s", exc)
+    # Same pattern for the outbox sent flag (added with the Resend
+    # email sender, 2026-11-18). Nullable, so existing outbox rows
+    # keep reading as queued-only.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _ocols = [c["name"] for c in _sa_inspect(db.engine).get_columns("outbox_messages")]
+        if "sent_at" not in _ocols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text(
+                        "ALTER TABLE outbox_messages ADD COLUMN sent_at "
+                        "TIMESTAMP WITH TIME ZONE"
+                    )
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("outbox sent_at column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -2541,8 +2607,30 @@ def add_event(booking_id, event_type, message):
     db.session.add(BookingEvent(booking_id=booking_id, type=event_type, message=message))
 
 
-def add_outbox(channel, recipient, body, booking_id=None):
-    db.session.add(OutboxMessage(channel=channel, recipient=recipient, body=body, booking_id=booking_id))
+# Neutral subject for queued emails whose caller passes no subject
+# of its own (the reset and reminder callers pass theirs).
+DEFAULT_EMAIL_SUBJECT = "Noel Chauffer"
+
+
+def _try_send_email(row, subject):
+    """Best-effort Resend send for a queued email row. The row is
+    always written first; sending never breaks the caller and never
+    raises. On a confirmed send the row is marked sent_at (it
+    persists with the caller's commit, like the row itself). SMS
+    rows never reach here."""
+    try:
+        if send_email(row.recipient, subject or DEFAULT_EMAIL_SUBJECT, row.body) == EMAIL_SENT:
+            row.sent_at = utcnow()
+    except Exception as exc:  # never break the caller
+        log.warning("outbox email send failed: %s", exc)
+
+
+def add_outbox(channel, recipient, body, booking_id=None, subject=None):
+    row = OutboxMessage(channel=channel, recipient=recipient, body=body, booking_id=booking_id)
+    db.session.add(row)
+    if channel == "email":
+        _try_send_email(row, subject)
+    return row
 
 
 def outbox_to_customer(booking, sms_body, email_body=None):
@@ -2811,7 +2899,8 @@ def run_pickup_reminders(now=None, driver_id=None):
         body = pickup_reminder_body(booking)
         add_outbox("sms", driver.phone, body, booking.id)
         if driver.email:
-            add_outbox("email", driver.email, body, booking.id)
+            add_outbox("email", driver.email, body, booking.id,
+                       subject="Your ride starts in about an hour")
         add_event(booking.id, "pickup_reminder",
                   f"Pickup reminder queued for driver {driver.name} "
                   f"(booking #{booking.id}).")
@@ -3805,6 +3894,32 @@ def register_driver():
     if Driver.query.filter_by(phone=phone).first():
         return err("A driver with this phone number is already registered.", 409)
 
+    # Email is normalized (trim + lowercase) so sign-in matching is
+    # case-insensitive. A non-empty email already on another driver
+    # is rejected, same pattern as the duplicate phone above; empty
+    # emails (drivers registered before email was collected) are
+    # never blocked.
+    email = (form.get("email") or "").strip().lower()
+    if email and Driver.query.filter(func.lower(Driver.email) == email).first():
+        return err("A driver with this email address is already registered.", 409)
+
+    # Password for email+password sign-in (owner decision 2026-11-18,
+    # "complete sign in process banao"). The driver-app form always
+    # sends it (required there); registrations that omit it keep
+    # working with no hash, so drivers registered before passwords
+    # existed and older clients are not broken. When provided it
+    # must be at least 6 characters and match the confirmation;
+    # only the hash is stored, never the plaintext password.
+    password = form.get("password") or ""
+    password_confirm = form.get("password_confirm") or ""
+    password_hash = None
+    if password or password_confirm:
+        if len(password) < 6:
+            return err("Password must be at least 6 characters.")
+        if password != password_confirm:
+            return err("Passwords do not match.")
+        password_hash = generate_password_hash(password)
+
     # State must come from the dropdown list (USA only, exact match —
     # same rule as the car-model dropdown). The state decides which
     # documents are compulsory for this driver.
@@ -3891,7 +4006,8 @@ def register_driver():
     driver = Driver(
         name=form["name"].strip(),
         phone=phone,
-        email=(form.get("email") or "").strip(),
+        email=email,
+        password_hash=password_hash,
         state=state,
         city=city,
         car_model=car_model,
@@ -3969,6 +4085,124 @@ def driver_lookup():
     driver.token = uuid.uuid4().hex  # re-issue token (trial only)
     db.session.commit()
     return jsonify({"driver": {"id": driver.id, "name": driver.name}, "token": driver.token})
+
+
+@app.route("/api/drivers/me/signin", methods=["POST"])
+def driver_signin():
+    """Email + password sign-in (owner decision 2026-11-18, complete
+    sign-in process). Same token mechanism as the phone lookup: the
+    token is re-issued, so signing in on a new phone signs the old
+    one out. The error is deliberately generic — it never reveals
+    whether the email or the password was wrong, or whether the
+    driver has a password set at all (drivers registered before
+    passwords existed have no hash and keep using the phone
+    lookup). No forgot-password reset exists yet: no email service
+    is connected, so no reset email can be sent."""
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    driver = None
+    if email:
+        driver = Driver.query.filter(func.lower(Driver.email) == email).first()
+    if not driver or not driver.password_hash or not check_password_hash(
+        driver.password_hash, password
+    ):
+        return err("Email or password is incorrect.", 401)
+    driver.token = uuid.uuid4().hex  # re-issue token (same as lookup)
+    db.session.commit()
+    return jsonify({"driver": {"id": driver.id, "name": driver.name}, "token": driver.token})
+
+
+# Password reset (owner decision 2026-11-18, drivers keep forgetting
+# passwords). Tokens are single-use, expire after 1 hour, and only
+# their SHA-256 hash is stored. The reset link is queued via the
+# existing outbox — recorded, not sent, until an email service is
+# connected — and never appears in any API response or log.
+RESET_TOKEN_TTL = timedelta(hours=1)
+RESET_REQUEST_MESSAGE = ("If an account exists for that email, "
+                         "password reset instructions have been sent.")
+RESET_INVALID_MESSAGE = "This reset link is invalid or has expired."
+
+
+def _hash_reset_token(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+@app.route("/api/drivers/me/forgot-password", methods=["POST"])
+def driver_forgot_password():
+    """Request a password reset link. ALWAYS returns the same generic
+    message, whether or not the email matches a driver — it never
+    reveals whether an email is registered. A token is created only
+    for a driver who actually has a password hash (drivers
+    registered before passwords existed keep using the phone
+    lookup). Issuing a token invalidates the driver's previous
+    unused tokens, so only the newest link works."""
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    driver = None
+    if email:
+        driver = Driver.query.filter(func.lower(Driver.email) == email).first()
+    if driver and driver.password_hash:
+        now = utcnow()
+        for old in PasswordResetToken.query.filter_by(
+                driver_id=driver.id, used_at=None).all():
+            old.used_at = now
+        token = secrets.token_urlsafe(32)
+        db.session.add(PasswordResetToken(
+            driver_id=driver.id,
+            token_hash=_hash_reset_token(token),
+            expires_at=now + RESET_TOKEN_TTL,
+        ))
+        reset_link = request.host_url.rstrip("/") + "/driver?reset=" + token
+        add_outbox("email", driver.email,
+                   "Noel Chauffer: reset your driver app password using "
+                   "this link (it expires in 1 hour): " + reset_link,
+                   subject="Reset your Noel Chauffer password")
+        db.session.commit()
+    return jsonify({"message": RESET_REQUEST_MESSAGE})
+
+
+@app.route("/api/drivers/me/reset-password", methods=["POST"])
+def driver_reset_password():
+    """Set a new password with a reset token. The token must match a
+    stored hash, be unused, and not be expired — anything else gets
+    the same generic error, with no details. On success the new
+    password hash is stored, the token is marked used, any other
+    outstanding tokens for the driver are invalidated, and the
+    driver token rotates so old sessions stop working."""
+    data = request.get_json(silent=True) or {}
+    token = data.get("token") or ""
+    password = data.get("password") or ""
+    password_confirm = data.get("password_confirm") or ""
+    row = None
+    if token:
+        row = PasswordResetToken.query.filter_by(
+            token_hash=_hash_reset_token(token), used_at=None).first()
+    now = utcnow()
+    expires_at = row.expires_at if row else None
+    if expires_at is not None and expires_at.tzinfo is None:
+        # SQLite stores timezone-aware datetimes without the offset;
+        # treat naive values as UTC, same as iso() does.
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if not row or expires_at <= now:
+        return err(RESET_INVALID_MESSAGE, 401)
+    if len(password) < 6:
+        return err("Password must be at least 6 characters.")
+    if password != password_confirm:
+        return err("Passwords do not match.")
+    driver = db.session.get(Driver, row.driver_id)
+    if not driver:
+        return err(RESET_INVALID_MESSAGE, 401)
+    driver.password_hash = generate_password_hash(password)
+    row.used_at = now
+    for old in PasswordResetToken.query.filter_by(
+            driver_id=driver.id, used_at=None).all():
+        if old.id != row.id:
+            old.used_at = now
+    driver.token = uuid.uuid4().hex  # rotate: old sessions stop working
+    db.session.commit()
+    return jsonify({"message": "Your password has been reset. "
+                               "Please sign in with your new password."})
 
 
 @app.route("/api/drivers/me/active-trip", methods=["GET"])
@@ -4782,6 +5016,7 @@ def owner_outbox():
     return jsonify([{
         "id": m.id, "channel": m.channel, "recipient": m.recipient,
         "body": m.body, "booking_id": m.booking_id, "created_at": iso(m.created_at),
+        "sent_at": iso(m.sent_at),
     } for m in messages])
 
 

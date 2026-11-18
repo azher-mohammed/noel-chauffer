@@ -158,7 +158,7 @@ class SouthCentralDocumentsCase(unittest.TestCase):
         self._seq += 1
         data = {
             "name": "South Central Driver", "phone": f"+1555036{self._seq:04d}",
-            "email": "southcentral@test.com",
+            "email": f"southcentral{self._seq}@test.com",
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"SC{self._seq:05d}",
             "bank_account_number": "123456789", "bank_routing_number": "021000021",

@@ -69,7 +69,7 @@ class PassportProfilePhotoCase(unittest.TestCase):
         self._seq += 1
         data = {
             "name": "Passport Driver", "phone": f"+1555007{self._seq:04d}",
-            "email": "passport@test.com",
+            "email": f"passport{self._seq}@test.com",
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"PP{self._seq:05d}",
             "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
@@ -149,7 +149,7 @@ class PassportProfilePhotoCase(unittest.TestCase):
         self._seq += 1
         data = {
             "name": "Doc Driver", "phone": f"+1555007{self._seq:04d}",
-            "email": "doc@test.com",
+            "email": f"doc{self._seq}@test.com",
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"DD{self._seq:05d}",
             "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",

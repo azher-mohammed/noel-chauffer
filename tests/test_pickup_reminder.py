@@ -5,11 +5,11 @@ phone number.
 
 HONEST LIMIT: no messaging service is connected. The email and SMS
 are written to the owner-dashboard outbox only and are NOT actually
-sent (the dashboard says so: "messages are recorded here, not sent
-yet"). Only the in-app banner actually reaches the driver, and only
-while he has the app open. These tests pin the pipeline (check +
-idempotent record + outbox entries + in-app payload) and the content
-rule — never miles, fare, or total.
+sent (the dashboard shows each row as Queued until an email is
+confirmed delivered). Only the in-app banner actually reaches the
+driver, and only while he has the app open. These tests pin the
+pipeline (check + idempotent record + outbox entries + in-app
+payload) and the content rule — never miles, fare, or total.
 
 Rules pinned here:
 - Fires once per acceptance (pickup_reminder_sent_at flag); repeated

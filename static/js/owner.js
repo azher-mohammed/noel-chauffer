@@ -488,7 +488,8 @@
           var when = m.created_at || m.timestamp || m.time || "";
           var body = m.body || m.message || m.text || "";
           var subject = m.subject ? "<div><strong>" + esc(m.subject) + "</strong></div>" : "";
-          return '<div class="feed-item"><div class="ch">' + esc(channel) + (to ? " → " + esc(to) : "") + "</div>" +
+          var state = m.sent_at ? "Sent" : "Queued";
+          return '<div class="feed-item"><div class="ch">' + esc(channel) + (to ? " → " + esc(to) : "") + " · " + state + "</div>" +
             subject + '<div class="body">' + esc(body) + '</div><div class="t">' + esc(when) + "</div></div>";
         }).join("");
       })

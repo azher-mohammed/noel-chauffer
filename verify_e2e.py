@@ -883,7 +883,7 @@ check("driver week shows paid after mark-paid",
 
 section("free features: name sign, chat, extra distance, assign")
 resp = anon.post(BASE + "/api/drivers/register", data={
-    "name": "Verify Driver SUV", "phone": "+15550004444", "email": "d3@test.com",
+    "name": "Verify Driver SUV", "phone": "+15550004444", "email": "d3suv@test.com",
     "car_model": "Cadillac Escalade", "car_year": "2024", "car_colour": "Black", "plate": "T33333",
     "state": "New York", "bank_account_number": "555555555", "bank_routing_number": "021000021",
 }, files=all_docs, timeout=TIMEOUT)

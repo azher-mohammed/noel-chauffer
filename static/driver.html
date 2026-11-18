@@ -18,7 +18,7 @@
   <!-- ============ REGISTRATION (one time only) ============ -->
   <section class="screen hidden" id="screen-register">
     <h2>Driver registration</h2>
-    <p class="intro">Register once. After that, the app opens straight to your jobs — you will not see this form again on this device.</p>
+    <p class="intro" id="register-intro">Register once. After that, the app opens straight to your jobs — you will not see this form again on this device.</p>
 
     <form id="register-form" novalidate>
       <div class="section-title">About you</div>
@@ -36,6 +36,17 @@
           <input id="reg-email" type="email" required autocomplete="email">
         </div>
       </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="reg-password">Password</label>
+          <input id="reg-password" type="password" required autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label for="reg-password-confirm">Confirm password</label>
+          <input id="reg-password-confirm" type="password" required autocomplete="new-password">
+        </div>
+      </div>
+      <p class="hint">At least 6 characters. You will use your email and this password to sign in.</p>
       <div class="field field-places">
         <label for="reg-state">State you drive in</label>
         <input id="reg-state" type="text" required placeholder="Start typing your state…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="state-list" aria-autocomplete="list">
@@ -144,8 +155,32 @@
       <p class="form-error" id="register-error" role="alert"></p>
     </form>
 
+    <div id="signin-block">
     <div class="section-title">Already registered?</div>
-    <p class="form-note">Enter your phone number to continue on this device.</p>
+    <p class="form-note">Sign in with your email and password.</p>
+    <form id="signin-form" novalidate>
+      <div class="field">
+        <label for="signin-email">Email</label>
+        <input id="signin-email" type="email" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="signin-password">Password</label>
+        <input id="signin-password" type="password" required autocomplete="current-password">
+      </div>
+      <button class="btn-primary btn-gold" type="submit" id="signin-submit">Sign in</button>
+      <p class="form-error" id="signin-error" role="alert"></p>
+    </form>
+    <button class="link-btn" type="button" id="forgot-link">Forgot password?</button>
+    <form id="forgot-form" class="hidden" novalidate>
+      <div class="field">
+        <label for="forgot-email">Email</label>
+        <input id="forgot-email" type="email" required autocomplete="email">
+      </div>
+      <button class="btn-ghost" type="submit" id="forgot-submit">Send reset link</button>
+      <p class="form-note" id="forgot-message" role="status"></p>
+      <button class="link-btn" type="button" id="forgot-back-link">Back to sign in</button>
+    </form>
+    <div class="divider"><span>or continue with your phone number</span></div>
     <form id="lookup-form" novalidate>
       <div class="field">
         <label for="lookup-phone">Phone number</label>
@@ -154,6 +189,30 @@
       <button class="btn-ghost" type="submit" id="lookup-submit">Continue</button>
       <p class="form-error" id="lookup-error" role="alert"></p>
     </form>
+    </div>
+
+    <div id="reset-block" class="hidden">
+      <div class="section-title">Reset your password</div>
+      <p class="form-note">Choose a new password for your driver account. The reset link expires in 1 hour.</p>
+      <form id="reset-form" novalidate>
+        <div id="reset-form-fields">
+          <div class="field">
+            <label for="reset-password">New password</label>
+            <input id="reset-password" type="password" required autocomplete="new-password">
+          </div>
+          <div class="field">
+            <label for="reset-password-confirm">Confirm new password</label>
+            <input id="reset-password-confirm" type="password" required autocomplete="new-password">
+          </div>
+          <button class="btn-primary btn-gold" type="submit" id="reset-submit">Set new password</button>
+        </div>
+        <p class="form-error" id="reset-error" role="alert"></p>
+      </form>
+      <div id="reset-done" class="hidden">
+        <p class="form-note">Your password has been reset. Please sign in with your new password.</p>
+        <button class="btn-primary btn-gold" type="button" id="reset-back-btn">Back to sign in</button>
+      </div>
+    </div>
   </section>
 
   <!-- ============ HOME / OFFERS ============ -->

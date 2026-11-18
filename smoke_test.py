@@ -709,14 +709,20 @@ check("Texas cities include Dallas and Fort Worth",
       cities.get("Texas") == ["Austin", "Dallas", "Fort Worth",
                               "Houston", "San Antonio", "Other city"],
       str(cities.get("Texas")))
-check("Dallas is the only city-specific list, Fort Worth falls back",
-      set(overrides) == {"Texas"}
+check("Dallas and Buffalo are the city-specific lists, Fort Worth falls back",
+      set(overrides) == {"Texas", "New York"}
       and set(overrides["Texas"]) == {"Dallas"}
+      and set(overrides["New York"]) == {"Buffalo"}
       and overrides["Texas"]["Dallas"]["docs"] == [
           "profile_picture", "dmv_license", "vehicle_registration",
           "dallas_commercial_insurance", "dallas_driver_permit",
           "dallas_limo_permit"]
-      and overrides["Texas"]["Dallas"]["local_note"] is False,
+      and overrides["Texas"]["Dallas"]["local_note"] is False
+      and overrides["New York"]["Buffalo"]["docs"] == [
+          "profile_picture", "dmv_license",
+          "buffalo_taxi_driver_license", "vehicle_registration",
+          "buffalo_insurance_certificate", "buffalo_inspection_report"]
+      and overrides["New York"]["Buffalo"]["local_note"] is True,
       str(overrides))
 check("city payload carries no count or quantity field",
       all("count" not in c and "quantity" not in c

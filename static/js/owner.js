@@ -571,7 +571,10 @@
     { key: "wa_insurance_certificate", label: "Certificate of Insurance" },
     { key: "dallas_commercial_insurance", label: "Commercial Insurance Certificate" },
     { key: "dallas_driver_permit", label: "Dallas Driver Permit" },
-    { key: "dallas_limo_permit", label: "City Limo Permit (Dallas / Fort Worth)" }
+    { key: "dallas_limo_permit", label: "City Limo Permit (Dallas / Fort Worth)" },
+    { key: "buffalo_taxi_driver_license", label: "City of Buffalo Taxi Driver License" },
+    { key: "buffalo_insurance_certificate", label: "Certificate of Automobile Liability Insurance" },
+    { key: "buffalo_inspection_report", label: "Vehicle Inspection Report" }
   ];
 
   function docIsComplete(value) {

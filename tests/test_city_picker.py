@@ -10,11 +10,12 @@ keeps the state picker and adds the city picker after it.
 
 Effective list rule: a city with a verified city-specific list
 overrides its state list; every other city uses the state list
-unchanged. Dallas, Texas is the FIRST and ONLY city-specific list,
+unchanged. Dallas, Texas is the FIRST city-specific list,
 from Uber's official pages only (Uber Help livery article + Uber
 Dallas vehicle-requirements page): license, commercial insurance,
 vehicle registration, Dallas Driver Permit, City of Dallas or Fort
-Worth limo permit, plus the profile picture. Fort Worth was
+Worth limo permit, plus the profile picture. (Buffalo, New York
+is the second — see tests/test_buffalo_documents.py.) Fort Worth was
 researched and has NO city-specific list (Fort Worth licenses the
 operating business, not the individual driver), so it falls back to
 the Texas state list — never assume Fort Worth = Dallas. Every
@@ -139,12 +140,14 @@ class CityPickerCase(unittest.TestCase):
         d_cities = [c for c in texas if c.startswith("D")]
         self.assertEqual(d_cities, ["Dallas"])
 
-    def test_city_requirements_dallas_only(self):
+    def test_city_requirements_cover_dallas_and_buffalo(self):
         payload = self.client.get("/api/states").get_json()
         overrides = payload["city_requirements"]
-        # Dallas is the first and only city-specific list.
-        self.assertEqual(set(overrides), {"Texas"})
+        # Dallas (first) and Buffalo (second) are the city-specific
+        # lists; Buffalo is pinned in tests/test_buffalo_documents.py.
+        self.assertEqual(set(overrides), {"Texas", "New York"})
         self.assertEqual(set(overrides["Texas"]), {"Dallas"})
+        self.assertEqual(set(overrides["New York"]), {"Buffalo"})
         dallas = overrides["Texas"]["Dallas"]
         self.assertEqual(dallas["docs"], app_module.DALLAS_DOC_TYPES)
         self.assertEqual(dallas["docs"], [

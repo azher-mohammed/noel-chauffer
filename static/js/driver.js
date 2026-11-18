@@ -193,7 +193,10 @@
     doc_wa_insurance_certificate: "Certificate of Insurance",
     doc_dallas_commercial_insurance: "Commercial Insurance Certificate",
     doc_dallas_driver_permit: "Dallas Driver Permit",
-    doc_dallas_limo_permit: "City Limo Permit (Dallas / Fort Worth)"
+    doc_dallas_limo_permit: "City Limo Permit (Dallas / Fort Worth)",
+    doc_buffalo_taxi_driver_license: "City of Buffalo Taxi Driver License",
+    doc_buffalo_insurance_certificate: "Certificate of Automobile Liability Insurance",
+    doc_buffalo_inspection_report: "Vehicle Inspection Report"
   };
   /* Document types as the API keys them in `docs` (status strings),
      in display order: the New York list first, then the items only
@@ -286,14 +289,18 @@
     wa_insurance_certificate: "Certificate of Insurance",
     dallas_commercial_insurance: "Commercial Insurance Certificate",
     dallas_driver_permit: "Dallas Driver Permit",
-    dallas_limo_permit: "City Limo Permit (Dallas / Fort Worth)"
+    dallas_limo_permit: "City Limo Permit (Dallas / Fort Worth)",
+    buffalo_taxi_driver_license: "City of Buffalo Taxi Driver License",
+    buffalo_insurance_certificate: "Certificate of Automobile Liability Insurance",
+    buffalo_inspection_report: "Vehicle Inspection Report"
   };
   var DOC_TYPE_ORDER = [
     "profile_picture", "dmv_license", "tlc_license", "fh1_insurance",
     "registration", "inspection", "vehicle_permit",
     "nj_qualification", "nj_municipal_license", "nj_limo_registration",
-    "nj_insurance", "vehicle_registration", "insurance_card",
+    "nj_insurance", "buffalo_taxi_driver_license", "vehicle_registration", "insurance_card",
     "dallas_commercial_insurance", "dallas_driver_permit", "dallas_limo_permit",
+    "buffalo_insurance_certificate", "buffalo_inspection_report",
     "al_certificate", "al_form_e", "ca_tcp_permit", "ca_driver_statement",
     "ca_commercial_registration", "ca_inspection_declaration", "co_ll_permit", "co_inspection",
     "co_form_e", "ct_livery_permit", "de_certificate", "de_limo_registration",
@@ -408,7 +415,10 @@
     wa_insurance_certificate: "doc_wa_insurance_certificate",
     dallas_commercial_insurance: "doc_dallas_commercial_insurance",
     dallas_driver_permit: "doc_dallas_driver_permit",
-    dallas_limo_permit: "doc_dallas_limo_permit"
+    dallas_limo_permit: "doc_dallas_limo_permit",
+    buffalo_taxi_driver_license: "doc_buffalo_taxi_driver_license",
+    buffalo_insurance_certificate: "doc_buffalo_insurance_certificate",
+    buffalo_inspection_report: "doc_buffalo_inspection_report"
   };
   var STAGES = ["en_route", "arrived", "start", "complete"];
   var STAGE_BUTTON = {

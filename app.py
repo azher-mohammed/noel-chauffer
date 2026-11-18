@@ -207,6 +207,9 @@ DOC_FIELD_MAP = {
     "doc_dallas_commercial_insurance": "dallas_commercial_insurance",
     "doc_dallas_driver_permit": "dallas_driver_permit",
     "doc_dallas_limo_permit": "dallas_limo_permit",
+    "doc_buffalo_taxi_driver_license": "buffalo_taxi_driver_license",
+    "doc_buffalo_insurance_certificate": "buffalo_insurance_certificate",
+    "doc_buffalo_inspection_report": "buffalo_inspection_report",
 }
 # doc_type -> multipart field name (profile_picture comes from profile_photo)
 FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
@@ -476,7 +479,7 @@ def required_docs_for_state(state):
 # EFFECTIVE LIST RULE: a city with a verified city-specific list
 # overrides its state list; every other city uses the state list
 # unchanged (including the owner-review note where the state has it).
-# Dallas, Texas is the FIRST and ONLY city-specific list. Its items
+# Dallas, Texas is the FIRST city-specific list. Its items
 # come from Uber's official pages only — the Uber Help livery article
 # (valid state-issued DMV driving license, commercial insurance,
 # vehicle registration, and the City of Dallas or Fort Worth limo
@@ -484,6 +487,28 @@ def required_docs_for_state(state):
 # Driver Permit required, commercial insurance):
 #   https://help.uber.com/en-GB/driving-and-delivering/article/becoming-a-driver-livery?nodeId=d17a342c-ad81-403b-8a4a-14e9ef7300af
 #   https://www.uber.com/us/en/drive/requirements/vehicle-requirements/?city=dallas
+# Buffalo, New York is the SECOND (owner order 2026-11-17,
+# "Buffalo ku tlc nahi chaiye" — TLC is New York City only, so
+# Buffalo must not see TLC documents). Its items come from the
+# City of Buffalo's official taxi/livery requirements (Office of
+# Licenses): licensed as a City of Buffalo Taxi Driver, copy of
+# NYS vehicle registration, certificate of automobile liability
+# insurance, vehicle inspection report:
+#   http://www.buffalony.gov/DocumentCenter/View/11873/taxi-livery-application-_-requirements
+# Left out of the Buffalo gate: the worker's compensation /
+# exemption certificate (an OR-alternative — Form CE-200 when
+# exclusively owner-operated, a certificate otherwise — which
+# the gate cannot express, same as other states' OR-alternatives),
+# the MV 289 taxi-plate certification (a process: bring the
+# registration card, obtain the form, get the plate from the
+# DMV), and the license fees (not a document). Because the
+# worker's compensation item is named by the city but not gated,
+# the owner-review note STAYS ON for Buffalo (see
+# CITY_LISTS_WITH_LOCAL_NOTE). Uber's Buffalo page names no TLC
+# item either (DMV driving license, proof of residency,
+# insurance, photo, background check); the background check is
+# never built (owner declined it) and proof of residency is not
+# a slot — the city source does not name it.
 # Fort Worth was researched the same night (Uber Help + City of Fort
 # Worth Ground Transportation Office, Chapter 34 Article VI): Fort
 # Worth licenses the OPERATING business, not the individual driver —
@@ -562,11 +587,35 @@ DALLAS_DOC_TYPES = [
     "dallas_limo_permit",
 ]
 
-# (state, city) -> city-specific list. Only Dallas today; a city is
-# added here ONLY with a verified official source naming its items.
+# Buffalo, New York (VERIFIED from the City of Buffalo official
+# requirements above). Zero TLC items: TLC is New York City only.
+# No background check, no age/experience gate: the owner declined
+# the background check outright ("nahi background check nahi
+# chahiye"). The inspection slot is the city's Vehicle Inspection
+# Report, distinct from the New York "NYS DMV Inspection" slot.
+BUFFALO_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "buffalo_taxi_driver_license",
+    "vehicle_registration",
+    "buffalo_insurance_certificate",
+    "buffalo_inspection_report",
+]
+
+# (state, city) -> city-specific list. Dallas and Buffalo today; a
+# city is added here ONLY with a verified official source naming
+# its items.
 CITY_DOC_REQUIREMENTS = {
     ("Texas", "Dallas"): DALLAS_DOC_TYPES,
+    ("New York", "Buffalo"): BUFFALO_DOC_TYPES,
 }
+
+# City-specific lists that KEEP the owner-review note: Buffalo's
+# city source names the worker's compensation / exemption
+# certificate, which the gate cannot express (OR-alternative), so
+# the owner reviews each Buffalo application. Dallas hides the
+# note: its list is complete as named by Uber's official pages.
+CITY_LISTS_WITH_LOCAL_NOTE = frozenset({("New York", "Buffalo")})
 
 
 def cities_for_state(state):
@@ -590,9 +639,11 @@ def required_docs_for(state, city=None):
 def local_note_for(state, city=None):
     """Whether the owner-review note shows for the effective list: it
     hides only for a verified list (a verified state, or a city with
-    a verified city-specific list)."""
+    a verified city-specific list) — except a city list with a known
+    gap the gate cannot express (Buffalo: the worker's compensation
+    OR-alternative), which keeps the note on."""
     if city and (state, city) in CITY_DOC_REQUIREMENTS:
-        return False
+        return (state, city) in CITY_LISTS_WITH_LOCAL_NOTE
     return state not in VERIFIED_DOC_STATES
 
 
@@ -681,6 +732,9 @@ ALL_DOC_LABELS.update({
     "dallas_commercial_insurance": "Commercial Insurance Certificate",
     "dallas_driver_permit": "Dallas Driver Permit",
     "dallas_limo_permit": "City Limo Permit (Dallas / Fort Worth)",
+    "buffalo_taxi_driver_license": "City of Buffalo Taxi Driver License",
+    "buffalo_insurance_certificate": "Certificate of Automobile Liability Insurance",
+    "buffalo_inspection_report": "Vehicle Inspection Report",
 })
 # Hint line under each document item in the registration form.
 DOC_HINTS = {
@@ -770,6 +824,9 @@ DOC_HINTS = {
     "dallas_commercial_insurance": "Photo of your Commercial Insurance Certificate, straight and fully visible.",
     "dallas_driver_permit": "Photo of your Dallas Driver Permit, straight and fully visible.",
     "dallas_limo_permit": "Photo of your City Limo Permit (Dallas / Fort Worth), straight and fully visible.",
+    "buffalo_taxi_driver_license": "Photo of your City of Buffalo Taxi Driver License, straight and fully visible.",
+    "buffalo_insurance_certificate": "Photo of your Certificate of Automobile Liability Insurance, straight and fully visible.",
+    "buffalo_inspection_report": "Photo of your Vehicle Inspection Report, straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived
@@ -1140,7 +1197,8 @@ def waze_url_for(booking):
 
 def driver_docs_status(driver):
     # Statuses for the documents the driver's state + city require. A
-    # city with a verified city-specific list (Dallas) overrides its
+    # city with a verified city-specific list (Dallas, Buffalo)
+    # overrides its
     # state list; drivers registered before the state selector (no
     # state on file) read as New York, the list they registered under
     # — unchanged behaviour.
@@ -2051,7 +2109,7 @@ def list_states():
     2026-11-17, Uber-style): `cities` lists each state's largest
     cities, alphabetical, with the "Other city" fallback last, and
     `city_requirements` carries the verified city-specific lists
-    that override their state list (Dallas only today). Every other
+    that override their state list (Dallas and Buffalo today). Every other
     city uses its state list unchanged.
     """
     return jsonify({
@@ -2112,8 +2170,8 @@ def register_driver():
     # match, same rule as the state). Optional in the API so drivers
     # registered before the city picker existed keep working, and so
     # older clients are not broken; the registration form always
-    # sends it. A city with a verified city-specific list (Dallas)
-    # overrides the state list; every other city — including "Other
+    # sends it. A city with a verified city-specific list (Dallas,
+    # Buffalo) overrides the state list; every other city — including "Other
     # city" — uses the state list unchanged.
     city = (form.get("city") or "").strip() or None
     if city is not None and city not in cities_for_state(state):
@@ -2166,7 +2224,7 @@ def register_driver():
     # depends on the driver's state and city (New York keeps the
     # original 7; other states have their own verified list or the
     # generic base list; a city with a verified city-specific list,
-    # Dallas today, overrides its state list). This gates only new
+    # Dallas and Buffalo today, overrides its state list). This gates only new
     # registrations: drivers registered before this change keep
     # signing in and going available exactly as before.
     missing = []

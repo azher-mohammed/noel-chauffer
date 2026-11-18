@@ -1239,14 +1239,20 @@ check("cities served for all 51 jurisdictions, Other city fallback last",
       and all(names and names[-1] == "Other city"
               and names[:-1] == sorted(names[:-1])
               for names in cities.values()), str(len(cities)))
-check("Dallas is the only city-specific list, Fort Worth falls back",
-      set(overrides) == {"Texas"}
+check("Dallas and Buffalo are the city-specific lists, Fort Worth falls back",
+      set(overrides) == {"Texas", "New York"}
       and set(overrides["Texas"]) == {"Dallas"}
+      and set(overrides["New York"]) == {"Buffalo"}
       and overrides["Texas"]["Dallas"]["docs"] == [
           "profile_picture", "dmv_license", "vehicle_registration",
           "dallas_commercial_insurance", "dallas_driver_permit",
           "dallas_limo_permit"]
-      and overrides["Texas"]["Dallas"]["local_note"] is False,
+      and overrides["Texas"]["Dallas"]["local_note"] is False
+      and overrides["New York"]["Buffalo"]["docs"] == [
+          "profile_picture", "dmv_license",
+          "buffalo_taxi_driver_license", "vehicle_registration",
+          "buffalo_insurance_certificate", "buffalo_inspection_report"]
+      and overrides["New York"]["Buffalo"]["local_note"] is True,
       str(overrides))
 r = anon.get(BASE + "/driver", timeout=TIMEOUT)
 check("served driver page has the city picker after the state picker",

@@ -77,7 +77,13 @@ def send_email(to, subject, body):
     request = Request(
         RESEND_API_URL, data=payload, method="POST",
         headers={"Authorization": "Bearer " + key,
-                 "Content-Type": "application/json"},
+                 "Content-Type": "application/json",
+                 # Required: api.resend.com sits behind Cloudflare,
+                 # which blocks urllib's default User-Agent with
+                 # HTTP 403 "error code: 1010" before the key is
+                 # ever checked (all sends failed this way until
+                 # this header was added 2026-11-18).
+                 "User-Agent": "NoelChauffer/1.0"},
     )
     try:
         with urlopen(request, timeout=REQUEST_TIMEOUT) as resp:
@@ -87,7 +93,7 @@ def send_email(to, subject, body):
         # never contains the key), and the key length (a number
         # only). The key value itself is never logged.
         try:
-            detail = exc.read().decode("utf-8", "replace")[:300]
+            detail = exc.read().decode("utf-8", "replace").strip()[:300]
         except Exception:
             detail = ""
         log.warning("Resend send failed: HTTP %s: %s (key_len=%d)",

@@ -32,8 +32,11 @@ Rules pinned here:
   old password stops working, the new one works, and the driver
   token rotates; issuing a new token invalidates prior ones; the
   reset link never appears in any API response.
-- Sign-out already exists (Profile "Register a different driver"
-  clears the stored token); pinned statically, not rebuilt.
+- Sign-out already exists (Profile "Log out" clears the stored
+  token); pinned statically, not rebuilt. The button was relabelled
+  from "Register a different driver" to "Log out" on the owner's
+  order 2026-11-18 ("log out" — he thought logout was missing
+  because no button said so); behaviour is unchanged.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -482,13 +485,19 @@ class DriverSigninCase(unittest.TestCase):
         self.assertIn('get("reset")', js)
 
     def test_signout_already_exists_and_clears_token(self):
-        # Profile "Register a different driver" is the sign-out: it
-        # clears the stored token and reloads to the sign-in screen.
+        # Profile "Log out" is the sign-out: it clears the stored
+        # token and reloads to the sign-in screen. The label is
+        # exactly "Log out" (owner order 2026-11-18); the old
+        # "Register a different driver" wording is gone, and the
+        # confirm wording and behaviour are unchanged.
         html = read("static/driver.html")
-        self.assertIn('id="reset-driver-btn"', html)
+        self.assertIn('id="reset-driver-btn">Log out</button>', html)
+        self.assertNotIn("Register a different driver", html)
         js = read("static/js/driver.js")
         handler = js[js.index("reset-driver-btn"):]
         self.assertIn("clearToken()", handler[:500])
+        self.assertIn("Sign out this driver on this device and show registration again?",
+                      handler[:500])
 
 
 if __name__ == "__main__":

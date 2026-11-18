@@ -102,42 +102,49 @@
         <div class="doc-hint">Passport-style photo: face forward, head and shoulders, face clearly visible. Take it upright (portrait), in good light — small or sideways photos are not accepted.</div>
         <input type="file" id="file-profile_photo" accept="image/*">
         <div class="doc-preview" id="preview-profile_photo"></div>
+        <div class="doc-error" id="doc-error-profile_photo"></div>
       </div>
       <div class="doc-item" id="doc-item-doc_dmv_license">
         <div class="doc-name">DMV driving license</div>
         <div class="doc-hint">Photo of your DMV driving license, straight and fully visible.</div>
         <input type="file" id="file-doc_dmv_license" accept="image/*">
         <div class="doc-preview" id="preview-doc_dmv_license"></div>
+        <div class="doc-error" id="doc-error-doc_dmv_license"></div>
       </div>
       <div class="doc-item" id="doc-item-doc_tlc_license">
         <div class="doc-name">TLC License</div>
         <div class="doc-hint">Photo of your TLC license, straight and fully visible.</div>
         <input type="file" id="file-doc_tlc_license" accept="image/*">
         <div class="doc-preview" id="preview-doc_tlc_license"></div>
+        <div class="doc-error" id="doc-error-doc_tlc_license"></div>
       </div>
       <div class="doc-item" id="doc-item-doc_fh1">
         <div class="doc-name">FH-1 Insurance Card</div>
         <div class="doc-hint">Photo of your FH-1 card, including the barcode — or upload a PDF.</div>
         <input type="file" id="file-doc_fh1" accept="image/*,.pdf,application/pdf">
         <div class="doc-preview" id="preview-doc_fh1"></div>
+        <div class="doc-error" id="doc-error-doc_fh1"></div>
       </div>
       <div class="doc-item" id="doc-item-doc_registration">
         <div class="doc-name">Commercial Vehicle Registration</div>
         <div class="doc-hint">Photo of your registration, straight and fully visible.</div>
         <input type="file" id="file-doc_registration" accept="image/*">
         <div class="doc-preview" id="preview-doc_registration"></div>
+        <div class="doc-error" id="doc-error-doc_registration"></div>
       </div>
       <div class="doc-item" id="doc-item-doc_inspection">
         <div class="doc-name">NYS DMV Inspection</div>
         <div class="doc-hint">Photo of your inspection document, straight and fully visible.</div>
         <input type="file" id="file-doc_inspection" accept="image/*">
         <div class="doc-preview" id="preview-doc_inspection"></div>
+        <div class="doc-error" id="doc-error-doc_inspection"></div>
       </div>
       <div class="doc-item" id="doc-item-doc_vehicle_permit">
         <div class="doc-name">TLC-for-hire Vehicle Permit</div>
         <div class="doc-hint">Photo of your vehicle permit, straight and fully visible.</div>
         <input type="file" id="file-doc_vehicle_permit" accept="image/*">
         <div class="doc-preview" id="preview-doc_vehicle_permit"></div>
+        <div class="doc-error" id="doc-error-doc_vehicle_permit"></div>
       </div>
       <div id="doc-items-extra"></div>
       <div class="section-title">Bank details — for your earnings</div>
@@ -328,7 +335,7 @@
   <section class="screen hidden" id="screen-profile">
     <h2>Profile</h2>
     <div class="profile-card" id="profile-card"></div>
-    <button class="btn-ghost" type="button" id="reset-driver-btn">Register a different driver</button>
+    <button class="btn-ghost" type="button" id="reset-driver-btn">Log out</button>
     <p class="form-note">This signs this device out of the current driver account and shows the registration form again.</p>
   </section>
 

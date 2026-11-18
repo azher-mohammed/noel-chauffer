@@ -189,8 +189,10 @@ class CompulsoryDocumentsCase(unittest.TestCase):
     def test_client_gate_names_missing_documents(self):
         driver_js = read("static/js/driver.js")
         # The gate runs in the submit handler before the request is built.
-        gate = driver_js.index("Missing document: ")
+        # (The search starts at the submit handler: the per-item helper
+        # above it reuses the same wording for single items.)
         submit = driver_js.index('addEventListener("submit"')
+        gate = driver_js.index("Missing document: ", submit)
         fetch = driver_js.index("/api/drivers/register", submit)
         self.assertLess(submit, gate)
         self.assertLess(gate, fetch)

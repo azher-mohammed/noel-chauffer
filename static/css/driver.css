@@ -10,6 +10,7 @@
   --line: #e6e2d8;
   --ok: #1e7a4c;
   --bad: #a83232;
+  --bad-soft: #fdecea;
 }
 * { box-sizing: border-box; }
 body {
@@ -111,6 +112,14 @@ input, select { font: inherit; }
 .doc-item .doc-name { font-weight: 600; font-size: 15.5px; }
 .doc-item .doc-hint { font-size: 13px; color: var(--grey); margin: 3px 0 10px; }
 .doc-item input[type="file"] { width: 100%; font-size: 14.5px; }
+/* Per-item red error state (owner decision 2026-11-18): when a
+   document upload fails, the failing item itself turns red and
+   shows the message inside it, so the driver can tell WHICH item
+   failed. The message element only shows while its item is marked. */
+.doc-item.has-error { border-color: var(--bad); background: var(--bad-soft); }
+.doc-item.has-error .doc-name { color: var(--bad); }
+.doc-error { display: none; color: var(--bad); font-size: 13.5px; margin-top: 10px; }
+.doc-item.has-error .doc-error { display: block; }
 .doc-preview { margin-top: 10px; }
 .doc-preview img { max-width: 100%; max-height: 180px; border-radius: 6px; border: 1px solid var(--line); display: block; }
 .doc-preview .file-name { font-size: 13.5px; color: var(--grey); }

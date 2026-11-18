@@ -929,11 +929,27 @@
     var input = $("file-" + field);
     if (!input) return;
     input.addEventListener("change", function () {
+      /* Picking a new file clears this item's red error state right
+         away (owner decision 2026-11-18: the failing item turns
+         red, and a fresh pick starts it clean). */
+      clearDocItemError(field);
       var box = $("preview-" + field);
       box.innerHTML = "";
       box.classList.remove("passport-preview");
       var file = input.files && input.files[0];
       if (!file) return;
+      /* Profile photo: run the passport-style check right away, so
+         a sideways or tiny photo turns its own item red as soon as
+         it is picked, not only at submit. The callback only marks
+         when this file is still the chosen one, so a newer pick is
+         never blamed for an older photo. */
+      if (field === "profile_photo") {
+        checkProfilePhoto(file, function (photoError) {
+          if (photoError && input.files && input.files[0] === file) {
+            markDocItemError(field, photoError);
+          }
+        });
+      }
       var isImage = file.type && file.type.indexOf("image/") === 0;
       if (isImage) {
         var img = document.createElement("img");
@@ -957,6 +973,7 @@
         input.value = "";
         box.innerHTML = "";
         box.classList.remove("passport-preview");
+        clearDocItemError(field);
       });
       box.appendChild(rm);
     });
@@ -1012,10 +1029,125 @@
     if (field.value !== upper) field.value = upper;
   });
 
+  /* ---------- Per-item red error state (registration) ---------- */
+  /* Owner decision 2026-11-18 (voice call): "driver ka koi cheez
+     fail ho rahi upload kare baad to uska error pe maloom ho jana
+     ... wo side wala red mein kar dena" — when a document upload
+     fails, the driver must be able to tell WHICH item failed, so
+     the failing item itself turns red and shows the message inside
+     it. Until now every registration error went into one shared
+     box, which never said which document failed. The shared box
+     keeps working exactly as before; this is purely additive
+     visual feedback, and no validation rule changes. */
+  function markDocItemError(field, message) {
+    var item = $("doc-item-" + field);
+    if (!item) return;
+    item.classList.add("has-error");
+    var el = $("doc-error-" + field);
+    if (el) el.textContent = message;
+  }
+  function clearDocItemError(field) {
+    var item = $("doc-item-" + field);
+    if (item) item.classList.remove("has-error");
+    var el = $("doc-error-" + field);
+    if (el) el.textContent = "";
+  }
+  /* Every marked item, including city-specific items built later:
+     FILE_FIELDS covers only the static list, so this walks the DOM
+     instead of a field list. */
+  function clearAllDocItemErrors() {
+    var marked = document.querySelectorAll(".doc-item.has-error");
+    for (var i = 0; i < marked.length; i++) {
+      marked[i].classList.remove("has-error");
+      var el = marked[i].querySelector(".doc-error");
+      if (el) el.textContent = "";
+    }
+  }
+  /* The missing-document wording for one item: the same sentence
+     the shared box uses, naming just this item. */
+  function missingDocMessage(field) {
+    return "Missing document: " + DOC_LABELS[field] +
+      ". Please upload all required documents to complete registration.";
+  }
+  /* Parse the label list out of a server "Missing document: A, B,
+     ..." error into field names. Labels are matched against the
+     known DOC_LABELS values, longest first, because some labels
+     contain ", " themselves ("Class A, B or P", "Springfield,
+     IL"), so splitting on ", " would break them. A label shared by
+     several fields (same wording in different states) resolves to
+     the field in the current required list. Unknown text stops the
+     parse — it never invents a field. */
+  function parseMissingDocFields(listText, requiredFields) {
+    var suffix = ". Please upload all required documents to complete registration.";
+    var rest = listText;
+    var cut = rest.indexOf(suffix);
+    if (cut !== -1) rest = rest.slice(0, cut);
+    else if (rest.slice(-1) === ".") rest = rest.slice(0, -1);
+    var requiredSet = {};
+    (requiredFields || []).forEach(function (f) { requiredSet[f] = true; });
+    var candidates = Object.keys(DOC_LABELS).map(function (field) {
+      return { label: DOC_LABELS[field], field: field, preferred: !!requiredSet[field] };
+    });
+    candidates.sort(function (a, b) {
+      if (b.label.length !== a.label.length) return b.label.length - a.label.length;
+      return (b.preferred ? 1 : 0) - (a.preferred ? 1 : 0);
+    });
+    var fields = [];
+    while (rest.length) {
+      var matched = null;
+      for (var i = 0; i < candidates.length; i++) {
+        var cand = candidates[i];
+        if (rest.indexOf(cand.label) === 0 &&
+            (rest.length === cand.label.length ||
+             rest.slice(cand.label.length, cand.label.length + 2) === ", ")) {
+          matched = cand;
+          break;
+        }
+      }
+      if (!matched) break;
+      if (fields.indexOf(matched.field) === -1) fields.push(matched.field);
+      rest = rest.slice(matched.label.length);
+      if (rest.indexOf(", ") === 0) rest = rest.slice(2);
+      else if (rest.length) break;
+    }
+    return fields;
+  }
+  /* Map a registration server error to the document item(s) it is
+     about, and mark them red. Only document errors map: "Missing
+     document: ..." (labels), "Profile photo ..." (the profile
+     photo), and the upload checks, which start with the multipart
+     field name ("<field> must be one of: ...", "<field> exceeds
+     the 5MB limit.", "<field> is empty."). Anything else — plate,
+     password, network, generic — maps to nothing, so no document
+     is ever marked red for a non-document error. */
+  function markDocErrorsFromServer(message, requiredFields) {
+    if (!message) return;
+    var missingPrefix = "Missing document: ";
+    if (message.indexOf(missingPrefix) === 0) {
+      parseMissingDocFields(message.slice(missingPrefix.length), requiredFields)
+        .forEach(function (field) { markDocItemError(field, missingDocMessage(field)); });
+      return;
+    }
+    if (message.indexOf("Profile photo") === 0) {
+      markDocItemError("profile_photo", message);
+      return;
+    }
+    var fields = Object.keys(DOC_LABELS);
+    for (var i = 0; i < fields.length; i++) {
+      if (message.indexOf(fields[i] + " ") === 0) {
+        markDocItemError(fields[i], message);
+        return;
+      }
+    }
+  }
+
   $("register-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var err = $("register-error");
     err.textContent = "";
+    /* A fresh submit attempt clears every per-item red state first;
+       the checks below re-mark whatever still fails. */
+    clearAllDocItemErrors();
     var name = $("reg-name").value.trim();
     var phone = $("reg-phone").value.trim();
     var email = $("reg-email").value.trim();
@@ -1082,13 +1214,22 @@
        Nothing is cleared: uploads already chosen stay in the form, so
        the driver only adds what is missing and submits again. */
     var missingDocs = [];
+    var missingFields = [];
     requiredFields.forEach(function (field) {
       var input = $("file-" + field);
-      if (!input || !input.files || !input.files[0]) missingDocs.push(DOC_LABELS[field]);
+      if (!input || !input.files || !input.files[0]) {
+        missingDocs.push(DOC_LABELS[field]);
+        missingFields.push(field);
+      }
     });
     if (missingDocs.length) {
       err.textContent = "Missing document: " + missingDocs.join(", ") +
         ". Please upload all required documents to complete registration.";
+      /* Each missing item turns red and names itself, so the driver
+         sees at once which uploads are still needed. */
+      missingFields.forEach(function (field) {
+        markDocItemError(field, missingDocMessage(field));
+      });
       return;
     }
     /* Owner decision 2026-11-17: the profile photo must be
@@ -1096,7 +1237,11 @@
        properly ("Bas face proper dikhna"). Pre-check here for a
        fast, clear message; the server enforces the same rules. */
     checkProfilePhoto($("file-profile_photo").files[0], function (photoError) {
-      if (photoError) { err.textContent = photoError; return; }
+      if (photoError) {
+        err.textContent = photoError;
+        markDocItemError("profile_photo", photoError);
+        return;
+      }
       submitRegistration();
     });
 
@@ -1128,7 +1273,11 @@
         btn.disabled = false;
         btn.textContent = "Complete registration";
         if (!res.ok || !res.j.token) {
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "Registration could not be completed. Please check your details and try again.";
+          var serverError = (res.j && (res.j.error || res.j.message)) || "Registration could not be completed. Please check your details and try again.";
+          err.textContent = serverError;
+          /* A document error also turns its own item red; any other
+             error leaves the items alone. */
+          markDocErrorsFromServer(serverError, requiredFields);
           return;
         }
         saveToken(res.j.token);
@@ -2591,10 +2740,14 @@
     var preview = document.createElement("div");
     preview.className = "doc-preview";
     preview.id = "preview-" + field;
+    var errorEl = document.createElement("div");
+    errorEl.className = "doc-error";
+    errorEl.id = "doc-error-" + field;
     item.appendChild(nameEl);
     item.appendChild(hintEl);
     item.appendChild(input);
     item.appendChild(preview);
+    item.appendChild(errorEl);
     $("doc-items-extra").appendChild(item);
     bindFilePreview(field);
     return item;

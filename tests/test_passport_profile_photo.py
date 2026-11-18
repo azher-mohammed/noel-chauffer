@@ -72,7 +72,7 @@ class PassportProfilePhotoCase(unittest.TestCase):
             "email": "passport@test.com",
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"PP{self._seq:05d}",
-            "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
             "profile_photo": (io.BytesIO(profile_bytes), profile_name),
         }
         for field, fname in (docs or DOC_FILES).items():
@@ -152,7 +152,7 @@ class PassportProfilePhotoCase(unittest.TestCase):
             "email": "doc@test.com",
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"DD{self._seq:05d}",
-            "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
             "profile_photo": (io.BytesIO(photo_factory.VALID_PROFILE_PHOTO), "photo.jpg"),
             "doc_dmv_license": (io.BytesIO(photo_factory.png(800, 600)), "license.png"),
             "doc_tlc_license": (io.BytesIO(b"fake doc"), "tlc.png"),

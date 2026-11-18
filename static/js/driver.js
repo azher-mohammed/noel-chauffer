@@ -29,7 +29,13 @@
     "doc_fh1",
     "doc_registration",
     "doc_inspection",
-    "doc_vehicle_permit"
+    "doc_vehicle_permit",
+    "doc_nj_qualification",
+    "doc_nj_municipal_license",
+    "doc_nj_limo_registration",
+    "doc_nj_insurance",
+    "doc_vehicle_registration",
+    "doc_insurance_card"
   ];
   var DOC_LABELS = {
     profile_photo: "Profile Picture",
@@ -38,7 +44,63 @@
     doc_fh1: "FH-1 Insurance Card",
     doc_registration: "Commercial Vehicle Registration",
     doc_inspection: "NYS DMV Inspection",
-    doc_vehicle_permit: "TLC-for-hire Vehicle Permit"
+    doc_vehicle_permit: "TLC-for-hire Vehicle Permit",
+    doc_nj_qualification: "MVC Letter of Qualification",
+    doc_nj_municipal_license: "Municipal License to Operate",
+    doc_nj_limo_registration: "Limousine Vehicle Registration",
+    doc_nj_insurance: "Insurance Certificate",
+    doc_vehicle_registration: "Vehicle Registration",
+    doc_insurance_card: "Insurance Card"
+  };
+  /* Document types as the API keys them in `docs` (status strings),
+     in display order: the New York list first, then the items only
+     other states require. The Documents tab renders only the types
+     present in the driver's own `docs`, so every driver sees exactly
+     his state's list, in this order. */
+  var DOC_TYPE_LABELS = {
+    profile_picture: "Profile Picture",
+    dmv_license: "DMV driving license",
+    tlc_license: "TLC License",
+    fh1_insurance: "FH-1 Insurance Card",
+    registration: "Commercial Vehicle Registration",
+    inspection: "NYS DMV Inspection",
+    vehicle_permit: "TLC-for-hire Vehicle Permit",
+    nj_qualification: "MVC Letter of Qualification",
+    nj_municipal_license: "Municipal License to Operate",
+    nj_limo_registration: "Limousine Vehicle Registration",
+    nj_insurance: "Insurance Certificate",
+    vehicle_registration: "Vehicle Registration",
+    insurance_card: "Insurance Card"
+  };
+  var DOC_TYPE_ORDER = [
+    "profile_picture", "dmv_license", "tlc_license", "fh1_insurance",
+    "registration", "inspection", "vehicle_permit",
+    "nj_qualification", "nj_municipal_license", "nj_limo_registration",
+    "nj_insurance", "vehicle_registration", "insurance_card"
+  ];
+  /* Doc types with a static item in the registration form (the New
+     York list). Items for other states are built by JS from the
+     states endpoint when their state is chosen. */
+  var STATIC_DOC_TYPES = [
+    "profile_picture", "dmv_license", "tlc_license", "fh1_insurance",
+    "registration", "inspection", "vehicle_permit"
+  ];
+  /* Doc type -> multipart field name (profile_picture comes from
+     profile_photo). Mirrors the server's FIELD_FOR_DOC_TYPE. */
+  var FIELD_FOR_DOC_TYPE = {
+    profile_picture: "profile_photo",
+    dmv_license: "doc_dmv_license",
+    tlc_license: "doc_tlc_license",
+    fh1_insurance: "doc_fh1",
+    registration: "doc_registration",
+    inspection: "doc_inspection",
+    vehicle_permit: "doc_vehicle_permit",
+    nj_qualification: "doc_nj_qualification",
+    nj_municipal_license: "doc_nj_municipal_license",
+    nj_limo_registration: "doc_nj_limo_registration",
+    nj_insurance: "doc_nj_insurance",
+    vehicle_registration: "doc_vehicle_registration",
+    insurance_card: "doc_insurance_card"
   };
   var STAGES = ["en_route", "arrived", "start", "complete"];
   var STAGE_BUTTON = {
@@ -234,7 +296,11 @@
   }
 
   /* ---------- File previews (photo check before saving) ---------- */
-  FILE_FIELDS.forEach(function (field) {
+  /* Bound once per file input, including document items built later
+     for other states: the preview shows the chosen photo (passport
+     frame for the profile picture) with a remove option, so the
+     driver checks each photo before saving. */
+  function bindFilePreview(field) {
     var input = $("file-" + field);
     if (!input) return;
     input.addEventListener("change", function () {
@@ -269,7 +335,8 @@
       });
       box.appendChild(rm);
     });
-  });
+  }
+  FILE_FIELDS.forEach(bindFilePreview);
 
   /* ---------- Registration ---------- */
   /* Passport-style profile-photo pre-check (owner decision
@@ -305,18 +372,32 @@
     var name = $("reg-name").value.trim();
     var phone = $("reg-phone").value.trim();
     var email = $("reg-email").value.trim();
+    var stateName = $("reg-state").value.trim();
     var carModel = $("reg-car-model").value.trim();
     var carYear = $("reg-car-year").value.trim();
     var carColour = $("reg-car-colour").value.trim();
     var plate = $("reg-plate").value.trim();
     var acct = $("reg-bank-account").value.trim();
     var routing = $("reg-bank-routing").value.trim();
-    if (!name || !phone || !email || !carModel || !carYear || !carColour || !plate || !acct || !routing) {
+    if (!name || !phone || !email || !stateName || !carModel || !carYear || !carColour || !plate || !acct || !routing) {
       err.textContent = "Please fill in every field, including your bank details.";
       return;
     }
     if (carListLoaded && carModels.indexOf(carModel) === -1) {
       err.textContent = "Please choose your car model from the list.";
+      return;
+    }
+    if (stateListLoaded && stateNames.indexOf(stateName) === -1) {
+      err.textContent = "Please choose your state from the list.";
+      return;
+    }
+    /* Which documents are compulsory depends on the state (New York
+       keeps its 7; other states have their own list or the generic
+       base list). Without a state the list is unknown, so the form
+       cannot submit yet. */
+    var requiredFields = requiredFileFields(stateName);
+    if (!requiredFields.length) {
+      err.textContent = "Please choose your state from the list.";
       return;
     }
     /* Owner decision 2026-11-17: documents are compulsory — the form
@@ -325,7 +406,7 @@
        Nothing is cleared: uploads already chosen stay in the form, so
        the driver only adds what is missing and submits again. */
     var missingDocs = [];
-    FILE_FIELDS.forEach(function (field) {
+    requiredFields.forEach(function (field) {
       var input = $("file-" + field);
       if (!input || !input.files || !input.files[0]) missingDocs.push(DOC_LABELS[field]);
     });
@@ -348,13 +429,14 @@
     fd.append("name", name);
     fd.append("phone", phone);
     fd.append("email", email);
+    fd.append("state", stateName);
     fd.append("car_model", carModel);
     fd.append("car_year", carYear);
     fd.append("car_colour", carColour);
     fd.append("plate", plate);
     fd.append("bank_account_number", acct);
     fd.append("bank_routing_number", routing);
-    FILE_FIELDS.forEach(function (field) {
+    requiredFields.forEach(function (field) {
       var input = $("file-" + field);
       if (input && input.files && input.files[0]) fd.append(field, input.files[0]);
     });
@@ -1193,7 +1275,10 @@
     var box = $("documents-list");
     box.innerHTML = "";
     /* The API returns document statuses as `docs` keyed by document
-       type (e.g. dmv_license: "completed"). */
+       type (e.g. dmv_license: "completed") — exactly the types the
+       driver's state requires, so only those rows are shown, in
+       display order. Drivers registered before the state selector
+       read as New York and see the original 7 rows. */
     var docs = (state.driver && (state.driver.docs || state.driver.documents)) || {};
     var byKey = {};
     if (Array.isArray(docs)) {
@@ -1204,25 +1289,12 @@
     } else if (typeof docs === "object") {
       byKey = docs;
     }
-    FILE_FIELDS.forEach(function (field) {
-      var value = byKey[field];
-      if (value === undefined) {
-        /* Try common alternate spellings from the API payload. */
-        var alts = {
-          doc_dmv_license: ["dmv_license", "dmv_driving_license"],
-          profile_photo: ["profile_picture", "photo", "profile"],
-          doc_tlc_license: ["tlc_license"],
-          doc_fh1: ["fh1", "fh1_insurance", "insurance"],
-          doc_registration: ["registration", "commercial_registration"],
-          doc_inspection: ["inspection", "dmv_inspection"],
-          doc_vehicle_permit: ["vehicle_permit", "tlc_vehicle_permit"]
-        };
-        (alts[field] || []).forEach(function (a) { if (byKey[a] !== undefined) value = byKey[a]; });
-      }
-      var done = docIsComplete(value);
+    DOC_TYPE_ORDER.forEach(function (docType) {
+      if (byKey[docType] === undefined) return;
+      var done = docIsComplete(byKey[docType]);
       var row = document.createElement("div");
       row.className = "doc-status";
-      row.innerHTML = '<span class="name">' + esc(DOC_LABELS[field]) + "</span>" +
+      row.innerHTML = '<span class="name">' + esc(DOC_TYPE_LABELS[docType] || docType) + "</span>" +
         '<span class="badge ' + (done ? "done" : "todo") + '">' + (done ? "Completed" : "Items remaining") + "</span>";
       box.appendChild(row);
     });
@@ -1245,6 +1317,7 @@
     html += '<div class="profile-row"><span class="k">Name</span><span>' + esc(d.name || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Phone</span><span>' + esc(d.phone || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Email</span><span>' + esc(d.email || "—") + "</span></div>" +
+      (d.state ? '<div class="profile-row"><span class="k">State</span><span>' + esc(d.state) + "</span></div>" : "") +
       '<div class="profile-row"><span class="k">Car</span><span>' + esc(carBits || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Vehicle class</span><span>' + esc(classLabelFor(d) || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Plate</span><span>' + esc(d.plate || "—") + "</span></div>" +
@@ -1386,6 +1459,217 @@
       });
   }
 
+  /* ---------- State dropdown + per-state documents (registration) ---------- */
+  /* Searchable dropdown fed by GET /api/states — the same single
+     mapping the server validates against. States only, alphabetical,
+     type to filter: typing a letter shows every state starting with
+     it (N shows Nebraska, Nevada, New Hampshire, New Jersey, New
+     Mexico, New York, North Carolina, North Dakota), and typing more
+     letters narrows the list. Free text is not accepted: the chosen
+     value must match a list entry exactly. The chosen state decides
+     which document items the form shows, because the compulsory list
+     differs by state (New York keeps its 7; New Jersey has its own
+     verified list; every other state uses the generic base list). */
+  var stateNames = [];
+  var stateListLoaded = false;
+  var stateRequirements = null;
+  var stateDocuments = null;
+
+  /* Multipart field names the chosen state's list requires, in form
+     order. Empty when no valid state is chosen (or the list has not
+     loaded yet), which blocks the submit handler. */
+  function requiredFileFields(stateName) {
+    if (!stateRequirements || !stateRequirements[stateName]) return [];
+    var fields = [];
+    (stateRequirements[stateName].docs || []).forEach(function (docType) {
+      var field = FIELD_FOR_DOC_TYPE[docType];
+      if (field) fields.push(field);
+    });
+    return fields;
+  }
+
+  /* Build the upload item for a document type that has no static form
+     item (states other than New York). Built once, then shown and
+     hidden as the driver changes state, so a chosen file survives a
+     state switch. Labels and hints come from the states endpoint. */
+  function ensureDocItem(docType) {
+    var spec = stateDocuments && stateDocuments[docType];
+    if (!spec) return null;
+    var field = spec.field;
+    var item = $("doc-item-" + field);
+    if (item) return item;
+    item = document.createElement("div");
+    item.className = "doc-item";
+    item.id = "doc-item-" + field;
+    var nameEl = document.createElement("div");
+    nameEl.className = "doc-name";
+    nameEl.textContent = spec.label;
+    var hintEl = document.createElement("div");
+    hintEl.className = "doc-hint";
+    hintEl.textContent = spec.hint;
+    var input = document.createElement("input");
+    input.type = "file";
+    input.id = "file-" + field;
+    input.accept = spec.accept || "image/*";
+    var preview = document.createElement("div");
+    preview.className = "doc-preview";
+    preview.id = "preview-" + field;
+    item.appendChild(nameEl);
+    item.appendChild(hintEl);
+    item.appendChild(input);
+    item.appendChild(preview);
+    $("doc-items-extra").appendChild(item);
+    bindFilePreview(field);
+    return item;
+  }
+
+  /* Show exactly the chosen state's document items, in the state's
+     order, and update the required-items note. With no state chosen,
+     every item stays hidden behind the choose-your-state note. */
+  function renderDocsForState(stateName) {
+    var req = stateName && stateRequirements ? stateRequirements[stateName] : null;
+    var required = req ? (req.docs || []) : [];
+    var note = $("docs-required-note");
+    var localNote = $("docs-local-note");
+    STATIC_DOC_TYPES.forEach(function (docType) {
+      var item = $("doc-item-" + FIELD_FOR_DOC_TYPE[docType]);
+      if (!item) return;
+      if (required.indexOf(docType) !== -1) show(item); else hide(item);
+    });
+    DOC_TYPE_ORDER.forEach(function (docType) {
+      if (STATIC_DOC_TYPES.indexOf(docType) !== -1) return;
+      if (required.indexOf(docType) !== -1) {
+        var built = ensureDocItem(docType);
+        if (built) show(built);
+      } else {
+        var existing = $("doc-item-" + FIELD_FOR_DOC_TYPE[docType]);
+        if (existing) hide(existing);
+      }
+    });
+    if (!req) {
+      note.textContent = "Choose your state above — the documents you need depend on your state.";
+      hide(localNote);
+      return;
+    }
+    note.textContent = "All " + required.length + " items are required — registration cannot be completed until every document is uploaded.";
+    if (req.local_note) show(localNote); else hide(localNote);
+  }
+
+  function initStateDropdown() {
+    var input = $("reg-state");
+    var list = $("state-list");
+    var note = $("state-note");
+    var activeIndex = -1;
+    var items = [];
+
+    /* No state chosen yet: hide the document items until one is. */
+    renderDocsForState(null);
+
+    function closeList() {
+      hide(list);
+      list.innerHTML = "";
+      items = [];
+      activeIndex = -1;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+    }
+    function paintActive() {
+      var btns = list.querySelectorAll("button");
+      btns.forEach(function (b, i) {
+        b.classList.toggle("active", i === activeIndex);
+        b.setAttribute("aria-selected", i === activeIndex ? "true" : "false");
+      });
+      if (activeIndex >= 0 && btns[activeIndex]) {
+        input.setAttribute("aria-activedescendant", btns[activeIndex].id);
+      } else {
+        input.removeAttribute("aria-activedescendant");
+      }
+    }
+    function choose(name) {
+      input.value = name;
+      closeList();
+      renderDocsForState(name);
+      input.focus();
+    }
+    function render(matches) {
+      items = matches;
+      activeIndex = -1;
+      list.innerHTML = "";
+      if (!matches.length) { closeList(); return; }
+      matches.forEach(function (name, idx) {
+        var li = document.createElement("li");
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.setAttribute("role", "option");
+        btn.setAttribute("aria-selected", "false");
+        btn.id = "state-list-opt-" + idx;
+        btn.textContent = name;
+        /* mousedown fires before the input loses focus, so a tap or
+           click always lands on the suggestion. */
+        btn.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          choose(name);
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+      show(list);
+      input.setAttribute("aria-expanded", "true");
+    }
+    function filter() {
+      var q = input.value.trim().toLowerCase();
+      /* Prefix match, list order kept: one letter shows every state
+         starting with it; more letters narrow the list. */
+      var matches = stateNames.filter(function (name) {
+        return !q || name.toLowerCase().indexOf(q) === 0;
+      });
+      render(matches);
+      /* Typing a full state name shows its documents at once. */
+      var exact = input.value.trim();
+      if (stateRequirements && stateRequirements[exact]) renderDocsForState(exact);
+    }
+    input.addEventListener("input", filter);
+    input.addEventListener("focus", filter);
+    input.addEventListener("blur", function () {
+      /* A tap on a suggestion fires mousedown first; the short delay
+         keeps that working on touch screens. */
+      setTimeout(closeList, 150);
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (!items.length) return;
+        e.preventDefault();
+        activeIndex = e.key === "ArrowDown"
+          ? (activeIndex + 1) % items.length
+          : (activeIndex - 1 + items.length) % items.length;
+        paintActive();
+      } else if (e.key === "Enter") {
+        if (activeIndex >= 0 && items[activeIndex]) {
+          e.preventDefault();
+          choose(items[activeIndex]);
+        }
+      } else if (e.key === "Escape") {
+        closeList();
+      }
+    });
+
+    fetch("/api/states")
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        stateNames = j.states || [];
+        stateRequirements = j.requirements || null;
+        stateDocuments = j.documents || null;
+        stateListLoaded = stateNames.length > 0 && !!stateRequirements;
+        if (!stateListLoaded) { throw new Error("empty list"); }
+      })
+      .catch(function () {
+        note.textContent = "The state list could not be loaded. Please check your connection and reload this page.";
+        input.disabled = true;
+        $("register-submit").disabled = true;
+      });
+  }
+
   initCarModelDropdown();
+  initStateDropdown();
   boot();
 })();

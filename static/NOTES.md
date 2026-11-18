@@ -83,7 +83,12 @@ separate options page; picking a class proceeds to payment.
 
 - Registration (shown only when no token is stored and no driver record
   is found) → `POST /api/drivers/register` (multipart form, photo files
-  only for documents; FH-1 also accepts PDF). Car model is a searchable
+  only for documents; FH-1 also accepts PDF). State is a searchable
+  dropdown, NOT free text → `GET /api/states` (50 states + DC,
+  alphabetical; typing a letter shows every state starting with it).
+  The state decides which documents are compulsory: New York keeps
+  the original 7 items, New Jersey has its own verified list, every
+  other state uses the generic base list. Car model is a searchable
   dropdown, NOT free text → `GET /api/car-models` (single list in
   `car_models.py`, transcribed from `UBER_BLACK_LIST.md`: the 132-model
   Uber Black list, 23 makes). The driver's vehicle class is DERIVED
@@ -126,9 +131,10 @@ separate options page; picking a class proceeds to payment.
   date, Paid/Unpaid) and the per-ride list is kept. Earnings amounts
   only — no miles, fares, or totals.
 - Documents tab → `docs` on `GET /api/drivers/me` (status strings keyed
-  by document type, e.g. `dmv_license: "completed"`). The document list
-  has 7 items, headed by the single "DMV driving license" item (the old
-  duplicate license item was merged into it 2026-11-16).
+  by document type, e.g. `dmv_license: "completed"`). The list shown
+  is the driver's own state's list (7 items for New York, headed by
+  the single "DMV driving license" item — the old duplicate license
+  item was merged into it 2026-11-16).
 - Profile tab → `GET /api/drivers/me` (bank shown masked, last 4 only)
 - "Register a different driver" clears the stored token.
 

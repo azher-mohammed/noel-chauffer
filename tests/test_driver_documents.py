@@ -68,7 +68,7 @@ class DmvDrivingLicenseCase(unittest.TestCase):
             "email": "doc@test.com",
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"D{self._seq:05d}",
-            "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
         }
         data.update(overrides)
         if files:

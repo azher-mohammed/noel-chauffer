@@ -81,7 +81,7 @@ class CarModelsCase(unittest.TestCase):
             "email": "cm@test.com",
             "car_model": car_model, "car_year": car_year,
             "car_colour": "Black", "plate": f"C{self._seq:05d}",
-            "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
             "profile_photo": (io.BytesIO(photo_factory.VALID_PROFILE_PHOTO), "photo.jpg"),
             "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
             "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
@@ -142,7 +142,7 @@ class CarModelsCase(unittest.TestCase):
             "name": "No Year", "phone": f"+1555003{self._seq:04d}",
             "email": "ny@test.com", "car_model": "Cadillac Escalade",
             "car_colour": "Black", "plate": "NY0001",
-            "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
         }
         resp = self.client.post("/api/drivers/register", data=data,
                                 content_type="multipart/form-data")

@@ -128,7 +128,16 @@ DOC_FIELD_MAP = {
     "doc_registration": "registration",
     "doc_inspection": "inspection",
     "doc_vehicle_permit": "vehicle_permit",
+    "doc_nj_qualification": "nj_qualification",
+    "doc_nj_municipal_license": "nj_municipal_license",
+    "doc_nj_limo_registration": "nj_limo_registration",
+    "doc_nj_insurance": "nj_insurance",
+    "doc_vehicle_registration": "vehicle_registration",
+    "doc_insurance_card": "insurance_card",
 }
+# doc_type -> multipart field name (profile_picture comes from profile_photo)
+FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
+FIELD_FOR_DOC_TYPE.update({v: k for k, v in DOC_FIELD_MAP.items()})
 # doc_type -> exact user-visible label, same wording as the driver app
 # and owner dashboard. Used by the compulsory-documents gate so the
 # rejection names each missing item in the owner's words.
@@ -140,6 +149,94 @@ DOC_LABELS = {
     "registration": "Commercial Vehicle Registration",
     "inspection": "NYS DMV Inspection",
     "vehicle_permit": "TLC-for-hire Vehicle Permit",
+}
+# --- Per-state document requirements (owner decision 2026-11-17) ---------
+# The 7 items above are New York City / New York only ("ye base sirf
+# New York City ke vaaste hai"). A driver from another state cannot
+# register against them — New Jersey has no TLC — so registration
+# asks for the driver's state first (searchable dropdown, USA only)
+# and the compulsory list follows the state. New York keeps EXACTLY
+# the 7 items above, same labels, same order, same gate.
+# New Jersey: items verified from official NJ sources only — the MVC
+# "Letter of Qualification" (written chauffeur certification from the
+# Chief Administrator under N.J.S.A. 48:16-22.3a), the municipal
+# license to operate (N.J.S.A. 48:16-22; required by MVC for every
+# limousine registration transaction), the MVC limousine (Code 14)
+# vehicle registration, and the $1.5M liability insurance certificate
+# (NJ MVC commercial-vehicle pages). Florida licensing is county-level
+# (Miami-Dade and Broward each issue their own chauffeur's
+# registration under different county codes), so no single statewide
+# Florida list can be stated honestly: Florida uses the generic base
+# list, as does every other state without a verified list. NEVER
+# invent a state-specific permit or license name — an unverified
+# state gets the generic list and the owner reviews the application.
+US_STATES = [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+    "Connecticut", "Delaware", "District of Columbia", "Florida", "Georgia",
+    "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky",
+    "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
+    "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire",
+    "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota",
+    "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island",
+    "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont",
+    "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming",
+]
+NJ_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "nj_qualification",
+    "nj_municipal_license",
+    "nj_limo_registration",
+    "nj_insurance",
+]
+GENERIC_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "insurance_card",
+]
+# States with a verified, state-specific list. Every other state
+# (including Florida) uses GENERIC_DOC_TYPES.
+STATE_DOC_REQUIREMENTS = {
+    "New York": DOC_TYPES,
+    "New Jersey": NJ_DOC_TYPES,
+}
+
+
+def required_docs_for_state(state):
+    """Ordered compulsory doc types for a state; the generic base list
+    for any state without a verified state-specific list."""
+    return STATE_DOC_REQUIREMENTS.get(state, GENERIC_DOC_TYPES)
+
+
+# Labels for every doc type in every state's list, in the same
+# owner-words style as DOC_LABELS. DOC_LABELS above stays the
+# New York list (existing tests pin it); this is the superset the
+# gate and the states endpoint use.
+ALL_DOC_LABELS = dict(DOC_LABELS)
+ALL_DOC_LABELS.update({
+    "nj_qualification": "MVC Letter of Qualification",
+    "nj_municipal_license": "Municipal License to Operate",
+    "nj_limo_registration": "Limousine Vehicle Registration",
+    "nj_insurance": "Insurance Certificate",
+    "vehicle_registration": "Vehicle Registration",
+    "insurance_card": "Insurance Card",
+})
+# Hint line under each document item in the registration form.
+DOC_HINTS = {
+    "profile_picture": "Passport-style photo: face forward, head and shoulders, face clearly visible. Take it upright (portrait), in good light — small or sideways photos are not accepted.",
+    "dmv_license": "Photo of your DMV driving license, straight and fully visible.",
+    "tlc_license": "Photo of your TLC license, straight and fully visible.",
+    "fh1_insurance": "Photo of your FH-1 card, including the barcode — or upload a PDF.",
+    "registration": "Photo of your registration, straight and fully visible.",
+    "inspection": "Photo of your inspection document, straight and fully visible.",
+    "vehicle_permit": "Photo of your vehicle permit, straight and fully visible.",
+    "nj_qualification": "Photo of your MVC Letter of Qualification, straight and fully visible.",
+    "nj_municipal_license": "Photo of your municipal license to operate, straight and fully visible.",
+    "nj_limo_registration": "Photo of your limousine vehicle registration, straight and fully visible.",
+    "nj_insurance": "Photo of your insurance certificate, straight and fully visible.",
+    "vehicle_registration": "Photo of your vehicle registration, straight and fully visible.",
+    "insurance_card": "Photo of your insurance card, straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived
@@ -163,6 +260,11 @@ class Driver(db.Model):
     name = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(40), unique=True, nullable=False)
     email = db.Column(db.String(200), nullable=False, default="")
+    # US state the driver drives in, picked from the searchable state
+    # dropdown at registration (owner decision 2026-11-17). Nullable:
+    # drivers registered before the state selector existed have no
+    # state on file and keep working exactly as before.
+    state = db.Column(db.String(40), nullable=True)
     car_model = db.Column(db.String(120), nullable=False)
     car_year = db.Column(db.Integer, nullable=True)  # nullable: drivers registered before the year field existed
     # Vehicle class derived from car_model at registration ("sedan" |
@@ -411,6 +513,19 @@ with app.app_context():
                     _conn.execute(_sa_text(_ddl))
     except Exception as exc:  # logged, never fatal at startup
         log.warning("extra-distance/assigned-driver column check failed: %s", exc)
+    # Same pattern for the driver state column (added with the
+    # per-state document requirements, 2026-11-17). Nullable, so
+    # existing driver rows keep working with no state on file.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "state" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(_sa_text("ALTER TABLE drivers ADD COLUMN state VARCHAR(40)"))
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("state column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -472,9 +587,12 @@ def waze_url_for(booking):
 
 
 def driver_docs_status(driver):
+    # Statuses for the documents the driver's state requires. Drivers
+    # registered before the state selector (no state on file) read as
+    # New York, the list they registered under — unchanged behaviour.
     present = {d.doc_type for d in driver.documents}
     status = {}
-    for doc_type in DOC_TYPES:
+    for doc_type in required_docs_for_state(driver.state or "New York"):
         if doc_type == "profile_picture":
             status[doc_type] = "completed" if driver.profile_photo else "missing"
         else:
@@ -1337,16 +1455,57 @@ def car_models():
     })
 
 
+@app.route("/api/states", methods=["GET"])
+def list_states():
+    """US states + per-state registration document requirements.
+
+    One mapping, served from the same constants the server validates
+    against. The driver app fetches this to build the searchable
+    state dropdown (alphabetical, type to filter) and to show the
+    document list for the chosen state. `local_note` marks states on
+    the generic base list, where requirements vary by locality and
+    the owner reviews each application.
+    """
+    return jsonify({
+        "states": US_STATES,
+        "documents": {
+            doc_type: {
+                "label": ALL_DOC_LABELS[doc_type],
+                "hint": DOC_HINTS[doc_type],
+                "field": FIELD_FOR_DOC_TYPE[doc_type],
+                # FH-1 alone accepts a PDF, as in the registration form.
+                "accept": ("image/*,.pdf,application/pdf"
+                           if doc_type == "fh1_insurance" else "image/*"),
+            }
+            for doc_type in ALL_DOC_LABELS
+        },
+        "requirements": {
+            state: {
+                "docs": required_docs_for_state(state),
+                "local_note": state not in STATE_DOC_REQUIREMENTS,
+            }
+            for state in US_STATES
+        },
+    })
+
+
 @app.route("/api/drivers/register", methods=["POST"])
 def register_driver():
     form = request.form
     for field in ("name", "phone", "car_model", "car_year", "car_colour", "plate",
-                  "bank_account_number", "bank_routing_number"):
+                  "bank_account_number", "bank_routing_number", "state"):
         if not (form.get(field) or "").strip():
             return err(f"Missing required field: {field}.")
     phone = form["phone"].strip()
     if Driver.query.filter_by(phone=phone).first():
         return err("A driver with this phone number is already registered.", 409)
+
+    # State must come from the dropdown list (USA only, exact match —
+    # same rule as the car-model dropdown). The state decides which
+    # documents are compulsory for this driver.
+    state = form["state"].strip()
+    if state not in US_STATES:
+        return err("Please choose your state from the list.")
 
     # Car model must come from the eligible list (dropdown), and the
     # model year must be 2022 or newer (owner decision 2026-11-16).
@@ -1382,17 +1541,20 @@ def register_driver():
     # must not complete unless every item is uploaded ("Compulsory
     # documents un log upload karna hi zaroori hai. Nahi to registration
     # nahi hoga."). The rejection names each missing item in the
-    # owner's words: "Missing document: ...". This gates only new
-    # registrations: drivers registered before this change keep
-    # signing in and going available exactly as before.
+    # owner's words: "Missing document: ...". Which items are required
+    # depends on the driver's state (New York keeps the original 7;
+    # other states have their own verified list or the generic base
+    # list). This gates only new registrations: drivers registered
+    # before this change keep signing in and going available exactly
+    # as before.
     missing = []
-    for doc_type in DOC_TYPES:
+    for doc_type in required_docs_for_state(state):
         if doc_type == "profile_picture":
             present = profile_photo is not None
         else:
             present = doc_type in docs
         if not present:
-            missing.append(DOC_LABELS[doc_type])
+            missing.append(ALL_DOC_LABELS[doc_type])
     if missing:
         return err("Missing document: " + ", ".join(missing) +
                    ". Please upload all required documents to complete registration.")
@@ -1403,6 +1565,7 @@ def register_driver():
         name=form["name"].strip(),
         phone=phone,
         email=(form.get("email") or "").strip(),
+        state=state,
         car_model=car_model,
         car_year=car_year,
         # Vehicle class is derived from the car model, never typed in.
@@ -1428,6 +1591,7 @@ def register_driver():
         "name": driver.name,
         "phone": driver.phone,
         "email": driver.email,
+        "state": driver.state,
         "car_model": driver.car_model,
         "car_year": driver.car_year,
         "vehicle_class": driver_vehicle_class(driver),
@@ -1449,6 +1613,7 @@ def driver_me():
         "name": driver.name,
         "phone": driver.phone,
         "email": driver.email,
+        "state": driver.state,
         "car_model": driver.car_model,
         "car_year": driver.car_year,
         "vehicle_class": driver_vehicle_class(driver),
@@ -2245,6 +2410,7 @@ def owner_drivers():
         "name": d.name,
         "phone": d.phone,
         "email": d.email,
+        "state": d.state,
         "car": f"{d.car_model} ({d.car_colour})",
         "car_model": d.car_model,
         "car_year": d.car_year,

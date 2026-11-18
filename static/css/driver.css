@@ -66,21 +66,22 @@ input, select { font: inherit; }
 /* Car-model suggestions (same pattern as the address autocomplete:
    type to filter, suggestions appear below the field). */
 .field-places { position: relative; }
-.car-model-list {
+.car-model-list, .state-list {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1000;
   list-style: none; margin: 0; padding: 0;
   background: var(--white); border: 1px solid #cfccc2; border-radius: 4px;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
   max-height: 264px; overflow-y: auto;
 }
-.car-model-list li button {
+.car-model-list li button, .state-list li button {
   display: block; width: 100%; text-align: left;
   background: var(--white); border: 0; border-bottom: 1px solid var(--line);
   padding: 10px 12px; font-size: 15px;
 }
-.car-model-list li:last-child button { border-bottom: 0; }
-.car-model-list li button:hover, .car-model-list li button.active { background: var(--paper); }
-.car-model-list li button:focus { outline: 2px solid var(--gold); outline-offset: -2px; }
+.car-model-list li:last-child button, .state-list li:last-child button { border-bottom: 0; }
+.car-model-list li button:hover, .car-model-list li button.active,
+.state-list li button:hover, .state-list li button.active { background: var(--paper); }
+.car-model-list li button:focus, .state-list li button:focus { outline: 2px solid var(--gold); outline-offset: -2px; }
 
 .section-title {
   font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grey);

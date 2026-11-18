@@ -454,7 +454,10 @@
   var allDrivers = [];
   /* Document types as the API returns them in `docs` (status strings)
      and `doc_ids` (row ids for the viewer). The profile picture has no
-     document row: it is served from the driver photo endpoint. */
+     document row: it is served from the driver photo endpoint. The
+     New York list comes first; the items only other states require
+     follow. Only the types present in a driver's own `docs` get a
+     chip, so every driver shows exactly his state's list. */
   var DOC_TYPES = [
     { key: "profile_picture", label: "Profile Picture", photo: true },
     { key: "dmv_license", label: "DMV driving license" },
@@ -462,7 +465,13 @@
     { key: "fh1_insurance", label: "FH-1 Insurance Card" },
     { key: "registration", label: "Commercial Vehicle Registration" },
     { key: "inspection", label: "NYS DMV Inspection" },
-    { key: "vehicle_permit", label: "TLC-for-hire Vehicle Permit" }
+    { key: "vehicle_permit", label: "TLC-for-hire Vehicle Permit" },
+    { key: "nj_qualification", label: "MVC Letter of Qualification" },
+    { key: "nj_municipal_license", label: "Municipal License to Operate" },
+    { key: "nj_limo_registration", label: "Limousine Vehicle Registration" },
+    { key: "nj_insurance", label: "Insurance Certificate" },
+    { key: "vehicle_registration", label: "Vehicle Registration" },
+    { key: "insurance_card", label: "Insurance Card" }
   ];
 
   function docIsComplete(value) {
@@ -502,6 +511,7 @@
             '<div class="meta">' + esc(d.phone || "") + (d.email ? " · " + esc(d.email) : "") + "</div>" +
             '<div class="meta">' + esc(carBits) + (d.plate ? " · Plate " + esc(d.plate) : "") + "</div>" +
             '<div class="meta">Vehicle class: ' + esc(d.vehicle_class_label || d.vehicle_class || "—") + "</div>" +
+            (d.state ? '<div class="meta">State: ' + esc(d.state) + "</div>" : "") +
             '<div class="meta">Bank account: ' + esc(maskBank(bank)) + "</div></div></div>";
           card.innerHTML = head;
           var chips = document.createElement("div");
@@ -509,6 +519,7 @@
           var docs = d.docs || d.documents || {};
           var docIds = d.doc_ids || {};
           DOC_TYPES.forEach(function (spec) {
+            if (docs[spec.key] === undefined) return;
             var done = docIsComplete(docs[spec.key]);
             var chip = document.createElement("span");
             chip.className = "doc-chip";

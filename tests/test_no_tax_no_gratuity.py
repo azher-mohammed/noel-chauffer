@@ -97,7 +97,7 @@ class NoTaxNoGratuityCase(unittest.TestCase):
             "email": f"nt{self._driver_seq}@test.com",
             "car_model": car_model, "car_year": "2023", "car_colour": "Black",
             "plate": f"N{self._driver_seq:05d}",
-            "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
             "profile_photo": (io.BytesIO(photo_factory.VALID_PROFILE_PHOTO), "photo.jpg"),
             "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
             "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),

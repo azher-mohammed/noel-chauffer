@@ -115,7 +115,7 @@ photo_bytes = _photo_buf.getvalue()
 resp = client.post("/api/drivers/register", data={
     "name": "Test Driver", "phone": "+15550001111", "email": "driver@test.com",
     "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T12345",
-    "bank_account_number": "123456789", "bank_routing_number": "021000021",
+    "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
     "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
     "doc_fh1": (io.BytesIO(b"%PDF- fake"), "fh1.pdf"),
     "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
@@ -135,7 +135,7 @@ check("no full bank number in response", "123456789" not in resp.get_data(as_tex
 resp = client.post("/api/drivers/register", data={
     "name": "Second Driver", "phone": "+15550002222", "email": "d2@test.com",
     "car_model": "Lincoln Continental", "car_year": "2024", "car_colour": "Black", "plate": "T67890",
-    "bank_account_number": "987654321", "bank_routing_number": "021000021",
+    "state": "New York", "bank_account_number": "987654321", "bank_routing_number": "021000021",
     "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
     "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
     "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
@@ -152,7 +152,7 @@ token2 = resp.get_json()["token"]
 resp = client.post("/api/drivers/register", data={
     "name": "No Docs", "phone": "+15550004444", "email": "nd@test.com",
     "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T00000",
-    "bank_account_number": "111222333", "bank_routing_number": "021000021",
+    "state": "New York", "bank_account_number": "111222333", "bank_routing_number": "021000021",
 }, content_type="multipart/form-data")
 check("no documents -> 400 naming every missing item",
       resp.status_code == 400
@@ -165,7 +165,7 @@ check("no documents -> 400 naming every missing item",
 resp = client.post("/api/drivers/register", data={
     "name": "One Missing", "phone": "+15550005555", "email": "om@test.com",
     "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T00001",
-    "bank_account_number": "111222333", "bank_routing_number": "021000021",
+    "state": "New York", "bank_account_number": "111222333", "bank_routing_number": "021000021",
     "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
     "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
     "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
@@ -181,13 +181,13 @@ check("one document missing -> 400 naming only that item",
 resp = client.post("/api/drivers/register", data={
     "name": "Dup", "phone": "+15550001111", "car_model": "Cadillac Escalade",
     "car_year": "2023", "car_colour": "Y",
-    "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
+    "plate": "Z", "state": "New York", "bank_account_number": "1", "bank_routing_number": "2",
 }, content_type="multipart/form-data")
 check("duplicate phone rejected", resp.status_code == 409, str(resp.status_code))
 resp = client.post("/api/drivers/register", data={
     "name": "Bad", "phone": "+15550003333", "car_model": "Cadillac Escalade",
     "car_year": "2023", "car_colour": "Y",
-    "plate": "Z", "bank_account_number": "1", "bank_routing_number": "2",
+    "plate": "Z", "state": "New York", "bank_account_number": "1", "bank_routing_number": "2",
     "doc_dmv_license": (io.BytesIO(b"%PDF- fake"), "license.pdf"),
 }, content_type="multipart/form-data")
 check("PDF rejected for non-FH1 doc", resp.status_code == 400, str(resp.status_code))

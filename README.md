@@ -12,8 +12,14 @@ all connected:
   and bank details, receive job offers whether available or offline
   (earnings only, filtered to the driver's vehicle class, and never
   overlapping a ride already accepted), run trips stage by stage,
-  see earnings grouped in weekly pay periods. All 7 registration
-  documents are compulsory (owner decision 2026-11-17): registration
+  see earnings grouped in weekly pay periods. Registration asks for
+  the driver's state first (searchable dropdown, USA only, owner
+  decision 2026-11-17) and the compulsory documents follow the state:
+  New York keeps the original 7 items; New Jersey has its own list
+  verified from official NJ sources; every other state uses a generic
+  base list (profile picture, driving license, vehicle registration,
+  insurance card) and the owner reviews each application. All of the
+  state's items are compulsory (owner decision 2026-11-17): registration
   does not complete unless every item is uploaded, and a missing item
   is reported by name ("Missing document: ..."). Drivers registered
   before the rule are not blocked retroactively. The profile photo

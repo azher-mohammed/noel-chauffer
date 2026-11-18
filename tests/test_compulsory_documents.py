@@ -72,7 +72,7 @@ class CompulsoryDocumentsCase(unittest.TestCase):
             "email": "comp@test.com",
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"CD{self._seq:05d}",
-            "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
         }
         data.update(files)
         return self.client.post("/api/drivers/register", data=data,

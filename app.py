@@ -29,6 +29,7 @@ Env vars:
 from __future__ import annotations
 
 import io
+import hmac
 import logging
 import os
 import secrets
@@ -2243,6 +2244,14 @@ class Booking(db.Model):
     # customers have no account, so the preference lives with the
     # ride it was picked for.
     customer_chat_language = db.Column(db.String(10), nullable=True)
+    # When the 1-hour pickup reminder was queued for the accepted
+    # driver (owner decision 2026-11-18: remind the assigned driver
+    # 1 hour before pickup). NULL means no reminder has been queued
+    # for the current acceptance; it is the idempotency flag — the
+    # reminder fires once per acceptance. Reset when the booking
+    # goes back to "offered" (driver cancel) or a new driver accepts,
+    # so the next driver gets his own reminder.
+    pickup_reminder_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     accepted_driver = db.relationship("Driver", foreign_keys=[accepted_driver_id])
     assigned_driver = db.relationship("Driver", foreign_keys=[assigned_driver_id])
@@ -2480,6 +2489,24 @@ with app.app_context():
                     _conn.execute(_sa_text(_ddl))
     except Exception as exc:  # logged, never fatal at startup
         log.warning("chat-translation column check failed: %s", exc)
+    # Same pattern for the 1-hour pickup reminder flag (added with the
+    # driver pickup reminder, 2026-11-18). Nullable, so existing
+    # booking rows keep working with no reminder queued.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _bcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("bookings")]
+        if "pickup_reminder_sent_at" not in _bcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text(
+                        "ALTER TABLE bookings ADD COLUMN pickup_reminder_sent_at "
+                        "TIMESTAMP WITH TIME ZONE"
+                    )
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("pickup-reminder column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -2713,6 +2740,117 @@ def _driver_time_conflict(driver_id, candidate):
     if window is None:
         return False
     return any(_windows_overlap(window, w) for w in _active_windows(driver_id))
+
+
+# ------------------------------------------------------- pickup reminder ---
+# Owner decision 2026-11-18 (voice call): 1 hour before pickup, remind
+# the ASSIGNED driver that his ride is about to start — in the driver
+# app, by email, and by SMS to his phone number.
+#
+# HONEST LIMIT: no messaging service is connected. Like every other
+# text/email in this app, the reminder email and SMS are written to
+# the owner-dashboard outbox only and are NOT actually sent (the
+# dashboard says so: "messages are recorded here, not sent yet").
+# The in-app alert is the channel that actually reaches the driver,
+# and only while he has the app open. When a messaging provider is
+# connected, the outbox entries become sendable without changing
+# this code. Scheduling is documented at
+# run_pickup_reminders_endpoint below: the check fires from the
+# app's existing contact points (driver-app polling, active-trip
+# fetch, owner dashboard trigger) — no cron, no new infrastructure,
+# no billing change.
+PICKUP_REMINDER_WINDOW = timedelta(hours=1)
+
+
+def pickup_reminder_body(booking):
+    """Reminder text: pickup time + addresses ONLY. Never miles, fare,
+    total, or any other money figure — the driver must never see them."""
+    body = ("Noel Chauffer: your ride starts in about an hour. "
+            f"Pickup {booking.date} at {booking.time} from {booking.pickup}.")
+    if booking.ride_type != "hourly" and booking.dropoff:
+        body += f" Drop-off: {booking.dropoff}."
+    return body
+
+
+def _pickup_reminder_due(booking, now):
+    """True when the booking's pickup is within the next hour (and not
+    already past). Unparseable pickup times never fire."""
+    start = _pickup_dt(booking.date, booking.time)
+    if start is None:
+        return False
+    delta = start - now
+    return timedelta(0) <= delta <= PICKUP_REMINDER_WINDOW
+
+
+def run_pickup_reminders(now=None, driver_id=None):
+    """Queue the 1-hour pickup reminder for every qualifying booking.
+
+    Qualifies: status "accepted" (an assigned driver, trip not yet
+    started, not cancelled), pickup within the next hour, and no
+    reminder queued yet for this acceptance (pickup_reminder_sent_at
+    is NULL — the idempotency flag, so repeated runs fire once).
+    Each firing queues one SMS + one email outbox entry to the driver
+    (recorded, not sent — no messaging service is connected) and one
+    owner-dashboard alert event. Returns the reminded booking ids.
+    `driver_id` scopes the run to one driver; None runs every driver.
+    """
+    now = now or utcnow()
+    query = (Booking.query
+             .filter(Booking.status == "accepted",
+                     Booking.accepted_driver_id.isnot(None),
+                     Booking.pickup_reminder_sent_at.is_(None)))
+    if driver_id is not None:
+        query = query.filter(Booking.accepted_driver_id == driver_id)
+    reminded = []
+    for booking in query.all():
+        if not _pickup_reminder_due(booking, now):
+            continue
+        driver = db.session.get(Driver, booking.accepted_driver_id)
+        if not driver:
+            continue
+        body = pickup_reminder_body(booking)
+        add_outbox("sms", driver.phone, body, booking.id)
+        if driver.email:
+            add_outbox("email", driver.email, body, booking.id)
+        add_event(booking.id, "pickup_reminder",
+                  f"Pickup reminder queued for driver {driver.name} "
+                  f"(booking #{booking.id}).")
+        booking.pickup_reminder_sent_at = now
+        reminded.append(booking.id)
+    if reminded:
+        db.session.commit()
+    return reminded
+
+
+def _run_pickup_reminders_best_effort(driver_id=None):
+    """Run the reminder check without ever breaking the caller's
+    response: a reminder failure must not fail a driver poll or an
+    active-trip fetch. Logs and rolls back on any error."""
+    try:
+        return run_pickup_reminders(driver_id=driver_id)
+    except Exception as exc:
+        db.session.rollback()
+        log.warning("pickup reminder check failed: %s", exc)
+        return []
+
+
+def _due_pickup_reminder_for_driver(driver_id, now=None):
+    """The driver's accepted booking whose pickup is within the next
+    hour, for the in-app banner — or None. Driven by the time window
+    alone (not the reminder flag), so the banner shows while the ride
+    is about to start even after the reminder record was queued.
+    Never references the flag column, so the banner keeps working
+    even if the column migration has not run yet."""
+    now = now or utcnow()
+    bookings = (Booking.query
+                .filter(Booking.accepted_driver_id == driver_id,
+                        Booking.status == "accepted")
+                .order_by(Booking.date, Booking.time, Booking.id)
+                .all())
+    for booking in bookings:
+        if _pickup_reminder_due(booking, now):
+            return booking
+    return None
 
 
 def _refunded_booking_ids():
@@ -3844,6 +3982,10 @@ def driver_active_trip():
     driver, error = require_driver()
     if error:
         return error
+    # Piggyback the 1-hour reminder check (best-effort: never breaks
+    # this response) so the reminder queues when the driver opens the
+    # app and restores his trip, even before the reminder poll runs.
+    _run_pickup_reminders_best_effort(driver_id=driver.id)
     booking = (Booking.query
                .filter(Booking.accepted_driver_id == driver.id,
                        Booking.status.in_(("accepted", "en_route", "arrived", "in_progress")))
@@ -3875,6 +4017,35 @@ def driver_active_trip():
         "airport_pickup": is_airport_pickup(booking.pickup),
         "status": booking.status,
         **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
+    }})
+
+
+@app.route("/api/drivers/me/pickup-reminder", methods=["GET"])
+def driver_pickup_reminder():
+    """The 1-hour pickup reminder for the driver's own in-app banner.
+
+    Runs the reminder check for this driver (queueing the outbox
+    entries + alert once per acceptance), then returns the accepted
+    booking whose pickup is within the next hour, if any — pickup
+    time + addresses only, never miles, fare, or total. Polled by
+    the driver app while the trip screen is open; the banner shows
+    while the ride is about to start. The check is best-effort: it
+    never breaks this response.
+    """
+    driver, error = require_driver()
+    if error:
+        return error
+    _run_pickup_reminders_best_effort(driver_id=driver.id)
+    booking = _due_pickup_reminder_for_driver(driver.id)
+    if not booking:
+        return jsonify({"reminder": None})
+    return jsonify({"reminder": {
+        "booking_id": booking.id,
+        "date": booking.date,
+        "time": booking.time,
+        "pickup": booking.pickup,
+        "dropoff": booking.dropoff,
+        "ride_type": booking.ride_type,
     }})
 
 
@@ -3974,9 +4145,12 @@ def driver_accept(booking_id):
     if _driver_time_conflict(driver.id, booking):
         return err("This ride overlaps another ride you have accepted.", 409)
     # Atomic first-accept-wins: only one driver can flip offered -> accepted.
+    # The reminder flag resets so the accepting driver gets his own
+    # 1-hour reminder even if a previous acceptance queued one.
     rows = (db.session.query(Booking)
             .filter(Booking.id == booking_id, Booking.status == "offered")
-            .update({"status": "accepted", "accepted_driver_id": driver.id},
+            .update({"status": "accepted", "accepted_driver_id": driver.id,
+                     "pickup_reminder_sent_at": None},
                     synchronize_session=False))
     if rows == 0:
         db.session.rollback()
@@ -4193,6 +4367,9 @@ def driver_trip_event(booking_id):
         booking.assigned_driver_id = None
         booking.driver_lat = None
         booking.driver_lng = None
+        # The reminder flag resets with the re-dispatch, so the next
+        # driver to accept gets his own 1-hour reminder.
+        booking.pickup_reminder_sent_at = None
         if not BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
             db.session.add(BookingExclusion(booking_id=booking_id, driver_id=driver.id))
         # Payment was taken before dispatch, so it is kept; the booking
@@ -4606,6 +4783,42 @@ def owner_outbox():
         "id": m.id, "channel": m.channel, "recipient": m.recipient,
         "body": m.body, "booking_id": m.booking_id, "created_at": iso(m.created_at),
     } for m in messages])
+
+
+@app.route("/api/owner/run-pickup-reminders", methods=["POST"])
+def run_pickup_reminders_endpoint():
+    """Trigger the 1-hour pickup reminder check for every driver.
+
+    Called by the owner dashboard when it loads (fire-and-forget),
+    so reminders queue whenever the owner has the dashboard open —
+    no new infrastructure, no billing change. For fully automatic
+    firing without anyone having an app open, point a scheduler at
+    this endpoint (Render cron jobs have no free-plan guarantee, so
+    no scheduler is configured by this code — the owner sets one up
+    only if he wants it):
+
+      POST https://noelchauffer.com/api/owner/run-pickup-reminders
+      Authorization: Bearer <PICKUP_REMINDER_CRON_SECRET>
+      every 5 minutes
+
+    with PICKUP_REMINDER_CRON_SECRET set to the same value in
+    Render's environment. Any external scheduler (Render cron job,
+    cron-job.org, UptimeRobot) works the same way.
+
+    Auth: the owner session, OR the bearer secret above. With
+    PICKUP_REMINDER_CRON_SECRET unset, bearer auth is disabled and
+    only the owner session works. The check is idempotent: repeated
+    triggers never queue a second reminder for the same acceptance.
+    """
+    cron_secret = os.environ.get("PICKUP_REMINDER_CRON_SECRET") or ""
+    auth = request.headers.get("Authorization", "")
+    bearer_ok = bool(cron_secret) and hmac.compare_digest(auth, "Bearer " + cron_secret)
+    if not bearer_ok:
+        error = require_owner()
+        if error:
+            return error
+    reminded = run_pickup_reminders()
+    return jsonify({"reminded": reminded})
 
 
 @app.route("/api/owner/support-messages", methods=["GET"])

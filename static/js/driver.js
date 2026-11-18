@@ -730,6 +730,7 @@
     available: false,
     offersTimer: null,
     noShowTimer: null,
+    reminderTimer: null,
     trip: null,
     stageIndex: 0,
     watchId: null,
@@ -1571,6 +1572,7 @@
     }
     renderStages();
     startNoShowTimer();
+    startReminderPolling();
     startChatPolling();
     $("trip-error").textContent = "";
   }
@@ -1738,6 +1740,40 @@
   function stopNoShowTimer() {
     if (state.noShowTimer) clearInterval(state.noShowTimer);
     state.noShowTimer = null;
+  }
+  /* 1-hour pickup reminder (owner decision 2026-11-18): while the
+     trip screen is open, check every 30 seconds whether the accepted
+     ride starts within the hour; if so, show the gold banner at the
+     top of the trip screen. The server decides (same window as the
+     queued email/SMS reminder) and the banner shows pickup time +
+     addresses only — never miles, fare, or total. A missed check is
+     harmless; the next one follows. */
+  function refreshPickupReminder() {
+    if (!state.trip) { hide($("trip-reminder-banner")); return; }
+    fetch("/api/drivers/me/pickup-reminder", { headers: authHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var banner = $("trip-reminder-banner");
+        var rem = j && j.reminder;
+        if (!rem || !state.trip || rem.booking_id !== state.trip.id) { hide(banner); return; }
+        var text = "Your ride starts in about an hour — pickup " + rem.date + " at " + rem.time + " from " + rem.pickup;
+        if (rem.ride_type !== "hourly" && rem.dropoff) text += " to " + rem.dropoff;
+        text += ".";
+        banner.textContent = text;
+        show(banner);
+      })
+      .catch(function () { /* keep the current banner on a failed check */ });
+  }
+  function startReminderPolling() {
+    stopReminderPolling();
+    refreshPickupReminder();
+    state.reminderTimer = setInterval(function () {
+      if (state.trip && !$("screen-trip").classList.contains("hidden")) refreshPickupReminder();
+    }, 30000);
+  }
+  function stopReminderPolling() {
+    if (state.reminderTimer) clearInterval(state.reminderTimer);
+    state.reminderTimer = null;
   }
 
   /* ---------- Digital name sign (airport pickups) ---------- */
@@ -1961,9 +1997,11 @@
   function endTrip() {
     stopLocationSharing();
     stopNoShowTimer();
+    stopReminderPolling();
     stopChatPolling();
     hide($("namesign-overlay"));
     hideNavChooser();
+    hide($("trip-reminder-banner"));
     state.trip = null;
     state.stageIndex = 0;
     state.lastPosition = null;

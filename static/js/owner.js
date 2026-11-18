@@ -94,12 +94,31 @@
     hide($("pin-gate"));
     show($("dashboard"));
     renderSummary(summary);
+    runPickupReminders();
     loadBookings();
     loadPayouts();
     loadAlerts();
     loadOutbox();
     loadSupportMessages();
     loadDrivers();
+  }
+
+  /* 1-hour pickup reminder trigger (owner decision 2026-11-18):
+     when the dashboard loads, run the reminder check for every
+     driver (fire-and-forget, silent) so reminders queue whenever
+     the owner has the dashboard open — no cron, no new
+     infrastructure. The check is idempotent; the outbox and alerts
+     reload afterwards so queued reminders show at once. */
+  function runPickupReminders() {
+    fetch("/api/owner/run-pickup-reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: "{}"
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function () { loadOutbox(); loadAlerts(); })
+      .catch(function () { /* reminders never break the dashboard */ });
   }
 
   $("logout-btn").addEventListener("click", function () {

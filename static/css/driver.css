@@ -184,6 +184,10 @@ input, select { font: inherit; }
 .stage-list li.current { border-color: var(--gold); background: #fffdf4; font-weight: 600; }
 .stage-list .tick { font-weight: 700; }
 .loc-note { font-size: 13.5px; color: var(--grey); margin-top: 10px; }
+/* 1-hour pickup reminder (owner decision 2026-11-18): a gold banner at
+   the top of the trip screen while the ride is about to start. Pickup
+   time + addresses only — never miles, fare, or total. */
+.reminder-banner { border: 1px solid var(--gold); background: #fffdf4; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 15px; line-height: 1.4; }
 
 /* Earnings */
 .earn-sum {

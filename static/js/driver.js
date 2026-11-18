@@ -1411,8 +1411,23 @@
         state.stageIndex = 0;
         renderTrip();
         showScreen("trip");
+        openTripChatOnAccept();
       })
       .catch(function () { refreshOffers(); });
+  }
+
+  /* Owner rule 2026-11-18 (voice call: "Driver jaisa trip accept
+     karega, jab uske paas chat box khulna chahiye"): the moment the
+     driver accepts a trip, the chat box must OPEN for him. The chat
+     sits at the bottom of the trip screen, below the fold, and
+     showScreen lands at the top — so scroll the chat into view at
+     once, with no extra tap or scroll from the driver. The box
+     itself is always expanded; only its position needs bringing
+     into view. Called ONLY from the accept path: restoring an
+     active trip on reload must not yank the driver to the chat. */
+  function openTripChatOnAccept() {
+    var chat = $("trip-chat");
+    if (chat) chat.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   /* Staged navigation on the trip screen (Uber-driver-style): until

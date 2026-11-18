@@ -742,3 +742,25 @@ input, select { font: inherit; }
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 10px;
 }
+
+/* Earnings-amount legibility fix (owner report 2026-11-18): the dark
+   screens set near-white text (#f2f0ea), which the pale boxes inherit
+   — their spans have no color of their own, so the amounts were
+   invisible on the pale backgrounds. Every pale box on the dark
+   screens now pins its text to dark ink. No other styling changes;
+   the white name-sign overlay is untouched. */
+#screen-home .offer .earnings .label,
+#screen-home .offer .earnings .amount,
+#screen-home .offer .toll-line .label,
+#screen-home .offer .toll-line .amount,
+#screen-trip #trip-earnings .earnings .amount,
+#screen-trip #trip-earnings .toll-line .label,
+#screen-trip #trip-earnings .toll-line .amount,
+#screen-trip .reminder-banner,
+#screen-trip .chat-box .chat-msg.mine,
+#screen-home .btn-decline {
+  color: var(--ink);
+}
+/* The name line inside an own chat bubble keeps the quiet grey of the
+   base design instead of the pale grey meant for dark rows. */
+#screen-trip .chat-box .chat-msg.mine .who { color: var(--grey); }

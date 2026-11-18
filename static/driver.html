@@ -15,6 +15,58 @@
     <div class="hello hidden" id="hello-line"></div>
   </header>
 
+  <!-- ============ SIGN IN (default entry) ============ -->
+  <section class="screen hidden" id="screen-login">
+    <h2>Sign in</h2>
+    <form id="signin-form" novalidate>
+      <div class="field">
+        <label for="signin-email">Email</label>
+        <input id="signin-email" type="email" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="signin-password">Password</label>
+        <input id="signin-password" type="password" required autocomplete="current-password">
+      </div>
+      <button class="btn-primary btn-gold" type="submit" id="signin-submit">Sign in</button>
+      <p class="form-error" id="signin-error" role="alert"></p>
+    </form>
+    <button class="link-btn" type="button" id="forgot-link">Forgot password?</button>
+    <form id="forgot-form" class="hidden" novalidate>
+      <div class="field">
+        <label for="forgot-email">Email</label>
+        <input id="forgot-email" type="email" required autocomplete="email">
+      </div>
+      <button class="btn-ghost" type="submit" id="forgot-submit">Send reset link</button>
+      <p class="form-note" id="forgot-message" role="status"></p>
+      <button class="link-btn" type="button" id="forgot-back-link">Back to sign in</button>
+    </form>
+
+    <div id="reset-block" class="hidden">
+      <div class="section-title">Reset your password</div>
+      <p class="form-note">Choose a new password for your driver account. The reset link expires in 1 hour.</p>
+      <form id="reset-form" novalidate>
+        <div id="reset-form-fields">
+          <div class="field">
+            <label for="reset-password">New password</label>
+            <input id="reset-password" type="password" required autocomplete="new-password">
+          </div>
+          <div class="field">
+            <label for="reset-password-confirm">Confirm new password</label>
+            <input id="reset-password-confirm" type="password" required autocomplete="new-password">
+          </div>
+          <button class="btn-primary btn-gold" type="submit" id="reset-submit">Set new password</button>
+        </div>
+        <p class="form-error" id="reset-error" role="alert"></p>
+      </form>
+      <div id="reset-done" class="hidden">
+        <p class="form-note">Your password has been reset. Please sign in with your new password.</p>
+        <button class="btn-primary btn-gold" type="button" id="reset-back-btn">Back to sign in</button>
+      </div>
+    </div>
+
+    <button class="link-btn" type="button" id="show-register-link">New driver registration</button>
+  </section>
+
   <!-- ============ REGISTRATION (one time only) ============ -->
   <section class="screen hidden" id="screen-register">
     <h2>Driver registration</h2>
@@ -162,64 +214,6 @@
       <p class="form-error" id="register-error" role="alert"></p>
     </form>
 
-    <div id="signin-block">
-    <div class="section-title">Already registered?</div>
-    <p class="form-note">Sign in with your email and password.</p>
-    <form id="signin-form" novalidate>
-      <div class="field">
-        <label for="signin-email">Email</label>
-        <input id="signin-email" type="email" required autocomplete="email">
-      </div>
-      <div class="field">
-        <label for="signin-password">Password</label>
-        <input id="signin-password" type="password" required autocomplete="current-password">
-      </div>
-      <button class="btn-primary btn-gold" type="submit" id="signin-submit">Sign in</button>
-      <p class="form-error" id="signin-error" role="alert"></p>
-    </form>
-    <button class="link-btn" type="button" id="forgot-link">Forgot password?</button>
-    <form id="forgot-form" class="hidden" novalidate>
-      <div class="field">
-        <label for="forgot-email">Email</label>
-        <input id="forgot-email" type="email" required autocomplete="email">
-      </div>
-      <button class="btn-ghost" type="submit" id="forgot-submit">Send reset link</button>
-      <p class="form-note" id="forgot-message" role="status"></p>
-      <button class="link-btn" type="button" id="forgot-back-link">Back to sign in</button>
-    </form>
-    <div class="divider"><span>or continue with your phone number</span></div>
-    <form id="lookup-form" novalidate>
-      <div class="field">
-        <label for="lookup-phone">Phone number</label>
-        <input id="lookup-phone" type="tel" required autocomplete="tel">
-      </div>
-      <button class="btn-ghost" type="submit" id="lookup-submit">Continue</button>
-      <p class="form-error" id="lookup-error" role="alert"></p>
-    </form>
-    </div>
-
-    <div id="reset-block" class="hidden">
-      <div class="section-title">Reset your password</div>
-      <p class="form-note">Choose a new password for your driver account. The reset link expires in 1 hour.</p>
-      <form id="reset-form" novalidate>
-        <div id="reset-form-fields">
-          <div class="field">
-            <label for="reset-password">New password</label>
-            <input id="reset-password" type="password" required autocomplete="new-password">
-          </div>
-          <div class="field">
-            <label for="reset-password-confirm">Confirm new password</label>
-            <input id="reset-password-confirm" type="password" required autocomplete="new-password">
-          </div>
-          <button class="btn-primary btn-gold" type="submit" id="reset-submit">Set new password</button>
-        </div>
-        <p class="form-error" id="reset-error" role="alert"></p>
-      </form>
-      <div id="reset-done" class="hidden">
-        <p class="form-note">Your password has been reset. Please sign in with your new password.</p>
-        <button class="btn-primary btn-gold" type="button" id="reset-back-btn">Back to sign in</button>
-      </div>
-    </div>
   </section>
 
   <!-- ============ HOME / OFFERS ============ -->

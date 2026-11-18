@@ -103,9 +103,15 @@ separate options page; picking a class proceeds to payment.
   so the owner can trial the system with his own 2023 Model 3 — remove
   it when he says so. Model Y stays excluded. Jeep Wagoneer S is
   included as transcribed (source marks it SF Bay Area only).
-- "Already registered?" lookup → `POST /api/drivers/me/lookup`
+- Sign-in (default entry when signed out) → `POST /api/drivers/me/signin`
+  (email + password); a "New driver registration" link at the bottom
+  opens the registration form. The phone lookup endpoint
+  (`POST /api/drivers/me/lookup`) is kept on the server but has no
+  sign-in UI anymore (owner decision 2026-11-18).
 - Return visits: token in localStorage + `GET /api/drivers/me` goes
-  straight to Home; registration is never shown again
+  straight to Home; registration is never shown again. Without a
+  valid token the app opens on the sign-in screen, never on
+  registration.
 - Active-trip restore after reload
   → `GET /api/drivers/me/active-trip`; the trip screen is rebuilt at the
   stage matching the booking status (accepted → Head to pickup,

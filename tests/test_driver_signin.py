@@ -5,8 +5,12 @@ Owner decision 2026-11-18 (voice call): "complete sign in process
 banao yaar". Before this, sign-in was phone-number lookup only — no
 password existed anywhere. Registration now sets a password (with
 confirmation, minimum 6 characters); only its hash is stored.
-Email + password sign-in is the primary form; the phone lookup
-stays visible below it so no existing driver is locked out.
+Email + password sign-in is the only sign-in form. A later owner
+decision the same day (voice call ~05:13 EST) made the login screen
+the default entry: email + password only, registration behind a
+"New driver registration" link at the bottom, and the phone lookup
+removed from the sign-in UI. The phone-lookup API endpoint stays
+intact on the server.
 
 Password reset (same call, "password to baar baar bhool jate hain"
 — drivers keep forgetting passwords): a single-use token, stored
@@ -24,8 +28,9 @@ Rules pinned here:
   used by another driver is rejected at registration (409). Empty
   emails (legacy) are never blocked.
 - Short / mismatched passwords are rejected at registration.
-- Phone lookup behaviour is unchanged; legacy drivers without a
-  hash keep signing in via phone lookup.
+- Phone lookup API behaviour is unchanged (endpoint intact);
+  legacy drivers without a hash keep signing in via the phone
+  lookup API. The phone block is gone from the sign-in UI.
 - Reset tokens are stored hashed only; unknown emails get the
   identical generic response as known ones; expired / used / wrong
   tokens are rejected; a successful reset sets the new hash, the
@@ -262,7 +267,7 @@ class DriverSigninCase(unittest.TestCase):
                                 headers={"X-Driver-Token": token2})
         self.assertEqual(fresh.status_code, 200)
 
-    # -- phone lookup unchanged ----------------------------------------------
+    # -- phone lookup API unchanged (UI block removed, endpoint intact) ------
     def test_phone_lookup_unchanged(self):
         resp = self.register(phone="+15550070001")
         self.assertEqual(resp.status_code, 201, resp.text[:300])
@@ -452,20 +457,30 @@ class DriverSigninCase(unittest.TestCase):
         # Registration password fields exist.
         self.assertIn('id="reg-password"', html)
         self.assertIn('id="reg-password-confirm"', html)
-        # Email+password sign-in comes FIRST, phone lookup below it.
-        signin_at = html.index('id="signin-form"')
-        lookup_at = html.index('id="lookup-form"')
-        self.assertLess(signin_at, lookup_at)
-        self.assertIn('id="signin-email"', html)
-        self.assertIn('id="signin-password"', html)
-        # Forgot-password link + form, and the reset form.
-        self.assertIn('id="forgot-link"', html)
-        self.assertIn('id="forgot-form"', html)
-        self.assertIn('id="forgot-email"', html)
-        self.assertIn('id="reset-block"', html)
-        self.assertIn('id="reset-form"', html)
-        self.assertIn('id="reset-password"', html)
-        self.assertIn('id="reset-password-confirm"', html)
+        # Login is its own screen, before the registration screen, and
+        # holds the sign-in form, the forgot-password link/form and
+        # the reset form.
+        login_at = html.index('id="screen-login"')
+        register_at = html.index('id="screen-register"')
+        self.assertLess(login_at, register_at)
+        login = html[login_at:register_at]
+        self.assertIn('id="signin-form"', login)
+        self.assertIn('id="signin-email"', login)
+        self.assertIn('id="signin-password"', login)
+        self.assertIn('id="forgot-link"', login)
+        self.assertIn('id="forgot-form"', login)
+        self.assertIn('id="forgot-email"', login)
+        self.assertIn('id="reset-block"', login)
+        self.assertIn('id="reset-form"', login)
+        self.assertIn('id="reset-password"', login)
+        self.assertIn('id="reset-password-confirm"', login)
+        # The registration form lives only on the registration screen.
+        self.assertIn('id="register-form"', html[register_at:])
+        self.assertNotIn('id="signin-form"', html[register_at:])
+        # No phone-lookup block anywhere in the sign-in UI.
+        self.assertNotIn('id="lookup-form"', html)
+        self.assertNotIn('id="lookup-phone"', html)
+        self.assertNotIn("or continue with your phone number", html)
         # No password field may leak into a URL or log: the reset form
         # posts (no GET), and no reset token is rendered in the page.
         self.assertNotIn("?reset=", html)
@@ -483,21 +498,30 @@ class DriverSigninCase(unittest.TestCase):
         self.assertIn("/api/drivers/me/forgot-password", js)
         self.assertIn("/api/drivers/me/reset-password", js)
         self.assertIn('get("reset")', js)
+        # No phone lookup in the sign-in UI: no lookup form handler
+        # and no lookup endpoint call in the shipped JS (the server
+        # endpoint itself stays, pinned by the API tests above).
+        self.assertNotIn("lookup-form", js)
+        self.assertNotIn("lookup-phone", js)
+        self.assertNotIn("/api/drivers/me/lookup", js)
 
     def test_signout_already_exists_and_clears_token(self):
         # Profile "Log out" is the sign-out: it clears the stored
-        # token and reloads to the sign-in screen. The label is
-        # exactly "Log out" (owner order 2026-11-18); the old
-        # "Register a different driver" wording is gone, and the
-        # confirm wording and behaviour are unchanged.
+        # token and reloads, landing on the sign-in screen. The label
+        # is exactly "Log out" (owner order 2026-11-18); the old
+        # "Register a different driver" wording is gone. The confirm
+        # wording names the sign-in screen (it used to name
+        # registration, before the login-first entry redesign).
         html = read("static/driver.html")
         self.assertIn('id="reset-driver-btn">Log out</button>', html)
         self.assertNotIn("Register a different driver", html)
         js = read("static/js/driver.js")
         handler = js[js.index("reset-driver-btn"):]
         self.assertIn("clearToken()", handler[:500])
-        self.assertIn("Sign out this driver on this device and show registration again?",
+        self.assertIn("Sign out this driver on this device and show the sign-in screen?",
                       handler[:500])
+        self.assertNotIn("show registration again", handler[:500])
+        self.assertIn("window.location.reload()", handler[:500])
 
 
 if __name__ == "__main__":

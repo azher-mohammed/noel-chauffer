@@ -796,13 +796,13 @@
   }
 
   /* ---------- Screens ---------- */
-  var SCREENS = ["register", "home", "trip", "earnings", "documents", "profile"];
+  var SCREENS = ["login", "register", "home", "trip", "earnings", "documents", "profile"];
   function showScreen(name) {
     SCREENS.forEach(function (s) {
       var el = $("screen-" + s);
       if (el) { if (s === name) show(el); else hide(el); }
     });
-    if (name === "register" || name === "trip") {
+    if (name === "login" || name === "register" || name === "trip") {
       hide($("tabbar"));
     } else {
       show($("tabbar"));
@@ -820,7 +820,11 @@
     b.addEventListener("click", function () { showScreen(b.getAttribute("data-screen")); });
   });
 
-  /* ---------- Boot: registered drivers never see registration again ---------- */
+  /* ---------- Boot: signed-out drivers land on sign-in, signed-in drivers go straight to jobs ---------- */
+  /* Owner decision 2026-11-18: the driver app opens on a login
+     screen (email + password only) when signed out, with new
+     registration behind a link at the bottom. A signed-in driver
+     never sees the registration form again. */
   function boot() {
     /* Password reset: a /driver?reset=<token> link opens the
        set-new-password form instead of the normal view, even on a
@@ -830,21 +834,21 @@
     try { resetToken = new URLSearchParams(window.location.search).get("reset"); } catch (e) { /* old browser */ }
     if (resetToken) { showResetForm(resetToken); return; }
     var token = getToken();
-    if (!token) { showScreen("register"); return; }
+    if (!token) { showScreen("login"); return; }
     state.token = token;
     fetch("/api/drivers/me", { headers: authHeaders() })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         if (!res.ok || !unwrapDriver(res.j)) {
           clearToken();
-          showScreen("register");
+          showScreen("login");
           return;
         }
         enterApp(unwrapDriver(res.j));
       })
       .catch(function () {
-        /* Offline: fall back to registration rather than a dead screen. */
-        showScreen("register");
+        /* Offline: fall back to sign-in rather than a dead screen. */
+        showScreen("login");
       });
   }
 
@@ -1293,13 +1297,11 @@
 
   /* ---------- Email + password sign-in ---------- */
   /* Owner decision 2026-11-18, complete sign-in process: the
-     primary sign-in is email + password. On success it uses the
-     same token mechanism as the phone lookup below (re-issued
-     token, saved on this device), so signing in on a new phone
+     sign-in is email + password. On success the server re-issues
+     the token, saved on this device, so signing in on a new phone
      signs the old one out. On failure the server's generic error
      is shown — it never says whether the email or the password
-     was wrong. Drivers registered before passwords existed have
-     no password and keep using the phone lookup below. */
+     was wrong. */
   $("signin-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var err = $("signin-error");
@@ -1378,19 +1380,19 @@
 
   /* ---------- Password reset via link ---------- */
   /* A /driver?reset=<token> link opens the set-new-password form
-     instead of the normal registration/sign-in view (see boot()).
-     The token itself is only ever sent back to the server — it is
-     never shown on screen or logged. */
+     instead of the normal sign-in view (see boot()). The token
+     itself is only ever sent back to the server — it is never
+     shown on screen or logged. */
   function showResetForm(resetToken) {
     state.resetToken = resetToken;
-    hide($("register-form"));
-    hide($("signin-block"));
-    var intro = $("register-intro");
-    if (intro) hide(intro);
-    var heading = document.querySelector("#screen-register > h2");
+    hide($("signin-form"));
+    hide($("forgot-link"));
+    hide($("forgot-form"));
+    hide($("show-register-link"));
+    var heading = document.querySelector("#screen-login > h2");
     if (heading) hide(heading);
     show($("reset-block"));
-    showScreen("register");
+    showScreen("login");
   }
   $("reset-form").addEventListener("submit", function (e) {
     e.preventDefault();
@@ -1428,39 +1430,12 @@
     window.location.assign("/driver");
   });
 
-  /* ---------- Lookup for a new device ---------- */
-  $("lookup-form").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var err = $("lookup-error");
-    err.textContent = "";
-    var phone = $("lookup-phone").value.trim();
-    if (!phone) { err.textContent = "Please enter your phone number."; return; }
-    var btn = $("lookup-submit");
-    btn.disabled = true;
-    fetch("/api/drivers/me/lookup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: phone })
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        btn.disabled = false;
-        if (!res.ok || !res.j.token) {
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "No registration was found for that number. Please register above.";
-          return;
-        }
-        saveToken(res.j.token);
-        /* Lookup returns only id + name: fetch the full record so the
-           Documents and Profile tabs are populated on this device. */
-        fetch("/api/drivers/me", { headers: authHeaders() })
-          .then(function (r) { return r.json(); })
-          .then(function (j) { enterApp(unwrapDriver(j) || unwrapDriver(res.j) || {}); })
-          .catch(function () { enterApp(unwrapDriver(res.j) || {}); });
-      })
-      .catch(function () {
-        btn.disabled = false;
-        err.textContent = "Could not reach the service. Please try again.";
-      });
+  /* ---------- New driver registration ---------- */
+  /* Owner decision 2026-11-18: the login screen carries a
+     "New driver registration" link at the bottom; only tapping it
+     opens the registration form. Signed-in drivers never see it. */
+  $("show-register-link").addEventListener("click", function () {
+    showScreen("register");
   });
 
   /* ---------- Availability ---------- */
@@ -2518,7 +2493,7 @@
     $("profile-card").innerHTML = html;
   }
   $("reset-driver-btn").addEventListener("click", function () {
-    if (!window.confirm("Sign out this driver on this device and show registration again?")) return;
+    if (!window.confirm("Sign out this driver on this device and show the sign-in screen?")) return;
     stopLocationSharing();
     clearToken();
     /* A different driver on this device must hear fresh offers. */

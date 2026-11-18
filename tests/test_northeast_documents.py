@@ -147,7 +147,7 @@ class NortheastDocumentsCase(unittest.TestCase):
                                 content_type="multipart/form-data")
 
     # -- endpoint -------------------------------------------------------------
-    def test_city_requirements_cover_all_46_overrides(self):
+    def test_city_requirements_cover_all_61_overrides(self):
         payload = self.client.get("/api/states").get_json()
         overrides = payload["city_requirements"]
         self.assertEqual(set(overrides),
@@ -156,7 +156,8 @@ class NortheastDocumentsCase(unittest.TestCase):
                           "South Carolina", "Tennessee", "Illinois",
                           "Indiana", "Minnesota", "Missouri", "Nebraska",
                           "Ohio", "Wisconsin", "Maine", "Massachusetts",
-                          "New Jersey", "Pennsylvania"})
+                          "New Jersey", "Pennsylvania", "Arkansas", "Idaho",
+                          "Nevada", "Oklahoma", "Utah", "Wyoming"})
         self.assertEqual(set(overrides["Maine"]),
                          {"Portland", "South Portland"})
         self.assertEqual(set(overrides["Massachusetts"]),
@@ -164,7 +165,7 @@ class NortheastDocumentsCase(unittest.TestCase):
         self.assertEqual(set(overrides["New Jersey"]), {"Jersey City"})
         self.assertEqual(set(overrides["Pennsylvania"]), {"Philadelphia"})
         total = sum(len(cities) for cities in overrides.values())
-        self.assertEqual(total, 46)
+        self.assertEqual(total, 61)
         for (state, city), (docs, note) in EXPECTED.items():
             with self.subTest(state=state, city=city):
                 got = overrides[state][city]

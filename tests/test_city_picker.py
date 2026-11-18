@@ -155,8 +155,10 @@ class CityPickerCase(unittest.TestCase):
                           "South Carolina", "Tennessee", "Illinois",
                           "Indiana", "Minnesota", "Missouri", "Nebraska",
                           "Ohio", "Wisconsin", "Maine", "Massachusetts",
-                          "New Jersey", "Pennsylvania"})
-        self.assertEqual(set(overrides["Texas"]), {"Dallas"})
+                          "New Jersey", "Pennsylvania", "Arkansas", "Idaho",
+                          "Nevada", "Oklahoma", "Utah", "Wyoming"})
+        self.assertEqual(set(overrides["Texas"]),
+                         {"Dallas", "Austin", "Houston", "San Antonio"})
         self.assertEqual(set(overrides["New York"]),
                          {"Buffalo", "Rochester", "Syracuse", "Yonkers"})
         dallas = overrides["Texas"]["Dallas"]
@@ -227,7 +229,7 @@ class CityPickerCase(unittest.TestCase):
             app_module.GENERIC_DOC_TYPES)
         self.assertEqual(
             app_module.required_docs_for("Texas", "Houston"),
-            app_module.GENERIC_DOC_TYPES)
+            app_module.HOUSTON_DOC_TYPES)
         self.assertEqual(
             app_module.required_docs_for("New York", "New York"),
             app_module.DOC_TYPES)

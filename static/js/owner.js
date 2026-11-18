@@ -642,7 +642,21 @@
     { key: "springfield_ma_chauffeur_license", label: "Chauffeur License (Springfield, MA)" },
     { key: "worcester_taxi_livery_license", label: "Taxi-Livery Driver License (Worcester)" },
     { key: "jersey_city_limo_driver_license", label: "Jersey City Limousine Driver License" },
-    { key: "philadelphia_limo_certificate", label: "PPA Limousine Driver Certificate" }
+    { key: "philadelphia_limo_certificate", label: "PPA Limousine Driver Certificate" },
+    { key: "little_rock_gt_driver_permit", label: "Ground Transportation Service Driver Permit (Little Rock)" },
+    { key: "springdale_taxi_driver_permit", label: "Taxicab Driver Permit (Springdale)" },
+    { key: "boise_cts_driver_license", label: "Commercial Transportation Service Driver License (Boise)" },
+    { key: "idaho_falls_operator_license", label: "Public Transportation Operator License (Idaho Falls)" },
+    { key: "okc_vfh_driver_permit", label: "Vehicle-for-Hire Driver Permit (Oklahoma City)" },
+    { key: "tulsa_chauffeur_license", label: "City of Tulsa Chauffeur License" },
+    { key: "tulsa_mvr", label: "MVR Report (Within 30 Days)" },
+    { key: "austin_chauffeur_permit", label: "Chauffeur Permit (Austin)" },
+    { key: "houston_vfh_driver_license", label: "City-Issued Vehicle-for-Hire Driver License (Houston)" },
+    { key: "san_antonio_driver_permit", label: "City of San Antonio Driver Permit (Vehicles for Hire)" },
+    { key: "st_george_for_hire_permit", label: "For-Hire Driver Permit (St. George)" },
+    { key: "cheyenne_pt_driver_permit", label: "Public Transportation Driver Permit (Cheyenne)" },
+    { key: "gillette_pt_driver_permit", label: "Public Transportation Driver Permit (Gillette)" },
+    { key: "clark_county_business_license", label: "Clark County Business License" }
   ];
 
   function docIsComplete(value) {

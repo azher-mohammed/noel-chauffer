@@ -278,6 +278,20 @@ DOC_FIELD_MAP = {
     "doc_worcester_taxi_livery_license": "worcester_taxi_livery_license",
     "doc_jersey_city_limo_driver_license": "jersey_city_limo_driver_license",
     "doc_philadelphia_limo_certificate": "philadelphia_limo_certificate",
+    "doc_little_rock_gt_driver_permit": "little_rock_gt_driver_permit",
+    "doc_springdale_taxi_driver_permit": "springdale_taxi_driver_permit",
+    "doc_boise_cts_driver_license": "boise_cts_driver_license",
+    "doc_idaho_falls_operator_license": "idaho_falls_operator_license",
+    "doc_okc_vfh_driver_permit": "okc_vfh_driver_permit",
+    "doc_tulsa_chauffeur_license": "tulsa_chauffeur_license",
+    "doc_tulsa_mvr": "tulsa_mvr",
+    "doc_austin_chauffeur_permit": "austin_chauffeur_permit",
+    "doc_houston_vfh_driver_license": "houston_vfh_driver_license",
+    "doc_san_antonio_driver_permit": "san_antonio_driver_permit",
+    "doc_st_george_for_hire_permit": "st_george_for_hire_permit",
+    "doc_cheyenne_pt_driver_permit": "cheyenne_pt_driver_permit",
+    "doc_gillette_pt_driver_permit": "gillette_pt_driver_permit",
+    "doc_clark_county_business_license": "clark_county_business_license",
 }
 # doc_type -> multipart field name (profile_picture comes from profile_photo)
 FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
@@ -1317,11 +1331,196 @@ PHILADELPHIA_DOC_TYPES = [
     "philadelphia_limo_certificate",
 ]
 
-# (state, city) -> city-specific list. 46 cities today (Dallas,
+# South Central/Mountain batch (owner order 2026-11-17, "every city
+# ka wahan ke rules"; Uber cross-check per the owner instruction of
+# 2026-11-18). City-specific lists, each verified from official
+# sources only — see the ledger (CITY_RESEARCH.md). No background
+# check anywhere; no age/experience gate; no document count. Medical
+# and Social Security items are HELD for owner decisions wherever a
+# city names them (Oklahoma City, Tulsa, Gillette) — never gated
+# silently, and the owner-review note stays ON for those cities.
+# Norman, OK was banked but DROPPED at build-time re-verification
+# (live Municode text unretrievable; unresolved Ch. 13 to Ch. 20
+# renumbering question) and Denver, CO stays on the state-list
+# fallback (current Ch. 55 text unretrievable) — see the ledger.
+# Uber cross-check (2026-11-18): Uber city pages were retrieved
+# in full only for Las Vegas (MATCH on the Clark County item, TNC
+# framing only), Houston, San Antonio, Tulsa, and Oklahoma City;
+# for the other cities only the generic Uber template page was
+# retrieved, which names no city permit anywhere — partial
+# evidence, recorded in the ledger, not treated as proof Uber has
+# no requirement. The Las Vegas vehicle inspection form is NOT
+# built (in-person step; flagged to the parent per the
+# registration-ease rule). The Houston For Hire Permit named by
+# Uber reads vehicle-level and Black-only, so it is NOT a driver
+# slot; the banked driver license stands on the ARA source. Proof
+# of residency (Uber template boilerplate) is NOT added to any
+# city list.
+# Little Rock, AR: Ground Transportation Service Driver Permit
+# (Ch. 34, Ord. 19051; "ground transportation service" expressly
+# includes limousine/luxury/pre-arranged service; currency
+# confirmed by Res. 16,914 for 2026 permits).
+# Springdale, AR: Taxicab Driver Permit (Ch. 122 Art. II
+# §§122-26/122-27; "taxicab" defined broadly with no limousine
+# exclusion).
+# Boise, ID: Commercial Transportation Service Driver License
+# (Title 3 Ch. 13B §3-13B-7; "Limousine Service" defined as
+# prearranged luxury service).
+# Idaho Falls, ID: Public Transportation Operator License (Title
+# 4 Ch. 15 §4-15-4; prearranged appointment service within 25
+# miles). The Operator OR Owner license alternative keeps the
+# owner-review note ON.
+# Oklahoma City, OK: Vehicle-for-Hire Driver Permit (Ch. 56 Div.
+# 5; city regulates taxicabs/limos/shuttles on pickups within the
+# city). The driver medical certification is HELD, so the
+# owner-review note stays ON.
+# Tulsa, OK: Chauffeur License + MVR Report (within 30 days),
+# from the live Business Licensing page and the chauffeur new
+# application (MVR required for NEW applications too). The SSN
+# card and the physical exam form are HELD; the holder
+# recommendation is an affiliation gap — the owner-review note
+# stays ON. Title 36 Ch. 1 definitions text was not retrieved;
+# the list rests on the licensing-office forms.
+# Austin, TX: Chauffeur Permit (city chauffeur-permit page:
+# allows driving a vehicle for hire, including limousines;
+# issued same day on passing a written test). Defensive-driving
+# proof is conditional (moving-violation convictions only), so
+# the owner-review note stays ON.
+# Houston, TX: City-Issued Vehicle-for-Hire Driver License (ARA:
+# every person driving a vehicle for hire must obtain a city
+# issued driver license; categories expressly include
+# chauffeured limousine services).
+# San Antonio, TX: Driver Permit (Ch. 33 Art. I §33-039;
+# Limousine/Luxury Vehicle Rules §950). The approved driver
+# training program question keeps the owner-review note ON.
+# St. George, UT: For-Hire Driver Permit (Art. O §3-2O-6;
+# "For-Hire Vehicle" expressly includes limousines). The
+# verbatim code text was not retrieved, but official city
+# checklists name the permit and the 2024 register shows live
+# issuance — the owner-review note stays ON for the code-text
+# gap.
+# Cheyenne, WY: Public Transportation Driver Permit (Title 5
+# Ch. 5.72; conveyance includes taxicab/limousine/carriage).
+# Gillette, WY: Public Transportation Driver Permit (Ch. 19
+# §19.3(A); §19.1(C) defines the conveyance to include
+# limousine; current posted text read end to end). The
+# SSN-adjacent application input is held, so the owner-review
+# note stays ON.
+# Henderson, Las Vegas, and North Las Vegas, NV: one shared
+# county-level item, the Clark County Business License. The
+# livery scope is evidenced for TNC drivers only, so the
+# owner-review note stays ON for all three (owner question).
+LITTLE_ROCK_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "little_rock_gt_driver_permit",
+]
+
+SPRINGDALE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "springdale_taxi_driver_permit",
+]
+
+BOISE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "boise_cts_driver_license",
+]
+
+IDAHO_FALLS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "idaho_falls_operator_license",
+]
+
+OKLAHOMA_CITY_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "okc_vfh_driver_permit",
+]
+
+TULSA_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "tulsa_chauffeur_license",
+    "tulsa_mvr",
+]
+
+AUSTIN_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "austin_chauffeur_permit",
+]
+
+HOUSTON_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "houston_vfh_driver_license",
+]
+
+SAN_ANTONIO_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "san_antonio_driver_permit",
+]
+
+ST_GEORGE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "st_george_for_hire_permit",
+]
+
+CHEYENNE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "cheyenne_pt_driver_permit",
+]
+
+GILLETTE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "gillette_pt_driver_permit",
+]
+
+HENDERSON_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "clark_county_business_license",
+]
+
+LAS_VEGAS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "clark_county_business_license",
+]
+
+NORTH_LAS_VEGAS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "clark_county_business_license",
+]
+
+# (state, city) -> city-specific list. 61 cities today (Dallas,
 # Buffalo, Rochester, Syracuse, Yonkers, the 16-city Southeast
-# batch, the 18-city Midwest batch, and the 7-city Northeast
-# batch); a city is added here ONLY with a verified official
-# source naming its items.
+# batch, the 18-city Midwest batch, the 7-city Northeast batch,
+# and the 15-city South Central/Mountain batch); a city is added
+# here ONLY with a verified official source naming its items.
 CITY_DOC_REQUIREMENTS = {
     ("Texas", "Dallas"): DALLAS_DOC_TYPES,
     ("New York", "Buffalo"): BUFFALO_DOC_TYPES,
@@ -1369,6 +1568,21 @@ CITY_DOC_REQUIREMENTS = {
     ("Massachusetts", "Worcester"): WORCESTER_DOC_TYPES,
     ("New Jersey", "Jersey City"): JERSEY_CITY_DOC_TYPES,
     ("Pennsylvania", "Philadelphia"): PHILADELPHIA_DOC_TYPES,
+    ("Arkansas", "Little Rock"): LITTLE_ROCK_DOC_TYPES,
+    ("Arkansas", "Springdale"): SPRINGDALE_DOC_TYPES,
+    ("Idaho", "Boise"): BOISE_DOC_TYPES,
+    ("Idaho", "Idaho Falls"): IDAHO_FALLS_DOC_TYPES,
+    ("Oklahoma", "Oklahoma City"): OKLAHOMA_CITY_DOC_TYPES,
+    ("Oklahoma", "Tulsa"): TULSA_DOC_TYPES,
+    ("Texas", "Austin"): AUSTIN_DOC_TYPES,
+    ("Texas", "Houston"): HOUSTON_DOC_TYPES,
+    ("Texas", "San Antonio"): SAN_ANTONIO_DOC_TYPES,
+    ("Utah", "St. George"): ST_GEORGE_DOC_TYPES,
+    ("Wyoming", "Cheyenne"): CHEYENNE_DOC_TYPES,
+    ("Wyoming", "Gillette"): GILLETTE_DOC_TYPES,
+    ("Nevada", "Henderson"): HENDERSON_DOC_TYPES,
+    ("Nevada", "Las Vegas"): LAS_VEGAS_DOC_TYPES,
+    ("Nevada", "North Las Vegas"): NORTH_LAS_VEGAS_DOC_TYPES,
 }
 
 # City-specific lists that KEEP the owner-review note: Buffalo's
@@ -1395,6 +1609,12 @@ CITY_DOC_REQUIREMENTS = {
 # structural gap (Portland ME: vehicle business-license coverage),
 # an unverified exception (South Portland: reciprocity), or held
 # SSN/medical inputs (Springfield MA, Philadelphia).
+# The South Central/Mountain note-ON cities keep it for held
+# medical/SSN items (Oklahoma City, Tulsa, Gillette), an
+# OR-alternative (Idaho Falls), conditional or unverified items
+# (Austin, San Antonio), a code-text gap (St. George), or the
+# Clark County livery-scope question (Henderson, Las Vegas,
+# North Las Vegas).
 CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
     ("New York", "Buffalo"),
     ("New York", "Rochester"),
@@ -1425,6 +1645,16 @@ CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
     ("Maine", "South Portland"),
     ("Massachusetts", "Springfield"),
     ("Pennsylvania", "Philadelphia"),
+    ("Idaho", "Idaho Falls"),
+    ("Oklahoma", "Oklahoma City"),
+    ("Oklahoma", "Tulsa"),
+    ("Texas", "Austin"),
+    ("Texas", "San Antonio"),
+    ("Utah", "St. George"),
+    ("Wyoming", "Gillette"),
+    ("Nevada", "Henderson"),
+    ("Nevada", "Las Vegas"),
+    ("Nevada", "North Las Vegas"),
 })
 
 
@@ -1613,6 +1843,20 @@ ALL_DOC_LABELS.update({
     "worcester_taxi_livery_license": "Taxi-Livery Driver License (Worcester)",
     "jersey_city_limo_driver_license": "Jersey City Limousine Driver License",
     "philadelphia_limo_certificate": "PPA Limousine Driver Certificate",
+    "little_rock_gt_driver_permit": "Ground Transportation Service Driver Permit (Little Rock)",
+    "springdale_taxi_driver_permit": "Taxicab Driver Permit (Springdale)",
+    "boise_cts_driver_license": "Commercial Transportation Service Driver License (Boise)",
+    "idaho_falls_operator_license": "Public Transportation Operator License (Idaho Falls)",
+    "okc_vfh_driver_permit": "Vehicle-for-Hire Driver Permit (Oklahoma City)",
+    "tulsa_chauffeur_license": "City of Tulsa Chauffeur License",
+    "tulsa_mvr": "MVR Report (Within 30 Days)",
+    "austin_chauffeur_permit": "Chauffeur Permit (Austin)",
+    "houston_vfh_driver_license": "City-Issued Vehicle-for-Hire Driver License (Houston)",
+    "san_antonio_driver_permit": "City of San Antonio Driver Permit (Vehicles for Hire)",
+    "st_george_for_hire_permit": "For-Hire Driver Permit (St. George)",
+    "cheyenne_pt_driver_permit": "Public Transportation Driver Permit (Cheyenne)",
+    "gillette_pt_driver_permit": "Public Transportation Driver Permit (Gillette)",
+    "clark_county_business_license": "Clark County Business License",
 })
 # Hint line under each document item in the registration form.
 DOC_HINTS = {
@@ -1773,6 +2017,20 @@ DOC_HINTS = {
     "worcester_taxi_livery_license": "Photo of your Taxi-Livery Driver License (Worcester), straight and fully visible.",
     "jersey_city_limo_driver_license": "Photo of your Jersey City Limousine Driver License, straight and fully visible.",
     "philadelphia_limo_certificate": "Photo of your PPA Limousine Driver Certificate, straight and fully visible.",
+    "little_rock_gt_driver_permit": "Photo of your Ground Transportation Service Driver Permit (Little Rock), straight and fully visible.",
+    "springdale_taxi_driver_permit": "Photo of your Taxicab Driver Permit (Springdale), straight and fully visible.",
+    "boise_cts_driver_license": "Photo of your Commercial Transportation Service Driver License (Boise), straight and fully visible.",
+    "idaho_falls_operator_license": "Photo of your Public Transportation Operator License (Idaho Falls), straight and fully visible.",
+    "okc_vfh_driver_permit": "Photo of your Vehicle-for-Hire Driver Permit (Oklahoma City), straight and fully visible.",
+    "tulsa_chauffeur_license": "Photo of your City of Tulsa Chauffeur License, straight and fully visible.",
+    "tulsa_mvr": "Photo of your MVR Report (Within 30 Days), straight and fully visible.",
+    "austin_chauffeur_permit": "Photo of your Chauffeur Permit (Austin), straight and fully visible.",
+    "houston_vfh_driver_license": "Photo of your City-Issued Vehicle-for-Hire Driver License (Houston), straight and fully visible.",
+    "san_antonio_driver_permit": "Photo of your City of San Antonio Driver Permit (Vehicles for Hire), straight and fully visible.",
+    "st_george_for_hire_permit": "Photo of your For-Hire Driver Permit (St. George), straight and fully visible.",
+    "cheyenne_pt_driver_permit": "Photo of your Public Transportation Driver Permit (Cheyenne), straight and fully visible.",
+    "gillette_pt_driver_permit": "Photo of your Public Transportation Driver Permit (Gillette), straight and fully visible.",
+    "clark_county_business_license": "Photo of your Clark County Business License, straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived

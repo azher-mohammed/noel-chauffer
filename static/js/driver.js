@@ -264,7 +264,21 @@
     doc_springfield_ma_chauffeur_license: "Chauffeur License (Springfield, MA)",
     doc_worcester_taxi_livery_license: "Taxi-Livery Driver License (Worcester)",
     doc_jersey_city_limo_driver_license: "Jersey City Limousine Driver License",
-    doc_philadelphia_limo_certificate: "PPA Limousine Driver Certificate"
+    doc_philadelphia_limo_certificate: "PPA Limousine Driver Certificate",
+    doc_little_rock_gt_driver_permit: "Ground Transportation Service Driver Permit (Little Rock)",
+    doc_springdale_taxi_driver_permit: "Taxicab Driver Permit (Springdale)",
+    doc_boise_cts_driver_license: "Commercial Transportation Service Driver License (Boise)",
+    doc_idaho_falls_operator_license: "Public Transportation Operator License (Idaho Falls)",
+    doc_okc_vfh_driver_permit: "Vehicle-for-Hire Driver Permit (Oklahoma City)",
+    doc_tulsa_chauffeur_license: "City of Tulsa Chauffeur License",
+    doc_tulsa_mvr: "MVR Report (Within 30 Days)",
+    doc_austin_chauffeur_permit: "Chauffeur Permit (Austin)",
+    doc_houston_vfh_driver_license: "City-Issued Vehicle-for-Hire Driver License (Houston)",
+    doc_san_antonio_driver_permit: "City of San Antonio Driver Permit (Vehicles for Hire)",
+    doc_st_george_for_hire_permit: "For-Hire Driver Permit (St. George)",
+    doc_cheyenne_pt_driver_permit: "Public Transportation Driver Permit (Cheyenne)",
+    doc_gillette_pt_driver_permit: "Public Transportation Driver Permit (Gillette)",
+    doc_clark_county_business_license: "Clark County Business License"
   };
   /* Document types as the API keys them in `docs` (status strings),
      in display order: the New York list first, then the items only
@@ -428,7 +442,21 @@
     springfield_ma_chauffeur_license: "Chauffeur License (Springfield, MA)",
     worcester_taxi_livery_license: "Taxi-Livery Driver License (Worcester)",
     jersey_city_limo_driver_license: "Jersey City Limousine Driver License",
-    philadelphia_limo_certificate: "PPA Limousine Driver Certificate"
+    philadelphia_limo_certificate: "PPA Limousine Driver Certificate",
+    little_rock_gt_driver_permit: "Ground Transportation Service Driver Permit (Little Rock)",
+    springdale_taxi_driver_permit: "Taxicab Driver Permit (Springdale)",
+    boise_cts_driver_license: "Commercial Transportation Service Driver License (Boise)",
+    idaho_falls_operator_license: "Public Transportation Operator License (Idaho Falls)",
+    okc_vfh_driver_permit: "Vehicle-for-Hire Driver Permit (Oklahoma City)",
+    tulsa_chauffeur_license: "City of Tulsa Chauffeur License",
+    tulsa_mvr: "MVR Report (Within 30 Days)",
+    austin_chauffeur_permit: "Chauffeur Permit (Austin)",
+    houston_vfh_driver_license: "City-Issued Vehicle-for-Hire Driver License (Houston)",
+    san_antonio_driver_permit: "City of San Antonio Driver Permit (Vehicles for Hire)",
+    st_george_for_hire_permit: "For-Hire Driver Permit (St. George)",
+    cheyenne_pt_driver_permit: "Public Transportation Driver Permit (Cheyenne)",
+    gillette_pt_driver_permit: "Public Transportation Driver Permit (Gillette)",
+    clark_county_business_license: "Clark County Business License"
   };
   var DOC_TYPE_ORDER = [
     "profile_picture", "dmv_license", "tlc_license", "fh1_insurance",
@@ -466,6 +494,13 @@
     "lowell_hackney_license", "springfield_ma_chauffeur_license",
     "worcester_taxi_livery_license", "jersey_city_limo_driver_license",
     "philadelphia_limo_certificate",
+    "little_rock_gt_driver_permit", "springdale_taxi_driver_permit",
+    "boise_cts_driver_license", "idaho_falls_operator_license",
+    "okc_vfh_driver_permit", "tulsa_chauffeur_license", "tulsa_mvr",
+    "austin_chauffeur_permit", "houston_vfh_driver_license",
+    "san_antonio_driver_permit", "st_george_for_hire_permit",
+    "cheyenne_pt_driver_permit", "gillette_pt_driver_permit",
+    "clark_county_business_license",
     "al_certificate", "al_form_e", "ca_tcp_permit", "ca_driver_statement",
     "ca_commercial_registration", "ca_inspection_declaration", "co_ll_permit", "co_inspection",
     "co_form_e", "ct_livery_permit", "de_certificate", "de_limo_registration",
@@ -651,7 +686,21 @@
     springfield_ma_chauffeur_license: "doc_springfield_ma_chauffeur_license",
     worcester_taxi_livery_license: "doc_worcester_taxi_livery_license",
     jersey_city_limo_driver_license: "doc_jersey_city_limo_driver_license",
-    philadelphia_limo_certificate: "doc_philadelphia_limo_certificate"
+    philadelphia_limo_certificate: "doc_philadelphia_limo_certificate",
+    little_rock_gt_driver_permit: "doc_little_rock_gt_driver_permit",
+    springdale_taxi_driver_permit: "doc_springdale_taxi_driver_permit",
+    boise_cts_driver_license: "doc_boise_cts_driver_license",
+    idaho_falls_operator_license: "doc_idaho_falls_operator_license",
+    okc_vfh_driver_permit: "doc_okc_vfh_driver_permit",
+    tulsa_chauffeur_license: "doc_tulsa_chauffeur_license",
+    tulsa_mvr: "doc_tulsa_mvr",
+    austin_chauffeur_permit: "doc_austin_chauffeur_permit",
+    houston_vfh_driver_license: "doc_houston_vfh_driver_license",
+    san_antonio_driver_permit: "doc_san_antonio_driver_permit",
+    st_george_for_hire_permit: "doc_st_george_for_hire_permit",
+    cheyenne_pt_driver_permit: "doc_cheyenne_pt_driver_permit",
+    gillette_pt_driver_permit: "doc_gillette_pt_driver_permit",
+    clark_county_business_license: "doc_clark_county_business_license"
   };
   var STAGES = ["en_route", "arrived", "start", "complete"];
   var STAGE_BUTTON = {

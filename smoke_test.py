@@ -709,14 +709,16 @@ check("Texas cities include Dallas and Fort Worth",
       cities.get("Texas") == ["Austin", "Dallas", "Fort Worth",
                               "Houston", "San Antonio", "Other city"],
       str(cities.get("Texas")))
-check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest + Northeast batches are the city-specific lists, Fort Worth falls back",
+check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest + Northeast + South Central batches are the city-specific lists, Fort Worth falls back",
       set(overrides) == {"Texas", "New York", "Alabama", "Florida",
                          "Louisiana", "Mississippi", "North Carolina",
                          "South Carolina", "Tennessee", "Illinois",
                          "Indiana", "Minnesota", "Missouri", "Nebraska",
                          "Ohio", "Wisconsin", "Maine", "Massachusetts",
-                         "New Jersey", "Pennsylvania"}
-      and set(overrides["Texas"]) == {"Dallas"}
+                         "New Jersey", "Pennsylvania", "Arkansas", "Idaho",
+                         "Nevada", "Oklahoma", "Utah", "Wyoming"}
+      and set(overrides["Texas"]) == {"Dallas", "Austin", "Houston",
+                                         "San Antonio"}
       and set(overrides["New York"]) == {"Buffalo", "Rochester",
                                          "Syracuse", "Yonkers"}
       and set(overrides["Alabama"]) == {"Birmingham", "Huntsville",
@@ -728,7 +730,7 @@ check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest + Nor
       and set(overrides["North Carolina"]) == {"Charlotte", "Durham"}
       and set(overrides["South Carolina"]) == {"Charleston"}
       and set(overrides["Tennessee"]) == {"Nashville"}
-      and sum(len(c) for c in overrides.values()) == 46
+      and sum(len(c) for c in overrides.values()) == 61
       and overrides["Texas"]["Dallas"]["docs"] == [
           "profile_picture", "dmv_license", "vehicle_registration",
           "dallas_commercial_insurance", "dallas_driver_permit",
@@ -945,6 +947,79 @@ check("Northeast batch overrides: 7 cities; Newark, Rutland fall back",
           "profile_picture", "dmv_license", "vehicle_registration",
           "philadelphia_limo_certificate"]
       and overrides["Pennsylvania"]["Philadelphia"]["local_note"] is True,
+      str(overrides))
+check("South Central/Mountain batch overrides: 15 cities; Norman, Denver fall back",
+      set(overrides["Arkansas"]) == {"Little Rock", "Springdale"}
+      and set(overrides["Idaho"]) == {"Boise", "Idaho Falls"}
+      and set(overrides["Oklahoma"]) == {"Oklahoma City", "Tulsa"}
+      and set(overrides["Texas"]) == {"Dallas", "Austin", "Houston",
+                                      "San Antonio"}
+      and set(overrides["Utah"]) == {"St. George"}
+      and set(overrides["Wyoming"]) == {"Cheyenne", "Gillette"}
+      and set(overrides["Nevada"]) == {"Henderson", "Las Vegas",
+                                       "North Las Vegas"}
+      and "Norman" not in overrides["Oklahoma"]
+      and "Colorado" not in overrides
+      and overrides["Arkansas"]["Little Rock"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "little_rock_gt_driver_permit"]
+      and overrides["Arkansas"]["Little Rock"]["local_note"] is False
+      and overrides["Arkansas"]["Springdale"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "springdale_taxi_driver_permit"]
+      and overrides["Arkansas"]["Springdale"]["local_note"] is False
+      and overrides["Idaho"]["Boise"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "boise_cts_driver_license"]
+      and overrides["Idaho"]["Boise"]["local_note"] is False
+      and overrides["Idaho"]["Idaho Falls"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "idaho_falls_operator_license"]
+      and overrides["Idaho"]["Idaho Falls"]["local_note"] is True
+      and overrides["Oklahoma"]["Oklahoma City"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "okc_vfh_driver_permit"]
+      and overrides["Oklahoma"]["Oklahoma City"]["local_note"] is True
+      and overrides["Oklahoma"]["Tulsa"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "tulsa_chauffeur_license", "tulsa_mvr"]
+      and overrides["Oklahoma"]["Tulsa"]["local_note"] is True
+      and overrides["Texas"]["Austin"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "austin_chauffeur_permit"]
+      and overrides["Texas"]["Austin"]["local_note"] is True
+      and overrides["Texas"]["Houston"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "houston_vfh_driver_license"]
+      and overrides["Texas"]["Houston"]["local_note"] is False
+      and overrides["Texas"]["San Antonio"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "san_antonio_driver_permit"]
+      and overrides["Texas"]["San Antonio"]["local_note"] is True
+      and overrides["Utah"]["St. George"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "st_george_for_hire_permit"]
+      and overrides["Utah"]["St. George"]["local_note"] is True
+      and overrides["Wyoming"]["Cheyenne"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "cheyenne_pt_driver_permit"]
+      and overrides["Wyoming"]["Cheyenne"]["local_note"] is False
+      and overrides["Wyoming"]["Gillette"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "gillette_pt_driver_permit"]
+      and overrides["Wyoming"]["Gillette"]["local_note"] is True
+      and overrides["Nevada"]["Henderson"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "clark_county_business_license"]
+      and overrides["Nevada"]["Henderson"]["local_note"] is True
+      and overrides["Nevada"]["Las Vegas"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "clark_county_business_license"]
+      and overrides["Nevada"]["Las Vegas"]["local_note"] is True
+      and overrides["Nevada"]["North Las Vegas"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "clark_county_business_license"]
+      and overrides["Nevada"]["North Las Vegas"]["local_note"] is True,
       str(overrides))
 check("city payload carries no count or quantity field",
       all("count" not in c and "quantity" not in c

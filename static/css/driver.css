@@ -416,3 +416,329 @@ input, select { font: inherit; }
   text-decoration: none;
 }
 #screen-login #show-register-link:active { background: rgba(201, 162, 39, 0.14); }
+
+/* ============ SIGNED-IN DASHBOARD — luxury dark theme ============
+   Visual-only (owner decision 2026-11-18: the dashboard must look
+   as premium as the redesigned sign-in screen). Every rule below
+   is scoped to the five signed-in screens, so the sign-in and
+   registration screens keep their own styling untouched. Same
+   black/gold language as the sign-in screen: dark gradient
+   canvas with a gold glow, serif headings with a gold rule,
+   dark cards with soft depth, gold gradient primary buttons.
+   No markup, IDs, wording, JS, or behaviour changed. The
+   pale-gold earnings and toll boxes keep their light background
+   so the driver's own earnings stay readable at a glance on
+   the dark cards, and the gold reminder banner keeps its
+   light background so it still stands out. */
+
+/* Dark canvas, shared by the five signed-in screens. */
+#screen-home,
+#screen-trip,
+#screen-earnings,
+#screen-documents,
+#screen-profile {
+  color-scheme: dark;
+  background:
+    radial-gradient(120% 30% at 50% -6%, rgba(201, 162, 39, 0.16), rgba(201, 162, 39, 0) 60%),
+    linear-gradient(180deg, #101012 0%, #0b0b0c 46%, #141311 100%);
+  color: #f2f0ea;
+}
+
+/* Serif headings with a short gold rule, as on the sign-in screen. */
+#screen-trip h2,
+#screen-earnings h2,
+#screen-documents h2,
+#screen-profile h2 {
+  color: var(--white);
+  font-size: 28px;
+  letter-spacing: 0.01em;
+}
+#screen-trip h2::after,
+#screen-earnings h2::after,
+#screen-documents h2::after,
+#screen-profile h2::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 3px;
+  background: var(--gold);
+  border-radius: 2px;
+  margin-top: 12px;
+}
+
+/* Quiet text stays readable on the dark canvas. */
+#screen-home .intro,
+#screen-trip .intro,
+#screen-earnings .intro,
+#screen-documents .intro,
+#screen-profile .intro,
+#screen-home .form-note,
+#screen-trip .form-note,
+#screen-earnings .form-note,
+#screen-documents .form-note,
+#screen-profile .form-note,
+#screen-trip .loc-note,
+#screen-home .empty-state,
+#screen-earnings .empty-state {
+  color: #b9b7ae;
+}
+#screen-home .form-error,
+#screen-trip .form-error,
+#screen-earnings .form-error,
+#screen-documents .form-error,
+#screen-profile .form-error { color: #ff9d9d; }
+
+/* Section titles in soft gold with a faint gold rule. */
+#screen-home .section-title,
+#screen-trip .section-title,
+#screen-earnings .section-title,
+#screen-documents .section-title,
+#screen-profile .section-title {
+  color: var(--gold-soft);
+  border-top-color: rgba(201, 162, 39, 0.35);
+}
+
+/* Dark inputs with gold focus rings (waiting minutes, extra miles). */
+#screen-trip .field label {
+  color: var(--gold-soft);
+  font-size: 12px;
+  letter-spacing: 0.09em;
+}
+#screen-trip .field input {
+  background: #1d1d1f;
+  border: 1px solid #3a3a3e;
+  color: var(--white);
+  border-radius: 10px;
+  padding: 13px 14px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+#screen-trip .field input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Gold gradient primary buttons, as on the sign-in screen. */
+#screen-home .btn-primary.btn-gold,
+#screen-trip .btn-primary.btn-gold,
+#screen-earnings .btn-primary.btn-gold,
+#screen-documents .btn-primary.btn-gold,
+#screen-profile .btn-primary.btn-gold {
+  border: 1px solid #a8861d;
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
+  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+#screen-home .btn-primary.btn-gold:active,
+#screen-trip .btn-primary.btn-gold:active,
+#screen-earnings .btn-primary.btn-gold:active,
+#screen-documents .btn-primary.btn-gold:active,
+#screen-profile .btn-primary.btn-gold:active {
+  transform: translateY(1px);
+  box-shadow: 0 4px 12px rgba(201, 162, 39, 0.22);
+}
+/* Secondary and danger buttons stay legible on dark. */
+#screen-home .btn-ghost,
+#screen-trip .btn-ghost,
+#screen-earnings .btn-ghost,
+#screen-documents .btn-ghost,
+#screen-profile .btn-ghost {
+  color: #f2f0ea;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+}
+#screen-trip .btn-danger {
+  color: #ff9d9d;
+  border-color: rgba(255, 157, 157, 0.55);
+  border-radius: 10px;
+}
+#screen-home .btn-ghost:active,
+#screen-trip .btn-ghost:active,
+#screen-trip .btn-danger:active,
+#screen-profile .btn-ghost:active { transform: translateY(1px); }
+
+/* Availability card: dark with a gold-tinted frame. */
+#screen-home .avail-card {
+  background: #1d1d1f;
+  border: 1px solid rgba(201, 162, 39, 0.4);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+#screen-home .avail-card .state { color: var(--white); font-size: 24px; }
+#screen-home .avail-card .state.on { color: #4cc38a; }
+#screen-home .avail-card p { color: #b9b7ae; }
+#screen-home .toggle-btn {
+  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
+  color: var(--black);
+  border: 1px solid #a8861d;
+  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+#screen-home .toggle-btn.on {
+  background: linear-gradient(180deg, #35a86f, #1e7a4c);
+  border-color: #1e7a4c;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(30, 122, 76, 0.35);
+}
+#screen-home .toggle-btn:active { transform: translateY(1px); }
+
+/* Job offer cards: dark with depth, gold spine, pale-gold earnings. */
+#screen-home .offer {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-left: 4px solid var(--gold);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+#screen-home .offer .route { color: var(--white); }
+#screen-home .offer .route .route-label { color: #a8a6a0; }
+#screen-home .offer .when { color: #b9b7ae; }
+#screen-home .offer .earnings,
+#screen-home .offer .toll-line { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+#screen-home .offer .route-link { color: var(--gold-soft); }
+#screen-home .btn-accept,
+#screen-home .btn-decline { border-radius: 10px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); }
+#screen-home .btn-accept:active,
+#screen-home .btn-decline:active { transform: translateY(1px); }
+
+/* Trip card: dark with depth; links in soft gold. */
+#screen-trip .trip-card {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+#screen-trip .trip-card .route { color: var(--white); }
+#screen-trip .trip-card .route .route-label { color: #a8a6a0; }
+#screen-trip .trip-card .meta { color: #b9b7ae; }
+#screen-trip .trip-card .cust { color: #f2f0ea; }
+#screen-trip .trip-card .cust a { color: var(--gold-soft); }
+#screen-trip .route-link { color: var(--gold-soft); }
+#screen-trip #trip-flight .flight-track-link { color: var(--gold-soft); }
+
+/* Stage list: dark rows, gold for the current stage. */
+#screen-trip .stage-list li {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-radius: 10px;
+  color: #f2f0ea;
+}
+#screen-trip .stage-list li.done { border-color: #2e9e66; color: #4cc38a; }
+#screen-trip .stage-list li.current {
+  border-color: var(--gold);
+  background: rgba(201, 162, 39, 0.12);
+  color: var(--gold-soft);
+  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.18);
+}
+
+/* Gold reminder banner: same light background, now with a soft glow. */
+#screen-trip .reminder-banner {
+  border-radius: 12px;
+  box-shadow: 0 8px 22px rgba(201, 162, 39, 0.3);
+}
+
+/* Trip chat: dark card, pale-gold own messages, dark replies. */
+#screen-trip .chat-box {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+#screen-trip .chat-box .chat-lang { color: #b9b7ae; }
+#screen-trip .chat-box .chat-lang select {
+  background: #262628;
+  border: 1px solid #3a3a3e;
+  color: var(--white);
+  border-radius: 8px;
+}
+#screen-trip .chat-box .chat-empty { color: #b9b7ae; }
+#screen-trip .chat-box .chat-msg .who { color: #a8a6a0; }
+#screen-trip .chat-box .chat-msg.theirs {
+  background: #2a2a2c;
+  border: 1px solid #3a3a3e;
+  color: #f2f0ea;
+}
+#screen-trip .chat-box .chat-input-row input {
+  background: #262628;
+  border: 1px solid #3a3a3e;
+  color: var(--white);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+#screen-trip .chat-box .chat-input-row input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Earnings: gold-framed summary, dark week cards, gold amounts. */
+#screen-earnings .earn-sum {
+  background: linear-gradient(180deg, #1a1a1c, #0b0b0c);
+  border: 1px solid rgba(201, 162, 39, 0.55);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+#screen-earnings .earn-sum .amount { color: var(--white); }
+#screen-earnings .pay-week {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+#screen-earnings .pay-week .pw-range { color: var(--white); }
+#screen-earnings .pay-week .pw-meta { color: #b9b7ae; }
+#screen-earnings .pay-week .pw-amount { color: var(--gold-soft); }
+#screen-earnings .earn-item { border-bottom-color: rgba(255, 255, 255, 0.09); }
+#screen-earnings .earn-item .r { color: #f2f0ea; }
+#screen-earnings .earn-item .m { color: #b9b7ae; }
+#screen-earnings .earn-item .a { color: var(--gold-soft); }
+
+/* Documents list: dark rows. */
+#screen-documents .doc-status {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+#screen-documents .doc-status .name { color: #f2f0ea; }
+
+/* Profile: dark card, gold-framed photo. */
+#screen-profile .profile-card {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+#screen-profile .profile-row { border-bottom-color: rgba(255, 255, 255, 0.09); color: #f2f0ea; }
+#screen-profile .profile-row .k { color: #b9b7ae; }
+
+/* Bottom tab bar: gold glow on the active tab, home-indicator room. */
+.tabbar button { padding: 13px 4px max(15px, env(safe-area-inset-bottom)); }
+.tabbar button.active { color: var(--gold-soft); }
+.tabbar button.active .ico { text-shadow: 0 0 12px rgba(201, 162, 39, 0.8); }
+.tabbar button:active { transform: translateY(1px); }
+
+/* Navigation chooser: dark luxury card over the trip screen. */
+.nav-chooser-overlay { background: rgba(0, 0, 0, 0.62); }
+.nav-chooser-card {
+  background: #1d1d1f;
+  border: 1px solid rgba(201, 162, 39, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.55);
+}
+.nav-chooser-title { color: var(--white); }
+.nav-chooser-dest { color: #b9b7ae; }
+.nav-chooser-card .btn-primary.btn-gold {
+  border: 1px solid #a8861d;
+  border-radius: 10px;
+  font-weight: 700;
+  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
+  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.nav-chooser-card .btn-primary.btn-gold:active { transform: translateY(1px); }
+.nav-chooser-card .btn-ghost {
+  color: #f2f0ea;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+}

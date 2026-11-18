@@ -332,3 +332,212 @@ input, select, textarea { font: inherit; }
 #chat-panel .chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
 #chat-panel .chat-input-row input { flex: 1; padding: 11px 12px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 16px; min-width: 0; }
 #chat-panel .chat-input-row .btn-primary { width: auto; padding: 11px 18px; }
+
+/* ============ LUXURY POLISH — customer site ============
+   Visual-only (owner decision 2026-11-18: one consistent luxury
+   look across the customer site and the driver app). Every rule
+   below overrides presentation only: no markup, IDs, wording, JS,
+   or behaviour changed. The approved homepage keeps its copy,
+   headline, sections, and structure; the polish below only adds
+   depth, gold accents, and refined controls to the booking flow,
+   status views, history, and chat. */
+
+/* Booking, flight, and class cards: gold accent, soft depth. */
+.booking-card {
+  border-radius: 12px;
+  border-top: 3px solid var(--gold);
+  padding: 30px 28px 24px;
+  box-shadow: 0 24px 54px rgba(11, 11, 12, 0.18);
+}
+.booking-card h2 { font-size: 26px; letter-spacing: 0.01em; }
+.booking-card h2::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 3px;
+  background: var(--gold);
+  border-radius: 2px;
+  margin-top: 10px;
+}
+
+/* Refined inputs with gold focus rings. */
+.field input, .field select {
+  border-radius: 8px;
+  padding: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field input:focus, .field select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
+}
+
+/* Buttons: depth, gold gradients, press feedback. */
+.btn-primary {
+  border-radius: 8px;
+  background: linear-gradient(180deg, #262628, #0b0b0c);
+  box-shadow: 0 8px 20px rgba(11, 11, 12, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
+}
+.btn-primary:hover { background: linear-gradient(180deg, #333335, #161617); }
+.btn-primary:active { transform: translateY(1px); box-shadow: 0 4px 12px rgba(11, 11, 12, 0.2); }
+.btn-gold {
+  border: 1px solid #a8861d;
+  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.btn-gold:hover { background: linear-gradient(180deg, #e6cb62, #d4af2f 55%, #b08d1e); }
+.btn-ghost { border-radius: 8px; transition: border-color 0.15s ease, transform 0.12s ease; }
+.btn-ghost:hover { border-color: var(--gold); }
+.btn-ghost:active { transform: translateY(1px); }
+.btn-danger { border-radius: 8px; transition: background 0.15s ease, transform 0.12s ease; }
+.btn-danger:hover { background: #fdf3f3; }
+.btn-danger:active { transform: translateY(1px); }
+
+/* Ride tabs: gold underline on the active tab. */
+.ride-tab { border-radius: 8px; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.ride-tab:hover { border-color: var(--gold); }
+.ride-tab.active { box-shadow: inset 0 -3px 0 var(--gold); }
+
+/* Class options: lift on hover, gold ring when selected. */
+.class-option {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  box-shadow: 0 2px 8px rgba(11, 11, 12, 0.05);
+}
+.class-option:hover { border-color: var(--gold); box-shadow: 0 6px 16px rgba(11, 11, 12, 0.1); }
+.class-option:active { transform: translateY(1px); }
+.class-option.selected { box-shadow: 0 0 0 2px var(--gold), 0 10px 24px rgba(11, 11, 12, 0.2); }
+.class-option.selected .class-option-total { color: var(--gold-soft); }
+
+/* Status card, driver card, and total: soft depth. */
+.status-card { border-radius: 12px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1); }
+.driver-card { border-radius: 10px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.07); }
+.total-box { border-radius: 10px; box-shadow: 0 8px 22px rgba(201, 162, 39, 0.14); }
+
+/* Address suggestions: softer corners, gold-tinted highlight. */
+.places-list { border-radius: 8px; }
+.places-list li button:hover, .places-list li button.active { background: #fffdf4; }
+
+/* Map: softer corners. */
+#map { border-radius: 8px; }
+.map-fallback { border-radius: 8px; }
+
+/* Payment: the Pay button is gold; the test banner keeps its warning look. */
+.pay-panel .btn-primary {
+  border: 1px solid #a8861d;
+  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
+  color: var(--black);
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.pay-panel .btn-primary:hover { background: linear-gradient(180deg, #e6cb62, #d4af2f 55%, #b08d1e); }
+.test-banner { border-radius: 8px; }
+
+/* Thank you, referral, and invoice: gold accents. */
+.thankyou h2::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 3px;
+  background: var(--gold);
+  border-radius: 2px;
+  margin-top: 10px;
+}
+.referral-box {
+  border-radius: 10px;
+  border-left: 4px solid var(--gold);
+  box-shadow: 0 8px 22px rgba(201, 162, 39, 0.12);
+}
+.invoice-panel tr.grand td { border-top: 2px solid var(--gold); }
+
+/* Ride history: gold-topped card, deep-gold totals. */
+.history-box {
+  border-radius: 12px;
+  border-top: 3px solid var(--gold);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+}
+.history-box input { border-radius: 8px; padding: 12px; }
+.history-box input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
+}
+.history-item .h-total { color: #8a6d1a; }
+.pill { padding: 3px 12px; font-weight: 600; }
+
+/* Cards and info boxes: gentle lift and depth (structure unchanged). */
+.exp-card { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+.exp-card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(11, 11, 12, 0.12); }
+.policy { border-radius: 8px; box-shadow: 0 10px 26px rgba(11, 11, 12, 0.06); }
+.contacts-box { border-radius: 8px; box-shadow: 0 10px 26px rgba(11, 11, 12, 0.06); }
+.airport-card { border-radius: 10px; box-shadow: 0 16px 40px rgba(11, 11, 12, 0.1); }
+
+/* Header, hero, and footer: subtle depth and gold accents. */
+.site-header { box-shadow: 0 4px 18px rgba(11, 11, 12, 0.06); }
+.header-cta {
+  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
+  color: var(--black);
+  font-weight: 700;
+  border: 1px solid #a8861d;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(201, 162, 39, 0.28);
+}
+.header-cta:hover { background: linear-gradient(180deg, #e6cb62, #d4af2f 55%, #b08d1e); }
+.site-footer { border-top: 3px solid var(--gold); }
+.hero-band { background: linear-gradient(180deg, #c7daf3 0%, var(--sky) 55%, #a9c4e8 100%); }
+.booking-section { background: linear-gradient(180deg, var(--sky-soft) 0%, #ffffff 100%); }
+
+/* Support chat widget: gold button, gold-topped panel. */
+.chat-fab {
+  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
+  color: var(--black);
+  font-weight: 700;
+  border: 1px solid #a8861d;
+  box-shadow: 0 12px 28px rgba(201, 162, 39, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.chat-fab:hover { background: linear-gradient(180deg, #e6cb62, #d4af2f 55%, #b08d1e); }
+.chat-fab:active { transform: translateY(1px); }
+.chat-panel {
+  border-radius: 14px;
+  border-top: 3px solid var(--gold);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.32);
+}
+.chat-head { border-bottom: 2px solid var(--gold); }
+.chat-head b { letter-spacing: 0.02em; }
+.msg.bot { box-shadow: 0 2px 8px rgba(11, 11, 12, 0.05); }
+.msg.user { box-shadow: 0 4px 12px rgba(11, 11, 12, 0.18); }
+.chat-chips button { transition: background 0.15s ease, transform 0.12s ease; }
+.chat-chips button:hover { background: #fff4d6; }
+.chat-chips button:active { transform: translateY(1px); }
+.chat-form input { border-radius: 8px; }
+.chat-form input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
+}
+.chat-form button {
+  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
+  color: var(--black);
+  font-weight: 700;
+  border: 1px solid #a8861d;
+  border-radius: 8px;
+}
+.chat-form button:active { transform: translateY(1px); }
+
+/* Ride chat with the chauffeur: soft depth, gold Send button. */
+#chat-panel .chat-msg { box-shadow: 0 2px 8px rgba(11, 11, 12, 0.05); }
+#chat-panel .chat-messages { border-radius: 10px; }
+#chat-panel .chat-input-row input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
+}
+#chat-panel .chat-input-row .btn-primary {
+  border: 1px solid #a8861d;
+  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
+  color: var(--black);
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(201, 162, 39, 0.28);
+}

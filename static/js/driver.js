@@ -680,6 +680,28 @@
     img.src = url;
   }
 
+  /* Plate format check (owner decision 2026-11-17, "Format check
+     laga do"): Uber-style generic US plate rule — spaces and dashes
+     ignored, 2-8 letters or digits, stored uppercase. The server
+     enforces the same rule with the same wording. */
+  function normalizePlate(value) {
+    return (value || "").replace(/[\s\-]/g, "").toUpperCase();
+  }
+  function plateError(value) {
+    if (!/^[A-Z0-9]{2,8}$/.test(normalizePlate(value))) {
+      return "Please enter a valid plate number (letters and numbers only).";
+    }
+    return null;
+  }
+
+  /* Keep the plate field uppercase as the driver types, Uber-style;
+     spaces and dashes are stripped when the form is submitted. */
+  $("reg-plate").addEventListener("input", function () {
+    var field = $("reg-plate");
+    var upper = field.value.toUpperCase();
+    if (field.value !== upper) field.value = upper;
+  });
+
   $("register-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var err = $("register-error");
@@ -711,6 +733,15 @@
       err.textContent = "Please choose your city from the list.";
       return;
     }
+    /* Plate format: Uber-style generic US rule (see plateError
+       above). The normalized value is what gets submitted, so the
+       stored plate is always uppercase with no spaces or dashes. */
+    var plateProblem = plateError(plate);
+    if (plateProblem) {
+      err.textContent = plateProblem;
+      return;
+    }
+    plate = normalizePlate(plate);
     /* Which documents are compulsory depends on the state and the
        city (New York keeps its 7; other states have their own list
        or the generic base list; a city with a verified

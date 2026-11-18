@@ -1981,6 +1981,31 @@ def _profile_photo_error(data):
     return None
 
 
+# Plate format (owner decision 2026-11-17, "Format check laga do"):
+# Uber-style generic US plate check for NEW registrations only.
+# Spaces and dashes are ignored; what is left must be 2-8 letters or
+# digits. The stored value is normalized to uppercase with spaces and
+# dashes removed. No per-state patterns — nothing invented. Drivers
+# registered before this change keep their stored plates untouched:
+# this gate runs only inside register_driver.
+PLATE_ERROR = "Please enter a valid plate number (letters and numbers only)."
+
+
+def validate_plate(value):
+    """Return (normalized_plate, None) or (None, error_message).
+
+    The driver app enforces the same rule with the same wording
+    before submitting; the server re-checks so a bypassed client
+    cannot store an invalid plate.
+    """
+    plate = (value or "").strip().replace(" ", "").replace("-", "").upper()
+    if len(plate) < 2 or len(plate) > 8:
+        return None, PLATE_ERROR
+    if not plate.isascii() or not plate.isalnum():
+        return None, PLATE_ERROR
+    return plate, None
+
+
 def _validate_upload(storage, allowed_exts, field_name):
     """Return (bytes, mime, original_name) or an error response tuple."""
     data = storage.read()
@@ -2103,6 +2128,15 @@ def register_driver():
     if year_error:
         return err(year_error)
 
+    # Plate format check (owner decision 2026-11-17, "Format check
+    # laga do"): Uber-style generic US plate rule, new registrations
+    # only. Placed after the duplicate-phone check above, so a
+    # duplicate phone still reports 409. The normalized (uppercase,
+    # no spaces/dashes) value is what gets stored.
+    plate, plate_error = validate_plate(form.get("plate"))
+    if plate_error:
+        return err(plate_error)
+
     # Validate all uploaded files before creating anything.
     profile_photo = None
     if "profile_photo" in request.files and request.files["profile_photo"].filename:
@@ -2160,7 +2194,7 @@ def register_driver():
         # Vehicle class is derived from the car model, never typed in.
         vehicle_class=class_for_model(car_model),
         car_colour=form["car_colour"].strip(),
-        plate=form["plate"].strip(),
+        plate=plate,
         profile_photo=profile_photo[0] if profile_photo else None,
         profile_photo_mime=profile_photo[1] if profile_photo else None,
         available=False,

@@ -14,7 +14,7 @@ intact on the server.
 
 Password reset (same call, "password to baar baar bhool jate hain"
 — drivers keep forgetting passwords): a single-use token, stored
-hashed only, 1-hour expiry, prior tokens invalidated, reset link
+hashed only, 5-minute expiry, prior tokens invalidated, reset link
 queued via the existing outbox (RECORDED, NOT SENT — no email
 service is connected). No reset email is actually delivered until
 an email service is connected; the owner shares the queued link.

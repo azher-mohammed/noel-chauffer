@@ -2346,7 +2346,7 @@ class OutboxMessage(db.Model):
 class PasswordResetToken(db.Model):
     """Single-use password reset token (owner decision 2026-11-18,
     drivers keep forgetting passwords). Only the SHA-256 hash of
-    the token is stored — never the token itself — plus a 1-hour
+    the token is stored — never the token itself — plus a 5-minute
     expiry and a used flag. A new table, so create_all() creates
     it on the live database too. The reset link is queued via the
     existing outbox (recorded, not sent — no email service is
@@ -4114,11 +4114,11 @@ def driver_signin():
 
 
 # Password reset (owner decision 2026-11-18, drivers keep forgetting
-# passwords). Tokens are single-use, expire after 1 hour, and only
+# passwords). Tokens are single-use, expire after 5 minutes, and only
 # their SHA-256 hash is stored. The reset link is queued via the
 # existing outbox — recorded, not sent, until an email service is
 # connected — and never appears in any API response or log.
-RESET_TOKEN_TTL = timedelta(hours=1)
+RESET_TOKEN_TTL = timedelta(minutes=5)
 RESET_REQUEST_MESSAGE = ("If an account exists for that email, "
                          "password reset instructions have been sent.")
 RESET_INVALID_MESSAGE = "This reset link is invalid or has expired."
@@ -4156,7 +4156,7 @@ def driver_forgot_password():
         reset_link = request.host_url.rstrip("/") + "/driver?reset=" + token
         add_outbox("email", driver.email,
                    "Noel Chauffer: reset your driver app password using "
-                   "this link (it expires in 1 hour): " + reset_link,
+                   "this link (it expires in 5 minutes): " + reset_link,
                    subject="Reset your Noel Chauffer password")
         db.session.commit()
     return jsonify({"message": RESET_REQUEST_MESSAGE})

@@ -73,6 +73,15 @@ section("server up + empty DB")
 r = anon.get(BASE + "/", timeout=TIMEOUT)
 check("home page 200", r.status_code == 200, str(r.status_code))
 check("home page is the real customer page", "Noel Chauffer" in r.text and "Book your ride" in r.text)
+r = anon.get(BASE + "/app", timeout=TIMEOUT)
+check("customer app page 200", r.status_code == 200, str(r.status_code))
+check("customer app page is the real app shell",
+      "Customer App" in r.text and "screen-book" in r.text and "screen-rides" in r.text
+      and "ca-tabbar" in r.text and "customer-app.js" in r.text)
+check("customer app page shows no rates",
+      "$9" not in r.text and "$10" not in r.text and "per mile" not in r.text)
+r = anon.get(BASE + "/driver", timeout=TIMEOUT)
+check("driver page 200", r.status_code == 200, str(r.status_code))
 r = anon.post(BASE + "/api/owner/login", json={"pin": "0000"}, timeout=TIMEOUT)
 check("wrong owner PIN -> 401", r.status_code == 401, str(r.status_code))
 r = s.post(BASE + "/api/owner/login", json={"pin": OWNER_PIN}, timeout=TIMEOUT)

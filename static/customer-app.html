@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Noel Chauffer — Customer App</title>
+<meta name="description" content="Book a luxury chauffeur ride, follow your chauffeur, and chat with support — in the Noel Chauffer customer app.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/static/css/customer-app.css">
+</head>
+<body>
+<div class="phone">
+  <header class="app-head">
+    <div class="brand">Noel <span>Chauffer</span></div>
+    <div class="tag">Luxury Chauffeur Rides Across USA</div>
+  </header>
+
+  <!-- ============ BOOK ============ -->
+  <section class="screen" id="screen-book">
+    <div id="ca-booking-card">
+      <h2>Book your ride</h2>
+      <p class="intro">Tell us where you are going. You will choose your class, see your total, pay by card, and then your chauffeur will be assigned.</p>
+
+      <div class="ride-tabs" role="tablist" aria-label="Ride type">
+        <button type="button" class="ride-tab active" id="ca-tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true">One way</button>
+        <button type="button" class="ride-tab" id="ca-tab-hourly" data-ride-type="hourly" role="tab" aria-selected="false">By the hour</button>
+      </div>
+
+      <form id="ca-booking-form" novalidate>
+        <div class="field field-places">
+          <label for="ca-pickup">Pickup address</label>
+          <input id="ca-pickup" name="pickup" type="text" required autocomplete="off" placeholder="Street address, airport, or hotel" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="ca-pickup-list">
+          <ul class="places-list hidden" id="ca-pickup-list" role="listbox" aria-label="Pickup address suggestions"></ul>
+        </div>
+        <div class="field field-places" id="ca-field-dropoff">
+          <label for="ca-dropoff">Drop-off address</label>
+          <input id="ca-dropoff" name="dropoff" type="text" autocomplete="off" placeholder="Where are you going?" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="ca-dropoff-list">
+          <ul class="places-list hidden" id="ca-dropoff-list" role="listbox" aria-label="Drop-off address suggestions"></ul>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="ca-date">Date</label>
+            <input id="ca-date" name="date" type="date" required>
+          </div>
+          <div class="field">
+            <label for="ca-time">Time</label>
+            <input id="ca-time" name="time" type="time" required>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field" id="ca-field-passengers">
+            <label for="ca-passengers">Passengers</label>
+            <input id="ca-passengers" name="passengers" type="number" min="1" step="1" value="1">
+          </div>
+          <div class="field hidden" id="ca-field-hours">
+            <label for="ca-hours">Hours</label>
+            <input id="ca-hours" name="hours" type="number" min="1" step="1" value="2">
+            <div class="hint">Your chauffeur stays with you for the hours you book.</div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="ca-name">Your name</label>
+          <input id="ca-name" name="customer_name" type="text" required autocomplete="name" placeholder="Full name">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="ca-phone">Phone number</label>
+            <input id="ca-phone" name="phone" type="tel" required autocomplete="tel" placeholder="Your phone number">
+          </div>
+          <div class="field">
+            <label for="ca-email">Email</label>
+            <input id="ca-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com">
+          </div>
+        </div>
+        <div class="field" id="ca-field-referral">
+          <label for="ca-referral">Referral code (optional)</label>
+          <input id="ca-referral" name="referral_code" type="text" autocomplete="off" placeholder="If a friend referred you, enter their code">
+        </div>
+        <button class="btn-primary btn-gold" type="submit" id="ca-book-submit">View options</button>
+        <p class="form-error" id="ca-booking-error" role="alert"></p>
+        <p class="form-note">After you tap View options, choose your class — Business Class or Business SUV — and you will see one single total for the ride, then pay by card. Your chauffeur is assigned right after payment, and the chauffeur's details are sent to your phone and email.</p>
+      </form>
+    </div>
+
+    <!-- FLIGHT NUMBER (separate step after the booking form, airport rides only) -->
+    <div class="hidden" id="ca-flight-step" aria-live="polite">
+      <h2 id="ca-flight-step-title">Add your flight number</h2>
+      <p class="intro" id="ca-flight-step-text">Your chauffeur will meet you at the right terminal.</p>
+      <p class="flight-airport" id="ca-flight-step-airport"></p>
+      <div class="field">
+        <label for="ca-flight-number">Flight number</label>
+        <input id="ca-flight-number" type="text" autocomplete="off" placeholder="e.g. EK215" maxlength="20">
+      </div>
+      <p class="form-note">You can skip this — your booking will still go through.</p>
+      <div class="flight-actions">
+        <button type="button" class="btn-primary btn-gold" id="ca-flight-continue">Continue</button>
+        <button type="button" class="btn-ghost" id="ca-flight-skip">Skip</button>
+      </div>
+      <button type="button" class="btn-text" id="ca-flight-back">← Back to booking form</button>
+    </div>
+
+    <!-- CHOOSE YOUR EXPERIENCE (separate options page after the booking form) -->
+    <div class="hidden" id="ca-class-step" aria-live="polite">
+      <h2>Choose your experience</h2>
+      <p class="intro" id="ca-class-trip-summary"></p>
+      <div class="class-options" role="radiogroup" aria-label="Choose your vehicle class">
+        <button type="button" class="class-option selected" id="ca-class-option-sedan" data-vehicle-class="sedan" role="radio" aria-checked="true">
+          <span class="class-option-name">Business Class</span>
+          <span class="class-option-total" id="ca-class-total-sedan"></span>
+        </button>
+        <button type="button" class="class-option" id="ca-class-option-suv" data-vehicle-class="suv" role="radio" aria-checked="false">
+          <span class="class-option-name">Business SUV</span>
+          <span class="class-option-total" id="ca-class-total-suv"></span>
+        </button>
+      </div>
+      <p class="form-note">One single total per class. No breakdown, no hidden charges.</p>
+      <p class="form-error" id="ca-class-error" role="alert"></p>
+      <div class="class-actions">
+        <button type="button" class="btn-primary btn-gold" id="ca-class-continue">Select Business Class</button>
+      </div>
+      <button type="button" class="btn-text" id="ca-class-back">← Back to booking form</button>
+    </div>
+  </section>
+
+  <!-- ============ MY RIDES ============ -->
+  <section class="screen hidden" id="screen-rides">
+    <div id="ca-history-block">
+      <h2>My rides</h2>
+      <p class="intro">Enter the phone number you booked with to see your rides.</p>
+      <form id="ca-history-form" novalidate>
+        <div class="field">
+          <label for="ca-history-phone">Phone number</label>
+          <input id="ca-history-phone" type="tel" required placeholder="Phone number used for booking" autocomplete="tel">
+        </div>
+        <button class="btn-primary btn-gold" type="submit">Show my rides</button>
+        <p class="form-error" id="ca-history-error" role="alert"></p>
+      </form>
+      <div id="ca-history-results"></div>
+    </div>
+
+    <!-- LIVE RIDE STATUS (shown for the ride being followed) -->
+    <div class="hidden" id="ca-status-card" aria-live="polite">
+      <button type="button" class="btn-text" id="ca-status-back">← All rides</button>
+      <div id="ca-status-finding">
+        <h2 id="ca-status-heading">Finding your chauffeur…</h2>
+        <p class="status-line"><span class="dot"></span><span id="ca-status-message">Your request is with us. Please keep this page open.</span></p>
+        <p class="ride-summary" id="ca-status-summary"></p>
+        <p class="ride-summary hidden" id="ca-status-flight"></p>
+      </div>
+
+      <div id="ca-driver-block" class="hidden">
+        <h2>Your chauffeur is confirmed</h2>
+        <p class="status-line" id="ca-driver-status-line">Your chauffeur is on the way.</p>
+        <div class="driver-card">
+          <img id="ca-driver-photo" alt="Your chauffeur" src="">
+          <div>
+            <div class="who" id="ca-driver-name"></div>
+            <div class="meta" id="ca-driver-car"></div>
+            <div class="meta">Plate: <span id="ca-driver-plate"></span></div>
+            <div class="meta">Phone: <a class="phone-link" id="ca-driver-phone" href=""></a></div>
+          </div>
+        </div>
+        <p class="ride-summary">These details were also sent to your phone and email.</p>
+      </div>
+
+      <div class="map-wrap hidden" id="ca-map-wrap">
+        <h3>Your chauffeur on the way</h3>
+        <div id="ca-map" aria-label="Live map"></div>
+        <div class="map-fallback hidden" id="ca-map-fallback"></div>
+      </div>
+
+      <div class="total-box hidden" id="ca-total-box">
+        <div>
+          <div class="label">Your total</div>
+          <div class="amount" id="ca-total-amount"></div>
+        </div>
+        <p class="note">One single total for your ride. No breakdown, no hidden charges.</p>
+      </div>
+
+      <div class="pay-panel hidden" id="ca-pay-panel">
+        <h3>Pay by card</h3>
+        <div class="test-banner"><strong>TEST MODE — no real charge.</strong> This payment form is in test mode. No real payment will be taken from your card.</div>
+        <form id="ca-pay-form" novalidate>
+          <div class="field">
+            <label for="ca-pay-name">Name on card</label>
+            <input id="ca-pay-name" type="text" required autocomplete="cc-name">
+          </div>
+          <div class="field">
+            <label for="ca-pay-number">Card number</label>
+            <input id="ca-pay-number" type="text" inputmode="numeric" required autocomplete="cc-number" placeholder="4242 4242 4242 4242">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="ca-pay-exp">Expiry (MM/YY)</label>
+              <input id="ca-pay-exp" type="text" inputmode="numeric" required autocomplete="cc-exp" placeholder="MM/YY">
+            </div>
+            <div class="field">
+              <label for="ca-pay-cvc">CVC</label>
+              <input id="ca-pay-cvc" type="text" inputmode="numeric" required autocomplete="cc-csc" placeholder="123">
+            </div>
+          </div>
+          <button class="btn-primary btn-gold" type="submit" id="ca-pay-submit">Pay <span id="ca-pay-amount-label"></span></button>
+          <p class="form-error" id="ca-pay-error" role="alert"></p>
+        </form>
+      </div>
+
+      <div class="thankyou hidden" id="ca-thankyou-block">
+        <h2>Thank you — your ride is booked.</h2>
+        <p class="status-line" id="ca-thankyou-summary"></p>
+        <div class="referral-box">
+          <h3>Refer a friend</h3>
+          <p>Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form.</p>
+          <p id="ca-referral-code-line" class="hidden">Your referral code: <strong id="ca-referral-code-value"></strong></p>
+        </div>
+        <div class="status-actions">
+          <button class="btn-primary btn-gold hidden" type="button" id="ca-return-trip-btn">Book your return trip</button>
+          <button class="btn-ghost" type="button" id="ca-new-booking-btn">Book another ride</button>
+        </div>
+      </div>
+
+      <div class="invoice-panel hidden" id="ca-invoice-panel">
+        <h3>Your invoice</h3>
+        <table>
+          <tbody>
+            <tr><td>Ride total</td><td id="ca-invoice-total"></td></tr>
+            <tr id="ca-invoice-waiting-row" class="hidden"><td>Waiting charge</td><td id="ca-invoice-waiting"></td></tr>
+            <tr id="ca-invoice-extra-row" class="hidden"><td>Extra distance</td><td id="ca-invoice-extra"></td></tr>
+            <tr class="grand"><td>Amount paid</td><td id="ca-invoice-grand"></td></tr>
+          </tbody>
+        </table>
+        <p class="form-note">Your invoice has been sent to your phone and email.</p>
+      </div>
+
+      <div class="chat-panel hidden" id="ca-chat-panel">
+        <h3>Chat with your chauffeur</h3>
+        <label class="chat-lang">Language:
+          <select id="ca-ride-chat-language" aria-label="Chat language">
+            <option value="en">English</option>
+            <option value="ur-Latn">Roman Urdu</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="ar">Arabic</option>
+            <option value="hi">Hindi</option>
+            <option value="bn">Bengali</option>
+            <option value="pt">Portuguese</option>
+          </select>
+        </label>
+        <div class="chat-messages" id="ca-chat-messages"></div>
+        <div class="chat-input-row">
+          <input id="ca-chat-input" type="text" maxlength="500" placeholder="Write a message…" autocomplete="off">
+          <button class="btn-primary btn-gold" type="button" id="ca-chat-send">Send</button>
+        </div>
+      </div>
+
+      <div class="status-actions" id="ca-status-actions">
+        <button class="btn-danger" type="button" id="ca-cancel-booking-btn">Cancel this booking</button>
+      </div>
+      <p class="form-note hidden" id="ca-cancel-result" role="status"></p>
+    </div>
+  </section>
+
+  <!-- ============ SUPPORT ============ -->
+  <section class="screen hidden" id="screen-support">
+    <h2>Chat with us</h2>
+    <p class="intro">We reply within 24 hours. Ask about booking, cancellation, waiting time, or a ride you have already booked.</p>
+    <div class="chat-messages support-messages" id="ca-support-messages"></div>
+    <div class="chat-chips" id="ca-support-chips">
+      <button type="button" data-q="How do I book a ride?">How do I book?</button>
+      <button type="button" data-q="When do I see the total?">When do I see the total?</button>
+      <button type="button" data-q="What is the cancellation rule?">Cancellation rules</button>
+      <button type="button" data-q="What is the waiting time rule?">Waiting time</button>
+      <button type="button" data-q="I left something in the car">Lost item</button>
+    </div>
+    <form class="chat-form" id="ca-support-form">
+      <input id="ca-support-input" type="text" placeholder="Type your message…" autocomplete="off" aria-label="Type your message">
+      <button class="btn-primary btn-gold" type="submit">Send</button>
+    </form>
+    <p class="form-note">You can also email us at <a href="mailto:support@noelchauffer.com">support@noelchauffer.com</a>.</p>
+  </section>
+
+  <!-- ============ REFERRAL ============ -->
+  <section class="screen hidden" id="screen-referral">
+    <h2>Refer a friend</h2>
+    <p class="intro">Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form.</p>
+    <div class="referral-box">
+      <p id="ca-tab-referral-line" class="hidden">Your referral code: <strong id="ca-tab-referral-value"></strong></p>
+      <p id="ca-tab-referral-empty">Your referral code appears here after your first ride is booked.</p>
+    </div>
+    <form id="ca-referral-form" novalidate>
+      <div class="field">
+        <label for="ca-referral-phone">Phone number you booked with</label>
+        <input id="ca-referral-phone" type="tel" required placeholder="Phone number used for booking" autocomplete="tel">
+      </div>
+      <button class="btn-primary btn-gold" type="submit">Find my code</button>
+      <p class="form-error" id="ca-referral-error" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- Bottom tabs -->
+  <nav class="tabbar" id="ca-tabbar" aria-label="Customer app">
+    <button type="button" data-screen="book" class="active"><span class="ico">✦</span>Book</button>
+    <button type="button" data-screen="rides"><span class="ico">▤</span>My Rides</button>
+    <button type="button" data-screen="support"><span class="ico">💬</span>Support</button>
+    <button type="button" data-screen="referral"><span class="ico">♡</span>Referral</button>
+  </nav>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/js/flight.js"></script>
+<script src="/static/js/customer-app.js"></script>
+</body>
+</html>

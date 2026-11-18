@@ -3053,6 +3053,11 @@ def driver_page():
     return _serve_page("driver.html", "driver app")
 
 
+@app.route("/app")
+def customer_app_page():
+    return _serve_page("customer-app.html", "customer app")
+
+
 @app.route("/owner")
 def owner_page():
     return _serve_page("owner.html", "owner dashboard")

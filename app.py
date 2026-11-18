@@ -16,6 +16,14 @@ Env vars:
   OWNER_PIN       default "1234" (warning logged when the default is used).
   SECRET_KEY      Flask session key; generated at startup if unset.
   PORT            default 5000.
+  AZURE_TRANSLATOR_KEY      Azure Translator key for chat translation
+                  (F0 free tier). Optional: without it the chat works
+                  exactly as before, untranslated. Never commit a key.
+  AZURE_TRANSLATOR_REGION   Azure region of the Translator resource
+                  (e.g. eastus); sent as Ocp-Apim-Subscription-Region.
+                  Optional for a single-service Translator resource.
+  AZURE_TRANSLATOR_ENDPOINT Translator endpoint; defaults to
+                  https://api.cognitive.microsofttranslator.com.
 """
 
 from __future__ import annotations
@@ -48,6 +56,11 @@ from car_models import (
 )
 from flights import flight_info, normalize_flight_number
 from payouts import completion_date, week_bounds, week_for
+from translation import (
+    CHAT_LANGUAGES,
+    normalize_chat_language,
+    translate_chat_text,
+)
 from pricing import (
     cancellation_refundable,
     class_label,
@@ -2115,6 +2128,12 @@ class Driver(db.Model):
     # registered before the city picker existed have no city on file
     # and keep working exactly as before, on their state list.
     city = db.Column(db.String(80), nullable=True)
+    # Declared chat language, picked by the driver in the chat picker
+    # (owner decision 2026-11-18: each side reads replies in their own
+    # language). A code from translation.CHAT_LANGUAGES; NULL means
+    # English, so drivers registered before the picker existed keep
+    # working exactly as before.
+    chat_language = db.Column(db.String(10), nullable=True)
     car_model = db.Column(db.String(120), nullable=False)
     car_year = db.Column(db.Integer, nullable=True)  # nullable: drivers registered before the year field existed
     # Vehicle class derived from car_model at registration ("sedan" |
@@ -2218,6 +2237,12 @@ class Booking(db.Model):
     # driver. Per-booking (not per-week) so a trip completed late into
     # an already-paid week still shows as unpaid until marked again.
     payout_paid = db.Column(db.Boolean, nullable=False, default=False)
+    # Declared chat language of the customer for this booking, picked
+    # in the chat picker (owner decision 2026-11-18). A code from
+    # translation.CHAT_LANGUAGES; NULL means English. Per-booking:
+    # customers have no account, so the preference lives with the
+    # ride it was picked for.
+    customer_chat_language = db.Column(db.String(10), nullable=True)
 
     accepted_driver = db.relationship("Driver", foreign_keys=[accepted_driver_id])
     assigned_driver = db.relationship("Driver", foreign_keys=[assigned_driver_id])
@@ -2230,12 +2255,26 @@ class ChatMessage(db.Model):
     """In-app chat between driver and customer. Plain text only, no
     SMS, no number masking. Messages NEVER carry fare, miles,
     gratuity, tax or total figures — text only. A new table, so
-    create_all() creates it on the live database too."""
+    create_all() creates it on the live database too.
+
+    Translation (owner decision 2026-11-18): `text` is always the
+    message exactly as typed. At SEND time only, a translation into
+    the RECIPIENT's declared language is stored in `translated_text`
+    (+ `translated_language`); reads never translate. All three new
+    columns are nullable, so messages stored before translation
+    existed read exactly as before (original text, untranslated)."""
     __tablename__ = "chat_messages"
     id = db.Column(db.Integer, primary_key=True)
     booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=False)
     sender = db.Column(db.String(10), nullable=False)  # driver | customer
     text = db.Column(db.Text, nullable=False)
+    # Declared language the sender wrote in (translation.CHAT_LANGUAGES).
+    sender_language = db.Column(db.String(10), nullable=True)
+    # Send-time translation into the recipient's declared language, or
+    # NULL when no translation was made (same language, no Azure key,
+    # or any Azure failure — the original text is then shown).
+    translated_text = db.Column(db.Text, nullable=True)
+    translated_language = db.Column(db.String(10), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
@@ -2389,6 +2428,40 @@ with app.app_context():
                 _conn.execute(_sa_text("ALTER TABLE drivers ADD COLUMN city VARCHAR(80)"))
     except Exception as exc:  # logged, never fatal at startup
         log.warning("city column check failed: %s", exc)
+    # Same pattern for the chat-translation columns (added with the
+    # Azure Translator chat translation, 2026-11-18). All nullable,
+    # so existing driver, booking and message rows keep working with
+    # no language on file (English default, original text shown).
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "chat_language" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE drivers ADD COLUMN chat_language VARCHAR(10)")
+                )
+        _bcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("bookings")]
+        if "customer_chat_language" not in _bcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text(
+                        "ALTER TABLE bookings ADD COLUMN customer_chat_language VARCHAR(10)"
+                    )
+                )
+        _mcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("chat_messages")]
+        _madds = {
+            "sender_language": "ALTER TABLE chat_messages ADD COLUMN sender_language VARCHAR(10)",
+            "translated_text": "ALTER TABLE chat_messages ADD COLUMN translated_text TEXT",
+            "translated_language": "ALTER TABLE chat_messages ADD COLUMN translated_language VARCHAR(10)",
+        }
+        for _name, _ddl in _madds.items():
+            if _name not in _mcols:
+                with db.engine.begin() as _conn:
+                    _conn.execute(_sa_text(_ddl))
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("chat-translation column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -3039,6 +3112,7 @@ def get_booking(booking_id):
         },
         "invoice": invoice,
         "referral_code": referral.code if referral else None,
+        "chat_language": booking_customer_chat_language(booking),
     }
     if booking.ride_type == "one_way":
         totals = compute_class_totals(
@@ -3156,19 +3230,75 @@ MAX_CHAT_TEXT = 500
 CHAT_STATUSES = {"accepted", "en_route", "arrived", "in_progress", "completed"}
 
 
-def _chat_message_view(message):
-    # Text only — never any money figure, by construction.
+def driver_chat_language(driver):
+    """A driver's declared chat language ("en" when unset/unknown)."""
+    if driver is None:
+        return "en"
+    return normalize_chat_language(driver.chat_language)
+
+
+def booking_customer_chat_language(booking):
+    """A booking customer's declared chat language ("en" when unset)."""
+    if booking is None:
+        return "en"
+    return normalize_chat_language(booking.customer_chat_language)
+
+
+def _viewer_language(stored_language, requested):
+    """The language a chat reader views in: an explicitly requested
+    valid picker value wins for this read, else the stored declared
+    preference. Reads never persist — the picker endpoints do that."""
+    if isinstance(requested, str) and requested.strip() in CHAT_LANGUAGES:
+        return requested.strip()
+    return normalize_chat_language(stored_language)
+
+
+def _chat_message_view(message, viewer, viewer_language):
+    # Text only — never any money figure, by construction. `text`
+    # stays the field every client already reads: your own messages
+    # show exactly as typed; the other side's messages show the
+    # stored send-time translation when one exists in YOUR language,
+    # else the original text. `original_text` / `translated` are
+    # additive — clients that ignore them see the same shape as before.
+    display = message.text
+    if (message.sender != viewer and message.translated_text
+            and message.translated_language == viewer_language):
+        display = message.translated_text
     return {
         "id": message.id,
         "sender": message.sender,
-        "text": message.text,
+        "text": display,
+        "original_text": message.text,
+        "translated": display != message.text,
         "created_at": iso(message.created_at),
     }
 
 
-def _chat_messages(booking_id):
-    return [_chat_message_view(m) for m in
+def _chat_messages(booking_id, viewer, viewer_language):
+    return [_chat_message_view(m, viewer, viewer_language) for m in
             ChatMessage.query.filter_by(booking_id=booking_id).order_by(ChatMessage.id).all()]
+
+
+def _translate_at_send(text, source_language, target_language):
+    """Translate once at send time. Returns (translated_text,
+    translated_language) or (None, None) when no translation applies
+    or Azure failed — the caller then stores the original only."""
+    translated = translate_chat_text(text, source_language, target_language)
+    if not translated:
+        return None, None
+    return translated, normalize_chat_language(target_language)
+
+
+def _validate_chat_language(data):
+    """A picker language from a request body: the valid code, or None
+    when absent. An unknown code is a 400 — the picker only sends
+    valid codes, so an unknown one is a bad client, not a guess."""
+    value = data.get("language")
+    if value is None or value == "":
+        return None, None
+    if isinstance(value, str) and value.strip() in CHAT_LANGUAGES:
+        return value.strip(), None
+    return None, err("Unknown chat language.")
 
 
 def _validate_chat_text(data):
@@ -3201,7 +3331,33 @@ def customer_chat_list(booking_id):
     error = _require_chat_customer(booking, request.args.get("phone"))
     if error:
         return error
-    return jsonify({"messages": _chat_messages(booking.id)})
+    viewer_language = _viewer_language(
+        booking.customer_chat_language, request.args.get("language"))
+    return jsonify({"messages": _chat_messages(booking.id, "customer", viewer_language)})
+
+
+@app.route("/api/bookings/<int:booking_id>/chat-language", methods=["POST"])
+def customer_chat_language(booking_id):
+    """Save the customer's declared chat language for this booking.
+
+    Phone check only — no chat-status gate, so the language can be
+    picked as soon as the chat panel is reachable. The picker calls
+    this on change; sending a message with a `language` also saves it.
+    """
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    data = request.get_json(silent=True) or {}
+    if not data.get("phone") or str(data["phone"]) != str(booking.phone):
+        return err("Phone number does not match this booking.", 403)
+    language, error = _validate_chat_language(data)
+    if error:
+        return error
+    if language is None:
+        return err("language is required.")
+    booking.customer_chat_language = language
+    db.session.commit()
+    return jsonify({"chat_language": language})
 
 
 @app.route("/api/bookings/<int:booking_id>/messages", methods=["POST"])
@@ -3216,10 +3372,21 @@ def customer_chat_send(booking_id):
     text, error = _validate_chat_text(data)
     if error:
         return error
-    message = ChatMessage(booking_id=booking.id, sender="customer", text=text)
+    language, error = _validate_chat_language(data)
+    if error:
+        return error
+    if language is not None:
+        booking.customer_chat_language = language
+    sender_language = booking_customer_chat_language(booking)
+    translated_text, translated_language = _translate_at_send(
+        text, sender_language, driver_chat_language(booking.accepted_driver))
+    message = ChatMessage(booking_id=booking.id, sender="customer", text=text,
+                          sender_language=sender_language,
+                          translated_text=translated_text,
+                          translated_language=translated_language)
     db.session.add(message)
     db.session.commit()
-    return jsonify({"message": _chat_message_view(message)}), 201
+    return jsonify({"message": _chat_message_view(message, "customer", sender_language)}), 201
 
 
 @app.route("/api/drivers/me/trip/<int:booking_id>/messages", methods=["GET"])
@@ -3234,7 +3401,28 @@ def driver_chat_list(booking_id):
         return err("This booking is not assigned to you.", 403)
     if booking.status not in CHAT_STATUSES:
         return err("Chat is not open for this ride.", 409)
-    return jsonify({"messages": _chat_messages(booking.id)})
+    viewer_language = _viewer_language(driver.chat_language, request.args.get("language"))
+    return jsonify({"messages": _chat_messages(booking.id, "driver", viewer_language)})
+
+
+@app.route("/api/drivers/me/chat-language", methods=["POST"])
+def driver_chat_language_save():
+    """Save the driver's declared chat language (all rides).
+
+    The picker calls this on change; sending a message with a
+    `language` also saves it."""
+    driver, error = require_driver()
+    if error:
+        return error
+    data = request.get_json(silent=True) or {}
+    language, error = _validate_chat_language(data)
+    if error:
+        return error
+    if language is None:
+        return err("language is required.")
+    driver.chat_language = language
+    db.session.commit()
+    return jsonify({"chat_language": language})
 
 
 @app.route("/api/drivers/me/trip/<int:booking_id>/messages", methods=["POST"])
@@ -3253,10 +3441,21 @@ def driver_chat_send(booking_id):
     text, error = _validate_chat_text(data)
     if error:
         return error
-    message = ChatMessage(booking_id=booking.id, sender="driver", text=text)
+    language, error = _validate_chat_language(data)
+    if error:
+        return error
+    if language is not None:
+        driver.chat_language = language
+    sender_language = driver_chat_language(driver)
+    translated_text, translated_language = _translate_at_send(
+        text, sender_language, booking_customer_chat_language(booking))
+    message = ChatMessage(booking_id=booking.id, sender="driver", text=text,
+                          sender_language=sender_language,
+                          translated_text=translated_text,
+                          translated_language=translated_language)
     db.session.add(message)
     db.session.commit()
-    return jsonify({"message": _chat_message_view(message)}), 201
+    return jsonify({"message": _chat_message_view(message, "driver", sender_language)}), 201
 
 
 # ---------------------------------------------------------------- drivers ---
@@ -3530,6 +3729,7 @@ def register_driver():
         "email": driver.email,
         "state": driver.state,
         "city": driver.city,
+        "chat_language": driver_chat_language(driver),
         "car_model": driver.car_model,
         "car_year": driver.car_year,
         "vehicle_class": driver_vehicle_class(driver),
@@ -3553,6 +3753,7 @@ def driver_me():
         "email": driver.email,
         "state": driver.state,
         "city": driver.city,
+        "chat_language": driver_chat_language(driver),
         "car_model": driver.car_model,
         "car_year": driver.car_year,
         "vehicle_class": driver_vehicle_class(driver),

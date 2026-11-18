@@ -321,6 +321,8 @@ input, select, textarea { font: inherit; }
 /* Ride chat with the chauffeur (inside the booking status card) */
 #chat-panel { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 16px; }
 #chat-panel h3 { margin: 0 0 10px; font-size: 19px; }
+#chat-panel .chat-lang { display: block; font-size: 14px; color: var(--grey); margin-bottom: 10px; }
+#chat-panel .chat-lang select { color: var(--black); background: var(--white); border: 1px solid #cfccc2; border-radius: 6px; padding: 7px 9px; font-size: 15px; margin-left: 6px; }
 #chat-panel .chat-messages { max-height: 220px; border: 1px solid var(--line); border-radius: 8px; }
 #chat-panel .chat-empty { color: var(--grey); font-size: 14px; margin: 0; }
 #chat-panel .chat-msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15px; line-height: 1.4; }

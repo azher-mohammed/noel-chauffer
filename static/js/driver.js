@@ -743,6 +743,7 @@
     lastOffersSig: "",
     chatTimer: null,
     lastChatSig: "",
+    chatLanguage: "en",
     audioCtx: null
   };
 
@@ -841,6 +842,7 @@
   function enterApp(driver) {
     state.driver = driver || {};
     state.available = !!state.driver.available;
+    initChatLanguage(state.driver);
     renderHello();
     renderAvailability();
     /* Load the alerted-offer set before the first poll, so a refresh
@@ -1739,7 +1741,40 @@
   /* ---------- In-app chat with the customer (text only) ---------- */
   /* Simple polling, no SMS. Messages carry text only — the chat
      never shows any money figure, and the driver still sees only his
-     own earnings elsewhere on this screen. */
+     own earnings elsewhere on this screen. Declared chat language:
+     one picker, plain labels, default English. The server
+     translates each message ONCE at send time into the other side's
+     picked language and stores it; reads never translate. Same
+     codes/labels as the customer picker and
+     translation.CHAT_LANGUAGES — keep all three in step. */
+  var CHAT_LANGUAGES = ["en", "ur-Latn", "es", "fr", "ar", "hi", "bn", "pt"];
+  var CHAT_LANG_KEY = "noel-driver-chat-language";
+  function validChatLanguage(v) {
+    return CHAT_LANGUAGES.indexOf(v) !== -1 ? v : "en";
+  }
+  function initChatLanguage(driver) {
+    var saved = null;
+    try { saved = window.localStorage.getItem(CHAT_LANG_KEY); } catch (e) { /* private mode */ }
+    state.chatLanguage = validChatLanguage((driver && driver.chat_language) || saved || "en");
+    var sel = $("trip-chat-language");
+    if (sel) sel.value = state.chatLanguage;
+  }
+  function saveChatLanguage() {
+    var sel = $("trip-chat-language");
+    if (!sel) return;
+    state.chatLanguage = validChatLanguage(sel.value);
+    try { window.localStorage.setItem(CHAT_LANG_KEY, state.chatLanguage); } catch (e) { /* private mode */ }
+    /* Persist on the driver record so the customer's replies are
+       translated into the picked language. Failures are silent:
+       the picker value still travels with every send and poll. */
+    fetch("/api/drivers/me/chat-language", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ language: state.chatLanguage })
+    }).catch(function () { /* keep chatting; language rides along anyway */ });
+    state.lastChatSig = "";
+    loadTripChat();
+  }
   function chatMessagesUrl() {
     return "/api/drivers/me/trip/" + encodeURIComponent(state.trip.id) + "/messages";
   }
@@ -1757,7 +1792,7 @@
   }
   function loadTripChat() {
     if (!state.trip) return;
-    fetch(chatMessagesUrl(), { headers: authHeaders() })
+    fetch(chatMessagesUrl() + "?language=" + encodeURIComponent(state.chatLanguage), { headers: authHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         renderTripChat(j.messages || []);
@@ -1765,7 +1800,7 @@
       .catch(function () { /* keep the current messages on a failed check */ });
   }
   function renderTripChat(messages) {
-    var sig = messages.map(function (m) { return m.id + ":" + (m.text || "").length; }).join("|");
+    var sig = messages.map(function (m) { return m.id + ":" + (m.text || "").length + ":" + (m.translated ? "1" : "0"); }).join("|");
     if (sig === state.lastChatSig) return;
     state.lastChatSig = sig;
     var box = $("trip-chat-messages");
@@ -1794,7 +1829,7 @@
     fetch(chatMessagesUrl(), {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ text: text })
+      body: JSON.stringify({ text: text, language: state.chatLanguage })
     })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
@@ -1810,6 +1845,8 @@
   $("trip-chat-input").addEventListener("keydown", function (e) {
     if (e.key === "Enter") { e.preventDefault(); sendTripChat(); }
   });
+  var tripChatLang = $("trip-chat-language");
+  if (tripChatLang) tripChatLang.addEventListener("change", saveChatLanguage);
   function postTripEvent(eventName, extra) {
     var payload = Object.assign({ event: eventName }, extra || {});
     return fetch("/api/drivers/me/trip/" + encodeURIComponent(state.trip.id) + "/event", {

@@ -951,7 +951,8 @@ check("customer reads driver message", resp.status_code == 200 and len(msgs) == 
       and msgs[0]["sender"] == "driver", str(msgs))
 check("chat message payload has no money keys",
       msgs and FORBIDDEN_OFFER_KEYS.isdisjoint(msgs[0].keys())
-      and set(msgs[0].keys()) == {"id", "sender", "text", "created_at"}, str(msgs))
+      and set(msgs[0].keys()) == {"id", "sender", "text", "original_text",
+                                  "translated", "created_at"}, str(msgs))
 resp = anon.post(BASE + f"/api/bookings/{bx['id']}/messages",
                  json={"phone": "+15550007777", "text": "On my way out."}, timeout=TIMEOUT)
 check("customer chat send 201", resp.status_code == 201, resp.text[:150])

@@ -240,7 +240,12 @@ class FreeFeaturesCase(unittest.TestCase):
         resp = self.client.get(f"/api/drivers/me/trip/{booking['id']}/messages",
                                headers={"X-Driver-Token": token})
         message = resp.get_json()["messages"][0]
-        self.assertEqual(set(message.keys()), {"id", "sender", "text", "created_at"})
+        # Exact shape: the original four fields plus the two additive
+        # chat-translation fields (2026-11-18). Clients that ignore
+        # them see the same shape as before; still no money fields.
+        self.assertEqual(set(message.keys()),
+                         {"id", "sender", "text", "original_text", "translated",
+                          "created_at"})
         self.assertTrue(FORBIDDEN_KEYS.isdisjoint(message.keys()))
 
     def test_chat_requires_acceptance_and_identity(self):

@@ -27,7 +27,9 @@
     selectedClass: "sedan",
     classBooking: null,
     classPhone: "",
-    lastChatSig: ""
+    lastChatSig: "",
+    chatLanguage: "en",
+    chatLangInitFor: null
   };
 
   /* Customer-facing class names. Internal keys stay "sedan"/"suv". */
@@ -677,20 +679,59 @@
   function chatOpenFor(b) {
     return !!(b && b.driver && b.driver.name && CHAT_OPEN_STATUSES.indexOf(b.status || "") !== -1);
   }
+  /* Declared chat language: one picker, plain labels, default
+     English. The server translates each message ONCE at send time
+     into the other side's picked language and stores it; reads
+     never translate. Same codes/labels as the driver picker and
+     translation.CHAT_LANGUAGES — keep all three in step. */
+  var CHAT_LANGUAGES = ["en", "ur-Latn", "es", "fr", "ar", "hi", "bn", "pt"];
+  var CHAT_LANG_KEY = "noel-chat-language";
+  function validChatLanguage(v) {
+    return CHAT_LANGUAGES.indexOf(v) !== -1 ? v : "en";
+  }
+  function initChatLanguage(b) {
+    if (state.chatLangInitFor === state.bookingId) return;
+    state.chatLangInitFor = state.bookingId;
+    var saved = null;
+    try { saved = window.localStorage.getItem(CHAT_LANG_KEY); } catch (e) { /* private mode */ }
+    state.chatLanguage = validChatLanguage(saved || (b && b.chat_language) || "en");
+    var sel = $("ride-chat-language");
+    if (sel) sel.value = state.chatLanguage;
+  }
+  function saveChatLanguage() {
+    var sel = $("ride-chat-language");
+    if (!sel) return;
+    state.chatLanguage = validChatLanguage(sel.value);
+    try { window.localStorage.setItem(CHAT_LANG_KEY, state.chatLanguage); } catch (e) { /* private mode */ }
+    /* Persist for this booking so the chauffeur's replies are
+       translated into the picked language. Failures are silent:
+       the picker value still travels with every send and poll. */
+    if (state.bookingId && state.bookingPhone) {
+      fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/chat-language", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: state.bookingPhone, language: state.chatLanguage })
+      }).catch(function () { /* keep chatting; language rides along anyway */ });
+    }
+    state.lastChatSig = "";
+    loadChatIfOpen(state.booking);
+  }
   function loadChatIfOpen(b) {
     if (!chatOpenFor(b) || !state.bookingId || !state.bookingPhone) {
       hide($("chat-panel"));
       return;
     }
     show($("chat-panel"));
+    initChatLanguage(b);
     fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/messages?phone=" +
-          encodeURIComponent(state.bookingPhone))
+          encodeURIComponent(state.bookingPhone) + "&language=" +
+          encodeURIComponent(state.chatLanguage))
       .then(function (r) { return r.json(); })
       .then(function (j) { renderChat(j.messages || []); })
       .catch(function () { /* keep the current messages on a failed check */ });
   }
   function renderChat(messages) {
-    var sig = messages.map(function (m) { return m.id + ":" + (m.text || "").length; }).join("|");
+    var sig = messages.map(function (m) { return m.id + ":" + (m.text || "").length + ":" + (m.translated ? "1" : "0"); }).join("|");
     if (sig === state.lastChatSig) return;
     state.lastChatSig = sig;
     var box = $("chat-messages");
@@ -719,7 +760,7 @@
     fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: state.bookingPhone, text: text })
+      body: JSON.stringify({ phone: state.bookingPhone, text: text, language: state.chatLanguage })
     })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
@@ -735,6 +776,8 @@
   $("chat-input").addEventListener("keydown", function (e) {
     if (e.key === "Enter") { e.preventDefault(); sendChat(); }
   });
+  var rideChatLang = $("ride-chat-language");
+  if (rideChatLang) rideChatLang.addEventListener("change", saveChatLanguage);
 
   function showThankYou(b) {
     show($("thankyou-block"));

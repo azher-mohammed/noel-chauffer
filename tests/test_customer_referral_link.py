@@ -247,8 +247,17 @@ class ReferralLinkServerCase(unittest.TestCase):
         return resp.get_json()["booking"]
 
     def test_no_new_server_route_for_referrals(self):
+        # The CUSTOMER referral link adds no server route: it reuses
+        # the booking endpoints and the ?ref= prefill is client-side
+        # only. The only "referral" routes are the DRIVER referral
+        # feature (owner decision 2026-11-18, separate from the
+        # customer referral): the signed-in driver's own referral
+        # view and the owner dashboard's referral records.
         rules = [str(r) for r in app_module.app.url_map.iter_rules()]
-        self.assertEqual([r for r in rules if "referral" in r], [])
+        self.assertEqual(sorted(r for r in rules if "referral" in r), [
+            "/api/drivers/me/referral",
+            "/api/owner/driver-referrals",
+        ])
         self.assertEqual([r for r in rules if re.match(r"^/r(/|$)", r)], [])
 
     def test_pages_load_with_unknown_ref_value(self):

@@ -101,6 +101,7 @@
     loadOutbox();
     loadSupportMessages();
     loadDrivers();
+    loadDriverReferrals();
   }
 
   /* 1-hour pickup reminder trigger (owner decision 2026-11-18):
@@ -532,6 +533,38 @@
         }).join("");
       })
       .catch(function () { $("support-feed").innerHTML = '<div class="empty">Could not load support messages.</div>'; });
+  }
+
+  /* ---------- Driver referrals ---------- */
+  /* Owner decision 2026-11-18: who referred whom, jobs counted (out
+     of each referred driver's first 15), and dollars earned.
+     Read-only information — no action, no approval step. */
+  function loadDriverReferrals() {
+    fetch("/api/owner/driver-referrals", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var list = asList(j, "referrals");
+        var feed = $("referrals-feed");
+        if (!list.length) { feed.innerHTML = '<div class="empty">No driver referrals yet.</div>'; return; }
+        var total = pick(j, ["total_earned"]);
+        var jobs = pick(j, ["total_jobs_counted"]);
+        var head = "";
+        if (total !== undefined && total !== null) {
+          head = '<div class="feed-item"><div class="body">Total referral earnings: <strong>' +
+            esc(money(total)) + "</strong>" +
+            (jobs !== undefined && jobs !== null ? " · " + esc(String(jobs)) + " rides counted" : "") +
+            "</div></div>";
+        }
+        feed.innerHTML = head + list.map(function (r) {
+          var when = r.registered_at || "";
+          return '<div class="feed-item">' +
+            '<div class="body"><strong>' + esc(r.referrer_name || "Driver") + "</strong> → " +
+            esc(r.referred_driver_name || "Driver") + " — " +
+            esc(String(r.jobs_counted)) + " of 15 rides · " + esc(money(r.earned)) + "</div>" +
+            (when ? '<div class="t">Registered ' + esc(when) + "</div>" : "") + "</div>";
+        }).join("");
+      })
+      .catch(function () { $("referrals-feed").innerHTML = '<div class="empty">Could not load driver referrals.</div>'; });
   }
 
   /* ---------- Drivers + document viewer ---------- */

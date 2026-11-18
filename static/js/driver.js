@@ -746,7 +746,12 @@
     chatTimer: null,
     lastChatSig: "",
     chatLanguage: "en",
-    audioCtx: null
+    audioCtx: null,
+    /* Referrer code captured from a /driver?ref=CODE referral link,
+       sent with the registration submit and then cleared. Kept in
+       memory only — never stored — so it cannot leak into a later
+       session on a shared device. */
+    pendingReferralCode: null
   };
 
   function $(id) { return document.getElementById(id); }
@@ -814,7 +819,7 @@
     if (name === "home") { refreshOffers(); }
     if (name === "earnings") { loadEarnings(); }
     if (name === "documents") { renderDocuments(); }
-    if (name === "profile") { renderProfile(); }
+    if (name === "profile") { renderProfile(); loadDriverReferral(); }
   }
   document.querySelectorAll("#tabbar button").forEach(function (b) {
     b.addEventListener("click", function () { showScreen(b.getAttribute("data-screen")); });
@@ -825,6 +830,27 @@
      screen (email + password only) when signed out, with new
      registration behind a link at the bottom. A signed-in driver
      never sees the registration form again. */
+  /* Driver referral link (owner decision 2026-11-18): a friend who
+     clicks a driver's /driver?ref=CODE link lands straight in
+     driver registration — no sign-in screen first — and the
+     referrer is captured for the registration submit. Only for
+     signed-out devices: a signed-in driver goes to his jobs as
+     usual, and the password-reset link still wins. The query is
+     stripped from the address bar at once, so a later reload —
+     including after Log out — lands on sign-in as usual. A reload
+     in the middle of registration loses the referrer; the friend
+     re-clicks the link to restore it. */
+  function referralCodeFromUrl() {
+    try {
+      var ref = new URLSearchParams(window.location.search).get("ref");
+      return (ref || "").trim() || null;
+    } catch (e) { return null; }
+  }
+  function stripReferralFromUrl() {
+    try {
+      window.history.replaceState(null, "", window.location.pathname);
+    } catch (e) { /* old browser: the query stays, harmless */ }
+  }
   function boot() {
     /* Password reset: a /driver?reset=<token> link opens the
        set-new-password form instead of the normal view, even on a
@@ -834,7 +860,17 @@
     try { resetToken = new URLSearchParams(window.location.search).get("reset"); } catch (e) { /* old browser */ }
     if (resetToken) { showResetForm(resetToken); return; }
     var token = getToken();
-    if (!token) { showScreen("login"); return; }
+    if (!token) {
+      var referralCode = referralCodeFromUrl();
+      if (referralCode) {
+        state.pendingReferralCode = referralCode;
+        stripReferralFromUrl();
+        showScreen("register");
+        return;
+      }
+      showScreen("login");
+      return;
+    }
     state.token = token;
     fetch("/api/drivers/me", { headers: authHeaders() })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
@@ -1264,6 +1300,13 @@
     fd.append("plate", plate);
     fd.append("bank_account_number", acct);
     fd.append("bank_routing_number", routing);
+    /* Referral link capture: when registration arrived via
+       /driver?ref=CODE, the referrer's code rides along in a hidden
+       field — the form itself has no extra field or step. An
+       unknown code is ignored by the server, never blocks. */
+    if (state.pendingReferralCode) {
+      fd.append("referral_code", state.pendingReferralCode);
+    }
     requiredFields.forEach(function (field) {
       var input = $("file-" + field);
       if (input && input.files && input.files[0]) fd.append(field, input.files[0]);
@@ -1285,6 +1328,7 @@
           return;
         }
         saveToken(res.j.token);
+        state.pendingReferralCode = null;
         enterApp(unwrapDriver(res.j) || {});
       })
       .catch(function () {
@@ -2609,6 +2653,104 @@
       '<div class="profile-row"><span class="k">Plate</span><span>' + esc(d.plate || "—") + "</span></div>" +
       '<div class="profile-row"><span class="k">Bank account</span><span>' + esc(bankText) + "</span></div>";
     $("profile-card").innerHTML = html;
+  }
+  /* ---------- Driver referral ---------- */
+  /* Owner decision 2026-11-18: the driver referral is a shareable
+     LINK, not a code number — same pattern as the customer referral
+     link. The driver taps "Refer a Friend" to reveal his link, then
+     Copy or the native Share sheet to send it himself (WhatsApp,
+     message, etc.) — the system sends nothing to friends. A friend
+     who clicks the link lands straight in driver registration (see
+     boot above). Below the link, the driver sees his own referral
+     earnings only: total earned and one row per referred driver
+     (jobs counted out of the first 15). */
+  function driverReferralLinkFor(code) {
+    return window.location.origin + "/driver?ref=" + encodeURIComponent(code);
+  }
+  function copyDriverReferralLink(text, btn) {
+    var label = btn ? btn.textContent : "";
+    function done() {
+      if (!btn) return;
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.textContent = label; }, 2000);
+    }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e) { /* clipboard unavailable */ }
+      document.body.removeChild(ta);
+      done();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else {
+      fallback();
+    }
+  }
+  function renderDriverReferralEarnings(j) {
+    var box = $("driver-referral-earnings");
+    if (!box) return;
+    var total = pickNumber(j, ["total_earned"]);
+    var maxJobs = pickNumber(j, ["max_jobs_per_driver"]) || 15;
+    var html = '<div class="referral-total"><span class="k">Referral earnings</span><span>' +
+      esc(money(total !== null ? total : 0)) + "</span></div>";
+    var friends = (j && j.referred_drivers) || [];
+    if (!friends.length) {
+      html += '<p class="form-note">No friends referred yet. Share your link to get started.</p>';
+    } else {
+      friends.forEach(function (f) {
+        var counted = pickNumber(f, ["jobs_counted"]);
+        var earned = pickNumber(f, ["earned"]);
+        html += '<div class="referral-earn-row"><span>' + esc(f.name || "Driver") + "</span><span>" +
+          esc(money(earned !== null ? earned : 0)) + " · " +
+          esc(String(counted !== null ? counted : 0)) + " of " + esc(String(maxJobs)) + " rides</span></div>";
+      });
+    }
+    box.innerHTML = html;
+  }
+  function loadDriverReferral() {
+    var box = $("driver-referral-box");
+    if (!box) return;
+    fetch("/api/drivers/me/referral", { headers: authHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var code = j && j.referral_code;
+        var revealBtn = $("driver-referral-show-btn");
+        if (!code) {
+          hide(revealBtn);
+          hide($("driver-referral-link-line"));
+          hide($("driver-referral-actions"));
+          return;
+        }
+        var link = driverReferralLinkFor(code);
+        var anchor = $("driver-referral-link-anchor");
+        anchor.href = link;
+        anchor.textContent = link;
+        var copyBtn = $("driver-referral-copy-btn");
+        copyBtn.onclick = function () { copyDriverReferralLink(link, copyBtn); };
+        var shareBtn = $("driver-referral-share-btn");
+        if (navigator.share) {
+          show(shareBtn);
+          shareBtn.onclick = function () {
+            navigator.share({ title: "Noel Chauffer", url: link }).catch(function () {});
+          };
+        } else {
+          hide(shareBtn);
+        }
+        revealBtn.onclick = function () {
+          show($("driver-referral-link-line"));
+          show($("driver-referral-actions"));
+          hide(revealBtn);
+        };
+        show(revealBtn);
+        renderDriverReferralEarnings(j);
+      })
+      .catch(function () { /* keep the previous view on a failed check */ });
   }
   $("reset-driver-btn").addEventListener("click", function () {
     if (!window.confirm("Sign out this driver on this device and show the sign-in screen?")) return;

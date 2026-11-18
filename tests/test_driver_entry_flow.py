@@ -16,6 +16,13 @@ Owner decisions, voice call 2026-11-18 ~05:13 EST:
   phone-lookup endpoint stays intact (pinned by the API tests in
   tests/test_driver_signin.py).
 
+EXCEPTION (owner decision 2026-11-18, driver referral link): a
+signed-out device that opens /driver?ref=CODE — a friend clicking a
+driver's referral link — lands straight in driver registration, with
+the referrer captured for the submit. The login-first rule above
+still holds for every visit without a referral link, and a signed-in
+driver still goes straight to his jobs.
+
 The registration form itself is unchanged: same fields, rules,
 state/city/document lists, labels, hints, validation and the
 per-item red error highlight. The password-reset flow
@@ -134,10 +141,20 @@ class DriverEntryFlowCase(unittest.TestCase):
     def test_boot_routes_signed_out_and_invalid_tokens_to_login(self):
         js = read("static/js/driver.js")
         boot = js[js.index("function boot()"):js.index("function enterApp")]
-        # No token, invalid/expired token, and offline all land on
-        # the login screen — never on registration.
+        # No token (without a referral link), invalid/expired token,
+        # and offline all land on the login screen.
         self.assertEqual(boot.count('showScreen("login")'), 3)
-        self.assertNotIn('showScreen("register")', boot)
+        # The ONLY registration routing in boot is the referral-link
+        # landing: a /driver?ref=CODE visit with no saved token opens
+        # registration directly (owner decision 2026-11-18). It runs
+        # only inside the no-token branch, after the ref check, and
+        # the branch falls through to login when there is no ref.
+        self.assertEqual(boot.count('showScreen("register")'), 1)
+        no_token = boot[boot.index("if (!token) {"):]
+        self.assertLess(no_token.index("referralCodeFromUrl()"),
+                        no_token.index('showScreen("register")'))
+        self.assertLess(no_token.index('showScreen("register")'),
+                        no_token.index('showScreen("login")'))
         # The invalid-token path clears the stored token first.
         clear_at = boot.index("clearToken();")
         self.assertIn('showScreen("login");', boot[clear_at:clear_at + 80])
@@ -151,14 +168,17 @@ class DriverEntryFlowCase(unittest.TestCase):
         enter_app = js[js.index("function enterApp"):]
         self.assertIn('showScreen("home");', enter_app[:800])
 
-    def test_registration_screen_reachable_only_via_link(self):
-        # The ONLY showScreen("register") in the shipped JS is the
-        # "New driver registration" link handler: nothing routes
-        # there automatically anymore.
+    def test_registration_screen_reachable_via_link_or_referral(self):
+        # Registration opens two ways only: the "New driver
+        # registration" link on the login screen, and a referral
+        # link (/driver?ref=CODE) on a signed-out device (owner
+        # decision 2026-11-18). Nothing else routes there.
         js = read("static/js/driver.js")
-        self.assertEqual(js.count('showScreen("register")'), 1)
+        self.assertEqual(js.count('showScreen("register")'), 2)
         handler = js[js.index('$("show-register-link").addEventListener'):]
         self.assertIn('showScreen("register");', handler[:300])
+        boot = js[js.index("function boot()"):js.index("function enterApp")]
+        self.assertEqual(boot.count('showScreen("register")'), 1)
 
     def test_registration_success_goes_to_home(self):
         js = read("static/js/driver.js")
@@ -171,14 +191,19 @@ class DriverEntryFlowCase(unittest.TestCase):
 
     def test_logout_reload_lands_on_login(self):
         # Log out clears the token and reloads; boot() with no token
-        # shows the login screen (pinned above), so the driver lands
-        # on sign-in, never on registration.
+        # and no referral link shows the login screen (pinned above),
+        # so the driver lands on sign-in, never on registration.
         js = read("static/js/driver.js")
         handler = js[js.index("reset-driver-btn"):]
         self.assertIn("clearToken()", handler[:500])
         self.assertIn("window.location.reload()", handler[:500])
         boot = js[js.index("function boot()"):js.index("function enterApp")]
-        self.assertIn('if (!token) { showScreen("login"); return; }', boot)
+        # The no-token branch falls through to login when there is no
+        # referral code: the login show comes after the ref check.
+        no_token = boot[boot.index("if (!token) {"):]
+        self.assertIn('showScreen("login");', no_token)
+        self.assertLess(no_token.index("referralCodeFromUrl()"),
+                        no_token.index('showScreen("login");'))
 
     # -- reset flow stays reachable on the login screen ---------------
     def test_reset_form_shows_on_login_screen(self):

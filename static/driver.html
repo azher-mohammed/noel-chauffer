@@ -351,6 +351,18 @@
   <section class="screen hidden" id="screen-profile">
     <h2>Profile</h2>
     <div class="profile-card" id="profile-card"></div>
+    <div class="section-title">Refer friends</div>
+    <div class="referral-box" id="driver-referral-box">
+      <p class="referral-line">Get $5 in cash for each ride you refer.</p>
+      <p class="form-note">Share your link with a driver friend. When they register with your link and complete rides, you earn $5 for each of their first 15 rides.</p>
+      <button class="btn-ghost hidden" type="button" id="driver-referral-show-btn">Refer a Friend</button>
+      <p id="driver-referral-link-line" class="hidden">Your referral link: <a id="driver-referral-link-anchor" href="#"></a></p>
+      <div id="driver-referral-actions" class="referral-actions hidden">
+        <button class="btn-ghost" type="button" id="driver-referral-copy-btn">Copy link</button>
+        <button class="btn-ghost" type="button" id="driver-referral-share-btn">Share link</button>
+      </div>
+      <div id="driver-referral-earnings"></div>
+    </div>
     <button class="btn-ghost" type="button" id="reset-driver-btn">Log out</button>
     <p class="form-note">This signs this device out of the current driver account and shows the registration form again.</p>
   </section>

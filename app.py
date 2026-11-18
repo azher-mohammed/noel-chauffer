@@ -2169,6 +2169,27 @@ class Driver(db.Model):
     # below, and drivers registered before it existed read as
     # unsuspended.
     suspended_until = db.Column(db.DateTime(timezone=True), nullable=True)
+    # Stable, unique driver referral code (owner decision 2026-11-18,
+    # voice call: the driver referral is a shareable LINK, not a code
+    # number — the friend clicks the link and lands straight in driver
+    # registration). Minted at registration; drivers registered
+    # before this existed get one on first referral-section load (see
+    # ensure_driver_referral_code). Nullable: the column is added to
+    # the live database by the startup ALTER below. Unique in the
+    # model; the generation loop guarantees uniqueness on assignment.
+    # Separate namespace from the customer ReferralCode table ("DRV-"
+    # prefix vs "NOEL-"), so a customer code can never resolve to a
+    # driver and vice versa.
+    referral_code = db.Column(db.String(40), unique=True, nullable=True)
+    # The driver who referred this driver, captured when registration
+    # arrived via a referral link (NULL = registered without one).
+    # Plain integer, deliberately NO foreign key — mirroring
+    # EmergencyCancel.driver_id — so the link never blocks the
+    # test-only driver clear and the record survives it. Nullable:
+    # added by the startup ALTER below; reads use getattr with a
+    # None default so a row read before the column existed degrades
+    # to "no referrer" instead of raising.
+    referred_by_driver_id = db.Column(db.Integer, nullable=True)
     bank_encrypted = db.Column(db.LargeBinary, nullable=True)
     bank_last4 = db.Column(db.String(4), nullable=True)
     token = db.Column(db.String(64), unique=True, nullable=False)
@@ -2410,6 +2431,30 @@ class EmergencyCancel(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
+class DriverReferralCredit(db.Model):
+    """One $5 referral credit (owner decision 2026-11-18, voice call):
+    Noel pays the referring driver $5 in cash for each job the
+    referred driver completes, up to the referred driver's first 15
+    jobs (max $75 per referred driver). One row per credited job, so
+    the count is exact and auditable. Tracking only — no money moves
+    here, like the existing payout tracking. `referrer_driver_id`
+    and `referred_driver_id` have no foreign keys and the names are
+    snapshots, mirroring EmergencyCancel, so the record survives the
+    test-only driver clear. `booking_id` DOES reference the booking,
+    so the test-only clear-rides reset deletes these rows with the
+    rides (children first, like emergency cancels). A new table, so
+    create_all() creates it on the live database too."""
+    __tablename__ = "driver_referral_credits"
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=False)
+    referrer_driver_id = db.Column(db.Integer, nullable=True)
+    referrer_name = db.Column(db.String(120), nullable=False, default="")
+    referred_driver_id = db.Column(db.Integer, nullable=True)
+    referred_driver_name = db.Column(db.String(120), nullable=False, default="")
+    amount = db.Column(Numeric(10, 2), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
 class SupportMessage(db.Model):
     """A typed message from the pre-booking 'Chat with us' widget.
     The widget is available always (no booking, no trip), and its
@@ -2632,6 +2677,27 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("suspended_until column check failed: %s", exc)
+    # Same pattern for the driver referral columns (added with the
+    # driver referral link, 2026-11-18). Nullable, so existing driver
+    # rows keep working with no referral code (minted on first
+    # referral-section load) and no referrer.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "referral_code" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE drivers ADD COLUMN referral_code VARCHAR(40)")
+                )
+        if "referred_by_driver_id" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE drivers ADD COLUMN referred_by_driver_id INTEGER")
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("driver referral column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -2660,6 +2726,174 @@ def generate_referral_code() -> str:
         code = "NOEL-" + "".join(secrets.choice(alphabet) for _ in range(6))
         if not ReferralCode.query.filter_by(code=code).first():
             return code
+
+
+# --- Driver referral link (owner decision 2026-11-18, voice call +
+# chat confirmation 09:35 EST). The driver referral is a shareable
+# LINK, not a code number: the driver sends the link to a friend, the
+# friend clicks it and lands straight in driver registration, and
+# Noel pays the referring driver $5 in cash for each job the referred
+# driver completes, up to the referred driver's first 15 jobs (max
+# $75). The new driver pays nothing. Tracking only — no money moves,
+# like the existing payout tracking. SEPARATE from the customer
+# referral: different table, different code namespace, different
+# link; a customer code can never resolve to a driver.
+# DEFAULTS (flagged for the owner — he can change any of them): the
+# "DRV-" code prefix, the $5 / 15-job figures as constants, and the
+# referral section living on the driver app's Profile screen.
+DRIVER_REFERRAL_CREDIT = Decimal("5.00")
+DRIVER_REFERRAL_MAX_JOBS = 15
+
+
+def generate_driver_referral_code() -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    while True:
+        code = "DRV-" + "".join(secrets.choice(alphabet) for _ in range(6))
+        if not Driver.query.filter_by(referral_code=code).first():
+            return code
+
+
+def driver_referral_code(driver):
+    """The driver's stable referral code, or None. getattr-based so a
+    driver row read before the column existed degrades to 'no code'
+    instead of raising."""
+    return getattr(driver, "referral_code", None)
+
+
+def driver_referred_by_id(driver):
+    """The id of the driver who referred this driver, or None.
+    getattr-based, same degradation as driver_referral_code."""
+    return getattr(driver, "referred_by_driver_id", None)
+
+
+def ensure_driver_referral_code(driver):
+    """The driver's stable referral code, minting one for drivers
+    registered before referral codes existed. Returns (code, minted):
+    the caller commits when a code was minted."""
+    code = driver_referral_code(driver)
+    if code:
+        return code, False
+    code = generate_driver_referral_code()
+    driver.referral_code = code
+    return code, True
+
+
+def record_driver_referral_credit(booking, driver):
+    """Credit $5 to the referrer when a referred driver completes a
+    job, for the referred driver's first 15 completed jobs only.
+    Called from the trip-complete branch, in the same transaction as
+    the completion itself (the caller commits). A silent no-op when
+    the driver has no referrer, when the referrer is the driver
+    himself (self-referral earns nothing), or when the first 15 jobs
+    are already counted. Jobs completed before this feature shipped
+    never count: only drivers who registered via a referral link
+    carry a referrer, and referral links only existed from this
+    build on."""
+    referrer_id = driver_referred_by_id(driver)
+    if not referrer_id or referrer_id == driver.id:
+        return None
+    counted = DriverReferralCredit.query.filter_by(
+        referred_driver_id=driver.id,
+        referrer_driver_id=referrer_id).count()
+    if counted >= DRIVER_REFERRAL_MAX_JOBS:
+        return None
+    referrer = db.session.get(Driver, referrer_id)
+    credit = DriverReferralCredit(
+        booking_id=booking.id,
+        referrer_driver_id=referrer_id,
+        referrer_name=referrer.name if referrer else "",
+        referred_driver_id=driver.id,
+        referred_driver_name=driver.name,
+        amount=DRIVER_REFERRAL_CREDIT,
+    )
+    db.session.add(credit)
+    return credit
+
+
+def driver_referral_summary(driver):
+    """The signed-in driver's own referral view: his code, his total
+    referral earnings, and one row per driver he referred (jobs
+    counted out of the first 15, dollars earned). His own earnings
+    only — never another driver's fares or totals."""
+    friends = Driver.query.filter(
+        Driver.referred_by_driver_id == driver.id).order_by(
+            Driver.created_at, Driver.id).all()
+    breakdown = []
+    total_jobs = 0
+    total_earned = Decimal("0.00")
+    for friend in friends:
+        credits = DriverReferralCredit.query.filter_by(
+            referred_driver_id=friend.id,
+            referrer_driver_id=driver.id).all()
+        jobs = len(credits)
+        earned = sum((c.amount or Decimal("0.00") for c in credits),
+                     Decimal("0.00"))
+        total_jobs += jobs
+        total_earned += earned
+        breakdown.append({
+            "name": friend.name,
+            "jobs_counted": jobs,
+            "earned": num(earned),
+            "registered_at": iso(friend.created_at),
+        })
+    return {
+        "referral_code": driver_referral_code(driver),
+        "credit_per_job": num(DRIVER_REFERRAL_CREDIT),
+        "max_jobs_per_driver": DRIVER_REFERRAL_MAX_JOBS,
+        "total_earned": num(total_earned),
+        "jobs_counted": total_jobs,
+        "referred_drivers": breakdown,
+    }
+
+
+def driver_referral_records():
+    """Merged referral relationships for the owner dashboard: every
+    driver who registered via a referral link (including friends with
+    no completed jobs yet) plus every credit aggregate (which
+    survives the test-only driver clear via its name snapshots).
+    Read-only information — no action, no approval step."""
+    rows = {}
+    referred = Driver.query.filter(
+        Driver.referred_by_driver_id.isnot(None)).order_by(
+            Driver.created_at, Driver.id).all()
+    for d in referred:
+        referrer_id = driver_referred_by_id(d)
+        referrer = db.session.get(Driver, referrer_id) if referrer_id else None
+        rows[(referrer_id, d.id)] = {
+            "referrer_driver_id": referrer_id,
+            "referrer_name": referrer.name if referrer else "",
+            "referred_driver_id": d.id,
+            "referred_driver_name": d.name,
+            "registered_at": iso(d.created_at),
+            "jobs_counted": 0,
+            "earned": Decimal("0.00"),
+        }
+    for c in DriverReferralCredit.query.order_by(DriverReferralCredit.id).all():
+        key = (c.referrer_driver_id, c.referred_driver_id)
+        row = rows.get(key)
+        if row is None:
+            row = {
+                "referrer_driver_id": c.referrer_driver_id,
+                "referrer_name": c.referrer_name,
+                "referred_driver_id": c.referred_driver_id,
+                "referred_driver_name": c.referred_driver_name,
+                "registered_at": None,
+                "jobs_counted": 0,
+                "earned": Decimal("0.00"),
+            }
+            rows[key] = row
+        if not row["referrer_name"]:
+            row["referrer_name"] = c.referrer_name
+        if not row["referred_driver_name"]:
+            row["referred_driver_name"] = c.referred_driver_name
+        row["jobs_counted"] += 1
+        row["earned"] = row["earned"] + (c.amount or Decimal("0.00"))
+    records = sorted(
+        rows.values(),
+        key=lambda r: (r["referrer_name"] or "", r["referred_driver_name"] or ""))
+    for r in records:
+        r["earned"] = num(r["earned"])
+    return records
 
 
 def add_event(booking_id, event_type, message):
@@ -4063,6 +4297,26 @@ def register_driver():
     if email and Driver.query.filter(func.lower(Driver.email) == email).first():
         return err("A driver with this email address is already registered.", 409)
 
+    # Driver referral link (owner decision 2026-11-18): registration
+    # that arrived via /driver?ref=CODE carries the referrer's code in
+    # a hidden form field — the form itself has no extra field or
+    # step. An unknown code is ignored (fail-soft: registration
+    # proceeds normally with no referrer, never blocked), and a code
+    # belonging to the same person (same phone/email) earns nothing.
+    # Customer "NOEL-" codes live in a separate table and never
+    # resolve here.
+    referrer = None
+    ref_code = (form.get("referral_code") or "").strip().upper() or None
+    if ref_code:
+        try:
+            referrer = Driver.query.filter_by(referral_code=ref_code).first()
+        except Exception:
+            referrer = None
+        if referrer and (referrer.phone == phone or
+                         (email and referrer.email and
+                          referrer.email.lower() == email)):
+            referrer = None
+
     # Password for email+password sign-in (owner decision 2026-11-18,
     # "complete sign in process banao"). The driver-app form always
     # sends it (required there); registrations that omit it keep
@@ -4170,6 +4424,11 @@ def register_driver():
         password_hash=password_hash,
         state=state,
         city=city,
+        # Every driver gets his own stable referral code at
+        # registration, and the referrer (if any) is stored so his
+        # first 15 completed jobs credit $5 each to the referrer.
+        referral_code=generate_driver_referral_code(),
+        referred_by_driver_id=referrer.id if referrer else None,
         car_model=car_model,
         car_year=car_year,
         # Vehicle class is derived from the car model, never typed in.
@@ -4233,6 +4492,24 @@ def driver_me():
         "available": driver.available,
         "suspended_until": iso(driver_suspension_end(driver)),
     }})
+
+
+@app.route("/api/drivers/me/referral", methods=["GET"])
+def driver_referral():
+    """The signed-in driver's own referral view: his stable referral
+    code (the app builds the shareable /driver?ref=CODE link from it,
+    same pattern as the customer referral link), his total referral
+    earnings, and one row per driver he referred. Drivers registered
+    before referral codes existed get a code minted here, on first
+    load — the code is then stable across sessions. His own earnings
+    only, never another driver's fares or totals."""
+    driver, error = require_driver()
+    if error:
+        return error
+    _, minted = ensure_driver_referral_code(driver)
+    if minted:
+        db.session.commit()
+    return jsonify(driver_referral_summary(driver))
 
 
 @app.route("/api/drivers/me/lookup", methods=["POST"])
@@ -4751,6 +5028,12 @@ def driver_trip_event(booking_id):
             booking.driver_earnings = money(booking.driver_earnings + extra["driver_addition"])
         booking.status = "completed"
         booking.completed_at = utcnow()
+        # Driver referral credit (owner decision 2026-11-18): if this
+        # driver registered via a referral link, the referrer earns
+        # $5 for this completed job, up to the driver's first 15
+        # jobs. Same transaction as the completion (the caller
+        # commits below); a silent no-op without a referrer.
+        record_driver_referral_credit(booking, driver)
         total = invoice_total(booking.fare_total, booking.waiting_charge)
         outbox_to_customer(
             booking,
@@ -5327,9 +5610,9 @@ def owner_clear_rides():
     minimum of one year.
 
     Deleted: bookings, chat messages, booking events (alerts),
-    emergency cancel records, payments, decline exclusions and
-    outbox messages. Kept untouched: drivers, their documents and
-    profile photos.
+    emergency cancel records, driver referral credits, payments,
+    decline exclusions and outbox messages. Kept untouched: drivers,
+    their documents and profile photos.
     Referral codes stay valid: a code issued by a deleted booking
     keeps its code and used_count — only the link to the deleted
     booking is detached (issued_booking_id set to NULL) — because
@@ -5344,6 +5627,7 @@ def owner_clear_rides():
         "chat_messages": ChatMessage.query.delete(synchronize_session=False),
         "booking_events": BookingEvent.query.delete(synchronize_session=False),
         "emergency_cancels": EmergencyCancel.query.delete(synchronize_session=False),
+        "driver_referral_credits": DriverReferralCredit.query.delete(synchronize_session=False),
         "payments": Payment.query.delete(synchronize_session=False),
         "booking_exclusions": BookingExclusion.query.delete(synchronize_session=False),
         "outbox_messages": OutboxMessage.query.delete(synchronize_session=False),
@@ -5442,6 +5726,25 @@ def owner_drivers():
         "doc_ids": {doc.doc_type: doc.id for doc in d.documents},
         "bank_masked": bank_masked(d),
     } for d in drivers])
+
+
+@app.route("/api/owner/driver-referrals", methods=["GET"])
+def owner_driver_referrals():
+    """Read-only referral records for the owner dashboard: who
+    referred whom, jobs counted (out of each referred driver's first
+    15), and dollars earned. Information only — no action, no
+    approval step. Tracking only; no money moves here."""
+    error = require_owner()
+    if error:
+        return error
+    records = driver_referral_records()
+    return jsonify({
+        "referrals": records,
+        "total_jobs_counted": sum(r["jobs_counted"] for r in records),
+        "total_earned": num(sum(
+            ((c.amount or Decimal("0.00"))
+             for c in DriverReferralCredit.query.all()), Decimal("0.00"))),
+    })
 
 
 @app.route("/api/owner/documents/<int:doc_id>", methods=["GET"])

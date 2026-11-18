@@ -1096,12 +1096,26 @@ for rel in customer_driver_files:
             hits.append(f"{rel}: {pat} @ {text[max(0, m.start()-30):m.end()+30]!r}")
 check("zero banned rate strings in customer/driver files", not hits, "; ".join(hits[:3]))
 dollar_literals = set()
+per_file_literals = {}
 for rel in customer_driver_files:
     text = open(os.path.join(repo_dir, rel), encoding="utf-8").read()
+    found = set()
     for m in re.finditer(r"\$[0-9][^\s<\"']*", text):
-        dollar_literals.add(m.group(0).rstrip(".,"))
-check("only permitted dollar literal is $1/min",
-      dollar_literals <= {"$1/min"}, str(sorted(dollar_literals)))
+        found.add(m.group(0).rstrip(".,"))
+    per_file_literals[rel] = found
+    dollar_literals |= found
+# $1/min is the waiting charge (shown to the customer); $5 is the
+# driver referral credit in the owner's dictated line "Get $5 in
+# cash for each ride you refer." — his own referral earnings, not a
+# rate, and decided by the owner 2026-11-18. No other dollar literal
+# may appear in customer/driver files.
+check("only permitted dollar literals are $1/min and the $5 driver referral credit",
+      dollar_literals <= {"$1/min", "$5"}, str(sorted(dollar_literals)))
+check("$5 appears only in the driver.html referral section",
+      all("$5" not in per_file_literals[rel]
+          for rel in customer_driver_files if rel != "static/driver.html")
+      and "$5" in per_file_literals["static/driver.html"],
+      str(per_file_literals))
 idx = open(os.path.join(repo_dir, "static/index.html"), encoding="utf-8").read()
 check("options page present in index.html",
       "View options" in idx and "Choose your experience" in idx

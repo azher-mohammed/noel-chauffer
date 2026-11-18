@@ -826,3 +826,46 @@ input, select { font: inherit; }
   font-size: 15px;
   line-height: 1.4;
 }
+
+/* Driver referral (owner decision 2026-11-18): the referral section
+   on the Profile screen. Dark card matching the profile card, with
+   every text colour pinned light — the dark canvas sets near-white
+   text, and unpinned spans on pale boxes went invisible before (see
+   the legibility fix above), so nothing here relies on inheritance
+   for its colour. The Copy/Share row mirrors the customer referral
+   link pattern. */
+#screen-profile .referral-box {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  color: #f2f0ea;
+}
+#screen-profile .referral-box .referral-line {
+  color: var(--white);
+  font-weight: 700;
+  font-size: 16.5px;
+  margin: 0 0 6px;
+}
+#screen-profile .referral-box .form-note { color: #b9b7ae; margin: 0 0 12px; }
+#screen-profile #driver-referral-show-btn { margin-top: 2px; }
+#screen-profile #driver-referral-link-line { color: #f2f0ea; font-size: 14.5px; word-break: break-all; }
+#screen-profile #driver-referral-link-line a { word-break: break-all; color: var(--gold-soft); }
+#screen-profile .referral-actions { display: flex; gap: 10px; margin-top: 10px; }
+#screen-profile .referral-actions .btn-ghost { width: auto; flex: 1; padding: 11px 10px; }
+#screen-profile .referral-total {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 12px 0 8px; margin-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  font-size: 15px; color: #f2f0ea;
+}
+#screen-profile .referral-total .k { color: #b9b7ae; }
+#screen-profile .referral-earn-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  font-size: 15px; color: #f2f0ea;
+}
+#screen-profile .referral-earn-row:last-child { border-bottom: 0; }
+#screen-profile #driver-referral-earnings .form-note { margin: 4px 0 0; }

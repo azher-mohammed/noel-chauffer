@@ -231,6 +231,10 @@ input, select { font: inherit; }
 .referral-box h3 { margin: 0 0 4px; }
 .referral-box p { margin: 4px 0; color: var(--muted); font-size: 14.5px; }
 .referral-box strong { color: var(--gold-soft); }
+#ca-referral-link-line a, #ca-tab-referral-link-line a { word-break: break-all; color: var(--gold-soft); }
+#ca-referral-show-btn, #ca-tab-referral-show-btn { margin-top: 8px; }
+.referral-actions { display: flex; gap: 10px; margin-top: 10px; }
+.referral-actions .btn-ghost { width: auto; flex: 1; padding: 11px 10px; }
 .invoice-panel {
   background: var(--card); border: 1px solid var(--card-line); border-radius: 14px;
   padding: 18px; margin: 16px 0; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);

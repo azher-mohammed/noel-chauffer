@@ -807,9 +807,13 @@
     if (code) {
       show($("ca-referral-code-line"));
       $("ca-referral-code-value").textContent = code;
+      showReferralLink(code, THANKYOU_REFERRAL_IDS);
       showReferralCode(code);
     } else {
       hide($("ca-referral-code-line"));
+      hide($("ca-referral-show-btn"));
+      hide($("ca-referral-link-line"));
+      hide($("ca-referral-link-actions"));
     }
     if (b.ride_type === "one_way") { show($("ca-return-trip-btn")); } else { hide($("ca-return-trip-btn")); }
   }
@@ -1150,6 +1154,92 @@
   /* Greet the first time the Support tab opens. */
   document.querySelector('#ca-tabbar button[data-screen="support"]').addEventListener("click", supportGreet);
 
+  /* ---------- Referral link ---------- */
+  /* The shareable link carries the same code the booking form
+     accepts: https://noelchauffer.com/app?ref=CODE (built from
+     the current origin so it works on every host). Tapping the
+     "Refer a Friend" button reveals the link with Copy and native
+     Share options; the CUSTOMER shares it himself (WhatsApp,
+     message, etc.) — the system sends nothing to friends.
+     Clicking the link opens the Book tab with the code prefilled
+     — see prefillReferralFromUrl below. Booking-time validation
+     is unchanged: an unknown code is rejected exactly as a
+     mistyped one. No benefit or amount is stated anywhere — the
+     benefit is TBD, as on the website. */
+  var THANKYOU_REFERRAL_IDS = {
+    reveal: "ca-referral-show-btn", line: "ca-referral-link-line",
+    anchor: "ca-referral-link-anchor", actions: "ca-referral-link-actions",
+    copy: "ca-referral-copy-btn", share: "ca-referral-share-btn"
+  };
+  var TAB_REFERRAL_IDS = {
+    reveal: "ca-tab-referral-show-btn", line: "ca-tab-referral-link-line",
+    anchor: "ca-tab-referral-link-anchor", actions: "ca-tab-referral-link-actions",
+    copy: "ca-tab-referral-copy-btn", share: "ca-tab-referral-share-btn"
+  };
+  function referralLinkFor(code) {
+    return window.location.origin + "/app?ref=" + encodeURIComponent(code);
+  }
+  function copyTextToClipboard(text, btn) {
+    var label = btn ? btn.textContent : "";
+    function done() {
+      if (!btn) return;
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.textContent = label; }, 2000);
+    }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e) { /* clipboard unavailable */ }
+      document.body.removeChild(ta);
+      done();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else {
+      fallback();
+    }
+  }
+  function showReferralLink(code, ids) {
+    var link = referralLinkFor(code);
+    var anchor = $(ids.anchor);
+    anchor.href = link;
+    anchor.textContent = link;
+    var copyBtn = $(ids.copy);
+    copyBtn.onclick = function () { copyTextToClipboard(link, copyBtn); };
+    var shareBtn = $(ids.share);
+    if (navigator.share) {
+      show(shareBtn);
+      shareBtn.onclick = function () {
+        navigator.share({ title: "Noel Chauffer", url: link }).catch(function () {});
+      };
+    } else {
+      hide(shareBtn);
+    }
+    var revealBtn = $(ids.reveal);
+    revealBtn.onclick = function () {
+      show($(ids.line));
+      show($(ids.actions));
+      hide(revealBtn);
+    };
+    show(revealBtn);
+  }
+  /* A friend arriving via a referral link lands on the Book tab
+     with the code prefilled — no typing needed. No validation
+     here: the booking endpoint rejects unknown codes as usual,
+     so a bad link can never break the page. */
+  (function prefillReferralFromUrl() {
+    var ref = (new URLSearchParams(window.location.search).get("ref") || "").trim();
+    if (!ref) return;
+    var field = $("ca-referral");
+    if (field && !field.value) field.value = ref;
+    showScreen("book");
+  })();
+
   /* ---------- Referral tab ---------- */
   /* Mirrors the website's referral display exactly: the same
      explainer text, the same "Your referral code:" line. A code is
@@ -1161,6 +1251,7 @@
     hide($("ca-tab-referral-empty"));
     show($("ca-tab-referral-line"));
     $("ca-tab-referral-value").textContent = code;
+    showReferralLink(code, TAB_REFERRAL_IDS);
   }
   $("ca-referral-form").addEventListener("submit", function (e) {
     e.preventDefault();

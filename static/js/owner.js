@@ -656,7 +656,9 @@
     { key: "st_george_for_hire_permit", label: "For-Hire Driver Permit (St. George)" },
     { key: "cheyenne_pt_driver_permit", label: "Public Transportation Driver Permit (Cheyenne)" },
     { key: "gillette_pt_driver_permit", label: "Public Transportation Driver Permit (Gillette)" },
-    { key: "clark_county_business_license", label: "Clark County Business License" }
+    { key: "clark_county_business_license", label: "Clark County Business License" },
+    { key: "portland_or_certification", label: "Executive Town Car Driver Certification (Portland)" },
+    { key: "portland_or_business_license", label: "City of Portland Business License" }
   ];
 
   function docIsComplete(value) {

@@ -278,7 +278,9 @@
     doc_st_george_for_hire_permit: "For-Hire Driver Permit (St. George)",
     doc_cheyenne_pt_driver_permit: "Public Transportation Driver Permit (Cheyenne)",
     doc_gillette_pt_driver_permit: "Public Transportation Driver Permit (Gillette)",
-    doc_clark_county_business_license: "Clark County Business License"
+    doc_clark_county_business_license: "Clark County Business License",
+    doc_portland_or_certification: "Executive Town Car Driver Certification (Portland)",
+    doc_portland_or_business_license: "City of Portland Business License"
   };
   /* Document types as the API keys them in `docs` (status strings),
      in display order: the New York list first, then the items only
@@ -456,7 +458,9 @@
     st_george_for_hire_permit: "For-Hire Driver Permit (St. George)",
     cheyenne_pt_driver_permit: "Public Transportation Driver Permit (Cheyenne)",
     gillette_pt_driver_permit: "Public Transportation Driver Permit (Gillette)",
-    clark_county_business_license: "Clark County Business License"
+    clark_county_business_license: "Clark County Business License",
+    portland_or_certification: "Executive Town Car Driver Certification (Portland)",
+    portland_or_business_license: "City of Portland Business License"
   };
   var DOC_TYPE_ORDER = [
     "profile_picture", "dmv_license", "tlc_license", "fh1_insurance",
@@ -501,6 +505,7 @@
     "san_antonio_driver_permit", "st_george_for_hire_permit",
     "cheyenne_pt_driver_permit", "gillette_pt_driver_permit",
     "clark_county_business_license",
+    "portland_or_certification", "portland_or_business_license",
     "al_certificate", "al_form_e", "ca_tcp_permit", "ca_driver_statement",
     "ca_commercial_registration", "ca_inspection_declaration", "co_ll_permit", "co_inspection",
     "co_form_e", "ct_livery_permit", "de_certificate", "de_limo_registration",
@@ -700,7 +705,9 @@
     st_george_for_hire_permit: "doc_st_george_for_hire_permit",
     cheyenne_pt_driver_permit: "doc_cheyenne_pt_driver_permit",
     gillette_pt_driver_permit: "doc_gillette_pt_driver_permit",
-    clark_county_business_license: "doc_clark_county_business_license"
+    clark_county_business_license: "doc_clark_county_business_license",
+    portland_or_certification: "doc_portland_or_certification",
+    portland_or_business_license: "doc_portland_or_business_license"
   };
   var STAGES = ["en_route", "arrived", "start", "complete"];
   var STAGE_BUTTON = {

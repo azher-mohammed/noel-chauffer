@@ -709,14 +709,15 @@ check("Texas cities include Dallas and Fort Worth",
       cities.get("Texas") == ["Austin", "Dallas", "Fort Worth",
                               "Houston", "San Antonio", "Other city"],
       str(cities.get("Texas")))
-check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest + Northeast + South Central batches are the city-specific lists, Fort Worth falls back",
+check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest + Northeast + South Central + West batches are the city-specific lists, Fort Worth falls back",
       set(overrides) == {"Texas", "New York", "Alabama", "Florida",
                          "Louisiana", "Mississippi", "North Carolina",
                          "South Carolina", "Tennessee", "Illinois",
                          "Indiana", "Minnesota", "Missouri", "Nebraska",
                          "Ohio", "Wisconsin", "Maine", "Massachusetts",
                          "New Jersey", "Pennsylvania", "Arkansas", "Idaho",
-                         "Nevada", "Oklahoma", "Utah", "Wyoming"}
+                         "Nevada", "Oklahoma", "Utah", "Wyoming",
+                         "Oregon"}
       and set(overrides["Texas"]) == {"Dallas", "Austin", "Houston",
                                          "San Antonio"}
       and set(overrides["New York"]) == {"Buffalo", "Rochester",
@@ -730,7 +731,7 @@ check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest + Nor
       and set(overrides["North Carolina"]) == {"Charlotte", "Durham"}
       and set(overrides["South Carolina"]) == {"Charleston"}
       and set(overrides["Tennessee"]) == {"Nashville"}
-      and sum(len(c) for c in overrides.values()) == 61
+      and sum(len(c) for c in overrides.values()) == 62
       and overrides["Texas"]["Dallas"]["docs"] == [
           "profile_picture", "dmv_license", "vehicle_registration",
           "dallas_commercial_insurance", "dallas_driver_permit",
@@ -1020,6 +1021,14 @@ check("South Central/Mountain batch overrides: 15 cities; Norman, Denver fall ba
           "profile_picture", "dmv_license", "vehicle_registration",
           "clark_county_business_license"]
       and overrides["Nevada"]["North Las Vegas"]["local_note"] is True,
+      str(overrides))
+check("West/Pacific batch override: Portland, OR; Anchorage, Fairbanks, Juneau fall back",
+      set(overrides["Oregon"]) == {"Portland"}
+      and "Alaska" not in overrides
+      and overrides["Oregon"]["Portland"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "portland_or_certification", "portland_or_business_license"]
+      and overrides["Oregon"]["Portland"]["local_note"] is True,
       str(overrides))
 check("city payload carries no count or quantity field",
       all("count" not in c and "quantity" not in c

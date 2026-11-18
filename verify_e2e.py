@@ -1239,14 +1239,15 @@ check("cities served for all 51 jurisdictions, Other city fallback last",
       and all(names and names[-1] == "Other city"
               and names[:-1] == sorted(names[:-1])
               for names in cities.values()), str(len(cities)))
-check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest + Northeast + South Central batches are the city-specific lists, Fort Worth falls back",
+check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest + Northeast + South Central + West batches are the city-specific lists, Fort Worth falls back",
       set(overrides) == {"Texas", "New York", "Alabama", "Florida",
                          "Louisiana", "Mississippi", "North Carolina",
                          "South Carolina", "Tennessee", "Illinois",
                          "Indiana", "Minnesota", "Missouri", "Nebraska",
                          "Ohio", "Wisconsin", "Maine", "Massachusetts",
                          "New Jersey", "Pennsylvania", "Arkansas", "Idaho",
-                         "Nevada", "Oklahoma", "Utah", "Wyoming"}
+                         "Nevada", "Oklahoma", "Utah", "Wyoming",
+                         "Oregon"}
       and set(overrides["Texas"]) == {"Dallas", "Austin", "Houston",
                                          "San Antonio"}
       and set(overrides["New York"]) == {"Buffalo", "Rochester",
@@ -1260,7 +1261,7 @@ check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest + Nor
       and set(overrides["North Carolina"]) == {"Charlotte", "Durham"}
       and set(overrides["South Carolina"]) == {"Charleston"}
       and set(overrides["Tennessee"]) == {"Nashville"}
-      and sum(len(c) for c in overrides.values()) == 61
+      and sum(len(c) for c in overrides.values()) == 62
       and overrides["Texas"]["Dallas"]["docs"] == [
           "profile_picture", "dmv_license", "vehicle_registration",
           "dallas_commercial_insurance", "dallas_driver_permit",
@@ -1550,6 +1551,14 @@ check("South Central/Mountain batch overrides: 15 cities; Norman, Denver fall ba
           "profile_picture", "dmv_license", "vehicle_registration",
           "clark_county_business_license"]
       and overrides["Nevada"]["North Las Vegas"]["local_note"] is True,
+      str(overrides))
+check("West/Pacific batch override: Portland, OR; Anchorage, Fairbanks, Juneau fall back",
+      set(overrides["Oregon"]) == {"Portland"}
+      and "Alaska" not in overrides
+      and overrides["Oregon"]["Portland"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "portland_or_certification", "portland_or_business_license"]
+      and overrides["Oregon"]["Portland"]["local_note"] is True,
       str(overrides))
 r = anon.get(BASE + "/driver", timeout=TIMEOUT)
 check("served driver page has the city picker after the state picker",

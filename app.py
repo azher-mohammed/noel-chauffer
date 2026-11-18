@@ -292,6 +292,8 @@ DOC_FIELD_MAP = {
     "doc_cheyenne_pt_driver_permit": "cheyenne_pt_driver_permit",
     "doc_gillette_pt_driver_permit": "gillette_pt_driver_permit",
     "doc_clark_county_business_license": "clark_county_business_license",
+    "doc_portland_or_certification": "portland_or_certification",
+    "doc_portland_or_business_license": "portland_or_business_license",
 }
 # doc_type -> multipart field name (profile_picture comes from profile_photo)
 FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
@@ -1516,11 +1518,52 @@ NORTH_LAS_VEGAS_DOC_TYPES = [
     "clark_county_business_license",
 ]
 
-# (state, city) -> city-specific list. 61 cities today (Dallas,
+# West/Pacific batch (owner order 2026-11-17, "every city ka wahan
+# ke rules"; Uber cross-check per the owner instruction of
+# 2026-11-18). The last batch: Portland, OR only. Anchorage,
+# Fairbanks, and Juneau, AK were banked but DROPPED at build-time
+# re-verification (operative code text unretrievable in all three;
+# Juneau limousine coverage unproven from Juneau sources) — all
+# three keep the state-list fallback; see the ledger. No background
+# check anywhere; no age/experience gate; no document count.
+# Portland, OR: Executive Town Car Driver Certification +
+# City of Portland Business License, from current City Code
+# §16.40.370(A) (drivers must be certified/permitted by the City
+# Administrator prior to operating; 1-year term; "Executive Town
+# Car" includes 4-door sedans/SUVs) and §16.40.370(H)
+# (independent-contractor drivers must comply with the Business
+# License Law, Ch. 7.02; no certification without it). The LPT
+# regime (§16.40.670) imposes the identical two requirements for
+# stretch limousines. The code calls it certification via a
+# company-submitted driver list, so the label says certification.
+# Training/testing is process (no named certificate); the ASE
+# inspection is conditional and vehicle-level. The FASTTRACK
+# portal checklist itself is login-gated and unretrieved, so the
+# owner-review note stays ON. Uber cross-check: Uber Portland
+# pages MATCH the business license (free; upload artifact is the
+# Certificate of Compliance, named in the slot hint) but name a
+# display-only TNC for-hire permit instead of the certification —
+# a regime difference, flagged in the ledger; the certification
+# stands on the verbatim code text. The Uber-named vehicle
+# inspection form is NOT built (in-person step; flagged to the
+# parent per the registration-ease rule). Generic vehicle
+# insurance is NOT added (Uber US-wide upload, not a
+# Portland-named document; Oregon fallback cities keep the
+# insurance slot via the generic state list).
+PORTLAND_OR_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "portland_or_certification",
+    "portland_or_business_license",
+]
+
+# (state, city) -> city-specific list. 62 cities today (Dallas,
 # Buffalo, Rochester, Syracuse, Yonkers, the 16-city Southeast
 # batch, the 18-city Midwest batch, the 7-city Northeast batch,
-# and the 15-city South Central/Mountain batch); a city is added
-# here ONLY with a verified official source naming its items.
+# the 15-city South Central/Mountain batch, and Portland, OR);
+# a city is added here ONLY with a verified official source
+# naming its items.
 CITY_DOC_REQUIREMENTS = {
     ("Texas", "Dallas"): DALLAS_DOC_TYPES,
     ("New York", "Buffalo"): BUFFALO_DOC_TYPES,
@@ -1583,6 +1626,7 @@ CITY_DOC_REQUIREMENTS = {
     ("Nevada", "Henderson"): HENDERSON_DOC_TYPES,
     ("Nevada", "Las Vegas"): LAS_VEGAS_DOC_TYPES,
     ("Nevada", "North Las Vegas"): NORTH_LAS_VEGAS_DOC_TYPES,
+    ("Oregon", "Portland"): PORTLAND_OR_DOC_TYPES,
 }
 
 # City-specific lists that KEEP the owner-review note: Buffalo's
@@ -1614,7 +1658,8 @@ CITY_DOC_REQUIREMENTS = {
 # OR-alternative (Idaho Falls), conditional or unverified items
 # (Austin, San Antonio), a code-text gap (St. George), or the
 # Clark County livery-scope question (Henderson, Las Vegas,
-# North Las Vegas).
+# North Las Vegas). Portland, OR keeps it for the unretrieved
+# FASTTRACK portal checklist.
 CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
     ("New York", "Buffalo"),
     ("New York", "Rochester"),
@@ -1655,6 +1700,7 @@ CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
     ("Nevada", "Henderson"),
     ("Nevada", "Las Vegas"),
     ("Nevada", "North Las Vegas"),
+    ("Oregon", "Portland"),
 })
 
 
@@ -1857,6 +1903,8 @@ ALL_DOC_LABELS.update({
     "cheyenne_pt_driver_permit": "Public Transportation Driver Permit (Cheyenne)",
     "gillette_pt_driver_permit": "Public Transportation Driver Permit (Gillette)",
     "clark_county_business_license": "Clark County Business License",
+    "portland_or_certification": "Executive Town Car Driver Certification (Portland)",
+    "portland_or_business_license": "City of Portland Business License",
 })
 # Hint line under each document item in the registration form.
 DOC_HINTS = {
@@ -2031,6 +2079,8 @@ DOC_HINTS = {
     "cheyenne_pt_driver_permit": "Photo of your Public Transportation Driver Permit (Cheyenne), straight and fully visible.",
     "gillette_pt_driver_permit": "Photo of your Public Transportation Driver Permit (Gillette), straight and fully visible.",
     "clark_county_business_license": "Photo of your Clark County Business License, straight and fully visible.",
+    "portland_or_certification": "Photo of your Executive Town Car Driver Certification (Portland), straight and fully visible.",
+    "portland_or_business_license": "Photo of your City of Portland Business License (Certificate of Compliance), straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived

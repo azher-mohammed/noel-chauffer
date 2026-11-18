@@ -126,7 +126,8 @@ class BuffaloDocumentsCase(unittest.TestCase):
                           "Indiana", "Minnesota", "Missouri", "Nebraska",
                           "Ohio", "Wisconsin", "Maine", "Massachusetts",
                           "New Jersey", "Pennsylvania", "Arkansas", "Idaho",
-                          "Nevada", "Oklahoma", "Utah", "Wyoming"})
+                          "Nevada", "Oklahoma", "Utah", "Wyoming",
+                          "Oregon"})
         self.assertEqual(set(overrides["Texas"]),
                          {"Dallas", "Austin", "Houston", "San Antonio"})
         self.assertEqual(set(overrides["New York"]),

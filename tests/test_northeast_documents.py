@@ -98,7 +98,6 @@ FALLBACK_CITIES = [
     ("Pennsylvania", "Pittsburgh"),
     ("Vermont", "Rutland"),
     ("Vermont", "Burlington"),
-    ("Oregon", "Portland"),
 ]
 
 
@@ -147,7 +146,7 @@ class NortheastDocumentsCase(unittest.TestCase):
                                 content_type="multipart/form-data")
 
     # -- endpoint -------------------------------------------------------------
-    def test_city_requirements_cover_all_61_overrides(self):
+    def test_city_requirements_cover_all_62_overrides(self):
         payload = self.client.get("/api/states").get_json()
         overrides = payload["city_requirements"]
         self.assertEqual(set(overrides),
@@ -157,7 +156,8 @@ class NortheastDocumentsCase(unittest.TestCase):
                           "Indiana", "Minnesota", "Missouri", "Nebraska",
                           "Ohio", "Wisconsin", "Maine", "Massachusetts",
                           "New Jersey", "Pennsylvania", "Arkansas", "Idaho",
-                          "Nevada", "Oklahoma", "Utah", "Wyoming"})
+                          "Nevada", "Oklahoma", "Utah", "Wyoming",
+                          "Oregon"})
         self.assertEqual(set(overrides["Maine"]),
                          {"Portland", "South Portland"})
         self.assertEqual(set(overrides["Massachusetts"]),
@@ -165,7 +165,7 @@ class NortheastDocumentsCase(unittest.TestCase):
         self.assertEqual(set(overrides["New Jersey"]), {"Jersey City"})
         self.assertEqual(set(overrides["Pennsylvania"]), {"Philadelphia"})
         total = sum(len(cities) for cities in overrides.values())
-        self.assertEqual(total, 61)
+        self.assertEqual(total, 62)
         for (state, city), (docs, note) in EXPECTED.items():
             with self.subTest(state=state, city=city):
                 got = overrides[state][city]
@@ -246,7 +246,7 @@ class NortheastDocumentsCase(unittest.TestCase):
             app_module.required_docs_for("Massachusetts", "Springfield"),
             app_module.required_docs_for("Missouri", "Springfield"))
         # Portland, ME is a different list from Portland, OR (which
-        # keeps the Oregon state list until the West batch).
+        # has its own list since the West batch).
         self.assertNotEqual(
             app_module.required_docs_for("Maine", "Portland"),
             app_module.required_docs_for("Oregon", "Portland"))

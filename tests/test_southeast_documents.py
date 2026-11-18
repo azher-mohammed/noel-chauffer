@@ -175,7 +175,8 @@ class SoutheastDocumentsCase(unittest.TestCase):
                           "Indiana", "Minnesota", "Missouri", "Nebraska",
                           "Ohio", "Wisconsin", "Maine", "Massachusetts",
                           "New Jersey", "Pennsylvania", "Arkansas", "Idaho",
-                          "Nevada", "Oklahoma", "Utah", "Wyoming"})
+                          "Nevada", "Oklahoma", "Utah", "Wyoming",
+                          "Oregon"})
         self.assertEqual(set(overrides["Texas"]),
                          {"Dallas", "Austin", "Houston", "San Antonio"})
         self.assertEqual(set(overrides["New York"]),
@@ -193,7 +194,7 @@ class SoutheastDocumentsCase(unittest.TestCase):
         self.assertEqual(set(overrides["South Carolina"]), {"Charleston"})
         self.assertEqual(set(overrides["Tennessee"]), {"Nashville"})
         total = sum(len(cities) for cities in overrides.values())
-        self.assertEqual(total, 61)
+        self.assertEqual(total, 62)
         for (state, city), (docs, note) in EXPECTED.items():
             with self.subTest(state=state, city=city):
                 got = overrides[state][city]

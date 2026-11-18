@@ -127,7 +127,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ### Checks
 
 ```bash
-python -m unittest discover -s tests -v   # unit tests (362)
+python -m unittest discover -s tests -v   # unit tests (400)
 python smoke_test.py                       # backend flow checks (148)
 ```
 

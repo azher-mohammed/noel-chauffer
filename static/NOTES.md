@@ -123,6 +123,16 @@ separate options page; picking a class proceeds to payment.
 - Trip stages Head to pickup / Arrived / Start / Complete, plus Cancel
   and No-show, waiting minutes at completion
   → `POST /api/drivers/me/trip/<id>/event`
+- Arrival / completion proximity gates (owner decision 2026-11-17):
+  "I have arrived" only within 100 m of the pickup coordinates and
+  "Complete trip" only within 100 m of the drop-off coordinates,
+  enforced server-side in the event endpoint (409 with a plain-English
+  message) and client-side (button disabled + explanation until in
+  range; a fresh GPS position is sent with every gated advance).
+  Hourly rides have no drop-off, so their completion stays ungated;
+  a trip without stored coordinates for the relevant end cannot be
+  verified and stays ungated. No location, no silent bypass: the
+  button explains that location is needed.
 - Location sharing while heading to pickup (browser geolocation, with a
   graceful fallback when denied or unavailable)
   → `POST /api/drivers/me/trip/<id>/location`

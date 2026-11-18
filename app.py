@@ -1661,6 +1661,10 @@ def driver_active_trip():
         "id": booking.id,
         "pickup": booking.pickup,
         "dropoff": booking.dropoff,
+        "pickup_lat": booking.pickup_lat,
+        "pickup_lng": booking.pickup_lng,
+        "dropoff_lat": booking.dropoff_lat,
+        "dropoff_lng": booking.dropoff_lng,
         "date": booking.date,
         "time": booking.time,
         "ride_type": booking.ride_type,
@@ -1801,6 +1805,10 @@ def driver_accept(booking_id):
         "id": booking.id,
         "pickup": booking.pickup,
         "dropoff": booking.dropoff,
+        "pickup_lat": booking.pickup_lat,
+        "pickup_lng": booking.pickup_lng,
+        "dropoff_lat": booking.dropoff_lat,
+        "dropoff_lng": booking.dropoff_lng,
         "date": booking.date,
         "time": booking.time,
         "ride_type": booking.ride_type,
@@ -1845,6 +1853,53 @@ def driver_decline(booking_id):
     return jsonify({"excluded": True, "booking_id": booking_id})
 
 
+# Arrival / completion proximity gates (owner decision 2026-11-17,
+# fraud prevention): a driver must actually be at the pickup to mark
+# arrived, and at the drop-off to complete the trip. Hourly rides
+# have no drop-off, so their completion stays ungated.
+PROXIMITY_GATE_METERS = 100.0
+METERS_PER_MILE = 1609.344
+
+
+def proximity_gate_error(booking, event, data):
+    """Error message when a gated stage advance is attempted from
+    outside 100 m of the relevant end, else None.
+
+    Only 'arrived' and 'complete' are gated. A booking without stored
+    coordinates for the relevant end cannot be verified, so the
+    advance is allowed (old and test rides keep working). A request
+    that carries no position is likewise allowed: the driver app
+    requires location before it sends a gated advance and explains
+    when location is unavailable, so the no-position case is the
+    client's to enforce; the server rejects any position it IS
+    given that is out of range.
+    """
+    if event == "arrived":
+        target_lat, target_lng = booking.pickup_lat, booking.pickup_lng
+        message = "You must be at the pickup location to mark arrived."
+    elif event == "complete":
+        if booking.ride_type == "hourly":
+            return None
+        target_lat, target_lng = booking.dropoff_lat, booking.dropoff_lng
+        message = "You must be at the drop-off location to complete the trip."
+    else:
+        return None
+    if target_lat is None or target_lng is None:
+        return None
+    if data.get("lat") is None or data.get("lng") is None:
+        return None
+    try:
+        lat = float(data["lat"])
+        lng = float(data["lng"])
+    except (TypeError, ValueError):
+        return None
+    distance_m = (geo_module.haversine_miles(lat, lng, target_lat, target_lng)
+                  * METERS_PER_MILE)
+    if distance_m > PROXIMITY_GATE_METERS:
+        return message
+    return None
+
+
 @app.route("/api/drivers/me/trip/<int:booking_id>/event", methods=["POST"])
 def driver_trip_event(booking_id):
     driver, error = require_driver()
@@ -1872,6 +1927,9 @@ def driver_trip_event(booking_id):
     elif event == "arrived":
         if booking.status != "en_route":
             return err("Cannot mark arrived before heading to pickup.", 409)
+        gate_err = proximity_gate_error(booking, event, data)
+        if gate_err:
+            return err(gate_err, 409)
         booking.status = "arrived"
         add_event(booking.id, "trip_arrived", f"Driver {driver.name} arrived at pickup for booking #{booking.id}.")
     elif event == "start":
@@ -1882,6 +1940,9 @@ def driver_trip_event(booking_id):
     elif event == "complete":
         if booking.status not in ("in_progress", "arrived"):
             return err("Cannot complete a ride that has not started.", 409)
+        gate_err = proximity_gate_error(booking, event, data)
+        if gate_err:
+            return err(gate_err, 409)
         waiting_minutes = int(data.get("waiting_minutes") or 0)
         booking.waiting_minutes = max(0, waiting_minutes)
         booking.waiting_charge = waiting_charge(booking.pickup, booking.waiting_minutes)

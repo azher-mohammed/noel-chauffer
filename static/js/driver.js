@@ -126,6 +126,9 @@
     trip: null,
     stageIndex: 0,
     watchId: null,
+    lastPosition: null,
+    locationError: false,
+    advancing: false,
     seenOfferIds: {},
     toneTimer: null,
     toneStopAt: 0,
@@ -248,6 +251,10 @@
       id: b.booking_id || b.id || fallbackId,
       pickup: b.pickup,
       dropoff: b.dropoff,
+      pickup_lat: pickNumber(b, ["pickup_lat"]),
+      pickup_lng: pickNumber(b, ["pickup_lng"]),
+      dropoff_lat: pickNumber(b, ["dropoff_lat"]),
+      dropoff_lng: pickNumber(b, ["dropoff_lng"]),
       date: b.date,
       time: b.time,
       ride_type: b.ride_type,
@@ -904,6 +911,93 @@
     startChatPolling();
     $("trip-error").textContent = "";
   }
+  /* ---------- Arrival / completion proximity gates ---------- */
+  /* Owner rule 2026-11-17 (fraud prevention): "I have arrived" only
+     within 100 m of the pickup, "Complete trip" only within 100 m
+     of the drop-off. Hourly rides have no drop-off, so their
+     completion stays ungated; a trip without stored coordinates
+     for the relevant end cannot be verified and stays ungated too.
+     The server enforces the same rule on any position it is given;
+     this is the visible side of it, and the tap-time check below
+     sends a fresh GPS position with every gated advance. No
+     location, no silent bypass: the button stays disabled and the
+     note explains that location is needed. */
+  var PROXIMITY_GATE_METERS = 100;
+  function haversineMeters(lat1, lng1, lat2, lng2) {
+    var r = 6371000;
+    var p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
+    var dphi = (lat2 - lat1) * Math.PI / 180;
+    var dlambda = (lng2 - lng1) * Math.PI / 180;
+    var a = Math.sin(dphi / 2) * Math.sin(dphi / 2) +
+      Math.cos(p1) * Math.cos(p2) * Math.sin(dlambda / 2) * Math.sin(dlambda / 2);
+    return 2 * r * Math.asin(Math.sqrt(a));
+  }
+  function gateTarget() {
+    var current = STAGES[state.stageIndex];
+    var t = state.trip;
+    if (!t) return null;
+    if (current === "arrived") {
+      if (t.pickup_lat === null || t.pickup_lng === null) return null;
+      return { lat: t.pickup_lat, lng: t.pickup_lng, kind: "pickup" };
+    }
+    if (current === "complete") {
+      if (t.ride_type === "hourly") return null;
+      if (t.dropoff_lat === null || t.dropoff_lng === null) return null;
+      return { lat: t.dropoff_lat, lng: t.dropoff_lng, kind: "dropoff" };
+    }
+    return null;
+  }
+  function gateMessage(target) {
+    return target.kind === "pickup"
+      ? "You must be at the pickup location to mark arrived."
+      : "You must be at the drop-off location to complete the trip.";
+  }
+  function refreshGateNote() {
+    var btn = $("trip-next-btn");
+    var note = $("trip-gate-note");
+    var target = gateTarget();
+    if (!target) {
+      hide(note);
+      if (!state.advancing) btn.disabled = false;
+      return;
+    }
+    if (!("geolocation" in navigator)) {
+      note.textContent = "Location is needed to mark this step. This device does not support location sharing.";
+      show(note);
+      if (!state.advancing) btn.disabled = true;
+      return;
+    }
+    if (!state.lastPosition) {
+      note.textContent = state.locationError
+        ? "Location is needed to mark this step. Please allow location access and try again."
+        : "Waiting for your location…";
+      show(note);
+      if (!state.advancing) btn.disabled = true;
+      return;
+    }
+    var d = haversineMeters(state.lastPosition.lat, state.lastPosition.lng, target.lat, target.lng);
+    if (d <= PROXIMITY_GATE_METERS) {
+      hide(note);
+      if (!state.advancing) btn.disabled = false;
+    } else {
+      note.textContent = gateMessage(target);
+      show(note);
+      if (!state.advancing) btn.disabled = true;
+    }
+  }
+  function getFreshPosition(cb) {
+    if (!("geolocation" in navigator)) { cb(null); return; }
+    try {
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          state.lastPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          state.locationError = false;
+          cb(state.lastPosition);
+        },
+        function () { state.locationError = true; cb(null); },
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
+    } catch (e) { cb(null); }
+  }
   function renderStages() {
     var items = document.querySelectorAll("#stage-list li");
     items.forEach(function (li, i) {
@@ -930,6 +1024,7 @@
     renderTripNavLinks();
     refreshNoShowButton();
     refreshCancelButton();
+    refreshGateNote();
   }
   /* Driver cancel lock (owner rule 2026-11-17): once pickup is within
      2 hours, the driver cannot cancel the accepted job. The button is
@@ -1079,9 +1174,10 @@
   }
   $("trip-next-btn").addEventListener("click", function () {
     var current = STAGES[state.stageIndex];
-    if (!current || !state.trip) return;
+    if (!current || !state.trip || state.advancing) return;
     var btn = $("trip-next-btn");
     btn.disabled = true;
+    state.advancing = true;
     var extra = {};
     if (current === "complete") {
       var w = parseInt($("waiting-minutes").value, 10);
@@ -1091,11 +1187,41 @@
         if (!isNaN(em) && em > 0) extra.extra_miles = em;
       }
     }
+    var target = gateTarget();
+    if (!target) { advanceStage(current, extra, btn); return; }
+    /* Gated step: verify a fresh GPS position before the server is
+       asked, and send that position with the advance so the server
+       can check it too. No location, no advance — the error
+       explains that location is needed. */
+    getFreshPosition(function (pos) {
+      if (!pos) {
+        state.advancing = false;
+        btn.disabled = false;
+        $("trip-error").textContent = "Location is needed to mark this step. Please allow location access and try again.";
+        refreshGateNote();
+        return;
+      }
+      var d = haversineMeters(pos.lat, pos.lng, target.lat, target.lng);
+      if (d > PROXIMITY_GATE_METERS) {
+        state.advancing = false;
+        btn.disabled = false;
+        $("trip-error").textContent = gateMessage(target);
+        refreshGateNote();
+        return;
+      }
+      extra.lat = pos.lat;
+      extra.lng = pos.lng;
+      advanceStage(current, extra, btn);
+    });
+  });
+  function advanceStage(current, extra, btn) {
     postTripEvent(current, extra)
       .then(function (res) {
+        state.advancing = false;
         btn.disabled = false;
         if (!res.ok) {
           $("trip-error").textContent = (res.j && (res.j.error || res.j.message)) || "That step could not be saved. Please try again.";
+          refreshGateNote();
           return;
         }
         if (current === "en_route") { startLocationSharing(); }
@@ -1109,10 +1235,12 @@
         maybeShowNavChooser(current);
       })
       .catch(function () {
+        state.advancing = false;
         btn.disabled = false;
         $("trip-error").textContent = "Could not reach the service. Please try again.";
+        refreshGateNote();
       });
-  });
+  }
   $("trip-cancel-btn").addEventListener("click", function () {
     if (!state.trip) return;
     if (!window.confirm("Cancel this job? The job goes to the next driver automatically.")) return;
@@ -1140,7 +1268,11 @@
     hideNavChooser();
     state.trip = null;
     state.stageIndex = 0;
+    state.lastPosition = null;
+    state.locationError = false;
+    state.advancing = false;
     hide($("loc-note"));
+    hide($("trip-gate-note"));
     hide($("trip-noshow-btn"));
     showScreen("home");
     refreshOffers();
@@ -1158,6 +1290,9 @@
     show(note);
     var send = function (pos) {
       if (!state.trip) return;
+      state.lastPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      state.locationError = false;
+      refreshGateNote();
       fetch("/api/drivers/me/trip/" + encodeURIComponent(state.trip.id) + "/location", {
         method: "POST",
         headers: authHeaders({ "Content-Type": "application/json" }),
@@ -1165,6 +1300,8 @@
       }).catch(function () { /* a missed update is harmless; the next one follows */ });
     };
     var onErr = function () {
+      state.locationError = true;
+      refreshGateNote();
       note.textContent = "Location sharing is off. The trip can continue without it — the customer will not see live movement.";
     };
     try {

@@ -74,7 +74,7 @@ input, select { font: inherit; }
   max-height: 264px; overflow-y: auto;
 }
 .car-model-list li button, .state-list li button, .city-list li button {
-  display: block; width: 100%; text-align: left;
+  display: block; width: 100%; text-align: left; color: var(--black);
   background: var(--white); border: 0; border-bottom: 1px solid var(--line);
   padding: 10px 12px; font-size: 15px;
 }

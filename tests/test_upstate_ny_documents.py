@@ -176,7 +176,9 @@ class UpstateNYDocumentsCase(unittest.TestCase):
         self.assertEqual(set(overrides),
                          {"Texas", "New York", "Alabama", "Florida",
                           "Louisiana", "Mississippi", "North Carolina",
-                          "South Carolina", "Tennessee"})
+                          "South Carolina", "Tennessee", "Illinois",
+                          "Indiana", "Minnesota", "Missouri", "Nebraska",
+                          "Ohio", "Wisconsin"})
         self.assertEqual(set(overrides["Texas"]), {"Dallas"})
         self.assertEqual(set(overrides["New York"]),
                          {"Buffalo", "Rochester", "Syracuse", "Yonkers"})
@@ -334,9 +336,16 @@ class UpstateNYDocumentsCase(unittest.TestCase):
         self.assertFalse(app_module.local_note_for("New York", "Albany"))
         self.assertFalse(app_module.local_note_for("New York", "New York"))
         self.assertFalse(app_module.local_note_for("New York", None))
-        # Minnesota's Rochester is a different city: the (state,
-        # city) key keeps it on the Minnesota state list.
+        # Minnesota's Rochester is a different city with its OWN
+        # list (Midwest batch): the (state, city) key keeps the two
+        # Rochesters apart.
         self.assertEqual(
+            app_module.required_docs_for("Minnesota", "Rochester"),
+            app_module.ROCHESTER_MN_DOC_TYPES)
+        self.assertNotEqual(
+            app_module.required_docs_for("Minnesota", "Rochester"),
+            app_module.required_docs_for("New York", "Rochester"))
+        self.assertNotEqual(
             app_module.required_docs_for("Minnesota", "Rochester"),
             app_module.required_docs_for_state("Minnesota"))
 

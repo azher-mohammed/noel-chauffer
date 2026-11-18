@@ -243,6 +243,34 @@ DOC_FIELD_MAP = {
     "doc_charleston_driving_record": "charleston_driving_record",
     "doc_nashville_opvh_permit": "nashville_opvh_permit",
     "doc_nashville_mvr": "nashville_mvr",
+    "doc_chicago_chauffeur_license": "chicago_chauffeur_license",
+    "doc_chicago_livery_vehicle_license": "chicago_livery_vehicle_license",
+    "doc_chicago_insurance_certificate": "chicago_insurance_certificate",
+    "doc_rockford_taxi_driver_license": "rockford_taxi_driver_license",
+    "doc_springfield_il_taxi_driver_license": "springfield_il_taxi_driver_license",
+    "doc_evansville_taxi_driver_license": "evansville_taxi_driver_license",
+    "doc_indianapolis_operator_license": "indianapolis_operator_license",
+    "doc_indianapolis_training_certificate": "indianapolis_training_certificate",
+    "doc_indianapolis_bmv_record": "indianapolis_bmv_record",
+    "doc_minneapolis_taxi_driver_license": "minneapolis_taxi_driver_license",
+    "doc_minneapolis_training_certificate": "minneapolis_training_certificate",
+    "doc_rochester_mn_taxi_driver_license": "rochester_mn_taxi_driver_license",
+    "doc_saint_paul_taxi_driver_license": "saint_paul_taxi_driver_license",
+    "doc_saint_paul_training_proof": "saint_paul_training_proof",
+    "doc_columbia_chauffeur_license": "columbia_chauffeur_license",
+    "doc_independence_vehicle_driver_permit": "independence_vehicle_driver_permit",
+    "doc_jefferson_city_taxi_driver_permit": "jefferson_city_taxi_driver_permit",
+    "doc_jefferson_city_driving_record": "jefferson_city_driving_record",
+    "doc_kansas_city_driver_certificate": "kansas_city_driver_certificate",
+    "doc_kansas_city_operating_record": "kansas_city_operating_record",
+    "doc_saint_louis_mtc_license": "saint_louis_mtc_license",
+    "doc_saint_louis_driver_history": "saint_louis_driver_history",
+    "doc_lincoln_taxi_driver_license": "lincoln_taxi_driver_license",
+    "doc_kenosha_taxi_driver_license": "kenosha_taxi_driver_license",
+    "doc_madison_ppv_permit": "madison_ppv_permit",
+    "doc_milwaukee_ppv_license": "milwaukee_ppv_license",
+    "doc_columbus_vfh_license": "columbus_vfh_license",
+    "doc_columbus_bmv_abstract": "columbus_bmv_abstract",
 }
 # doc_type -> multipart field name (profile_picture comes from profile_photo)
 FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
@@ -952,10 +980,241 @@ NASHVILLE_DOC_TYPES = [
     "nashville_mvr",
 ]
 
-# (state, city) -> city-specific list. 21 cities today (Dallas,
-# Buffalo, Rochester, Syracuse, Yonkers, and the 16-city Southeast
-# batch); a city is added here ONLY with a verified official
-# source naming its items.
+# Midwest batch (owner order 2026-11-17, "every city ka wahan ke
+# rules"). City-specific lists, each verified from official sources
+# only — see the ledger (CITY_RESEARCH.md). No background check
+# anywhere; no age/experience gate; no document count. Medical and
+# Social Security items are HELD for owner decisions wherever a
+# city names them (Kansas City, Saint Louis, Springfield IL,
+# Indianapolis) — never gated silently, and the owner-review note
+# stays ON for those cities. Fort Wayne, Sioux Falls, and Toledo
+# were banked but DROPPED at build-time re-verification (Fort
+# Wayne: taxi-only stale chapter, no issuance confirmed; Sioux
+# Falls: no driver-license name, form, or limousine scope
+# verified; Toledo: the cited section is the low-speed-vehicle
+# chapter, and the real chapter's text could not be retrieved) —
+# all three keep the state-list fallback; see the ledger.
+# Chicago, IL: Restricted Livery Public Chauffeur License (BACP)
+# + Livery Vehicle License + Commercial Insurance Certificate
+# ($350k combined single limit, City as additional insured), from
+# the city BACP livery page and Uber's official Chicago
+# vehicle-requirements page. Training, exam, fingerprinting, drug
+# test, and physical are process, not slots.
+# Rockford, IL: Taxi Cab Driver License (city application); the
+# vehicle license expressly applies to livery, so the scope is
+# confirmed and the note stays off.
+# Springfield, IL: Taxicab Driver License (City Clerk). The
+# application asks for a Social Security card photocopy — NO slot
+# without an owner decision — and the taxi-vs-limousine scope is
+# unverified, so the owner-review note stays ON.
+# Evansville, IN: City of Evansville Taxicab Driver License
+# (Municipal Code §5.40.050).
+# Indianapolis, IN: Operator License (public vehicle for hire) +
+# Taxi Training Course Certificate + Certified BMV Driving Record
+# (within 10 days), from the city requirements sheet and Municode
+# Ch. 996. A Social Security / work-authorization card is flagged
+# but NOT a slot; the Super Service certificate is NOT included
+# (scope unverified); the owner-review note stays ON.
+# Minneapolis, MN: Taxi Driver License + Taxi Driver Training
+# Certificate (city business-licenses page). Conditional items
+# (other-state reports, experience proof) and the company
+# authorization are gaps the gate cannot express, and the scope
+# is taxi-framed, so the owner-review note stays ON.
+# Rochester, MN: Taxicab Driver License / Driver Permit ($110/yr,
+# city applications page). The livery scope is flagged, so the
+# owner-review note stays ON. (Rochester, NY keeps its own list.)
+# Saint Paul, MN: Taxicab Driver License + Taxicab Driver
+# Training Course completion proof (city business-licenses page).
+# A DOT medical card appears only on a 2016 form and is omitted
+# from the current page — NOT included.
+# Columbia, MO: Chauffeur License (taxi/limousine expressly
+# included, city business-licenses page). A letter-of-intent gap
+# keeps the owner-review note ON.
+# Independence, MO: Vehicle Driver Permit (Taxi Driver Permit,
+# 2023 application packet). The packet is taxi/jitney/sightseeing
+# framed with a meter requirement, so the scope flag keeps the
+# owner-review note ON.
+# Jefferson City, MO: Taxi Driver Permit + Certified Driving
+# Record (MO DOR), from the current application form (rev.
+# 7-31-2025). The drug/alcohol screening certificate and the
+# fingerprint search are gaps, so the owner-review note stays ON.
+# Kansas City, MO (Missouri side only — never copy Ch. 76 across
+# the state line to Kansas City, KS): Vehicle-for-Hire Driver
+# Certificate (Livery) + State Operating Record (KCMO Regulated
+# Industries, Municode §§76-102/76-103). The physical-exam copy
+# and the Social Security / work-authorization proof are HELD for
+# owner decisions, so the owner-review note stays ON.
+# Saint Louis, MO: MTC Driver License (limousine/premium sedan
+# class) + Missouri Driver History Report (within 10 days), from
+# the Metropolitan Taxicab Commission licensing page. The
+# physical exam results and the Social Security / work-eligibility
+# proof are HELD for owner decisions, so the owner-review note
+# stays ON.
+# Lincoln, NE: Taxicab Driver License (Code Ch. 5.50, city
+# application). Employer-tied and livery-scope flags, and
+# medical/exam gaps, keep the owner-review note ON.
+# Kenosha, WI: Taxi Driver License (active issuance proven in
+# 2025-2026 council minutes). No checklist was found and the
+# livery scope is flagged, so the owner-review note stays ON.
+# Madison, WI: Public Passenger Vehicle Driver Permit (Code
+# Ch. 11, Chief of Police; Municode Ch. 11 + 2023 Dane County
+# decision).
+# Milwaukee, WI: Public Passenger Vehicle Driver License
+# (limousine expressly included; TNC-only drivers exempt, city
+# application ccl-DRN).
+# Columbus, OH: Vehicle for Hire Driver License (Code Ch. 589,
+# incl. livery) + Certified Ohio BMV Driver Abstract (within 30
+# days, required for new or expired applicants), from the City
+# License Section page and the current VFH Driver Application
+# (08-27-26; category checkboxes include "Livery"). The verbatim
+# Ch. 589 code text could not be retrieved (Municode returned
+# 403), so the list rests on the licensing-office sources, not a
+# code quote. The Experience Columbus Insider accreditation is
+# Professional-license-only (conditional, not gated); the BCI
+# background check is never built; the form's last-four SSN
+# digits are a flag, not a slot; and the owner-license
+# affiliation in CCC 589.02(a)(1) is a structural gap — the
+# owner-review note stays ON.
+CHICAGO_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "chicago_chauffeur_license",
+    "chicago_livery_vehicle_license",
+    "chicago_insurance_certificate",
+]
+
+ROCKFORD_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "rockford_taxi_driver_license",
+]
+
+SPRINGFIELD_IL_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "springfield_il_taxi_driver_license",
+]
+
+EVANSVILLE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "evansville_taxi_driver_license",
+]
+
+INDIANAPOLIS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "indianapolis_operator_license",
+    "indianapolis_training_certificate",
+    "indianapolis_bmv_record",
+]
+
+MINNEAPOLIS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "minneapolis_taxi_driver_license",
+    "minneapolis_training_certificate",
+]
+
+ROCHESTER_MN_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "rochester_mn_taxi_driver_license",
+]
+
+SAINT_PAUL_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "saint_paul_taxi_driver_license",
+    "saint_paul_training_proof",
+]
+
+COLUMBIA_MO_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "columbia_chauffeur_license",
+]
+
+INDEPENDENCE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "independence_vehicle_driver_permit",
+]
+
+JEFFERSON_CITY_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "jefferson_city_taxi_driver_permit",
+    "jefferson_city_driving_record",
+]
+
+KANSAS_CITY_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "kansas_city_driver_certificate",
+    "kansas_city_operating_record",
+]
+
+SAINT_LOUIS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "saint_louis_mtc_license",
+    "saint_louis_driver_history",
+]
+
+LINCOLN_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "lincoln_taxi_driver_license",
+]
+
+KENOSHA_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "kenosha_taxi_driver_license",
+]
+
+MADISON_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "madison_ppv_permit",
+]
+
+MILWAUKEE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "milwaukee_ppv_license",
+]
+
+COLUMBUS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "columbus_vfh_license",
+    "columbus_bmv_abstract",
+]
+
+# (state, city) -> city-specific list. 39 cities today (Dallas,
+# Buffalo, Rochester, Syracuse, Yonkers, the 16-city Southeast
+# batch, and the 18-city Midwest batch); a city is added here
+# ONLY with a verified official source naming its items.
 CITY_DOC_REQUIREMENTS = {
     ("Texas", "Dallas"): DALLAS_DOC_TYPES,
     ("New York", "Buffalo"): BUFFALO_DOC_TYPES,
@@ -978,6 +1237,24 @@ CITY_DOC_REQUIREMENTS = {
     ("North Carolina", "Durham"): DURHAM_DOC_TYPES,
     ("South Carolina", "Charleston"): CHARLESTON_DOC_TYPES,
     ("Tennessee", "Nashville"): NASHVILLE_DOC_TYPES,
+    ("Illinois", "Chicago"): CHICAGO_DOC_TYPES,
+    ("Illinois", "Rockford"): ROCKFORD_DOC_TYPES,
+    ("Illinois", "Springfield"): SPRINGFIELD_IL_DOC_TYPES,
+    ("Indiana", "Evansville"): EVANSVILLE_DOC_TYPES,
+    ("Indiana", "Indianapolis"): INDIANAPOLIS_DOC_TYPES,
+    ("Minnesota", "Minneapolis"): MINNEAPOLIS_DOC_TYPES,
+    ("Minnesota", "Rochester"): ROCHESTER_MN_DOC_TYPES,
+    ("Minnesota", "Saint Paul"): SAINT_PAUL_DOC_TYPES,
+    ("Missouri", "Columbia"): COLUMBIA_MO_DOC_TYPES,
+    ("Missouri", "Independence"): INDEPENDENCE_DOC_TYPES,
+    ("Missouri", "Jefferson City"): JEFFERSON_CITY_DOC_TYPES,
+    ("Missouri", "Kansas City"): KANSAS_CITY_DOC_TYPES,
+    ("Missouri", "Saint Louis"): SAINT_LOUIS_DOC_TYPES,
+    ("Nebraska", "Lincoln"): LINCOLN_DOC_TYPES,
+    ("Ohio", "Columbus"): COLUMBUS_DOC_TYPES,
+    ("Wisconsin", "Kenosha"): KENOSHA_DOC_TYPES,
+    ("Wisconsin", "Madison"): MADISON_DOC_TYPES,
+    ("Wisconsin", "Milwaukee"): MILWAUKEE_DOC_TYPES,
 }
 
 # City-specific lists that KEEP the owner-review note: Buffalo's
@@ -995,6 +1272,11 @@ CITY_DOC_REQUIREMENTS = {
 # Huntsville/Montgomery: unretrieved supporting documents;
 # Miami/Charlotte/Durham/Charleston/Nashville: OR-alternatives
 # and held SSN/medical items; Tallahassee: unverified currency).
+# The Midwest note-ON cities keep it for held medical/SSN items
+# (Kansas City, Saint Louis, Toledo, Springfield IL,
+# Indianapolis), gaps the gate cannot express (Minneapolis,
+# Columbia, Jefferson City), unretrieved checklists (Kenosha),
+# or flagged livery scope (Rochester MN, Independence, Lincoln).
 CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
     ("New York", "Buffalo"),
     ("New York", "Rochester"),
@@ -1009,6 +1291,18 @@ CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
     ("North Carolina", "Durham"),
     ("South Carolina", "Charleston"),
     ("Tennessee", "Nashville"),
+    ("Illinois", "Springfield"),
+    ("Indiana", "Indianapolis"),
+    ("Minnesota", "Minneapolis"),
+    ("Minnesota", "Rochester"),
+    ("Missouri", "Columbia"),
+    ("Missouri", "Independence"),
+    ("Missouri", "Jefferson City"),
+    ("Missouri", "Kansas City"),
+    ("Missouri", "Saint Louis"),
+    ("Nebraska", "Lincoln"),
+    ("Ohio", "Columbus"),
+    ("Wisconsin", "Kenosha"),
 })
 
 
@@ -1162,6 +1456,34 @@ ALL_DOC_LABELS.update({
     "charleston_driving_record": "Certified 10-Year Driving Record",
     "nashville_opvh_permit": "MTLC OPVH Driver Permit",
     "nashville_mvr": "Motor Vehicle Record (Within 30 Days)",
+    "chicago_chauffeur_license": "Restricted Livery Public Chauffeur License (Chicago)",
+    "chicago_livery_vehicle_license": "Livery Vehicle License (Chicago)",
+    "chicago_insurance_certificate": "Commercial Insurance Certificate (Chicago)",
+    "rockford_taxi_driver_license": "Taxi Cab Driver License (Rockford)",
+    "springfield_il_taxi_driver_license": "Taxicab Driver License (Springfield, IL)",
+    "evansville_taxi_driver_license": "City of Evansville Taxicab Driver License",
+    "indianapolis_operator_license": "Operator License (Indianapolis)",
+    "indianapolis_training_certificate": "Taxi Training Course Certificate (Indianapolis)",
+    "indianapolis_bmv_record": "Certified BMV Driving Record (Within 10 Days)",
+    "minneapolis_taxi_driver_license": "Taxi Driver License (Minneapolis)",
+    "minneapolis_training_certificate": "Taxi Driver Training Certificate (Minneapolis)",
+    "rochester_mn_taxi_driver_license": "Taxicab Driver License (Rochester, MN)",
+    "saint_paul_taxi_driver_license": "Taxicab Driver License (Saint Paul)",
+    "saint_paul_training_proof": "Taxicab Driver Training Course Completion Proof",
+    "columbia_chauffeur_license": "Chauffeur License (Columbia)",
+    "independence_vehicle_driver_permit": "Vehicle Driver Permit (Independence)",
+    "jefferson_city_taxi_driver_permit": "Taxi Driver Permit (Jefferson City)",
+    "jefferson_city_driving_record": "Certified Driving Record (Missouri DOR)",
+    "kansas_city_driver_certificate": "Vehicle-for-Hire Driver Certificate (Kansas City)",
+    "kansas_city_operating_record": "State Operating Record (Missouri)",
+    "saint_louis_mtc_license": "MTC Driver License (Saint Louis)",
+    "saint_louis_driver_history": "Missouri Driver History Report (Within 10 Days)",
+    "lincoln_taxi_driver_license": "Taxicab Driver License (Lincoln)",
+    "kenosha_taxi_driver_license": "Taxi Driver License (Kenosha)",
+    "madison_ppv_permit": "Public Passenger Vehicle Driver Permit (Madison)",
+    "milwaukee_ppv_license": "Public Passenger Vehicle Driver License (Milwaukee)",
+    "columbus_vfh_license": "Vehicle for Hire Driver License (Columbus)",
+    "columbus_bmv_abstract": "Certified Ohio BMV Driver Abstract (Within 30 Days)",
 })
 # Hint line under each document item in the registration form.
 DOC_HINTS = {
@@ -1287,6 +1609,34 @@ DOC_HINTS = {
     "charleston_driving_record": "Photo of your Certified 10-Year Driving Record, straight and fully visible.",
     "nashville_opvh_permit": "Photo of your MTLC OPVH Driver Permit, straight and fully visible.",
     "nashville_mvr": "Photo of your Motor Vehicle Record (Within 30 Days), straight and fully visible.",
+    "chicago_chauffeur_license": "Photo of your Restricted Livery Public Chauffeur License (Chicago), straight and fully visible.",
+    "chicago_livery_vehicle_license": "Photo of your Livery Vehicle License (Chicago), straight and fully visible.",
+    "chicago_insurance_certificate": "Photo of your Commercial Insurance Certificate (Chicago), straight and fully visible.",
+    "rockford_taxi_driver_license": "Photo of your Taxi Cab Driver License (Rockford), straight and fully visible.",
+    "springfield_il_taxi_driver_license": "Photo of your Taxicab Driver License (Springfield, IL), straight and fully visible.",
+    "evansville_taxi_driver_license": "Photo of your City of Evansville Taxicab Driver License, straight and fully visible.",
+    "indianapolis_operator_license": "Photo of your Operator License (Indianapolis), straight and fully visible.",
+    "indianapolis_training_certificate": "Photo of your Taxi Training Course Certificate (Indianapolis), straight and fully visible.",
+    "indianapolis_bmv_record": "Photo of your Certified BMV Driving Record (Within 10 Days), straight and fully visible.",
+    "minneapolis_taxi_driver_license": "Photo of your Taxi Driver License (Minneapolis), straight and fully visible.",
+    "minneapolis_training_certificate": "Photo of your Taxi Driver Training Certificate (Minneapolis), straight and fully visible.",
+    "rochester_mn_taxi_driver_license": "Photo of your Taxicab Driver License (Rochester, MN), straight and fully visible.",
+    "saint_paul_taxi_driver_license": "Photo of your Taxicab Driver License (Saint Paul), straight and fully visible.",
+    "saint_paul_training_proof": "Photo of your Taxicab Driver Training Course Completion Proof, straight and fully visible.",
+    "columbia_chauffeur_license": "Photo of your Chauffeur License (Columbia), straight and fully visible.",
+    "independence_vehicle_driver_permit": "Photo of your Vehicle Driver Permit (Independence), straight and fully visible.",
+    "jefferson_city_taxi_driver_permit": "Photo of your Taxi Driver Permit (Jefferson City), straight and fully visible.",
+    "jefferson_city_driving_record": "Photo of your Certified Driving Record (Missouri DOR), straight and fully visible.",
+    "kansas_city_driver_certificate": "Photo of your Vehicle-for-Hire Driver Certificate (Kansas City), straight and fully visible.",
+    "kansas_city_operating_record": "Photo of your State Operating Record (Missouri), straight and fully visible.",
+    "saint_louis_mtc_license": "Photo of your MTC Driver License (Saint Louis), straight and fully visible.",
+    "saint_louis_driver_history": "Photo of your Missouri Driver History Report (Within 10 Days), straight and fully visible.",
+    "lincoln_taxi_driver_license": "Photo of your Taxicab Driver License (Lincoln), straight and fully visible.",
+    "kenosha_taxi_driver_license": "Photo of your Taxi Driver License (Kenosha), straight and fully visible.",
+    "madison_ppv_permit": "Photo of your Public Passenger Vehicle Driver Permit (Madison), straight and fully visible.",
+    "milwaukee_ppv_license": "Photo of your Public Passenger Vehicle Driver License (Milwaukee), straight and fully visible.",
+    "columbus_vfh_license": "Photo of your Vehicle for Hire Driver License (Columbus), straight and fully visible.",
+    "columbus_bmv_abstract": "Photo of your Certified Ohio BMV Driver Abstract (Within 30 Days), straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived

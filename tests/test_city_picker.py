@@ -152,7 +152,9 @@ class CityPickerCase(unittest.TestCase):
         self.assertEqual(set(overrides),
                          {"Texas", "New York", "Alabama", "Florida",
                           "Louisiana", "Mississippi", "North Carolina",
-                          "South Carolina", "Tennessee"})
+                          "South Carolina", "Tennessee", "Illinois",
+                          "Indiana", "Minnesota", "Missouri", "Nebraska",
+                          "Ohio", "Wisconsin"})
         self.assertEqual(set(overrides["Texas"]), {"Dallas"})
         self.assertEqual(set(overrides["New York"]),
                          {"Buffalo", "Rochester", "Syracuse", "Yonkers"})

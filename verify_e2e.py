@@ -1239,10 +1239,12 @@ check("cities served for all 51 jurisdictions, Other city fallback last",
       and all(names and names[-1] == "Other city"
               and names[:-1] == sorted(names[:-1])
               for names in cities.values()), str(len(cities)))
-check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast batch are the city-specific lists, Fort Worth falls back",
+check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast + Midwest batches are the city-specific lists, Fort Worth falls back",
       set(overrides) == {"Texas", "New York", "Alabama", "Florida",
                          "Louisiana", "Mississippi", "North Carolina",
-                         "South Carolina", "Tennessee"}
+                         "South Carolina", "Tennessee", "Illinois",
+                         "Indiana", "Minnesota", "Missouri", "Nebraska",
+                         "Ohio", "Wisconsin"}
       and set(overrides["Texas"]) == {"Dallas"}
       and set(overrides["New York"]) == {"Buffalo", "Rochester",
                                          "Syracuse", "Yonkers"}
@@ -1255,7 +1257,7 @@ check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast batch are the c
       and set(overrides["North Carolina"]) == {"Charlotte", "Durham"}
       and set(overrides["South Carolina"]) == {"Charleston"}
       and set(overrides["Tennessee"]) == {"Nashville"}
-      and sum(len(c) for c in overrides.values()) == 21
+      and sum(len(c) for c in overrides.values()) == 39
       and overrides["Texas"]["Dallas"]["docs"] == [
           "profile_picture", "dmv_license", "vehicle_registration",
           "dallas_commercial_insurance", "dallas_driver_permit",
@@ -1346,6 +1348,95 @@ check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast batch are the c
           "profile_picture", "dmv_license", "vehicle_registration",
           "nashville_opvh_permit", "nashville_mvr"]
       and overrides["Tennessee"]["Nashville"]["local_note"] is True,
+      str(overrides))
+check("Midwest batch overrides: 18 cities; Fort Wayne, Sioux Falls, Toledo fall back",
+      set(overrides["Illinois"]) == {"Chicago", "Rockford", "Springfield"}
+      and set(overrides["Indiana"]) == {"Evansville", "Indianapolis"}
+      and set(overrides["Minnesota"]) == {"Minneapolis", "Rochester",
+                                          "Saint Paul"}
+      and set(overrides["Missouri"]) == {"Columbia", "Independence",
+                                         "Jefferson City", "Kansas City",
+                                         "Saint Louis"}
+      and set(overrides["Nebraska"]) == {"Lincoln"}
+      and set(overrides["Ohio"]) == {"Columbus"}
+      and set(overrides["Wisconsin"]) == {"Kenosha", "Madison", "Milwaukee"}
+      and "Fort Wayne" not in overrides["Indiana"]
+      and "Toledo" not in overrides["Ohio"]
+      and "South Dakota" not in overrides
+      and overrides["Illinois"]["Chicago"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "chicago_chauffeur_license", "chicago_livery_vehicle_license",
+          "chicago_insurance_certificate"]
+      and overrides["Illinois"]["Chicago"]["local_note"] is False
+      and overrides["Illinois"]["Rockford"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "rockford_taxi_driver_license"]
+      and overrides["Illinois"]["Rockford"]["local_note"] is False
+      and overrides["Illinois"]["Springfield"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "springfield_il_taxi_driver_license"]
+      and overrides["Illinois"]["Springfield"]["local_note"] is True
+      and overrides["Indiana"]["Evansville"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "evansville_taxi_driver_license"]
+      and overrides["Indiana"]["Evansville"]["local_note"] is False
+      and overrides["Indiana"]["Indianapolis"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "indianapolis_operator_license", "indianapolis_training_certificate",
+          "indianapolis_bmv_record"]
+      and overrides["Indiana"]["Indianapolis"]["local_note"] is True
+      and overrides["Minnesota"]["Minneapolis"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "minneapolis_taxi_driver_license", "minneapolis_training_certificate"]
+      and overrides["Minnesota"]["Minneapolis"]["local_note"] is True
+      and overrides["Minnesota"]["Rochester"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "rochester_mn_taxi_driver_license"]
+      and overrides["Minnesota"]["Rochester"]["local_note"] is True
+      and overrides["Minnesota"]["Saint Paul"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "saint_paul_taxi_driver_license", "saint_paul_training_proof"]
+      and overrides["Minnesota"]["Saint Paul"]["local_note"] is False
+      and overrides["Missouri"]["Columbia"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "columbia_chauffeur_license"]
+      and overrides["Missouri"]["Columbia"]["local_note"] is True
+      and overrides["Missouri"]["Independence"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "independence_vehicle_driver_permit"]
+      and overrides["Missouri"]["Independence"]["local_note"] is True
+      and overrides["Missouri"]["Jefferson City"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "jefferson_city_taxi_driver_permit", "jefferson_city_driving_record"]
+      and overrides["Missouri"]["Jefferson City"]["local_note"] is True
+      and overrides["Missouri"]["Kansas City"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "kansas_city_driver_certificate", "kansas_city_operating_record"]
+      and overrides["Missouri"]["Kansas City"]["local_note"] is True
+      and overrides["Missouri"]["Saint Louis"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "saint_louis_mtc_license", "saint_louis_driver_history"]
+      and overrides["Missouri"]["Saint Louis"]["local_note"] is True
+      and overrides["Nebraska"]["Lincoln"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "lincoln_taxi_driver_license"]
+      and overrides["Nebraska"]["Lincoln"]["local_note"] is True
+      and overrides["Ohio"]["Columbus"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "columbus_vfh_license", "columbus_bmv_abstract"]
+      and overrides["Ohio"]["Columbus"]["local_note"] is True
+      and overrides["Wisconsin"]["Kenosha"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "kenosha_taxi_driver_license"]
+      and overrides["Wisconsin"]["Kenosha"]["local_note"] is True
+      and overrides["Wisconsin"]["Madison"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "madison_ppv_permit"]
+      and overrides["Wisconsin"]["Madison"]["local_note"] is False
+      and overrides["Wisconsin"]["Milwaukee"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "milwaukee_ppv_license"]
+      and overrides["Wisconsin"]["Milwaukee"]["local_note"] is False,
       str(overrides))
 r = anon.get(BASE + "/driver", timeout=TIMEOUT)
 check("served driver page has the city picker after the state picker",

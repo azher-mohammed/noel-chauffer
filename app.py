@@ -271,6 +271,13 @@ DOC_FIELD_MAP = {
     "doc_milwaukee_ppv_license": "milwaukee_ppv_license",
     "doc_columbus_vfh_license": "columbus_vfh_license",
     "doc_columbus_bmv_abstract": "columbus_bmv_abstract",
+    "doc_portland_me_livery_license": "portland_me_livery_license",
+    "doc_south_portland_taxi_driver_license": "south_portland_taxi_driver_license",
+    "doc_lowell_hackney_license": "lowell_hackney_license",
+    "doc_springfield_ma_chauffeur_license": "springfield_ma_chauffeur_license",
+    "doc_worcester_taxi_livery_license": "worcester_taxi_livery_license",
+    "doc_jersey_city_limo_driver_license": "jersey_city_limo_driver_license",
+    "doc_philadelphia_limo_certificate": "philadelphia_limo_certificate",
 }
 # doc_type -> multipart field name (profile_picture comes from profile_photo)
 FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
@@ -1211,10 +1218,102 @@ COLUMBUS_DOC_TYPES = [
     "columbus_bmv_abstract",
 ]
 
-# (state, city) -> city-specific list. 39 cities today (Dallas,
+# Northeast batch (owner order 2026-11-17, "every city ka wahan ke
+# rules"). City-specific lists, each verified from official sources
+# only — see the ledger (CITY_RESEARCH.md). No background check
+# anywhere; no age/experience gate; no document count. Social
+# Security and medical items are HELD for owner decisions wherever
+# a city names them (Springfield MA, Philadelphia) — never gated
+# silently, and the owner-review note stays ON for those cities.
+# Newark, NJ and Rutland, VT were banked but DROPPED at build-time
+# re-verification (Newark: no operative Ch. 34:2 text retrievable,
+# no Ch. 34:3 OR-alternative found, no current issuance evidence;
+# Rutland: no operative chapter text or definition retrieved, and
+# the cited "Subch. 3" is a charter power grant, not a license
+# requirement) — both keep the state-list fallback; see the ledger.
+# Portland, ME: Livery Driver License (Ch. 30 §§30-31/30-32; the
+# separate livery/taxi application forms and fees confirm a distinct
+# livery license). Section 30-17A is "Service on Peaks Island" and
+# imposes livery licensing there — it exempts nothing relevant;
+# "Livery" (§30-16) means prearranged hourly/flat-rate service,
+# exactly the app-dispatched model. The vehicle business-license
+# coverage in §30-31(b) is a structural gap, so the owner-review
+# note stays ON.
+# South Portland, ME: Taxicab Driver License (Ch. 14 §§14-7/14-8;
+# the application calls it a "Taxi Operator License"). The
+# reciprocity exception is unverified, so the owner-review note
+# stays ON.
+# Lowell, MA: Hackney License (Ch. 243-3, Police Department; the
+# application covers hackney driver + taxi/limo/PTV).
+# Springfield, MA: Chauffeur License (Ch. 305 §305-3: no person
+# shall drive a taxicab, livery vehicle, or other vehicle for hire
+# without it). Citizenship/SSN/medical inputs are flagged but NOT
+# slots, so the owner-review note stays ON.
+# Worcester, MA: Taxi-Livery Driver License (city Taxi & Livery
+# applications page; "Vehicles for Hire" rule §11).
+# Jersey City, NJ: Limousine Driver License (Municipal Code
+# §5-5.1(b): no person shall operate a limousine without a driver
+# license; the livery/limousine scope is express). The state-law
+# caveat (only the home municipality may license) is satisfied:
+# the driver lives in Jersey City by definition of the picker.
+# Philadelphia, PA: PPA Limousine Driver Certificate (Philadelphia
+# Parking Authority; limousine class driver certificate). Social
+# Security and work-authorization inputs are flagged but NOT slots,
+# so the owner-review note stays ON.
+PORTLAND_ME_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "portland_me_livery_license",
+]
+
+SOUTH_PORTLAND_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "south_portland_taxi_driver_license",
+]
+
+LOWELL_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "lowell_hackney_license",
+]
+
+SPRINGFIELD_MA_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "springfield_ma_chauffeur_license",
+]
+
+WORCESTER_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "worcester_taxi_livery_license",
+]
+
+JERSEY_CITY_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "jersey_city_limo_driver_license",
+]
+
+PHILADELPHIA_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "philadelphia_limo_certificate",
+]
+
+# (state, city) -> city-specific list. 46 cities today (Dallas,
 # Buffalo, Rochester, Syracuse, Yonkers, the 16-city Southeast
-# batch, and the 18-city Midwest batch); a city is added here
-# ONLY with a verified official source naming its items.
+# batch, the 18-city Midwest batch, and the 7-city Northeast
+# batch); a city is added here ONLY with a verified official
+# source naming its items.
 CITY_DOC_REQUIREMENTS = {
     ("Texas", "Dallas"): DALLAS_DOC_TYPES,
     ("New York", "Buffalo"): BUFFALO_DOC_TYPES,
@@ -1255,6 +1354,13 @@ CITY_DOC_REQUIREMENTS = {
     ("Wisconsin", "Kenosha"): KENOSHA_DOC_TYPES,
     ("Wisconsin", "Madison"): MADISON_DOC_TYPES,
     ("Wisconsin", "Milwaukee"): MILWAUKEE_DOC_TYPES,
+    ("Maine", "Portland"): PORTLAND_ME_DOC_TYPES,
+    ("Maine", "South Portland"): SOUTH_PORTLAND_DOC_TYPES,
+    ("Massachusetts", "Lowell"): LOWELL_DOC_TYPES,
+    ("Massachusetts", "Springfield"): SPRINGFIELD_MA_DOC_TYPES,
+    ("Massachusetts", "Worcester"): WORCESTER_DOC_TYPES,
+    ("New Jersey", "Jersey City"): JERSEY_CITY_DOC_TYPES,
+    ("Pennsylvania", "Philadelphia"): PHILADELPHIA_DOC_TYPES,
 }
 
 # City-specific lists that KEEP the owner-review note: Buffalo's
@@ -1277,6 +1383,10 @@ CITY_DOC_REQUIREMENTS = {
 # Indianapolis), gaps the gate cannot express (Minneapolis,
 # Columbia, Jefferson City), unretrieved checklists (Kenosha),
 # or flagged livery scope (Rochester MN, Independence, Lincoln).
+# The Northeast note-ON cities keep it for the same reason: a
+# structural gap (Portland ME: vehicle business-license coverage),
+# an unverified exception (South Portland: reciprocity), or held
+# SSN/medical inputs (Springfield MA, Philadelphia).
 CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
     ("New York", "Buffalo"),
     ("New York", "Rochester"),
@@ -1303,6 +1413,10 @@ CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
     ("Nebraska", "Lincoln"),
     ("Ohio", "Columbus"),
     ("Wisconsin", "Kenosha"),
+    ("Maine", "Portland"),
+    ("Maine", "South Portland"),
+    ("Massachusetts", "Springfield"),
+    ("Pennsylvania", "Philadelphia"),
 })
 
 
@@ -1484,6 +1598,13 @@ ALL_DOC_LABELS.update({
     "milwaukee_ppv_license": "Public Passenger Vehicle Driver License (Milwaukee)",
     "columbus_vfh_license": "Vehicle for Hire Driver License (Columbus)",
     "columbus_bmv_abstract": "Certified Ohio BMV Driver Abstract (Within 30 Days)",
+    "portland_me_livery_license": "Portland Livery Driver License",
+    "south_portland_taxi_driver_license": "South Portland Taxicab Driver License",
+    "lowell_hackney_license": "Hackney License (Lowell)",
+    "springfield_ma_chauffeur_license": "Chauffeur License (Springfield, MA)",
+    "worcester_taxi_livery_license": "Taxi-Livery Driver License (Worcester)",
+    "jersey_city_limo_driver_license": "Jersey City Limousine Driver License",
+    "philadelphia_limo_certificate": "PPA Limousine Driver Certificate",
 })
 # Hint line under each document item in the registration form.
 DOC_HINTS = {
@@ -1637,6 +1758,13 @@ DOC_HINTS = {
     "milwaukee_ppv_license": "Photo of your Public Passenger Vehicle Driver License (Milwaukee), straight and fully visible.",
     "columbus_vfh_license": "Photo of your Vehicle for Hire Driver License (Columbus), straight and fully visible.",
     "columbus_bmv_abstract": "Photo of your Certified Ohio BMV Driver Abstract (Within 30 Days), straight and fully visible.",
+    "portland_me_livery_license": "Photo of your Portland Livery Driver License, straight and fully visible.",
+    "south_portland_taxi_driver_license": "Photo of your South Portland Taxicab Driver License, straight and fully visible.",
+    "lowell_hackney_license": "Photo of your Hackney License (Lowell), straight and fully visible.",
+    "springfield_ma_chauffeur_license": "Photo of your Chauffeur License (Springfield, MA), straight and fully visible.",
+    "worcester_taxi_livery_license": "Photo of your Taxi-Livery Driver License (Worcester), straight and fully visible.",
+    "jersey_city_limo_driver_license": "Photo of your Jersey City Limousine Driver License, straight and fully visible.",
+    "philadelphia_limo_certificate": "Photo of your PPA Limousine Driver Certificate, straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived

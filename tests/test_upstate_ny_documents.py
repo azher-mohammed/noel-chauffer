@@ -178,7 +178,8 @@ class UpstateNYDocumentsCase(unittest.TestCase):
                           "Louisiana", "Mississippi", "North Carolina",
                           "South Carolina", "Tennessee", "Illinois",
                           "Indiana", "Minnesota", "Missouri", "Nebraska",
-                          "Ohio", "Wisconsin"})
+                          "Ohio", "Wisconsin", "Maine", "Massachusetts",
+                          "New Jersey", "Pennsylvania"})
         self.assertEqual(set(overrides["Texas"]), {"Dallas"})
         self.assertEqual(set(overrides["New York"]),
                          {"Buffalo", "Rochester", "Syracuse", "Yonkers"})

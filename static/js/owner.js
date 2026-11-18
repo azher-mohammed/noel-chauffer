@@ -635,7 +635,14 @@
     { key: "madison_ppv_permit", label: "Public Passenger Vehicle Driver Permit (Madison)" },
     { key: "milwaukee_ppv_license", label: "Public Passenger Vehicle Driver License (Milwaukee)" },
     { key: "columbus_vfh_license", label: "Vehicle for Hire Driver License (Columbus)" },
-    { key: "columbus_bmv_abstract", label: "Certified Ohio BMV Driver Abstract (Within 30 Days)" }
+    { key: "columbus_bmv_abstract", label: "Certified Ohio BMV Driver Abstract (Within 30 Days)" },
+    { key: "portland_me_livery_license", label: "Portland Livery Driver License" },
+    { key: "south_portland_taxi_driver_license", label: "South Portland Taxicab Driver License" },
+    { key: "lowell_hackney_license", label: "Hackney License (Lowell)" },
+    { key: "springfield_ma_chauffeur_license", label: "Chauffeur License (Springfield, MA)" },
+    { key: "worcester_taxi_livery_license", label: "Taxi-Livery Driver License (Worcester)" },
+    { key: "jersey_city_limo_driver_license", label: "Jersey City Limousine Driver License" },
+    { key: "philadelphia_limo_certificate", label: "PPA Limousine Driver Certificate" }
   ];
 
   function docIsComplete(value) {

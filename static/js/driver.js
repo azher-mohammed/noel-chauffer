@@ -257,7 +257,14 @@
     doc_madison_ppv_permit: "Public Passenger Vehicle Driver Permit (Madison)",
     doc_milwaukee_ppv_license: "Public Passenger Vehicle Driver License (Milwaukee)",
     doc_columbus_vfh_license: "Vehicle for Hire Driver License (Columbus)",
-    doc_columbus_bmv_abstract: "Certified Ohio BMV Driver Abstract (Within 30 Days)"
+    doc_columbus_bmv_abstract: "Certified Ohio BMV Driver Abstract (Within 30 Days)",
+    doc_portland_me_livery_license: "Portland Livery Driver License",
+    doc_south_portland_taxi_driver_license: "South Portland Taxicab Driver License",
+    doc_lowell_hackney_license: "Hackney License (Lowell)",
+    doc_springfield_ma_chauffeur_license: "Chauffeur License (Springfield, MA)",
+    doc_worcester_taxi_livery_license: "Taxi-Livery Driver License (Worcester)",
+    doc_jersey_city_limo_driver_license: "Jersey City Limousine Driver License",
+    doc_philadelphia_limo_certificate: "PPA Limousine Driver Certificate"
   };
   /* Document types as the API keys them in `docs` (status strings),
      in display order: the New York list first, then the items only
@@ -414,7 +421,14 @@
     madison_ppv_permit: "Public Passenger Vehicle Driver Permit (Madison)",
     milwaukee_ppv_license: "Public Passenger Vehicle Driver License (Milwaukee)",
     columbus_vfh_license: "Vehicle for Hire Driver License (Columbus)",
-    columbus_bmv_abstract: "Certified Ohio BMV Driver Abstract (Within 30 Days)"
+    columbus_bmv_abstract: "Certified Ohio BMV Driver Abstract (Within 30 Days)",
+    portland_me_livery_license: "Portland Livery Driver License",
+    south_portland_taxi_driver_license: "South Portland Taxicab Driver License",
+    lowell_hackney_license: "Hackney License (Lowell)",
+    springfield_ma_chauffeur_license: "Chauffeur License (Springfield, MA)",
+    worcester_taxi_livery_license: "Taxi-Livery Driver License (Worcester)",
+    jersey_city_limo_driver_license: "Jersey City Limousine Driver License",
+    philadelphia_limo_certificate: "PPA Limousine Driver Certificate"
   };
   var DOC_TYPE_ORDER = [
     "profile_picture", "dmv_license", "tlc_license", "fh1_insurance",
@@ -448,6 +462,10 @@
     "kenosha_taxi_driver_license",
     "madison_ppv_permit", "milwaukee_ppv_license",
     "columbus_vfh_license", "columbus_bmv_abstract",
+    "portland_me_livery_license", "south_portland_taxi_driver_license",
+    "lowell_hackney_license", "springfield_ma_chauffeur_license",
+    "worcester_taxi_livery_license", "jersey_city_limo_driver_license",
+    "philadelphia_limo_certificate",
     "al_certificate", "al_form_e", "ca_tcp_permit", "ca_driver_statement",
     "ca_commercial_registration", "ca_inspection_declaration", "co_ll_permit", "co_inspection",
     "co_form_e", "ct_livery_permit", "de_certificate", "de_limo_registration",
@@ -626,7 +644,14 @@
     madison_ppv_permit: "doc_madison_ppv_permit",
     milwaukee_ppv_license: "doc_milwaukee_ppv_license",
     columbus_vfh_license: "doc_columbus_vfh_license",
-    columbus_bmv_abstract: "doc_columbus_bmv_abstract"
+    columbus_bmv_abstract: "doc_columbus_bmv_abstract",
+    portland_me_livery_license: "doc_portland_me_livery_license",
+    south_portland_taxi_driver_license: "doc_south_portland_taxi_driver_license",
+    lowell_hackney_license: "doc_lowell_hackney_license",
+    springfield_ma_chauffeur_license: "doc_springfield_ma_chauffeur_license",
+    worcester_taxi_livery_license: "doc_worcester_taxi_livery_license",
+    jersey_city_limo_driver_license: "doc_jersey_city_limo_driver_license",
+    philadelphia_limo_certificate: "doc_philadelphia_limo_certificate"
   };
   var STAGES = ["en_route", "arrived", "start", "complete"];
   var STAGE_BUTTON = {

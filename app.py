@@ -210,6 +210,16 @@ DOC_FIELD_MAP = {
     "doc_buffalo_taxi_driver_license": "buffalo_taxi_driver_license",
     "doc_buffalo_insurance_certificate": "buffalo_insurance_certificate",
     "doc_buffalo_inspection_report": "buffalo_inspection_report",
+    "doc_rochester_taxi_driver_license": "rochester_taxi_driver_license",
+    "doc_rochester_hack_certificate": "rochester_hack_certificate",
+    "doc_rochester_insurance": "rochester_insurance",
+    "doc_syracuse_hack_license": "syracuse_hack_license",
+    "doc_syracuse_ground_transportation": "syracuse_ground_transportation",
+    "doc_syracuse_for_hire_insurance": "syracuse_for_hire_insurance",
+    "doc_wctlc_driver_permit": "wctlc_driver_permit",
+    "doc_wctlc_vehicle_permit": "wctlc_vehicle_permit",
+    "doc_wctlc_insurance": "wctlc_insurance",
+    "doc_wctlc_defensive_driving": "wctlc_defensive_driving",
 }
 # doc_type -> multipart field name (profile_picture comes from profile_photo)
 FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
@@ -517,6 +527,82 @@ def required_docs_for_state(state):
 # list. Never assume Fort Worth = Dallas. Process-type requirements
 # (background checks, exams, courses) are never upload slots, and no
 # document count is ever shown ("Quantity nahi").
+# Rochester, Syracuse, and Yonkers, New York are the THIRD, FOURTH,
+# and FIFTH city-specific lists (owner order 2026-11-17, "Haan bhai
+# every city ka wahan ke rules" — every city gets its own local
+# rules, verified from official sources only). Zero NYC TLC items
+# on any of them: TLC is New York City only.
+# Rochester (Municipal Code Chapter 108, Articles II-IV, plus the
+# City Clerk permits page): no person shall drive a taxicab within
+# the city without a current taxicab driver license issued by the
+# City Clerk; a hack plate must be attached and its taxicab license
+# certificate carried in the taxicab at all times; the hack-plate
+# application requires proof of insurance. No form name (no FH-1,
+# no ACORD) is named — none is imported. Inspections are evidenced
+# by stickers, not a named report, so no inspection-report slot.
+# Left out, with the owner-review note ON: the two-hour training
+# session (a course; no certificate of completion is named), the
+# DMV license abstract and employment-eligibility verification
+# (application inputs; the eligibility proof is an OR-alternative),
+# photographs and the police investigation (inputs/process), fees.
+# Scope caveat, stated honestly: Rochester's regime is a TAXICAB
+# regime under General Municipal Law §181; no separate pre-arranged
+# limousine/livery driver license was found. Applying it to Noel
+# follows the owner-approved Buffalo precedent; whether a
+# pre-arranged-only luxury chauffeur service falls under it is a
+# legal-scope question no official source found settles.
+#   https://ecode360.com/8678898
+#   https://ecode360.com/8678783
+#   https://www.cityofrochester.gov/departments/city-clerk/permits-and-licenses
+# Syracuse (City of Syracuse Business Licensing Guide 2025,
+# Central Permit Office): a Taxi (Hack) License for any owner or
+# operator of a taxicab or airbus, a Ground Transportation license
+# for any taxicab or airbus operating within city limits, and proof
+# of for-hire insurance (the guide's exact wording — NOT labelled
+# FH-1; FH-1 appears only in a 2019 airport-authority form). Left
+# out, with the owner-review note ON: the Medical Certification
+# Form (a named form, but a filing consumed into the Hack License
+# — held for an owner decision, same as the other medical items),
+# the fingerprint receipt, title document, and photographs
+# (application inputs), fees. No vehicle inspection document is
+# named in the 2025 guide — none is invented. Syracuse Regional
+# Airport Authority requirements are airport-only and are not
+# imported. The same taxicab-regime scope caveat as Rochester
+# applies (the 2014 bill that would have let Syracuse regulate
+# limousines/livery was never enacted).
+#   https://www.syr.gov/files/sharedassets/public/v/1/departments/permits/documents/business-license-applications/business-licensing-guide-2025.pdf
+# Yonkers (Westchester County Taxi and Limousine Commission
+# For-Hire Rules and Regulations v4.2, June 17, 2022): the WCTLC
+# licenses for-hire drivers and vehicles county-wide, expressly
+# including "livery", "car service", "black car", and "limousine".
+# The list gates the WCTLC for-hire driver permit, the WCTLC
+# for-hire vehicle permit, proof of adequate insurance (NOT
+# labelled FH-1/ACORD — those appear only on an archived
+# municipal-car form), and proof of completion of a NYS
+# DMV-certified Defensive Driving Course (a named certificate, so
+# slot-eligible). WCTLC is a DIFFERENT commission from NYC TLC —
+# never label its items NYC TLC. Left out, with the owner-review
+# note ON: the Social Security card OR SSA correspondence
+# (OR-alternative + the same privacy flag as the other SSN items —
+# owner decision required before any slot), fingerprinting,
+# references, drug testing, fees, and the base-station affiliation
+# (a structural gap: Noel is not stated to be a WCTLC base
+# station). UNRESOLVED: the City of Yonkers ALSO has its own
+# taxicab driver license and Class B regime (City Code Chapter
+# 110); no official source states whether both are required
+# together or one exempts the other. The city license is NOT
+# gated silently — the owner decides stacking vs. WCTLC-only.
+#   https://tlc.westchestercountyny.gov/images/archive/stories/pdfs/2022rulesregv4.2.pdf
+# Albany, New York keeps the state-list fallback: the city
+# REPEALED its taxicab licensing article in 2024 (Ordinance
+# 2.21.24, adopted May 6, 2024) after having stopped issuing and
+# requiring licenses toward the end of 2020 — an affirmative
+# repeal, not an inconclusive finding. New York City itself keeps
+# the 7-doc state list, re-verified item by item from official
+# NYC TLC sources the same night. Long Island runs on the NY
+# state TLC list by explicit owner decision ("Mein chah raha hoon
+# Long Island poora TLC pe chale") — no county overrides, no code
+# change; the "Other city" fallback already does exactly this.
 OTHER_CITY = "Other city"
 
 CITIES_BY_STATE = {
@@ -602,20 +688,73 @@ BUFFALO_DOC_TYPES = [
     "buffalo_inspection_report",
 ]
 
-# (state, city) -> city-specific list. Dallas and Buffalo today; a
-# city is added here ONLY with a verified official source naming
-# its items.
+# Rochester, New York (VERIFIED from Rochester Municipal Code
+# Chapter 108, Articles II-IV, and the City Clerk permits page
+# above). Zero TLC items. No background check, no age/experience
+# gate: the owner declined the background check outright ("nahi
+# background check nahi chahiye").
+ROCHESTER_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "rochester_taxi_driver_license",
+    "rochester_hack_certificate",
+    "rochester_insurance",
+]
+
+# Syracuse, New York (VERIFIED from the City of Syracuse Business
+# Licensing Guide 2025, Central Permit Office, above). Zero TLC
+# items. No background check, no age/experience gate.
+SYRACUSE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "syracuse_hack_license",
+    "syracuse_ground_transportation",
+    "syracuse_for_hire_insurance",
+]
+
+# Yonkers, New York (VERIFIED from the Westchester County Taxi
+# and Limousine Commission For-Hire Rules v4.2 above). Zero NYC
+# TLC items: WCTLC is a different commission. No background
+# check, no age/experience gate.
+YONKERS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "wctlc_driver_permit",
+    "wctlc_vehicle_permit",
+    "wctlc_insurance",
+    "wctlc_defensive_driving",
+]
+
+# (state, city) -> city-specific list. Dallas, Buffalo, Rochester,
+# Syracuse, and Yonkers today; a city is added here ONLY with a
+# verified official source naming its items.
 CITY_DOC_REQUIREMENTS = {
     ("Texas", "Dallas"): DALLAS_DOC_TYPES,
     ("New York", "Buffalo"): BUFFALO_DOC_TYPES,
+    ("New York", "Rochester"): ROCHESTER_DOC_TYPES,
+    ("New York", "Syracuse"): SYRACUSE_DOC_TYPES,
+    ("New York", "Yonkers"): YONKERS_DOC_TYPES,
 }
 
 # City-specific lists that KEEP the owner-review note: Buffalo's
 # city source names the worker's compensation / exemption
 # certificate, which the gate cannot express (OR-alternative), so
-# the owner reviews each Buffalo application. Dallas hides the
-# note: its list is complete as named by Uber's official pages.
-CITY_LISTS_WITH_LOCAL_NOTE = frozenset({("New York", "Buffalo")})
+# the owner reviews each Buffalo application. Rochester's, Syracuse's,
+# and Yonkers' sources likewise name items the gate cannot express
+# (Rochester: training + eligibility OR-alternative; Syracuse:
+# medical form + inputs; Yonkers: SSN OR-alternative + unresolved
+# city-license overlap + base affiliation), so the owner reviews
+# each of those applications too. Dallas hides the note: its list
+# is complete as named by Uber's official pages.
+CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
+    ("New York", "Buffalo"),
+    ("New York", "Rochester"),
+    ("New York", "Syracuse"),
+    ("New York", "Yonkers"),
+})
 
 
 def cities_for_state(state):
@@ -735,6 +874,16 @@ ALL_DOC_LABELS.update({
     "buffalo_taxi_driver_license": "City of Buffalo Taxi Driver License",
     "buffalo_insurance_certificate": "Certificate of Automobile Liability Insurance",
     "buffalo_inspection_report": "Vehicle Inspection Report",
+    "rochester_taxi_driver_license": "City of Rochester Taxicab Driver License",
+    "rochester_hack_certificate": "Taxicab License Certificate (Hack Plate Certificate)",
+    "rochester_insurance": "Proof of Insurance",
+    "syracuse_hack_license": "Taxi (Hack) License",
+    "syracuse_ground_transportation": "Ground Transportation License",
+    "syracuse_for_hire_insurance": "Proof of For-Hire Insurance",
+    "wctlc_driver_permit": "WCTLC For-Hire Driver Permit",
+    "wctlc_vehicle_permit": "WCTLC For-Hire Vehicle Permit",
+    "wctlc_insurance": "Proof of Adequate Insurance",
+    "wctlc_defensive_driving": "Defensive Driving Course Proof of Completion",
 })
 # Hint line under each document item in the registration form.
 DOC_HINTS = {
@@ -827,6 +976,16 @@ DOC_HINTS = {
     "buffalo_taxi_driver_license": "Photo of your City of Buffalo Taxi Driver License, straight and fully visible.",
     "buffalo_insurance_certificate": "Photo of your Certificate of Automobile Liability Insurance, straight and fully visible.",
     "buffalo_inspection_report": "Photo of your Vehicle Inspection Report, straight and fully visible.",
+    "rochester_taxi_driver_license": "Photo of your City of Rochester Taxicab Driver License, straight and fully visible.",
+    "rochester_hack_certificate": "Photo of your Taxicab License Certificate (Hack Plate Certificate), straight and fully visible.",
+    "rochester_insurance": "Photo of your Proof of Insurance, straight and fully visible.",
+    "syracuse_hack_license": "Photo of your Taxi (Hack) License, straight and fully visible.",
+    "syracuse_ground_transportation": "Photo of your Ground Transportation License, straight and fully visible.",
+    "syracuse_for_hire_insurance": "Photo of your Proof of For-Hire Insurance, straight and fully visible.",
+    "wctlc_driver_permit": "Photo of your WCTLC For-Hire Driver Permit, straight and fully visible.",
+    "wctlc_vehicle_permit": "Photo of your WCTLC For-Hire Vehicle Permit, straight and fully visible.",
+    "wctlc_insurance": "Photo of your Proof of Adequate Insurance, straight and fully visible.",
+    "wctlc_defensive_driving": "Photo of your Defensive Driving Course Proof of Completion, straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived
@@ -1197,8 +1356,8 @@ def waze_url_for(booking):
 
 def driver_docs_status(driver):
     # Statuses for the documents the driver's state + city require. A
-    # city with a verified city-specific list (Dallas, Buffalo)
-    # overrides its
+    # city with a verified city-specific list (Dallas, Buffalo,
+    # Rochester, Syracuse, Yonkers) overrides its
     # state list; drivers registered before the state selector (no
     # state on file) read as New York, the list they registered under
     # — unchanged behaviour.
@@ -2109,7 +2268,8 @@ def list_states():
     2026-11-17, Uber-style): `cities` lists each state's largest
     cities, alphabetical, with the "Other city" fallback last, and
     `city_requirements` carries the verified city-specific lists
-    that override their state list (Dallas and Buffalo today). Every other
+    that override their state list (Dallas, Buffalo, Rochester,
+    Syracuse, and Yonkers today). Every other
     city uses its state list unchanged.
     """
     return jsonify({
@@ -2224,7 +2384,8 @@ def register_driver():
     # depends on the driver's state and city (New York keeps the
     # original 7; other states have their own verified list or the
     # generic base list; a city with a verified city-specific list,
-    # Dallas and Buffalo today, overrides its state list). This gates only new
+    # Dallas, Buffalo, Rochester, Syracuse, and Yonkers today,
+    # overrides its state list). This gates only new
     # registrations: drivers registered before this change keep
     # signing in and going available exactly as before.
     missing = []

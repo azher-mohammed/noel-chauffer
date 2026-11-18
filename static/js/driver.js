@@ -196,7 +196,17 @@
     doc_dallas_limo_permit: "City Limo Permit (Dallas / Fort Worth)",
     doc_buffalo_taxi_driver_license: "City of Buffalo Taxi Driver License",
     doc_buffalo_insurance_certificate: "Certificate of Automobile Liability Insurance",
-    doc_buffalo_inspection_report: "Vehicle Inspection Report"
+    doc_buffalo_inspection_report: "Vehicle Inspection Report",
+    doc_rochester_taxi_driver_license: "City of Rochester Taxicab Driver License",
+    doc_rochester_hack_certificate: "Taxicab License Certificate (Hack Plate Certificate)",
+    doc_rochester_insurance: "Proof of Insurance",
+    doc_syracuse_hack_license: "Taxi (Hack) License",
+    doc_syracuse_ground_transportation: "Ground Transportation License",
+    doc_syracuse_for_hire_insurance: "Proof of For-Hire Insurance",
+    doc_wctlc_driver_permit: "WCTLC For-Hire Driver Permit",
+    doc_wctlc_vehicle_permit: "WCTLC For-Hire Vehicle Permit",
+    doc_wctlc_insurance: "Proof of Adequate Insurance",
+    doc_wctlc_defensive_driving: "Defensive Driving Course Proof of Completion"
   };
   /* Document types as the API keys them in `docs` (status strings),
      in display order: the New York list first, then the items only
@@ -292,7 +302,17 @@
     dallas_limo_permit: "City Limo Permit (Dallas / Fort Worth)",
     buffalo_taxi_driver_license: "City of Buffalo Taxi Driver License",
     buffalo_insurance_certificate: "Certificate of Automobile Liability Insurance",
-    buffalo_inspection_report: "Vehicle Inspection Report"
+    buffalo_inspection_report: "Vehicle Inspection Report",
+    rochester_taxi_driver_license: "City of Rochester Taxicab Driver License",
+    rochester_hack_certificate: "Taxicab License Certificate (Hack Plate Certificate)",
+    rochester_insurance: "Proof of Insurance",
+    syracuse_hack_license: "Taxi (Hack) License",
+    syracuse_ground_transportation: "Ground Transportation License",
+    syracuse_for_hire_insurance: "Proof of For-Hire Insurance",
+    wctlc_driver_permit: "WCTLC For-Hire Driver Permit",
+    wctlc_vehicle_permit: "WCTLC For-Hire Vehicle Permit",
+    wctlc_insurance: "Proof of Adequate Insurance",
+    wctlc_defensive_driving: "Defensive Driving Course Proof of Completion"
   };
   var DOC_TYPE_ORDER = [
     "profile_picture", "dmv_license", "tlc_license", "fh1_insurance",
@@ -301,6 +321,9 @@
     "nj_insurance", "buffalo_taxi_driver_license", "vehicle_registration", "insurance_card",
     "dallas_commercial_insurance", "dallas_driver_permit", "dallas_limo_permit",
     "buffalo_insurance_certificate", "buffalo_inspection_report",
+    "rochester_taxi_driver_license", "rochester_hack_certificate", "rochester_insurance",
+    "syracuse_hack_license", "syracuse_ground_transportation", "syracuse_for_hire_insurance",
+    "wctlc_driver_permit", "wctlc_vehicle_permit", "wctlc_insurance", "wctlc_defensive_driving",
     "al_certificate", "al_form_e", "ca_tcp_permit", "ca_driver_statement",
     "ca_commercial_registration", "ca_inspection_declaration", "co_ll_permit", "co_inspection",
     "co_form_e", "ct_livery_permit", "de_certificate", "de_limo_registration",
@@ -418,7 +441,17 @@
     dallas_limo_permit: "doc_dallas_limo_permit",
     buffalo_taxi_driver_license: "doc_buffalo_taxi_driver_license",
     buffalo_insurance_certificate: "doc_buffalo_insurance_certificate",
-    buffalo_inspection_report: "doc_buffalo_inspection_report"
+    buffalo_inspection_report: "doc_buffalo_inspection_report",
+    rochester_taxi_driver_license: "doc_rochester_taxi_driver_license",
+    rochester_hack_certificate: "doc_rochester_hack_certificate",
+    rochester_insurance: "doc_rochester_insurance",
+    syracuse_hack_license: "doc_syracuse_hack_license",
+    syracuse_ground_transportation: "doc_syracuse_ground_transportation",
+    syracuse_for_hire_insurance: "doc_syracuse_for_hire_insurance",
+    wctlc_driver_permit: "doc_wctlc_driver_permit",
+    wctlc_vehicle_permit: "doc_wctlc_vehicle_permit",
+    wctlc_insurance: "doc_wctlc_insurance",
+    wctlc_defensive_driving: "doc_wctlc_defensive_driving"
   };
   var STAGES = ["en_route", "arrived", "start", "complete"];
   var STAGE_BUTTON = {

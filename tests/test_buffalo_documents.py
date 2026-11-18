@@ -18,10 +18,12 @@ license fees (not a document). No background check of any kind
 source does not name it), no document count anywhere ("Quantity
 nahi").
 
-The New York STATE list stays the NYC 7-doc list byte-unchanged,
-and the other upstate NY cities (Rochester, Albany, Syracuse,
-Yonkers, New York city itself) keep falling back to it in this
-build — the owner decided Buffalo only.
+The New York STATE list stays the NYC 7-doc list byte-unchanged.
+Rochester, Syracuse, and Yonkers have since gained their own
+city-specific lists (tests/test_upstate_ny_documents.py); Albany
+and New York city itself still fall back to the state list —
+Albany because the city repealed its taxicab licensing article
+in 2024, New York because the state list IS the NYC list.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -119,7 +121,8 @@ class BuffaloDocumentsCase(unittest.TestCase):
         overrides = payload["city_requirements"]
         self.assertEqual(set(overrides), {"Texas", "New York"})
         self.assertEqual(set(overrides["Texas"]), {"Dallas"})
-        self.assertEqual(set(overrides["New York"]), {"Buffalo"})
+        self.assertEqual(set(overrides["New York"]),
+                         {"Buffalo", "Rochester", "Syracuse", "Yonkers"})
         buffalo = overrides["New York"]["Buffalo"]
         self.assertEqual(buffalo["docs"], app_module.BUFFALO_DOC_TYPES)
         self.assertEqual(buffalo["docs"], [
@@ -197,16 +200,18 @@ class BuffaloDocumentsCase(unittest.TestCase):
         self.assertEqual(
             app_module.required_docs_for("New York", "Buffalo"),
             app_module.BUFFALO_DOC_TYPES)
-        # Every other New York city keeps the NYC state list.
-        for city in ("New York", "Rochester", "Albany", "Syracuse",
-                     "Yonkers", "Other city", None):
+        # New York city itself, Albany, and "Other city" keep the
+        # NYC state list. (Rochester, Syracuse, and Yonkers have
+        # their own lists now — pinned in
+        # tests/test_upstate_ny_documents.py.)
+        for city in ("New York", "Albany", "Other city", None):
             with self.subTest(city=city):
                 self.assertEqual(
                     app_module.required_docs_for("New York", city),
                     app_module.DOC_TYPES)
         self.assertTrue(app_module.local_note_for("New York", "Buffalo"))
         self.assertFalse(app_module.local_note_for("New York", "New York"))
-        self.assertFalse(app_module.local_note_for("New York", "Rochester"))
+        self.assertFalse(app_module.local_note_for("New York", "Albany"))
         self.assertFalse(app_module.local_note_for("New York", None))
 
     # -- registration gate ----------------------------------------------------
@@ -239,11 +244,13 @@ class BuffaloDocumentsCase(unittest.TestCase):
         self.assertIn("Vehicle Inspection Report", error)
         self.assertNotIn("TLC", error)
 
-    def test_rochester_falls_back_to_ny_state_list(self):
-        resp = self.register("New York", NY_FIELDS, city="Rochester")
+    def test_albany_falls_back_to_ny_state_list(self):
+        # Albany repealed its taxicab licensing article in 2024, so
+        # it adds no city-specific document and keeps the state list.
+        resp = self.register("New York", NY_FIELDS, city="Albany")
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:300])
         driver = resp.get_json()["driver"]
-        self.assertEqual(driver["city"], "Rochester")
+        self.assertEqual(driver["city"], "Albany")
         self.assertEqual(set(driver["docs"]), set(app_module.DOC_TYPES))
 
     def test_new_york_city_keeps_nyc_list(self):

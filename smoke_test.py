@@ -709,10 +709,11 @@ check("Texas cities include Dallas and Fort Worth",
       cities.get("Texas") == ["Austin", "Dallas", "Fort Worth",
                               "Houston", "San Antonio", "Other city"],
       str(cities.get("Texas")))
-check("Dallas and Buffalo are the city-specific lists, Fort Worth falls back",
+check("Dallas, Buffalo, Rochester, Syracuse, Yonkers are the city-specific lists, Fort Worth falls back",
       set(overrides) == {"Texas", "New York"}
       and set(overrides["Texas"]) == {"Dallas"}
-      and set(overrides["New York"]) == {"Buffalo"}
+      and set(overrides["New York"]) == {"Buffalo", "Rochester",
+                                         "Syracuse", "Yonkers"}
       and overrides["Texas"]["Dallas"]["docs"] == [
           "profile_picture", "dmv_license", "vehicle_registration",
           "dallas_commercial_insurance", "dallas_driver_permit",
@@ -722,7 +723,22 @@ check("Dallas and Buffalo are the city-specific lists, Fort Worth falls back",
           "profile_picture", "dmv_license",
           "buffalo_taxi_driver_license", "vehicle_registration",
           "buffalo_insurance_certificate", "buffalo_inspection_report"]
-      and overrides["New York"]["Buffalo"]["local_note"] is True,
+      and overrides["New York"]["Buffalo"]["local_note"] is True
+      and overrides["New York"]["Rochester"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "rochester_taxi_driver_license", "rochester_hack_certificate",
+          "rochester_insurance"]
+      and overrides["New York"]["Rochester"]["local_note"] is True
+      and overrides["New York"]["Syracuse"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "syracuse_hack_license", "syracuse_ground_transportation",
+          "syracuse_for_hire_insurance"]
+      and overrides["New York"]["Syracuse"]["local_note"] is True
+      and overrides["New York"]["Yonkers"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "wctlc_driver_permit", "wctlc_vehicle_permit",
+          "wctlc_insurance", "wctlc_defensive_driving"]
+      and overrides["New York"]["Yonkers"]["local_note"] is True,
       str(overrides))
 check("city payload carries no count or quantity field",
       all("count" not in c and "quantity" not in c

@@ -574,7 +574,17 @@
     { key: "dallas_limo_permit", label: "City Limo Permit (Dallas / Fort Worth)" },
     { key: "buffalo_taxi_driver_license", label: "City of Buffalo Taxi Driver License" },
     { key: "buffalo_insurance_certificate", label: "Certificate of Automobile Liability Insurance" },
-    { key: "buffalo_inspection_report", label: "Vehicle Inspection Report" }
+    { key: "buffalo_inspection_report", label: "Vehicle Inspection Report" },
+    { key: "rochester_taxi_driver_license", label: "City of Rochester Taxicab Driver License" },
+    { key: "rochester_hack_certificate", label: "Taxicab License Certificate (Hack Plate Certificate)" },
+    { key: "rochester_insurance", label: "Proof of Insurance" },
+    { key: "syracuse_hack_license", label: "Taxi (Hack) License" },
+    { key: "syracuse_ground_transportation", label: "Ground Transportation License" },
+    { key: "syracuse_for_hire_insurance", label: "Proof of For-Hire Insurance" },
+    { key: "wctlc_driver_permit", label: "WCTLC For-Hire Driver Permit" },
+    { key: "wctlc_vehicle_permit", label: "WCTLC For-Hire Vehicle Permit" },
+    { key: "wctlc_insurance", label: "Proof of Adequate Insurance" },
+    { key: "wctlc_defensive_driving", label: "Defensive Driving Course Proof of Completion" }
   ];
 
   function docIsComplete(value) {

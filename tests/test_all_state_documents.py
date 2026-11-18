@@ -205,8 +205,15 @@ class AllStateListsCase(unittest.TestCase):
                 self.assertNotIn(state, app_module.STATE_DOC_REQUIREMENTS)
                 self.assertEqual(app_module.required_docs_for_state(state),
                                  app_module.GENERIC_DOC_TYPES)
-        # No Chicago / Miami-Dade / Broward item exists anywhere.
-        labels = " ".join(app_module.ALL_DOC_LABELS.values())
+        # No Chicago / Miami-Dade / Broward item exists in any STATE
+        # list. (City lists MAY carry them: "Miami-Dade Chauffeur
+        # Registration" is Miami's own city-specific item, pinned in
+        # tests/test_southeast_documents.py — it must never leak
+        # into the Florida state list.)
+        state_types = set()
+        for state in app_module.US_STATES:
+            state_types.update(app_module.required_docs_for_state(state))
+        labels = " ".join(app_module.ALL_DOC_LABELS[t] for t in state_types)
         for forbidden in ("Public Chauffeur", "Chauffeur's Registration",
                           "Miami-Dade", "Broward", "Chicago"):
             self.assertNotIn(forbidden, labels)

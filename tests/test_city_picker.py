@@ -146,8 +146,13 @@ class CityPickerCase(unittest.TestCase):
         # Dallas (first) and Buffalo (second) are the city-specific
         # lists; Buffalo is pinned in tests/test_buffalo_documents.py.
         # Rochester, Syracuse, and Yonkers joined as the third,
-        # fourth, and fifth (tests/test_upstate_ny_documents.py).
-        self.assertEqual(set(overrides), {"Texas", "New York"})
+        # fourth, and fifth (tests/test_upstate_ny_documents.py),
+        # then the 16-city Southeast batch
+        # (tests/test_southeast_documents.py).
+        self.assertEqual(set(overrides),
+                         {"Texas", "New York", "Alabama", "Florida",
+                          "Louisiana", "Mississippi", "North Carolina",
+                          "South Carolina", "Tennessee"})
         self.assertEqual(set(overrides["Texas"]), {"Dallas"})
         self.assertEqual(set(overrides["New York"]),
                          {"Buffalo", "Rochester", "Syracuse", "Yonkers"})

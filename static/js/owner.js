@@ -584,7 +584,30 @@
     { key: "wctlc_driver_permit", label: "WCTLC For-Hire Driver Permit" },
     { key: "wctlc_vehicle_permit", label: "WCTLC For-Hire Vehicle Permit" },
     { key: "wctlc_insurance", label: "Proof of Adequate Insurance" },
-    { key: "wctlc_defensive_driving", label: "Defensive Driving Course Proof of Completion" }
+    { key: "wctlc_defensive_driving", label: "Defensive Driving Course Proof of Completion" },
+    { key: "birmingham_operator_permit", label: "City of Birmingham Operator's Permit" },
+    { key: "huntsville_chauffeur_license", label: "City of Huntsville Chauffeur License" },
+    { key: "mobile_chauffeur_license", label: "City of Mobile Chauffeur License" },
+    { key: "montgomery_chauffeur_license", label: "City of Montgomery Chauffeur License" },
+    { key: "miami_chauffeur_registration", label: "Miami-Dade Chauffeur Registration" },
+    { key: "orlando_driver_permit", label: "City of Orlando Driver Permit" },
+    { key: "orlando_insurance", label: "Certificate of Insurance (City as Additional Insured)" },
+    { key: "tallahassee_driver_permit", label: "City of Tallahassee Driver Permit" },
+    { key: "tampa_pvdl", label: "Public Vehicle Driver License (Hillsborough County)" },
+    { key: "tampa_transcript", label: "Seven-Year Driver License Transcript" },
+    { key: "baton_rouge_chauffeur_license", label: "City of Baton Rouge Chauffeur License" },
+    { key: "baton_rouge_driving_record", label: "Official Driving Record" },
+    { key: "baton_rouge_clearance", label: "Clearance Certificate" },
+    { key: "new_orleans_driver_permit", label: "CPNC Driver Permit (New Orleans)" },
+    { key: "new_orleans_mvr", label: "Certified MVR (Within 30 Days)" },
+    { key: "mvfha_driver_permit", label: "MVFHA Driver Permit" },
+    { key: "charlotte_pvh_permit", label: "PVH Driver Permit (Charlotte)" },
+    { key: "charlotte_driving_record", label: "Driving Record" },
+    { key: "durham_pvfh_permit", label: "PVFH Driver Permit (Durham)" },
+    { key: "charleston_chauffeur_license", label: "Chauffeur License (Charleston)" },
+    { key: "charleston_driving_record", label: "Certified 10-Year Driving Record" },
+    { key: "nashville_opvh_permit", label: "MTLC OPVH Driver Permit" },
+    { key: "nashville_mvr", label: "Motor Vehicle Record (Within 30 Days)" }
   ];
 
   function docIsComplete(value) {

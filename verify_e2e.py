@@ -1239,11 +1239,23 @@ check("cities served for all 51 jurisdictions, Other city fallback last",
       and all(names and names[-1] == "Other city"
               and names[:-1] == sorted(names[:-1])
               for names in cities.values()), str(len(cities)))
-check("Dallas, Buffalo, Rochester, Syracuse, Yonkers are the city-specific lists, Fort Worth falls back",
-      set(overrides) == {"Texas", "New York"}
+check("Dallas, Buffalo, Rochester, Syracuse, Yonkers + Southeast batch are the city-specific lists, Fort Worth falls back",
+      set(overrides) == {"Texas", "New York", "Alabama", "Florida",
+                         "Louisiana", "Mississippi", "North Carolina",
+                         "South Carolina", "Tennessee"}
       and set(overrides["Texas"]) == {"Dallas"}
       and set(overrides["New York"]) == {"Buffalo", "Rochester",
                                          "Syracuse", "Yonkers"}
+      and set(overrides["Alabama"]) == {"Birmingham", "Huntsville",
+                                        "Mobile", "Montgomery"}
+      and set(overrides["Florida"]) == {"Miami", "Orlando",
+                                        "Tallahassee", "Tampa"}
+      and set(overrides["Louisiana"]) == {"Baton Rouge", "New Orleans"}
+      and set(overrides["Mississippi"]) == {"Biloxi", "Gulfport"}
+      and set(overrides["North Carolina"]) == {"Charlotte", "Durham"}
+      and set(overrides["South Carolina"]) == {"Charleston"}
+      and set(overrides["Tennessee"]) == {"Nashville"}
+      and sum(len(c) for c in overrides.values()) == 21
       and overrides["Texas"]["Dallas"]["docs"] == [
           "profile_picture", "dmv_license", "vehicle_registration",
           "dallas_commercial_insurance", "dallas_driver_permit",
@@ -1268,7 +1280,72 @@ check("Dallas, Buffalo, Rochester, Syracuse, Yonkers are the city-specific lists
           "profile_picture", "dmv_license", "vehicle_registration",
           "wctlc_driver_permit", "wctlc_vehicle_permit",
           "wctlc_insurance", "wctlc_defensive_driving"]
-      and overrides["New York"]["Yonkers"]["local_note"] is True,
+      and overrides["New York"]["Yonkers"]["local_note"] is True
+      and overrides["Alabama"]["Birmingham"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "birmingham_operator_permit"]
+      and overrides["Alabama"]["Birmingham"]["local_note"] is True
+      and overrides["Alabama"]["Huntsville"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "huntsville_chauffeur_license"]
+      and overrides["Alabama"]["Huntsville"]["local_note"] is True
+      and overrides["Alabama"]["Mobile"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "mobile_chauffeur_license"]
+      and overrides["Alabama"]["Mobile"]["local_note"] is False
+      and overrides["Alabama"]["Montgomery"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "montgomery_chauffeur_license"]
+      and overrides["Alabama"]["Montgomery"]["local_note"] is True
+      and overrides["Florida"]["Miami"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "miami_chauffeur_registration"]
+      and overrides["Florida"]["Miami"]["local_note"] is True
+      and overrides["Florida"]["Orlando"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "orlando_driver_permit", "orlando_insurance"]
+      and overrides["Florida"]["Orlando"]["local_note"] is False
+      and overrides["Florida"]["Tallahassee"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "tallahassee_driver_permit"]
+      and overrides["Florida"]["Tallahassee"]["local_note"] is True
+      and overrides["Florida"]["Tampa"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "tampa_pvdl", "tampa_transcript"]
+      and overrides["Florida"]["Tampa"]["local_note"] is False
+      and overrides["Louisiana"]["Baton Rouge"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "baton_rouge_chauffeur_license", "baton_rouge_driving_record",
+          "baton_rouge_clearance"]
+      and overrides["Louisiana"]["Baton Rouge"]["local_note"] is False
+      and overrides["Louisiana"]["New Orleans"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "new_orleans_driver_permit", "new_orleans_mvr"]
+      and overrides["Louisiana"]["New Orleans"]["local_note"] is False
+      and overrides["Mississippi"]["Biloxi"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "mvfha_driver_permit"]
+      and overrides["Mississippi"]["Biloxi"]["local_note"] is False
+      and overrides["Mississippi"]["Gulfport"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "mvfha_driver_permit"]
+      and overrides["Mississippi"]["Gulfport"]["local_note"] is False
+      and overrides["North Carolina"]["Charlotte"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "charlotte_pvh_permit", "charlotte_driving_record"]
+      and overrides["North Carolina"]["Charlotte"]["local_note"] is True
+      and overrides["North Carolina"]["Durham"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "durham_pvfh_permit"]
+      and overrides["North Carolina"]["Durham"]["local_note"] is True
+      and overrides["South Carolina"]["Charleston"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "charleston_chauffeur_license", "charleston_driving_record"]
+      and overrides["South Carolina"]["Charleston"]["local_note"] is True
+      and overrides["Tennessee"]["Nashville"]["docs"] == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "nashville_opvh_permit", "nashville_mvr"]
+      and overrides["Tennessee"]["Nashville"]["local_note"] is True,
       str(overrides))
 r = anon.get(BASE + "/driver", timeout=TIMEOUT)
 check("served driver page has the city picker after the state picker",

@@ -119,7 +119,10 @@ class BuffaloDocumentsCase(unittest.TestCase):
     def test_city_requirements_cover_dallas_and_buffalo(self):
         payload = self.client.get("/api/states").get_json()
         overrides = payload["city_requirements"]
-        self.assertEqual(set(overrides), {"Texas", "New York"})
+        self.assertEqual(set(overrides),
+                         {"Texas", "New York", "Alabama", "Florida",
+                          "Louisiana", "Mississippi", "North Carolina",
+                          "South Carolina", "Tennessee"})
         self.assertEqual(set(overrides["Texas"]), {"Dallas"})
         self.assertEqual(set(overrides["New York"]),
                          {"Buffalo", "Rochester", "Syracuse", "Yonkers"})

@@ -220,6 +220,29 @@ DOC_FIELD_MAP = {
     "doc_wctlc_vehicle_permit": "wctlc_vehicle_permit",
     "doc_wctlc_insurance": "wctlc_insurance",
     "doc_wctlc_defensive_driving": "wctlc_defensive_driving",
+    "doc_birmingham_operator_permit": "birmingham_operator_permit",
+    "doc_huntsville_chauffeur_license": "huntsville_chauffeur_license",
+    "doc_mobile_chauffeur_license": "mobile_chauffeur_license",
+    "doc_montgomery_chauffeur_license": "montgomery_chauffeur_license",
+    "doc_miami_chauffeur_registration": "miami_chauffeur_registration",
+    "doc_orlando_driver_permit": "orlando_driver_permit",
+    "doc_orlando_insurance": "orlando_insurance",
+    "doc_tallahassee_driver_permit": "tallahassee_driver_permit",
+    "doc_tampa_pvdl": "tampa_pvdl",
+    "doc_tampa_transcript": "tampa_transcript",
+    "doc_baton_rouge_chauffeur_license": "baton_rouge_chauffeur_license",
+    "doc_baton_rouge_driving_record": "baton_rouge_driving_record",
+    "doc_baton_rouge_clearance": "baton_rouge_clearance",
+    "doc_new_orleans_driver_permit": "new_orleans_driver_permit",
+    "doc_new_orleans_mvr": "new_orleans_mvr",
+    "doc_mvfha_driver_permit": "mvfha_driver_permit",
+    "doc_charlotte_pvh_permit": "charlotte_pvh_permit",
+    "doc_charlotte_driving_record": "charlotte_driving_record",
+    "doc_durham_pvfh_permit": "durham_pvfh_permit",
+    "doc_charleston_chauffeur_license": "charleston_chauffeur_license",
+    "doc_charleston_driving_record": "charleston_driving_record",
+    "doc_nashville_opvh_permit": "nashville_opvh_permit",
+    "doc_nashville_mvr": "nashville_mvr",
 }
 # doc_type -> multipart field name (profile_picture comes from profile_photo)
 FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
@@ -728,15 +751,233 @@ YONKERS_DOC_TYPES = [
     "wctlc_defensive_driving",
 ]
 
-# (state, city) -> city-specific list. Dallas, Buffalo, Rochester,
-# Syracuse, and Yonkers today; a city is added here ONLY with a
-# verified official source naming its items.
+# Southeast batch (owner order 2026-11-17, "every city ka wahan ke
+# rules"). Sixteen city-specific lists, each verified from official
+# sources only; the five thin ones (Birmingham, Mobile, Montgomery,
+# Tallahassee, Durham) were re-verified by the coordinator before
+# build — see the ledger (CITY_RESEARCH.md). No background check
+# anywhere; no age/experience gate; no document count.
+# Birmingham, AL: Ordinance 14-5, Title 12 Ch. 16 (Taxis and
+# Vehicles for Hire): an Operator's Permit is required to drive a
+# vehicle for hire, and §12-16-51 requires the driver to carry a
+# valid Alabama driver license, a current health and welfare
+# certificate, and a current Operator's Permit. The health and
+# welfare certificate is a PHYSICIAN'S certificate after a
+# physical/mental exam — a medical item, HELD for an owner
+# decision (same privacy handling as the other medical items), so
+# the gate asks only for the Operator's Permit and the
+# owner-review note stays ON. Currency caveat: the ordinance copy
+# is hosted on the airport site; no repeal was found.
+# Huntsville, AL: City Chauffeur License (Chief of Police), from
+# the city ordinance. Supporting documents were not retrieved —
+# nothing is invented, and the owner-review note stays ON.
+# Mobile, AL: Chauffeur's license issued by the Police Department
+# on ALL drivers (Certificate of Public Convenience and Necessity
+# application packet, City Code Ch. 59, which covers taxicab,
+# shuttle, limousine, carriage, and charter service). The packet's
+# insurance and inspection-certificate filings belong to the
+# company-level CPNC application, not to the driver — not slots.
+# Montgomery, AL: Chauffeur's License Packet (Risk Management
+# Department, Ordinance Ch. 6 Art. VIII — Vehicles for Hire). The
+# packet contents were not retrieved — nothing is invented, and
+# the owner-review note stays ON.
+# Miami, FL: Miami-Dade Chauffeur Registration (county
+# chauffeur application). Identity proof is an OR-alternative
+# (SSN card OR passport OR birth certificate) — NO SSN slot, and
+# the owner-review note stays ON.
+# Orlando, FL: City of Orlando Driver Permit + Certificate of
+# Insurance (commercial, City as additional insured), from the
+# city's transportation-company page and Uber's official Orlando
+# vehicle-requirements page.
+# Tallahassee, FL: City of Tallahassee Driver Permit (Ordinance
+# 15-O-10AA, 2015, Ch. 22 — Vehicles for Hire: "Driver means an
+# individual permitted to drive a vehicle for hire"; "Limousine"
+# is defined as a prearranged chauffeured luxury vehicle). Currency
+# was not re-verified and no repeal was found, so the owner-review
+# note stays ON.
+# Tampa, FL: Hillsborough County Public Vehicle Driver License
+# (PVDL) + Seven-Year Driver License Transcript (County Code
+# Ch. 10 Art. XV).
+# Baton Rouge, LA: Chauffeur License / Operator Permit + Official
+# Driving Record + Clearance Certificate (city Chauffeurs page
+# and Operators Permit and ID Badge Procedures).
+# New Orleans, LA: Driver Permit for CPNC (covers Limousine) +
+# Certified MVR (2-year, within 30 days), from the city's driver
+# permit page. A defensive-driving certificate and proof of
+# residency appear only in an older checklist — NOT included.
+# Biloxi and Gulfport, MS: MVFHA Driver Permit, from the SAME
+# Harrison County interlocal Authority (Mississippi Vehicle for
+# Hire Authority) — one shared document type, not two cities
+# copying each other.
+# Charlotte, NC: PVH Driver Permit + Driving Record(s), from the
+# city police PVH driver permit package. The SSN card named in
+# the packet (bring the original, "DO NOT EMAIL") is HELD for an
+# owner decision — NO SSN slot, owner-review note ON.
+# Durham, NC: PVFH Driver Permit (City Code Ch. 50 Art. III; the
+# program regulates taxicabs, limousines, limousine sedans,
+# shuttles, and para-transits). The New Driver Permit Checklist
+# was retrieved: the Physician's Statement (medical) and the
+# Social Security Card are HELD for owner decisions, immigration
+# information is an OR-alternative, and the Operator's Permission
+# Form is an operator-affiliation gap — the owner-review note
+# stays ON.
+# Charleston, SC: Chauffeur License + Certified 10-Year Driving
+# Record (Vehicle for Hire Ordinance). The Signed Medical
+# Statement is a medical item, HELD for an owner decision. The
+# ordinance offers an OR-alternative (city license OR licensee
+# endorsement) — the owner-review note stays ON.
+# Nashville, TN: MTLC OPVH Driver Permit + Motor Vehicle Record
+# (within 30 days), from the OPVH Driver Permit Checklist (Oct
+# 2022). Citizenship/ICE proof is an OR-alternative — the
+# owner-review note stays ON. SSN, birth certificate, and
+# training items appear only in a non-official draft — NOT
+# included.
+BIRMINGHAM_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "birmingham_operator_permit",
+]
+
+HUNTSVILLE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "huntsville_chauffeur_license",
+]
+
+MOBILE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "mobile_chauffeur_license",
+]
+
+MONTGOMERY_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "montgomery_chauffeur_license",
+]
+
+MIAMI_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "miami_chauffeur_registration",
+]
+
+ORLANDO_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "orlando_driver_permit",
+    "orlando_insurance",
+]
+
+TALLAHASSEE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "tallahassee_driver_permit",
+]
+
+TAMPA_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "tampa_pvdl",
+    "tampa_transcript",
+]
+
+BATON_ROUGE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "baton_rouge_chauffeur_license",
+    "baton_rouge_driving_record",
+    "baton_rouge_clearance",
+]
+
+NEW_ORLEANS_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "new_orleans_driver_permit",
+    "new_orleans_mvr",
+]
+
+BILOXI_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "mvfha_driver_permit",
+]
+
+GULFPORT_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "mvfha_driver_permit",
+]
+
+CHARLOTTE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "charlotte_pvh_permit",
+    "charlotte_driving_record",
+]
+
+DURHAM_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "durham_pvfh_permit",
+]
+
+CHARLESTON_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "charleston_chauffeur_license",
+    "charleston_driving_record",
+]
+
+NASHVILLE_DOC_TYPES = [
+    "profile_picture",
+    "dmv_license",
+    "vehicle_registration",
+    "nashville_opvh_permit",
+    "nashville_mvr",
+]
+
+# (state, city) -> city-specific list. 21 cities today (Dallas,
+# Buffalo, Rochester, Syracuse, Yonkers, and the 16-city Southeast
+# batch); a city is added here ONLY with a verified official
+# source naming its items.
 CITY_DOC_REQUIREMENTS = {
     ("Texas", "Dallas"): DALLAS_DOC_TYPES,
     ("New York", "Buffalo"): BUFFALO_DOC_TYPES,
     ("New York", "Rochester"): ROCHESTER_DOC_TYPES,
     ("New York", "Syracuse"): SYRACUSE_DOC_TYPES,
     ("New York", "Yonkers"): YONKERS_DOC_TYPES,
+    ("Alabama", "Birmingham"): BIRMINGHAM_DOC_TYPES,
+    ("Alabama", "Huntsville"): HUNTSVILLE_DOC_TYPES,
+    ("Alabama", "Mobile"): MOBILE_DOC_TYPES,
+    ("Alabama", "Montgomery"): MONTGOMERY_DOC_TYPES,
+    ("Florida", "Miami"): MIAMI_DOC_TYPES,
+    ("Florida", "Orlando"): ORLANDO_DOC_TYPES,
+    ("Florida", "Tallahassee"): TALLAHASSEE_DOC_TYPES,
+    ("Florida", "Tampa"): TAMPA_DOC_TYPES,
+    ("Louisiana", "Baton Rouge"): BATON_ROUGE_DOC_TYPES,
+    ("Louisiana", "New Orleans"): NEW_ORLEANS_DOC_TYPES,
+    ("Mississippi", "Biloxi"): BILOXI_DOC_TYPES,
+    ("Mississippi", "Gulfport"): GULFPORT_DOC_TYPES,
+    ("North Carolina", "Charlotte"): CHARLOTTE_DOC_TYPES,
+    ("North Carolina", "Durham"): DURHAM_DOC_TYPES,
+    ("South Carolina", "Charleston"): CHARLESTON_DOC_TYPES,
+    ("Tennessee", "Nashville"): NASHVILLE_DOC_TYPES,
 }
 
 # City-specific lists that KEEP the owner-review note: Buffalo's
@@ -748,12 +989,26 @@ CITY_DOC_REQUIREMENTS = {
 # medical form + inputs; Yonkers: SSN OR-alternative + unresolved
 # city-license overlap + base affiliation), so the owner reviews
 # each of those applications too. Dallas hides the note: its list
-# is complete as named by Uber's official pages.
+# is complete as named by Uber's official pages. The Southeast
+# note-ON cities keep it for the same reason: a named item the
+# gate cannot express (Birmingham: held medical certificate;
+# Huntsville/Montgomery: unretrieved supporting documents;
+# Miami/Charlotte/Durham/Charleston/Nashville: OR-alternatives
+# and held SSN/medical items; Tallahassee: unverified currency).
 CITY_LISTS_WITH_LOCAL_NOTE = frozenset({
     ("New York", "Buffalo"),
     ("New York", "Rochester"),
     ("New York", "Syracuse"),
     ("New York", "Yonkers"),
+    ("Alabama", "Birmingham"),
+    ("Alabama", "Huntsville"),
+    ("Alabama", "Montgomery"),
+    ("Florida", "Miami"),
+    ("Florida", "Tallahassee"),
+    ("North Carolina", "Charlotte"),
+    ("North Carolina", "Durham"),
+    ("South Carolina", "Charleston"),
+    ("Tennessee", "Nashville"),
 })
 
 
@@ -884,6 +1139,29 @@ ALL_DOC_LABELS.update({
     "wctlc_vehicle_permit": "WCTLC For-Hire Vehicle Permit",
     "wctlc_insurance": "Proof of Adequate Insurance",
     "wctlc_defensive_driving": "Defensive Driving Course Proof of Completion",
+    "birmingham_operator_permit": "City of Birmingham Operator's Permit",
+    "huntsville_chauffeur_license": "City of Huntsville Chauffeur License",
+    "mobile_chauffeur_license": "City of Mobile Chauffeur License",
+    "montgomery_chauffeur_license": "City of Montgomery Chauffeur License",
+    "miami_chauffeur_registration": "Miami-Dade Chauffeur Registration",
+    "orlando_driver_permit": "City of Orlando Driver Permit",
+    "orlando_insurance": "Certificate of Insurance (City as Additional Insured)",
+    "tallahassee_driver_permit": "City of Tallahassee Driver Permit",
+    "tampa_pvdl": "Public Vehicle Driver License (Hillsborough County)",
+    "tampa_transcript": "Seven-Year Driver License Transcript",
+    "baton_rouge_chauffeur_license": "City of Baton Rouge Chauffeur License",
+    "baton_rouge_driving_record": "Official Driving Record",
+    "baton_rouge_clearance": "Clearance Certificate",
+    "new_orleans_driver_permit": "CPNC Driver Permit (New Orleans)",
+    "new_orleans_mvr": "Certified MVR (Within 30 Days)",
+    "mvfha_driver_permit": "MVFHA Driver Permit",
+    "charlotte_pvh_permit": "PVH Driver Permit (Charlotte)",
+    "charlotte_driving_record": "Driving Record",
+    "durham_pvfh_permit": "PVFH Driver Permit (Durham)",
+    "charleston_chauffeur_license": "Chauffeur License (Charleston)",
+    "charleston_driving_record": "Certified 10-Year Driving Record",
+    "nashville_opvh_permit": "MTLC OPVH Driver Permit",
+    "nashville_mvr": "Motor Vehicle Record (Within 30 Days)",
 })
 # Hint line under each document item in the registration form.
 DOC_HINTS = {
@@ -986,6 +1264,29 @@ DOC_HINTS = {
     "wctlc_vehicle_permit": "Photo of your WCTLC For-Hire Vehicle Permit, straight and fully visible.",
     "wctlc_insurance": "Photo of your Proof of Adequate Insurance, straight and fully visible.",
     "wctlc_defensive_driving": "Photo of your Defensive Driving Course Proof of Completion, straight and fully visible.",
+    "birmingham_operator_permit": "Photo of your City of Birmingham Operator's Permit, straight and fully visible.",
+    "huntsville_chauffeur_license": "Photo of your City of Huntsville Chauffeur License, straight and fully visible.",
+    "mobile_chauffeur_license": "Photo of your City of Mobile Chauffeur License, straight and fully visible.",
+    "montgomery_chauffeur_license": "Photo of your City of Montgomery Chauffeur License, straight and fully visible.",
+    "miami_chauffeur_registration": "Photo of your Miami-Dade Chauffeur Registration, straight and fully visible.",
+    "orlando_driver_permit": "Photo of your City of Orlando Driver Permit, straight and fully visible.",
+    "orlando_insurance": "Photo of your Certificate of Insurance (City as Additional Insured), straight and fully visible.",
+    "tallahassee_driver_permit": "Photo of your City of Tallahassee Driver Permit, straight and fully visible.",
+    "tampa_pvdl": "Photo of your Public Vehicle Driver License (Hillsborough County), straight and fully visible.",
+    "tampa_transcript": "Photo of your Seven-Year Driver License Transcript, straight and fully visible.",
+    "baton_rouge_chauffeur_license": "Photo of your City of Baton Rouge Chauffeur License, straight and fully visible.",
+    "baton_rouge_driving_record": "Photo of your Official Driving Record, straight and fully visible.",
+    "baton_rouge_clearance": "Photo of your Clearance Certificate, straight and fully visible.",
+    "new_orleans_driver_permit": "Photo of your CPNC Driver Permit (New Orleans), straight and fully visible.",
+    "new_orleans_mvr": "Photo of your Certified MVR (Within 30 Days), straight and fully visible.",
+    "mvfha_driver_permit": "Photo of your MVFHA Driver Permit, straight and fully visible.",
+    "charlotte_pvh_permit": "Photo of your PVH Driver Permit (Charlotte), straight and fully visible.",
+    "charlotte_driving_record": "Photo of your Driving Record, straight and fully visible.",
+    "durham_pvfh_permit": "Photo of your PVFH Driver Permit (Durham), straight and fully visible.",
+    "charleston_chauffeur_license": "Photo of your Chauffeur License (Charleston), straight and fully visible.",
+    "charleston_driving_record": "Photo of your Certified 10-Year Driving Record, straight and fully visible.",
+    "nashville_opvh_permit": "Photo of your MTLC OPVH Driver Permit, straight and fully visible.",
+    "nashville_mvr": "Photo of your Motor Vehicle Record (Within 30 Days), straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived
@@ -1356,8 +1657,8 @@ def waze_url_for(booking):
 
 def driver_docs_status(driver):
     # Statuses for the documents the driver's state + city require. A
-    # city with a verified city-specific list (Dallas, Buffalo,
-    # Rochester, Syracuse, Yonkers) overrides its
+    # city with a verified city-specific list (see
+    # CITY_DOC_REQUIREMENTS) overrides its
     # state list; drivers registered before the state selector (no
     # state on file) read as New York, the list they registered under
     # — unchanged behaviour.
@@ -2268,8 +2569,8 @@ def list_states():
     2026-11-17, Uber-style): `cities` lists each state's largest
     cities, alphabetical, with the "Other city" fallback last, and
     `city_requirements` carries the verified city-specific lists
-    that override their state list (Dallas, Buffalo, Rochester,
-    Syracuse, and Yonkers today). Every other
+    that override their state list (21 cities today; see
+    CITY_DOC_REQUIREMENTS). Every other
     city uses its state list unchanged.
     """
     return jsonify({
@@ -2384,8 +2685,8 @@ def register_driver():
     # depends on the driver's state and city (New York keeps the
     # original 7; other states have their own verified list or the
     # generic base list; a city with a verified city-specific list,
-    # Dallas, Buffalo, Rochester, Syracuse, and Yonkers today,
-    # overrides its state list). This gates only new
+    # 21 cities today, overrides its state list). This gates
+    # only new
     # registrations: drivers registered before this change keep
     # signing in and going available exactly as before.
     missing = []

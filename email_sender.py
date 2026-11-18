@@ -83,9 +83,15 @@ def send_email(to, subject, body):
         with urlopen(request, timeout=REQUEST_TIMEOUT) as resp:
             return SENT if 200 <= resp.status < 300 else FAILED
     except HTTPError as exc:
-        # Log the status only — never the body or headers (the key
-        # lives in the Authorization header).
-        log.warning("Resend send failed: HTTP %s", exc.code)
+        # Log the status, Resend's error body (a JSON message — it
+        # never contains the key), and the key length (a number
+        # only). The key value itself is never logged.
+        try:
+            detail = exc.read().decode("utf-8", "replace")[:300]
+        except Exception:
+            detail = ""
+        log.warning("Resend send failed: HTTP %s: %s (key_len=%d)",
+                    exc.code, detail, len(key))
         return FAILED
     except (URLError, OSError, ValueError) as exc:
         log.warning("Resend send failed: %s", exc)

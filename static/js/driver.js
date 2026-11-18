@@ -731,6 +731,7 @@
     offersTimer: null,
     noShowTimer: null,
     reminderTimer: null,
+    reminderChimedBookingId: null,
     trip: null,
     stageIndex: 0,
     watchId: null,
@@ -1747,20 +1748,29 @@
      top of the trip screen. The server decides (same window as the
      queued email/SMS reminder) and the banner shows pickup time +
      addresses only — never miles, fare, or total. A missed check is
-     harmless; the next one follows. */
+     harmless; the next one follows. When the banner first appears
+     for a booking it plays ONE burst of the new-offer chime
+     (playOfferTone, which unlocks audio and fails silently exactly
+     as the offer path does); later polls while the banner is
+     already showing for the same booking stay silent. */
   function refreshPickupReminder() {
-    if (!state.trip) { hide($("trip-reminder-banner")); return; }
+    if (!state.trip) { hide($("trip-reminder-banner")); state.reminderChimedBookingId = null; return; }
     fetch("/api/drivers/me/pickup-reminder", { headers: authHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var banner = $("trip-reminder-banner");
         var rem = j && j.reminder;
-        if (!rem || !state.trip || rem.booking_id !== state.trip.id) { hide(banner); return; }
+        if (!rem || !state.trip || rem.booking_id !== state.trip.id) { hide(banner); state.reminderChimedBookingId = null; return; }
+        var wasHidden = banner.classList.contains("hidden");
         var text = "Your ride starts in about an hour — pickup " + rem.date + " at " + rem.time + " from " + rem.pickup;
         if (rem.ride_type !== "hourly" && rem.dropoff) text += " to " + rem.dropoff;
         text += ".";
         banner.textContent = text;
         show(banner);
+        if (wasHidden || state.reminderChimedBookingId !== rem.booking_id) {
+          state.reminderChimedBookingId = rem.booking_id;
+          playOfferTone();
+        }
       })
       .catch(function () { /* keep the current banner on a failed check */ });
   }
@@ -2002,6 +2012,7 @@
     hide($("namesign-overlay"));
     hideNavChooser();
     hide($("trip-reminder-banner"));
+    state.reminderChimedBookingId = null;
     state.trip = null;
     state.stageIndex = 0;
     state.lastPosition = null;

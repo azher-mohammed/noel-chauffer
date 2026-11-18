@@ -408,6 +408,33 @@ class PickupReminderCase(unittest.TestCase):
         self.assertIn("stopReminderPolling();", end)
         self.assertIn('hide($("trip-reminder-banner"));', end)
 
+    def test_reminder_banner_chimes_once_on_first_appearance(self):
+        # The banner must sound when it first appears: ONE burst of
+        # the existing offer chime (playOfferTone, which unlocks
+        # audio and fails silently like the offer path). Repeat
+        # 30-second polls while the banner is already showing for
+        # the same booking must stay silent; hiding the banner
+        # resets, so a later (new) reminder chimes once again.
+        driver_js = read("static/js/driver.js")
+        self.assertIn("reminderChimedBookingId: null", driver_js)
+        refresh = driver_js[driver_js.index("function refreshPickupReminder()"):]
+        refresh = refresh[:refresh.index("function startReminderPolling()")]
+        # Exactly one tone call in the refresh path, guarded by the
+        # hidden->shown transition and the per-booking chimed id.
+        self.assertEqual(refresh.count("playOfferTone();"), 1)
+        self.assertIn('banner.classList.contains("hidden")', refresh)
+        self.assertIn("state.reminderChimedBookingId !== rem.booking_id",
+                      refresh)
+        self.assertIn("state.reminderChimedBookingId = rem.booking_id",
+                      refresh)
+        # The hide branches reset the chimed id so a later reminder
+        # can chime again.
+        self.assertGreaterEqual(
+            refresh.count("state.reminderChimedBookingId = null"), 2)
+        # One burst only — never the repeating 30-second offer loop.
+        self.assertNotIn("startOfferTone", refresh)
+        self.assertNotIn("setInterval", refresh)
+
     def test_owner_dashboard_triggers_check_on_load(self):
         owner_js = read("static/js/owner.js")
         self.assertIn('fetch("/api/owner/run-pickup-reminders"', owner_js)

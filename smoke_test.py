@@ -657,6 +657,54 @@ resp = client.get("/static/css/driver.css")
 check("served driver.css styles route labels",
       resp.status_code == 200 and b".route-label" in resp.data,
       str(resp.status_code))
+# --- per-state document lists (owner order 2026-11-17) --------------
+resp = client.get("/api/states")
+payload = resp.get_json() if resp.status_code == 200 else {}
+reqs = payload.get("requirements", {})
+check("states endpoint lists 51 jurisdictions alphabetically",
+      resp.status_code == 200 and len(payload.get("states", [])) == 51
+      and payload["states"] == sorted(payload["states"]), str(resp.status_code))
+check("every state has its own non-empty list, profile first, license second",
+      len(reqs) == 51 and all(
+          r["docs"] and r["docs"][0] == "profile_picture" and r["docs"][1] == "dmv_license"
+          for r in reqs.values()), str(len(reqs)))
+check("DC list is the verified Face ID list",
+      reqs.get("District of Columbia", {}).get("docs") == [
+          "profile_picture", "dmv_license", "dc_drivers_record", "dc_ssc",
+          "dc_residency", "dc_medical_form", "dc_face_id",
+          "dc_public_vehicle_license", "vehicle_registration", "dc_inspection",
+          "insurance_card"], str(reqs.get("District of Columbia")))
+check("Washington list is the verified DOL list",
+      reqs.get("Washington", {}).get("docs") == [
+          "profile_picture", "dmv_license", "wa_medical_certificate",
+          "wa_driving_record", "wa_carrier_license", "wa_vehicle_certificate",
+          "wa_chauffeur_addendum", "wa_fh_registration", "wa_inspection_report",
+          "wa_insurance_certificate"], str(reqs.get("Washington")))
+check("unverified and county/city states stay on the generic list",
+      all(reqs.get(s, {}).get("docs") == app_module.GENERIC_DOC_TYPES
+          for s in ("Alaska", "Arizona", "Arkansas", "Idaho", "Montana",
+                    "New Hampshire", "North Carolina", "North Dakota",
+                    "Oklahoma", "Oregon", "South Dakota", "Vermont",
+                    "Wisconsin", "Wyoming",
+                    "Florida", "Illinois", "Texas", "Massachusetts")))
+check("owner-review note only hidden for the 6 verified states",
+      all(reqs[s]["local_note"] is False for s in
+          ("New York", "New Jersey", "District of Columbia", "Maine",
+           "Rhode Island", "Washington"))
+      and all(reqs[s]["local_note"] is True for s in reqs
+              if s not in ("New York", "New Jersey", "District of Columbia",
+                           "Maine", "Rhode Island", "Washington")))
+check("states payload carries no count or quantity field",
+      "count" not in payload and "quantity" not in payload
+      and all("count" not in r and "quantity" not in r for r in reqs.values()))
+resp = client.get("/static/js/driver.js")
+check("served driver.js shows no document count in the required note",
+      resp.status_code == 200 and b"required.length" not in resp.data
+      and b"All items are required" in resp.data, str(resp.status_code))
+resp = client.get("/driver")
+check("served driver page shows no document count",
+      resp.status_code == 200 and b"All 7 items are required" not in resp.data
+      and b"All items are required" in resp.data, str(resp.status_code))
 
 print(f"\n{CHECKS['passed']} passed, {CHECKS['failed']} failed")
 sys.exit(1 if CHECKS["failed"] else 0)

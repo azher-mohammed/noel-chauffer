@@ -1062,8 +1062,9 @@ check("driver page carries the nav chooser overlay",
       and "nav-chooser-waze" in r.text
       and "nav-chooser-close" in r.text,
       "nav chooser overlay missing from served driver page")
-check("driver page states all 7 documents are required",
-      "All 7 items are required" in r.text
+check("driver page states all documents are required, no count shown",
+      "All items are required" in r.text
+      and "All 7 items are required" not in r.text
       and "registration cannot be completed until every document is uploaded" in r.text,
       "compulsory-documents note missing from served driver page")
 r = anon.get(BASE + "/static/css/driver.css", timeout=TIMEOUT)
@@ -1190,6 +1191,56 @@ check("owner.js wires clear-drivers with confirm and counts",
       r.status_code == 200 and "/api/owner/clear-drivers" in r.text
       and "window.confirm(" in r.text and "window.alert(" in r.text,
       str(r.status_code))
+# --- per-state document lists over HTTP (owner order 2026-11-17) ---
+r = anon.get(BASE + "/api/states", timeout=TIMEOUT)
+payload = r.json() if r.status_code == 200 else {}
+reqs = payload.get("requirements", {})
+check("states endpoint lists 51 jurisdictions",
+      r.status_code == 200 and len(payload.get("states", [])) == 51, str(r.status_code))
+check("every state serves its own list, profile first, license second",
+      len(reqs) == 51 and all(
+          req["docs"] and req["docs"][0] == "profile_picture"
+          and req["docs"][1] == "dmv_license" for req in reqs.values()),
+      str(len(reqs)))
+check("DC serves the verified Face ID list",
+      reqs.get("District of Columbia", {}).get("docs") == [
+          "profile_picture", "dmv_license", "dc_drivers_record", "dc_ssc",
+          "dc_residency", "dc_medical_form", "dc_face_id",
+          "dc_public_vehicle_license", "vehicle_registration", "dc_inspection",
+          "insurance_card"], str(reqs.get("District of Columbia")))
+check("Washington serves the verified DOL list",
+      reqs.get("Washington", {}).get("docs") == [
+          "profile_picture", "dmv_license", "wa_medical_certificate",
+          "wa_driving_record", "wa_carrier_license", "wa_vehicle_certificate",
+          "wa_chauffeur_addendum", "wa_fh_registration", "wa_inspection_report",
+          "wa_insurance_certificate"], str(reqs.get("Washington")))
+check("Florida and Illinois stay generic, no city list statewide",
+      reqs.get("Florida", {}).get("docs") == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "insurance_card"]
+      and reqs.get("Illinois", {}).get("docs") == [
+          "profile_picture", "dmv_license", "vehicle_registration",
+          "insurance_card"], str(reqs.get("Florida")))
+check("owner-review note hidden only for the 6 verified states",
+      all(reqs[s]["local_note"] is False for s in
+          ("New York", "New Jersey", "District of Columbia", "Maine",
+           "Rhode Island", "Washington"))
+      and reqs.get("California", {}).get("local_note") is True
+      and reqs.get("Alaska", {}).get("local_note") is True)
+check("states payload carries no count or quantity field",
+      "count" not in payload and "quantity" not in payload
+      and all("count" not in req and "quantity" not in req
+              for req in reqs.values()))
+r = anon.get(BASE + "/static/js/driver.js", timeout=TIMEOUT)
+check("served driver.js shows no document count in the required note",
+      r.status_code == 200 and "required.length" not in r.text
+      and "All items are required" in r.text, str(r.status_code))
+r = anon.get(BASE + "/static/js/owner.js", timeout=TIMEOUT)
+check("served owner.js carries the new state document labels",
+      r.status_code == 200
+      and "Taxi-LPMV-PMV Operator's License" in r.text
+      and "For-Hire Operators (Face ID) License" in r.text
+      and "Form E (Insurance Filing)" in r.text, str(r.status_code))
 
 print(f"\n{CHECKS['passed']} passed, {CHECKS['failed']} failed")
 if FAILURES:

@@ -202,7 +202,10 @@ class CompulsoryDocumentsCase(unittest.TestCase):
 
     def test_registration_form_states_documents_are_required(self):
         html = read("static/driver.html")
-        self.assertIn("All 7 items are required", html)
+        # Owner decision 2026-11-17 ("Quantity nahi"): no document
+        # count is shown anywhere — the note names no number.
+        self.assertIn("All items are required", html)
+        self.assertNotIn("All 7 items are required", html)
         self.assertIn("registration cannot be completed until every document is uploaded",
                       html)
 

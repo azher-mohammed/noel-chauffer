@@ -134,6 +134,76 @@ DOC_FIELD_MAP = {
     "doc_nj_insurance": "nj_insurance",
     "doc_vehicle_registration": "vehicle_registration",
     "doc_insurance_card": "insurance_card",
+    "doc_al_certificate": "al_certificate",
+    "doc_al_form_e": "al_form_e",
+    "doc_ca_tcp_permit": "ca_tcp_permit",
+    "doc_ca_driver_statement": "ca_driver_statement",
+    "doc_ca_commercial_registration": "ca_commercial_registration",
+    "doc_ca_inspection_declaration": "ca_inspection_declaration",
+    "doc_co_ll_permit": "co_ll_permit",
+    "doc_co_inspection": "co_inspection",
+    "doc_co_form_e": "co_form_e",
+    "doc_ct_livery_permit": "ct_livery_permit",
+    "doc_de_certificate": "de_certificate",
+    "doc_de_limo_registration": "de_limo_registration",
+    "doc_de_inspection": "de_inspection",
+    "doc_dc_drivers_record": "dc_drivers_record",
+    "doc_dc_ssc": "dc_ssc",
+    "doc_dc_residency": "dc_residency",
+    "doc_dc_medical_form": "dc_medical_form",
+    "doc_dc_face_id": "dc_face_id",
+    "doc_dc_public_vehicle_license": "dc_public_vehicle_license",
+    "doc_dc_inspection": "dc_inspection",
+    "doc_ga_carrier_certificate": "ga_carrier_certificate",
+    "doc_ga_insurance_certificate": "ga_insurance_certificate",
+    "doc_hi_carrier_certificate": "hi_carrier_certificate",
+    "doc_hi_vehicle_inventory": "hi_vehicle_inventory",
+    "doc_hi_tax_clearance": "hi_tax_clearance",
+    "doc_ks_certificate": "ks_certificate",
+    "doc_ky_limousine_certificate": "ky_limousine_certificate",
+    "doc_ky_vehicle_license": "ky_vehicle_license",
+    "doc_ky_inspection": "ky_inspection",
+    "doc_me_registration": "me_registration",
+    "doc_me_jb_filing": "me_jb_filing",
+    "doc_md_for_hire_license": "md_for_hire_license",
+    "doc_md_inspection_certificate": "md_inspection_certificate",
+    "doc_mi_carrier_license": "mi_carrier_license",
+    "doc_mn_permit": "mn_permit",
+    "doc_mn_inspection": "mn_inspection",
+    "doc_mn_form_e": "mn_form_e",
+    "doc_mo_authority": "mo_authority",
+    "doc_ne_medical_certificate": "ne_medical_certificate",
+    "doc_ne_carrier_authority": "ne_carrier_authority",
+    "doc_nv_drivers_permit": "nv_drivers_permit",
+    "doc_nv_cpcn": "nv_cpcn",
+    "doc_nm_inspection": "nm_inspection",
+    "doc_oh_livery_registration": "oh_livery_registration",
+    "doc_pa_driving_history": "pa_driving_history",
+    "doc_pa_criminal_history": "pa_criminal_history",
+    "doc_pa_certificate": "pa_certificate",
+    "doc_pa_inspection": "pa_inspection",
+    "doc_pa_form_e": "pa_form_e",
+    "doc_ri_operator_license": "ri_operator_license",
+    "doc_ri_driving_record": "ri_driving_record",
+    "doc_ri_criminal_record": "ri_criminal_record",
+    "doc_sc_driving_record": "sc_driving_record",
+    "doc_sc_charter_certificate": "sc_charter_certificate",
+    "doc_sc_ls_registration": "sc_ls_registration",
+    "doc_sc_form_e": "sc_form_e",
+    "doc_tn_citizenship_proof": "tn_citizenship_proof",
+    "doc_tn_residency_proof": "tn_residency_proof",
+    "doc_va_authority": "va_authority",
+    "doc_va_title": "va_title",
+    "doc_va_for_hire_registration": "va_for_hire_registration",
+    "doc_va_authority_registration": "va_authority_registration",
+    "doc_wa_medical_certificate": "wa_medical_certificate",
+    "doc_wa_driving_record": "wa_driving_record",
+    "doc_wa_carrier_license": "wa_carrier_license",
+    "doc_wa_vehicle_certificate": "wa_vehicle_certificate",
+    "doc_wa_chauffeur_addendum": "wa_chauffeur_addendum",
+    "doc_wa_fh_registration": "wa_fh_registration",
+    "doc_wa_inspection_report": "wa_inspection_report",
+    "doc_wa_insurance_certificate": "wa_insurance_certificate",
 }
 # doc_type -> multipart field name (profile_picture comes from profile_photo)
 FIELD_FOR_DOC_TYPE = {"profile_picture": "profile_photo"}
@@ -170,6 +240,18 @@ DOC_LABELS = {
 # list, as does every other state without a verified list. NEVER
 # invent a state-specific permit or license name — an unverified
 # state gets the generic list and the owner reviews the application.
+# 2026-11-17 (owner order, "complete Uber driver ke document jaisa
+# hi banana"): every state gets its OWN list from the official-source
+# research report (51 jurisdictions). VERIFIED states (DC, Maine,
+# Rhode Island, Washington, plus NY/NJ) carry their complete official
+# list. PARTIAL states carry the generic base 4 plus ONLY the
+# officially-named extra items, and keep the owner-review note. The
+# 14 UNVERIFIED states and the county/city-level states (Florida,
+# Illinois, Texas, Massachusetts) stay on the generic base list —
+# nothing is invented, and no city list is ever applied statewide.
+# Process-type requirements (background checks, drug tests, courses,
+# exams) are never upload slots. No document count is ever shown
+# (owner decision 2026-11-17, "Quantity nahi").
 US_STATES = [
     "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
     "Connecticut", "Delaware", "District of Columbia", "Florida", "Georgia",
@@ -195,17 +277,180 @@ GENERIC_DOC_TYPES = [
     "vehicle_registration",
     "insurance_card",
 ]
-# States with a verified, state-specific list. Every other state
-# (including Florida) uses GENERIC_DOC_TYPES.
+# Per-state lists from the official-source research report
+# (2026-11-17, 51 jurisdictions; see the report for the full
+# table). VERIFIED lists are complete as named by the official
+# source. PARTIAL lists are the generic base 4 plus ONLY the
+# officially-named extra items; anything the report does not
+# name for that state is NOT added, and the owner-review note
+# stays on. States with no entry here — the 14 UNVERIFIED
+# states and the county/city-level states (Florida, Illinois,
+# Texas, Massachusetts) — fall back to GENERIC_DOC_TYPES.
+# District of Columbia (VERIFIED, official sources):
+#   https://dfhv.dc.gov/page/driver-licensing
+#   https://dfhv.dc.gov/sites/default/files/dc/sites/dc%20taxi/page_content/attachments/Face%20ID%20APP%202024.pdf
+# FBI background investigation + fingerprints and the Face ID exam left out: in-person processes. Livery tags left out: vehicle markings.
+DC_DOC_TYPES = ["profile_picture", "dmv_license", "dc_drivers_record", "dc_ssc", "dc_residency", "dc_medical_form", "dc_face_id", "dc_public_vehicle_license", "vehicle_registration", "dc_inspection", "insurance_card"]
+# Maine (VERIFIED, official sources):
+#   https://www3.maine.gov/sos/taxi-limousine
+# Town/city license left out: conditional ("if required locally"). USDOT number left out: conditional and a number, not a document. The JB filing IS the insurance evidence, so it replaces the generic insurance card; the HIRE-plates registration replaces the generic registration.
+ME_DOC_TYPES = ["profile_picture", "dmv_license", "me_registration", "me_jb_filing"]
+# Rhode Island (VERIFIED, official sources):
+#   https://rules.sos.ri.gov/Regulations/part/815-50-10-3?reg_id=9376
+#   https://rules.sos.ri.gov/Regulations/part/815-50-10-2?reg_id=9375
+# English knowledge and age 21+ left out: not documents.
+RI_DOC_TYPES = ["profile_picture", "dmv_license", "ri_operator_license", "ri_driving_record", "ri_criminal_record", "vehicle_registration", "insurance_card"]
+# Washington (VERIFIED, official sources):
+#   https://dor.wa.gov/manage-business/state-endorsements/limousine
+#   https://dol.wa.gov/professional-licenses/limousines/licensing-requirements-wine-tour-transportation-providers
+# Background-check results, NSC defensive-driving course, drug testing and the training course + written exam left out: check / course / test processes. The F/H registration certificate and the insurance certificate replace the generic slots.
+WA_DOC_TYPES = ["profile_picture", "dmv_license", "wa_medical_certificate", "wa_driving_record", "wa_carrier_license", "wa_vehicle_certificate", "wa_chauffeur_addendum", "wa_fh_registration", "wa_inspection_report", "wa_insurance_certificate"]
+# Alabama (PARTIAL, official sources):
+#   http://apsc.alabama.gov/Transportation/intrastatereg.htm
+# Tariff left out: conditional ("if granted") carrier filing.
+AL_DOC_TYPES = ["profile_picture", "dmv_license", "al_certificate", "vehicle_registration", "al_form_e"]
+# California (PARTIAL, official sources):
+#   https://www.cpuc.ca.gov/regulatory-services/licensing/transportation-licensing-and-analysis-branch/charter-party-carriers/types-of-charter-party-carrier-authorities
+#   https://www.cpuc.ca.gov/tcpforms/
+# EPN enrollment and Form PL706-J drug-testing certification left out: program enrollment / drug-testing process, not uploadable documents.
+CA_DOC_TYPES = ["profile_picture", "dmv_license", "ca_tcp_permit", "ca_driver_statement", "ca_commercial_registration", "ca_inspection_declaration", "insurance_card"]
+# Colorado (PARTIAL, official sources):
+#   https://puc.colorado.gov/passenger-carrier-frequently-asked-questions
+#   https://puc.colorado.gov/limited-regulation-carriers-industry-info
+# Vehicle stamp left out: a vehicle marking, not a document.
+CO_DOC_TYPES = ["profile_picture", "dmv_license", "co_ll_permit", "vehicle_registration", "co_inspection", "co_form_e"]
+# Connecticut (PARTIAL, official sources):
+#   https://portal.CT.gov/dmv/licenses/licenses/endorsements-on-a-drivers-license
+#   https://cga.ct.gov/2024/sup/chap_244b.htm
+# "F" endorsement lives ON the license photo; no separate slot.
+CT_DOC_TYPES = ["profile_picture", "dmv_license", "ct_livery_permit", "vehicle_registration", "insurance_card"]
+# Delaware (PARTIAL, official sources):
+#   https://delcode.delaware.gov/title21/c027/sc05/index.html
+#   https://regulations.delaware.gov/api/AdminCode/title2/2287/9ef5fe4b-c667-44ab-8b54-c278fb577ad3
+# Accident-prevention course evidence and criminal-history background check left out: course / check processes. Endorsement lives on the license photo.
+DE_DOC_TYPES = ["profile_picture", "dmv_license", "de_certificate", "de_limo_registration", "de_inspection", "insurance_card"]
+# Georgia (PARTIAL, official sources):
+#   https://dds.georgia.gov/online-services-faqs
+#   https://dps.georgia.gov/document/document/chapter-570-38-january-2020/download
+# For-Hire endorsement lives on the license photo (the private background-check certification is an OR-alternative the gate cannot express); GAPS fingerprints are a process. "LM" plate detail was not independently verified, so the generic registration slot stays.
+GA_DOC_TYPES = ["profile_picture", "dmv_license", "ga_carrier_certificate", "vehicle_registration", "ga_insurance_certificate"]
+# Hawaii (PARTIAL, official sources):
+#   https://puc.hawaii.gov/motor_carriers/
+#   http://puc.hawaii.gov/wp-content/uploads/2013/06/MC-App-Passenger-92-001.fillable.pdf
+HI_DOC_TYPES = ["profile_picture", "dmv_license", "hi_carrier_certificate", "hi_vehicle_inventory", "hi_tax_clearance", "vehicle_registration", "insurance_card"]
+# Kansas (PARTIAL, official sources):
+#   https://www.kcc.ks.gov/news-3-17-23
+# Insurance filing and tariff/rates filing left out: carrier filings, not driver-held documents.
+KS_DOC_TYPES = ["profile_picture", "dmv_license", "ks_certificate", "vehicle_registration", "insurance_card"]
+# Kentucky (PARTIAL, official sources):
+#   https://apps.legislature.ky.gov/recorddocuments/bill/25RS/hb493/orig_bill.pdf
+#   https://apps.legislature.ky.gov/recorddocuments/bill/25RS/HB188/SCS1.pdf
+# Indemnifying bond left out: OR-alternative to insurance (insurance card slot covers the insurance path). Background check left out: process. Confirm current KRS before launch (report used bill text).
+KY_DOC_TYPES = ["profile_picture", "dmv_license", "ky_limousine_certificate", "ky_vehicle_license", "vehicle_registration", "ky_inspection", "insurance_card"]
+# Maryland (PARTIAL, official sources):
+#   https://psc.maryland.gov/regulated-utilities/transportation/
+#   https://mva.maryland.gov/your-mva-guide/businesses/hire-vehicle-operators
+# Human-trafficking training documentation, CJIS records check and driving-record check left out: training / check processes.
+MD_DOC_TYPES = ["profile_picture", "dmv_license", "md_for_hire_license", "vehicle_registration", "md_inspection_certificate", "insurance_card"]
+# Michigan (PARTIAL, official sources):
+#   https://www.michigan.gov/sos/all-services/cdl-apply
+#   https://www.michigan.gov/sos/faqs/license-and-id/enhanced-license-and-ids
+# Chauffeur's license IS the license photo (a license type, not an extra document). CDL P endorsement and medical card left out: conditional (16+ passengers / 10,000+ lbs).
+MI_DOC_TYPES = ["profile_picture", "dmv_license", "mi_carrier_license", "vehicle_registration", "insurance_card"]
+# Minnesota (PARTIAL, official sources):
+#   https://www.revisor.mn.gov/statutes/cite/221.84/version/2021-10-26%2010:04:20+00:00
+#   https://www.revisor.mn.gov/rules/8880/full
+# Criminal history check left out: process. Decal left out: vehicle marking. USDOT number left out: a number, not a document.
+MN_DOC_TYPES = ["profile_picture", "dmv_license", "mn_permit", "vehicle_registration", "mn_inspection", "mn_form_e"]
+# Missouri (PARTIAL, official sources):
+#   https://data.mo.gov/api/file_data/p2O1Ykj892HuQeclCyWoUzmijiB--8QjGhm4Gcovwhs?filename=Application%2520for%2520Vehicle-for-Hire%2520Driver.pdf
+# Kansas City / St. Louis items left out: local, not statewide. Class E endorsement lives on the license photo.
+MO_DOC_TYPES = ["profile_picture", "dmv_license", "mo_authority", "vehicle_registration", "insurance_card"]
+# Nebraska (PARTIAL, official sources):
+#   https://psc.nebraska.gov/sites/default/files/doc/administration/Updated_RRs/2024_Updates/Chapter%203%20-%20Motor%20Transportation%20Rules%20and%20Regulations.pdf
+# Rates filing and annual fees left out: carrier filing / payment, not documents.
+NE_DOC_TYPES = ["profile_picture", "dmv_license", "ne_medical_certificate", "ne_carrier_authority", "vehicle_registration", "insurance_card"]
+# Nevada (PARTIAL, official sources):
+#   https://www.nta.nv.gov/consumers/illegal-passenger-transportation-in-nevada/
+# Driver qualification file and vehicle maintenance files left out: files, not single documents. Drug testing left out: process. Decal left out: vehicle marking.
+NV_DOC_TYPES = ["profile_picture", "dmv_license", "nv_drivers_permit", "nv_cpcn", "vehicle_registration", "insurance_card"]
+# New Mexico (PARTIAL, official sources):
+#   https://www.srca.nm.gov/parts/title18/18.003.0004.html
+# Driver application, background check and driving-history review left out: application form / processes. CDL qualifications left out: conditional (CDL drivers only).
+NM_DOC_TYPES = ["profile_picture", "dmv_license", "vehicle_registration", "nm_inspection", "insurance_card"]
+# Ohio (PARTIAL, official sources):
+#   https://codes.ohio.gov/ohio-revised-code/section-4503.24
+#   https://dam.assets.ohio.gov/image/upload/publicsafety.ohio.gov/bmv4705.pdf
+# ORC 4509.80 compliance left out: a requirement, not a document. The livery-plates registration replaces the generic registration.
+OH_DOC_TYPES = ["profile_picture", "dmv_license", "oh_livery_registration", "insurance_card"]
+# Pennsylvania (PARTIAL, official sources):
+#   https://www.puc.pa.gov/pcdocs/1879004.pdf
+# Age 21+ left out: not a document. Medical certification left out: not established as a statewide upload item. Docket-letter evidence: confirm current 52 Pa. Code before launch.
+PA_DOC_TYPES = ["profile_picture", "dmv_license", "pa_driving_history", "pa_criminal_history", "pa_certificate", "vehicle_registration", "pa_inspection", "pa_form_e"]
+# South Carolina (PARTIAL, official sources):
+#   https://psc.sc.gov/sites/psc/files/Documents/Forms/transprtation/Class%20C%20Charter%20Application%20Amended%202026-10-26.pdf
+#   http://ors.sc.gov/regulated-utilities/transportation/class-c/becoming-class-c-certificate-passenger-carrier
+# ORS inspection left out: an inspection event, no named document. The LS-plates registration replaces the generic registration.
+SC_DOC_TYPES = ["profile_picture", "dmv_license", "sc_driving_record", "sc_charter_certificate", "sc_ls_registration", "sc_form_e"]
+# Tennessee (PARTIAL, official sources):
+#   https://www.tn.gov/safety/driver-services/commercial-driver-license/classf.html
+# Knowledge test and vision screening left out: processes. Endorsement lives on the license photo. Limousine scope by "main job" test: confirm with DOS before launch.
+TN_DOC_TYPES = ["profile_picture", "dmv_license", "tn_citizenship_proof", "tn_residency_proof", "vehicle_registration", "insurance_card"]
+# Virginia (PARTIAL, official sources):
+#   https://www.dmv.virginia.gov/businesses/motor-carriers/intrastate/how-apply
+# Surety bond / letter of credit left out: OR-alternative, conditional on certificate/license holders. For-hire plates left out: vehicle markings.
+VA_DOC_TYPES = ["profile_picture", "dmv_license", "va_authority", "va_title", "va_for_hire_registration", "va_authority_registration", "insurance_card"]
+
+# States with a state-specific list (verified or partial).
+# Every other state uses GENERIC_DOC_TYPES via
+# required_docs_for_state().
 STATE_DOC_REQUIREMENTS = {
     "New York": DOC_TYPES,
     "New Jersey": NJ_DOC_TYPES,
+    "District of Columbia": DC_DOC_TYPES,
+    "Maine": ME_DOC_TYPES,
+    "Rhode Island": RI_DOC_TYPES,
+    "Washington": WA_DOC_TYPES,
+    "Alabama": AL_DOC_TYPES,
+    "California": CA_DOC_TYPES,
+    "Colorado": CO_DOC_TYPES,
+    "Connecticut": CT_DOC_TYPES,
+    "Delaware": DE_DOC_TYPES,
+    "Georgia": GA_DOC_TYPES,
+    "Hawaii": HI_DOC_TYPES,
+    "Kansas": KS_DOC_TYPES,
+    "Kentucky": KY_DOC_TYPES,
+    "Maryland": MD_DOC_TYPES,
+    "Michigan": MI_DOC_TYPES,
+    "Minnesota": MN_DOC_TYPES,
+    "Missouri": MO_DOC_TYPES,
+    "Nebraska": NE_DOC_TYPES,
+    "Nevada": NV_DOC_TYPES,
+    "New Mexico": NM_DOC_TYPES,
+    "Ohio": OH_DOC_TYPES,
+    "Pennsylvania": PA_DOC_TYPES,
+    "South Carolina": SC_DOC_TYPES,
+    "Tennessee": TN_DOC_TYPES,
+    "Virginia": VA_DOC_TYPES,
 }
+
+
+# States whose list is fully verified from official sources.
+# Only these hide the owner-review note; PARTIAL and generic
+# states keep it.
+VERIFIED_DOC_STATES = frozenset({
+    "New York",
+    "New Jersey",
+    "District of Columbia",
+    "Maine",
+    "Rhode Island",
+    "Washington",
+})
 
 
 def required_docs_for_state(state):
     """Ordered compulsory doc types for a state; the generic base list
-    for any state without a verified state-specific list."""
+    for any state without a state-specific list."""
     return STATE_DOC_REQUIREMENTS.get(state, GENERIC_DOC_TYPES)
 
 
@@ -221,6 +466,76 @@ ALL_DOC_LABELS.update({
     "nj_insurance": "Insurance Certificate",
     "vehicle_registration": "Vehicle Registration",
     "insurance_card": "Insurance Card",
+    "al_certificate": "Certificate of Intrastate Authority (APSC)",
+    "al_form_e": "Form E (Insurance Filing)",
+    "ca_tcp_permit": "Charter-Party Carrier (TCP) Permit, Class P",
+    "ca_driver_statement": "Driver Statement of Application (Form PL739-A)",
+    "ca_commercial_registration": "Commercial Vehicle Registration (Form PL664)",
+    "ca_inspection_declaration": "Vehicle Inspection Declaration (Form PL668)",
+    "co_ll_permit": "Luxury Limousine (LL) Permit",
+    "co_inspection": "Vehicle Inspection",
+    "co_form_e": "Form E (Insurance Filing)",
+    "ct_livery_permit": "Livery Permit (CT DOT)",
+    "de_certificate": "Certificate of Public Convenience and Necessity",
+    "de_limo_registration": "Limousine Registration",
+    "de_inspection": "Vehicle Inspection",
+    "dc_drivers_record": "Driver's Record",
+    "dc_ssc": "Social Security Card",
+    "dc_residency": "Proof of Residency",
+    "dc_medical_form": "Medical History / Physical Examination Form",
+    "dc_face_id": "For-Hire Operators (Face ID) License",
+    "dc_public_vehicle_license": "Public Vehicle-for-Hire License",
+    "dc_inspection": "DMV Inspection",
+    "ga_carrier_certificate": "Limousine Carrier Certificate (Georgia DPS)",
+    "ga_insurance_certificate": "Certificate of Insurance",
+    "hi_carrier_certificate": "Motor Carrier Certificate / Permit (Form 92-001)",
+    "hi_vehicle_inventory": "Vehicle Inventory List (Exhibit B)",
+    "hi_tax_clearance": "Tax Clearance Certificate",
+    "ks_certificate": "Certificate of Convenience and Necessity (KCC)",
+    "ky_limousine_certificate": "Limousine Certificate",
+    "ky_vehicle_license": "Motor Carrier Vehicle License",
+    "ky_inspection": "Vehicle Inspection",
+    "me_registration": "Vehicle Registration with HIRE Plates (Class TX)",
+    "me_jb_filing": "Insurance Certificate for For-Hire Passenger Vehicle (JB Filing)",
+    "md_for_hire_license": "Passenger-for-Hire Driver's License (PSC)",
+    "md_inspection_certificate": "Vehicle Inspection Certificate",
+    "mi_carrier_license": "Limousine Carrier License",
+    "mn_permit": "Limousine Service Permit (MnDOT)",
+    "mn_inspection": "Vehicle Inspection",
+    "mn_form_e": "Form E (Insurance Filing)",
+    "mo_authority": "Motor Carrier Operating Authority (MoDOT)",
+    "ne_medical_certificate": "Medical Certificate",
+    "ne_carrier_authority": "Common / Contract Carrier Authority (PSC)",
+    "nv_drivers_permit": "Driver's Permit (NTA)",
+    "nv_cpcn": "Certificate of Public Convenience and Necessity (CPCN)",
+    "nm_inspection": "Vehicle Inspection",
+    "oh_livery_registration": "Vehicle Registration (Livery Plates)",
+    "pa_driving_history": "Driving History (3-Year Record)",
+    "pa_criminal_history": "Criminal History Record",
+    "pa_certificate": "Certificate of Public Convenience (PUC)",
+    "pa_inspection": "Vehicle Inspection",
+    "pa_form_e": "Form E (Insurance Filing)",
+    "ri_operator_license": "Taxi-LPMV-PMV Operator's License",
+    "ri_driving_record": "Driving Record",
+    "ri_criminal_record": "Record of Criminal Convictions",
+    "sc_driving_record": "Certified Driving Record (3 Years)",
+    "sc_charter_certificate": "Class C Charter Certificate",
+    "sc_ls_registration": "Vehicle Registration (LS Plates)",
+    "sc_form_e": "Form E (Insurance Filing)",
+    "tn_citizenship_proof": "Proof of Citizenship or Lawful Permanent Residency",
+    "tn_residency_proof": "Proof of Tennessee Residency",
+    "va_authority": "For-Hire Intrastate Operating Authority",
+    "va_title": "Vehicle Title (Virginia)",
+    "va_for_hire_registration": "For-Hire Vehicle Registration",
+    "va_authority_registration": "Operating Authority Registration",
+    "wa_medical_certificate": "Medical Examiner's Certificate",
+    "wa_driving_record": "Driving Record",
+    "wa_carrier_license": "Limousine Carrier License",
+    "wa_vehicle_certificate": "Limousine Vehicle Certificate",
+    "wa_chauffeur_addendum": "Limousine Carrier Chauffeur Addendum",
+    "wa_fh_registration": "Vehicle Registration Certificate (Use Class F/H)",
+    "wa_inspection_report": "Vehicle Inspection Report",
+    "wa_insurance_certificate": "Certificate of Insurance",
 })
 # Hint line under each document item in the registration form.
 DOC_HINTS = {
@@ -237,6 +552,76 @@ DOC_HINTS = {
     "nj_insurance": "Photo of your insurance certificate, straight and fully visible.",
     "vehicle_registration": "Photo of your vehicle registration, straight and fully visible.",
     "insurance_card": "Photo of your insurance card, straight and fully visible.",
+    "al_certificate": "Photo of your Certificate of Intrastate Authority (APSC), straight and fully visible.",
+    "al_form_e": "Photo of your Form E (Insurance Filing), straight and fully visible.",
+    "ca_tcp_permit": "Photo of your Charter-Party Carrier (TCP) Permit, Class P, straight and fully visible.",
+    "ca_driver_statement": "Photo of your Driver Statement of Application (Form PL739-A), straight and fully visible.",
+    "ca_commercial_registration": "Photo of your Commercial Vehicle Registration (Form PL664), straight and fully visible.",
+    "ca_inspection_declaration": "Photo of your Vehicle Inspection Declaration (Form PL668), straight and fully visible.",
+    "co_ll_permit": "Photo of your Luxury Limousine (LL) Permit, straight and fully visible.",
+    "co_inspection": "Photo of your Vehicle Inspection, straight and fully visible.",
+    "co_form_e": "Photo of your Form E (Insurance Filing), straight and fully visible.",
+    "ct_livery_permit": "Photo of your Livery Permit (CT DOT), straight and fully visible.",
+    "de_certificate": "Photo of your Certificate of Public Convenience and Necessity, straight and fully visible.",
+    "de_limo_registration": "Photo of your Limousine Registration, straight and fully visible.",
+    "de_inspection": "Photo of your Vehicle Inspection, straight and fully visible.",
+    "dc_drivers_record": "Photo of your Driver's Record, straight and fully visible.",
+    "dc_ssc": "Photo of your Social Security Card, straight and fully visible.",
+    "dc_residency": "Photo of your Proof of Residency, straight and fully visible.",
+    "dc_medical_form": "Photo of your Medical History / Physical Examination Form, straight and fully visible.",
+    "dc_face_id": "Photo of your For-Hire Operators (Face ID) License, straight and fully visible.",
+    "dc_public_vehicle_license": "Photo of your Public Vehicle-for-Hire License, straight and fully visible.",
+    "dc_inspection": "Photo of your DMV Inspection, straight and fully visible.",
+    "ga_carrier_certificate": "Photo of your Limousine Carrier Certificate (Georgia DPS), straight and fully visible.",
+    "ga_insurance_certificate": "Photo of your Certificate of Insurance, straight and fully visible.",
+    "hi_carrier_certificate": "Photo of your Motor Carrier Certificate / Permit (Form 92-001), straight and fully visible.",
+    "hi_vehicle_inventory": "Photo of your Vehicle Inventory List (Exhibit B), straight and fully visible.",
+    "hi_tax_clearance": "Photo of your Tax Clearance Certificate, straight and fully visible.",
+    "ks_certificate": "Photo of your Certificate of Convenience and Necessity (KCC), straight and fully visible.",
+    "ky_limousine_certificate": "Photo of your Limousine Certificate, straight and fully visible.",
+    "ky_vehicle_license": "Photo of your Motor Carrier Vehicle License, straight and fully visible.",
+    "ky_inspection": "Photo of your Vehicle Inspection, straight and fully visible.",
+    "me_registration": "Photo of your Vehicle Registration with HIRE Plates (Class TX), straight and fully visible.",
+    "me_jb_filing": "Photo of your Insurance Certificate for For-Hire Passenger Vehicle (JB Filing), straight and fully visible.",
+    "md_for_hire_license": "Photo of your Passenger-for-Hire Driver's License (PSC), straight and fully visible.",
+    "md_inspection_certificate": "Photo of your Vehicle Inspection Certificate, straight and fully visible.",
+    "mi_carrier_license": "Photo of your Limousine Carrier License, straight and fully visible.",
+    "mn_permit": "Photo of your Limousine Service Permit (MnDOT), straight and fully visible.",
+    "mn_inspection": "Photo of your Vehicle Inspection, straight and fully visible.",
+    "mn_form_e": "Photo of your Form E (Insurance Filing), straight and fully visible.",
+    "mo_authority": "Photo of your Motor Carrier Operating Authority (MoDOT), straight and fully visible.",
+    "ne_medical_certificate": "Photo of your Medical Certificate, straight and fully visible.",
+    "ne_carrier_authority": "Photo of your Common / Contract Carrier Authority (PSC), straight and fully visible.",
+    "nv_drivers_permit": "Photo of your Driver's Permit (NTA), straight and fully visible.",
+    "nv_cpcn": "Photo of your Certificate of Public Convenience and Necessity (CPCN), straight and fully visible.",
+    "nm_inspection": "Photo of your Vehicle Inspection, straight and fully visible.",
+    "oh_livery_registration": "Photo of your Vehicle Registration (Livery Plates), straight and fully visible.",
+    "pa_driving_history": "Photo of your Driving History (3-Year Record), straight and fully visible.",
+    "pa_criminal_history": "Photo of your Criminal History Record, straight and fully visible.",
+    "pa_certificate": "Photo of your Certificate of Public Convenience (PUC), straight and fully visible.",
+    "pa_inspection": "Photo of your Vehicle Inspection, straight and fully visible.",
+    "pa_form_e": "Photo of your Form E (Insurance Filing), straight and fully visible.",
+    "ri_operator_license": "Photo of your Taxi-LPMV-PMV Operator's License, straight and fully visible.",
+    "ri_driving_record": "Photo of your Driving Record, straight and fully visible.",
+    "ri_criminal_record": "Photo of your Record of Criminal Convictions, straight and fully visible.",
+    "sc_driving_record": "Photo of your Certified Driving Record (3 Years), straight and fully visible.",
+    "sc_charter_certificate": "Photo of your Class C Charter Certificate, straight and fully visible.",
+    "sc_ls_registration": "Photo of your Vehicle Registration (LS Plates), straight and fully visible.",
+    "sc_form_e": "Photo of your Form E (Insurance Filing), straight and fully visible.",
+    "tn_citizenship_proof": "Photo of your Proof of Citizenship or Lawful Permanent Residency, straight and fully visible.",
+    "tn_residency_proof": "Photo of your Proof of Tennessee Residency, straight and fully visible.",
+    "va_authority": "Photo of your For-Hire Intrastate Operating Authority, straight and fully visible.",
+    "va_title": "Photo of your Vehicle Title (Virginia), straight and fully visible.",
+    "va_for_hire_registration": "Photo of your For-Hire Vehicle Registration, straight and fully visible.",
+    "va_authority_registration": "Photo of your Operating Authority Registration, straight and fully visible.",
+    "wa_medical_certificate": "Photo of your Medical Examiner's Certificate, straight and fully visible.",
+    "wa_driving_record": "Photo of your Driving Record, straight and fully visible.",
+    "wa_carrier_license": "Photo of your Limousine Carrier License, straight and fully visible.",
+    "wa_vehicle_certificate": "Photo of your Limousine Vehicle Certificate, straight and fully visible.",
+    "wa_chauffeur_addendum": "Photo of your Limousine Carrier Chauffeur Addendum, straight and fully visible.",
+    "wa_fh_registration": "Photo of your Vehicle Registration Certificate (Use Class F/H), straight and fully visible.",
+    "wa_inspection_report": "Photo of your Vehicle Inspection Report, straight and fully visible.",
+    "wa_insurance_certificate": "Photo of your Certificate of Insurance, straight and fully visible.",
 }
 # Booking lifecycle (payment BEFORE dispatch, decided 2026-11-16):
 #   awaiting_payment -> offered -> accepted -> en_route -> arrived
@@ -1462,8 +1847,9 @@ def list_states():
     One mapping, served from the same constants the server validates
     against. The driver app fetches this to build the searchable
     state dropdown (alphabetical, type to filter) and to show the
-    document list for the chosen state. `local_note` marks states on
-    the generic base list, where requirements vary by locality and
+    document list for the chosen state. `local_note` marks every
+    state whose list is not fully verified (partial lists and the
+    generic base list), where requirements vary by locality and
     the owner reviews each application.
     """
     return jsonify({
@@ -1482,7 +1868,7 @@ def list_states():
         "requirements": {
             state: {
                 "docs": required_docs_for_state(state),
-                "local_note": state not in STATE_DOC_REQUIREMENTS,
+                "local_note": state not in VERIFIED_DOC_STATES,
             }
             for state in US_STATES
         },

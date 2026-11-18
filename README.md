@@ -14,12 +14,19 @@ all connected:
   overlapping a ride already accepted), run trips stage by stage,
   see earnings grouped in weekly pay periods. Registration asks for
   the driver's state first (searchable dropdown, USA only, owner
-  decision 2026-11-17) and the compulsory documents follow the state:
-  New York keeps the original 7 items; New Jersey has its own list
-  verified from official NJ sources; every other state uses a generic
-  base list (profile picture, driving license, vehicle registration,
-  insurance card) and the owner reviews each application. All of the
-  state's items are compulsory (owner decision 2026-11-17): registration
+  decision 2026-11-17) and the compulsory documents follow the state,
+  Uber-style: every state has its own separate list, built from
+  official government sources only (research report 2026-11-17).
+  New York keeps the original 7 items and New Jersey its own
+  verified list; DC, Maine, Rhode Island and Washington carry their
+  complete verified lists; partial states carry the generic base
+  list plus only their officially-named extra items, with the
+  owner-review note; unverified states and county/city-level states
+  (Florida, Illinois, Texas, Massachusetts) use the generic base
+  list (profile picture, driving license, vehicle registration,
+  insurance card) and the owner reviews each application. No
+  document count is shown anywhere (owner decision 2026-11-17).
+  All of the state's items are compulsory (owner decision 2026-11-17): registration
   does not complete unless every item is uploaded, and a missing item
   is reported by name ("Missing document: ..."). Drivers registered
   before the rule are not blocked retroactively. The profile photo

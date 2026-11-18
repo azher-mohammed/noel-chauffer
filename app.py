@@ -387,6 +387,14 @@ AL_DOC_TYPES = ["profile_picture", "dmv_license", "al_certificate", "vehicle_reg
 #   https://www.cpuc.ca.gov/regulatory-services/licensing/transportation-licensing-and-analysis-branch/charter-party-carriers/types-of-charter-party-carrier-authorities
 #   https://www.cpuc.ca.gov/tcpforms/
 # EPN enrollment and Form PL706-J drug-testing certification left out: program enrollment / drug-testing process, not uploadable documents.
+# TCP slot relabelled 2026-11-18 per the owner Uber cross-check:
+# Uber accepts a TCP Certificate Class A, B or P in the driver's
+# own name or company name (A statewide, B 125 air miles from the
+# home terminal, P vehicles seating 15 or fewer); driving under
+# someone else's TCP does not qualify. No Subcarrier
+# Acknowledgement slot (Uber's own form) and no Secretary of
+# State slot (conditional on company-name TCPs; the owner-review
+# note covers it).
 CA_DOC_TYPES = ["profile_picture", "dmv_license", "ca_tcp_permit", "ca_driver_statement", "ca_commercial_registration", "ca_inspection_declaration", "insurance_card"]
 # Colorado (PARTIAL, official sources):
 #   https://puc.colorado.gov/passenger-carrier-frequently-asked-questions
@@ -1463,7 +1471,7 @@ ALL_DOC_LABELS.update({
     "insurance_card": "Insurance Card",
     "al_certificate": "Certificate of Intrastate Authority (APSC)",
     "al_form_e": "Form E (Insurance Filing)",
-    "ca_tcp_permit": "Charter-Party Carrier (TCP) Permit, Class P",
+    "ca_tcp_permit": "Charter-Party Carrier (TCP) Certificate/Permit (Class A, B or P)",
     "ca_driver_statement": "Driver Statement of Application (Form PL739-A)",
     "ca_commercial_registration": "Commercial Vehicle Registration (Form PL664)",
     "ca_inspection_declaration": "Vehicle Inspection Declaration (Form PL668)",
@@ -1623,7 +1631,7 @@ DOC_HINTS = {
     "insurance_card": "Photo of your insurance card, straight and fully visible.",
     "al_certificate": "Photo of your Certificate of Intrastate Authority (APSC), straight and fully visible.",
     "al_form_e": "Photo of your Form E (Insurance Filing), straight and fully visible.",
-    "ca_tcp_permit": "Photo of your Charter-Party Carrier (TCP) Permit, Class P, straight and fully visible.",
+    "ca_tcp_permit": "Photo of your TCP certificate or permit (Class A, B or P) in your own name or your company name, straight and fully visible.",
     "ca_driver_statement": "Photo of your Driver Statement of Application (Form PL739-A), straight and fully visible.",
     "ca_commercial_registration": "Photo of your Commercial Vehicle Registration (Form PL664), straight and fully visible.",
     "ca_inspection_declaration": "Photo of your Vehicle Inspection Declaration (Form PL668), straight and fully visible.",

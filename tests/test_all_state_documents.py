@@ -341,7 +341,7 @@ class AllStateListsCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         resp = self.register("California", omit={"ca_tcp_permit"})
         self.assertEqual(resp.status_code, 400)
-        self.assertIn("Charter-Party Carrier (TCP) Permit", resp.get_json()["error"])
+        self.assertIn("Charter-Party Carrier (TCP) Certificate/Permit (Class A, B or P)", resp.get_json()["error"])
 
     def test_pennsylvania_names_missing_form_e(self):
         resp = self.register("Pennsylvania", omit={"pa_form_e"})

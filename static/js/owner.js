@@ -501,7 +501,7 @@
     { key: "insurance_card", label: "Insurance Card" },
     { key: "al_certificate", label: "Certificate of Intrastate Authority (APSC)" },
     { key: "al_form_e", label: "Form E (Insurance Filing)" },
-    { key: "ca_tcp_permit", label: "Charter-Party Carrier (TCP) Permit, Class P" },
+    { key: "ca_tcp_permit", label: "Charter-Party Carrier (TCP) Certificate/Permit (Class A, B or P)" },
     { key: "ca_driver_statement", label: "Driver Statement of Application (Form PL739-A)" },
     { key: "ca_commercial_registration", label: "Commercial Vehicle Registration (Form PL664)" },
     { key: "ca_inspection_declaration", label: "Vehicle Inspection Declaration (Form PL668)" },

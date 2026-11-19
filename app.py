@@ -3510,6 +3510,16 @@ def _serve_page(filename, label):
     )
 
 
+@app.route("/robots.txt")
+def robots_txt():
+    return send_from_directory(app.static_folder, "robots.txt", mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    return send_from_directory(app.static_folder, "sitemap.xml", mimetype="application/xml")
+
+
 @app.route("/")
 def home():
     return _serve_page("index.html", "customer booking")

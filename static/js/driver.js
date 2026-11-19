@@ -1179,6 +1179,21 @@
         return;
       }
     }
+    /* Expiry and photo-sanity errors name the document by its label
+       ("Your DMV driving license is expired …", "Please enter the
+       expiry date for your TLC License."), so map the label to its
+       item. Longest labels first, so "Commercial Vehicle
+       Registration" wins over "Vehicle Registration" inside it. */
+    var labelled = Object.keys(DOC_LABELS).map(function (f) {
+      return { field: f, label: DOC_LABELS[f] };
+    });
+    labelled.sort(function (a, b) { return b.label.length - a.label.length; });
+    for (var j = 0; j < labelled.length; j++) {
+      if (message.indexOf(labelled[j].label) !== -1) {
+        markDocItemError(labelled[j].field, message);
+        return;
+      }
+    }
   }
 
   $("register-form").addEventListener("submit", function (e) {
@@ -1310,6 +1325,17 @@
     requiredFields.forEach(function (field) {
       var input = $("file-" + field);
       if (input && input.files && input.files[0]) fd.append(field, input.files[0]);
+      /* Expiry date for documents that have one (owner decision
+         2026-11-19): sent as expiry_<doc_type>. The server rejects
+         a past date, so an expired document never registers. */
+      var expiryInput = $("expiry-" + field);
+      if (expiryInput && expiryInput.value) {
+        var docType = null;
+        Object.keys(FIELD_FOR_DOC_TYPE).forEach(function (t) {
+          if (FIELD_FOR_DOC_TYPE[t] === field) docType = t;
+        });
+        if (docType) fd.append("expiry_" + docType, expiryInput.value);
+      }
     });
     var btn = $("register-submit");
     btn.disabled = true;
@@ -2981,6 +3007,21 @@
     item.appendChild(nameEl);
     item.appendChild(hintEl);
     item.appendChild(input);
+    /* Expiry date for documents that have one (owner decision
+       2026-11-19): the driver types the date printed on the
+       document; the server rejects a past date. */
+    if (spec.has_expiry) {
+      var expLabel = document.createElement("label");
+      expLabel.className = "expiry-label";
+      expLabel.setAttribute("for", "expiry-" + field);
+      expLabel.textContent = "Expiry date — as printed on the document";
+      var expInput = document.createElement("input");
+      expInput.type = "date";
+      expInput.id = "expiry-" + field;
+      expInput.className = "expiry-input";
+      item.appendChild(expLabel);
+      item.appendChild(expInput);
+    }
     item.appendChild(preview);
     item.appendChild(errorEl);
     $("doc-items-extra").appendChild(item);

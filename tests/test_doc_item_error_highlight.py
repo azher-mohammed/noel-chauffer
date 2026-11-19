@@ -398,6 +398,14 @@ class DocItemErrorHighlightCase(unittest.TestCase):
             "car_colour": "Black", "plate": "DE%05d" % self._seq,
             "state": state, "bank_account_number": "123456789",
             "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
         }
         data.update(overrides)
         data.update(files)
@@ -409,7 +417,7 @@ class DocItemErrorHighlightCase(unittest.TestCase):
             "profile_photo",
             (io.BytesIO(photo_factory.VALID_PROFILE_PHOTO), "photo.jpg"))}
         for field, fname in NY_FILES.items():
-            files[field] = replace.get(field, (io.BytesIO(b"fake doc"), fname))
+            files[field] = replace.get(field, (io.BytesIO(photo_factory.doc_photo()), fname))
         return files
 
     def test_missing_message_format_with_comma_label(self):

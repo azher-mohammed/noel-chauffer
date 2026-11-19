@@ -146,13 +146,21 @@ class AllStateListsCase(unittest.TestCase):
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"AS{self._seq:05d}",
             "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
         }
         for doc_type in app_module.required_docs_for_state(state):
             if doc_type in omit:
                 continue
             field = app_module.FIELD_FOR_DOC_TYPE[doc_type]
             filedata = (photo_factory.VALID_PROFILE_PHOTO
-                        if field == "profile_photo" else b"fake doc")
+                        if field == "profile_photo" else photo_factory.doc_photo())
             data[field] = (io.BytesIO(filedata), field + ".png")
         return self.client.post("/api/drivers/register", data=data,
                                 content_type="multipart/form-data")
@@ -379,13 +387,21 @@ class AllStateListsCase(unittest.TestCase):
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": "WAPHOTO",
             "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
             "profile_photo": (io.BytesIO(photo_factory.jpeg(500, 400)), "photo.jpg"),
         }
         for doc_type in app_module.required_docs_for_state("Washington"):
             if doc_type == "profile_picture":
                 continue
             field = app_module.FIELD_FOR_DOC_TYPE[doc_type]
-            data[field] = (io.BytesIO(b"fake doc"), field + ".png")
+            data[field] = (io.BytesIO(photo_factory.doc_photo()), field + ".png")
         resp = self.client.post("/api/drivers/register", data=data,
                                 content_type="multipart/form-data")
         self.assertEqual(resp.status_code, 400)

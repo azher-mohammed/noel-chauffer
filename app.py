@@ -36,7 +36,7 @@ import os
 import secrets
 import string
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from urllib.parse import quote_plus
 
@@ -327,6 +327,43 @@ DOC_LABELS = {
     "inspection": "NYS DMV Inspection",
     "vehicle_permit": "TLC-for-hire Vehicle Permit",
 }
+
+# --- Driver document verification (owner decision 2026-11-19) -----------
+# Approved by the owner in a voice call ("haan na", after asking how
+# verification would work; the earlier "abhi nahi" deferral is lifted).
+# Three server-side checks at registration, deterministic, no external
+# API, no OCR, no background check, no new required document:
+#   1. Duplicate detection: SHA-256 of the raw file bytes. The same
+#      bytes on another driver, or in two slots of one registration,
+#      are rejected. Existing drivers are never blocked retroactively.
+#   2. Photo sanity for document IMAGES (not PDFs): must open as a
+#      real image, both sides >= 200px, and not effectively blank.
+#   3. Expiry (approved the same call, "expiry ka aap khud padhna
+#      chahiye"): the driver types the expiry date printed on the
+#      document; a past date is rejected. OCR was investigated and
+#      NOT used: the Render service is a native Python Blueprint
+#      (no Dockerfile, so no Tesseract binary can be added without
+#      switching the deploy to Docker), and Azure AI Vision would
+#      need a new Vision resource + key the owner must create — plus
+#      OCR of dates off phone photos is unreliable. Typed dates are
+#      deterministic and need no new key, cost or deploy change.
+# EXPIRY_DOC_TYPES is the v1 set: the six New York items the owner
+# named, plus the generic-list equivalents (vehicle_registration,
+# insurance_card) used by every other state. Other state-specific
+# permits/certificates are not expiry-checked in v1.
+EXPIRY_DOC_TYPES = frozenset({
+    "dmv_license", "tlc_license", "fh1_insurance", "registration",
+    "inspection", "vehicle_permit", "vehicle_registration", "insurance_card",
+})
+DOC_PHOTO_MIN_SIDE = 200
+# Blank-photo rule (conservative, so a normal document photo never
+# trips it): downscaled to 64x64 grey, the image counts as blank only
+# when it is nearly uniform (stddev < 3) AND nearly all white or all
+# black. A solid-colour photo (e.g. a red test fixture) is uniform
+# but mid-tone, so it passes; a photo of a blank white sheet fails.
+BLANK_PHOTO_MAX_STDDEV = 3.0
+BLANK_PHOTO_WHITE_MEAN = 240
+BLANK_PHOTO_BLACK_MEAN = 15
 # --- Per-state document requirements (owner decision 2026-11-17) ---------
 # The 7 items above are New York City / New York only ("ye base sirf
 # New York City ke vaaste hai"). A driver from another state cannot
@@ -2206,9 +2243,42 @@ class DriverDocument(db.Model):
     file = db.Column(db.LargeBinary, nullable=False)
     mime = db.Column(db.String(60), nullable=False)
     original_name = db.Column(db.String(255), nullable=False, default="")
+    # SHA-256 hex of the raw file bytes (driver document verification,
+    # owner decision 2026-11-19): duplicate detection across drivers
+    # and across slots. NULL on rows created before this existed —
+    # those rows are never treated as duplicates.
+    file_hash = db.Column(db.String(64), nullable=True)
+    # Expiry date printed on the document, typed by the driver at
+    # registration (owner decision 2026-11-19). NULL for document
+    # types without an expiry, and for rows created before this
+    # existed — those drivers are never blocked retroactively.
+    expires_on = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     __table_args__ = (db.UniqueConstraint("driver_id", "doc_type"),)
+
+
+class DocumentFlag(db.Model):
+    """A registration attempt rejected by the document verification
+    checks (owner decision 2026-11-19). Nothing is stored for the
+    driver — registration never completes — but the attempt is
+    recorded so the owner can see it read-only in the dashboard
+    ("Flagged documents"). Rejected attempts only; successful
+    registrations leave no flag."""
+    __tablename__ = "document_flags"
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+    name = db.Column(db.String(120), nullable=False, default="")
+    phone = db.Column(db.String(40), nullable=False, default="")
+    email = db.Column(db.String(200), nullable=False, default="")
+    doc_type = db.Column(db.String(40), nullable=False, default="")
+    doc_label = db.Column(db.String(120), nullable=False, default="")
+    # duplicate_other_driver | duplicate_same_driver | blank_photo |
+    # tiny_photo | unreadable_photo | expired | missing_expiry |
+    # invalid_expiry
+    reason = db.Column(db.String(40), nullable=False)
+    file_hash = db.Column(db.String(64), nullable=True)
+    detail = db.Column(db.String(255), nullable=False, default="")
 
 
 class Booking(db.Model):
@@ -2722,6 +2792,28 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("referral discount column check failed: %s", exc)
+    # Same pattern for the driver document verification columns
+    # (added with the duplicate/expiry checks, owner decision
+    # 2026-11-19). Nullable, so documents stored before this existed
+    # keep working with no hash or expiry on file — existing drivers
+    # are never blocked retroactively.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _ddcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("driver_documents")]
+        if "file_hash" not in _ddcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE driver_documents ADD COLUMN file_hash VARCHAR(64)")
+                )
+        if "expires_on" not in _ddcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE driver_documents ADD COLUMN expires_on DATE")
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("driver document verification column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -4312,6 +4404,95 @@ def _validate_upload(storage, allowed_exts, field_name):
     return (data, storage.mimetype or "application/octet-stream", filename), None
 
 
+# --- Driver document verification (owner decision 2026-11-19) -----------
+def _blank_photo_error(data):
+    """Return an error string if image bytes are effectively blank
+    (nearly uniform AND nearly all white or all black), else None.
+    Conservative on purpose: a normal document photo — white paper
+    with dark text — has far more variance than the threshold, so it
+    never trips. Unparseable bytes return None here; the callers'
+    readability check owns that case."""
+    try:
+        with Image.open(io.BytesIO(data)) as im:
+            grey = im.convert("L").resize((64, 64))
+            pixels = list(grey.getdata())
+    except Exception:
+        return None
+    mean = sum(pixels) / len(pixels)
+    var = sum((p - mean) ** 2 for p in pixels) / len(pixels)
+    if var ** 0.5 < BLANK_PHOTO_MAX_STDDEV and (
+            mean > BLANK_PHOTO_WHITE_MEAN or mean < BLANK_PHOTO_BLACK_MEAN):
+        return "blank"
+    return None
+
+
+def _doc_photo_error(data, label):
+    """Photo sanity for one uploaded document image (not PDFs).
+    Returns a plain, non-accusing error string, or None when the
+    photo is usable: must open as a real image, both sides at least
+    DOC_PHOTO_MIN_SIDE pixels, and not effectively blank."""
+    try:
+        with Image.open(io.BytesIO(data)) as im:
+            width, height = im.size
+    except Exception:
+        return (f"Your {label} photo could not be read — please upload "
+                "a clear photo of the document.")
+    if width < DOC_PHOTO_MIN_SIDE or height < DOC_PHOTO_MIN_SIDE:
+        return (f"Your {label} photo is too small — please upload "
+                "a clear photo of the document.")
+    if _blank_photo_error(data):
+        return (f"Your {label} photo looks blank or unreadable — please "
+                "upload a clear photo of the document.")
+    return None
+
+
+def _today_ny():
+    """Today's date in America/New_York (the service area)."""
+    from zoneinfo import ZoneInfo
+
+    return datetime.now(ZoneInfo("America/New_York")).date()
+
+
+def _parse_expiry(value, label):
+    """Validate one typed expiry date (YYYY-MM-DD). Returns
+    (date, None) or (None, error string). A past date is an expired
+    document: the driver is told clearly and asked to upload a
+    fresh, valid one."""
+    text = (value or "").strip()
+    if not text:
+        return None, f"Please enter the expiry date for your {label}."
+    try:
+        parsed = date.fromisoformat(text)
+    except ValueError:
+        return None, f"Please enter a valid expiry date for your {label}."
+    if parsed < _today_ny():
+        return None, (f"Your {label} is expired — please upload a new, "
+                      "valid one.")
+    return parsed, None
+
+
+def _record_document_flag(form, doc_type, reason, file_hash=None, detail=""):
+    """Record a rejected registration attempt for the owner dashboard.
+    Best-effort: a flag that fails to save never blocks the rejection
+    itself, and never leaks the driver's files."""
+    try:
+        label = ALL_DOC_LABELS.get(doc_type, doc_type)
+        db.session.add(DocumentFlag(
+            name=(form.get("name") or "").strip(),
+            phone=(form.get("phone") or "").strip(),
+            email=(form.get("email") or "").strip().lower(),
+            doc_type=doc_type,
+            doc_label=label,
+            reason=reason,
+            file_hash=file_hash,
+            detail=detail or "",
+        ))
+        db.session.commit()
+    except Exception as exc:  # logged, never fatal to the rejection
+        db.session.rollback()
+        log.warning("document flag record failed: %s", exc)
+
+
 @app.route("/api/car-models", methods=["GET"])
 def car_models():
     """Eligible car models for the driver registration dropdown.
@@ -4370,6 +4551,10 @@ def list_states():
                 # FH-1 alone accepts a PDF, as in the registration form.
                 "accept": ("image/*,.pdf,application/pdf"
                            if doc_type == "fh1_insurance" else "image/*"),
+                # The driver types the expiry date printed on the
+                # document (owner decision 2026-11-19); the form
+                # shows a date input for these types only.
+                "has_expiry": doc_type in EXPIRY_DOC_TYPES,
             }
             for doc_type in ALL_DOC_LABELS
         },
@@ -4487,6 +4672,14 @@ def register_driver():
         shape_error = _profile_photo_error(profile_photo[0])
         if shape_error:
             return err(shape_error)
+        # A blank profile photo is the same problem as a blank
+        # document photo: the face must be visible, so it is
+        # rejected too (owner decision 2026-11-19).
+        if _blank_photo_error(profile_photo[0]):
+            _record_document_flag(form, "profile_picture", "blank_photo",
+                                  hashlib.sha256(profile_photo[0]).hexdigest())
+            return err("Your Profile Picture photo looks blank or unreadable — "
+                       "please upload a clear photo of yourself.")
     docs = {}
     for field_name, doc_type in DOC_FIELD_MAP.items():
         storage = request.files.get(field_name)
@@ -4521,6 +4714,71 @@ def register_driver():
         return err("Missing document: " + ", ".join(missing) +
                    ". Please upload all required documents to complete registration.")
 
+    # Driver document verification (owner decision 2026-11-19):
+    # duplicate-file hashes, photo sanity, and expiry dates. Runs
+    # AFTER the missing-documents gate, so "Missing document: ..."
+    # behaviour is unchanged. Nothing is stored on rejection — only
+    # a read-only flag row for the owner dashboard. Duplicate
+    # detection covers the DriverDocument uploads only: the profile
+    # photo has no document row (it lives on the driver) and gets
+    # its own shape/size/blank checks above instead.
+    uploads = [(doc_type, data) for doc_type, (data, _mime, _name)
+               in docs.items()]
+    hashes = {doc_type: hashlib.sha256(data).hexdigest()
+              for doc_type, data in uploads}
+    # Photo sanity for document images (PDFs skip it: the FH-1 PDF
+    # has no pixels to judge).
+    for doc_type, (data, mime, _name) in docs.items():
+        if mime == "application/pdf":
+            continue
+        photo_error = _doc_photo_error(data, ALL_DOC_LABELS.get(doc_type, doc_type))
+        if photo_error:
+            reason = ("blank_photo" if "blank or unreadable" in photo_error
+                      else "tiny_photo" if "too small" in photo_error
+                      else "unreadable_photo")
+            _record_document_flag(form, doc_type, reason, hashes[doc_type])
+            return err(photo_error)
+    # Same file bytes in two slots of one registration.
+    seen_hashes = {}
+    for doc_type, _data in uploads:
+        h = hashes[doc_type]
+        if h in seen_hashes:
+            other_type = seen_hashes[h]
+            _record_document_flag(form, doc_type, "duplicate_same_driver", h,
+                                  "same file as " + other_type)
+            return err(
+                f"Your {ALL_DOC_LABELS.get(doc_type, doc_type)} photo is the same "
+                f"as your {ALL_DOC_LABELS.get(other_type, other_type)} photo — "
+                "please upload a different photo for each document.")
+        seen_hashes[h] = doc_type
+    # Same file bytes already submitted by a DIFFERENT driver (any
+    # document type). Existing drivers are never re-checked: rows
+    # stored before file_hash existed read as NULL and never match.
+    existing = DriverDocument.query.filter(
+        DriverDocument.file_hash.in_(list(seen_hashes))).first()
+    if existing is not None:
+        _record_document_flag(form, existing.doc_type, "duplicate_other_driver",
+                              existing.file_hash)
+        return err("This document photo was already used for another driver "
+                   "account. Please upload your own document.")
+    # Expiry dates, typed by the driver from the date printed on the
+    # document. A past date is an expired document and the
+    # registration is rejected — the driver is told clearly and asked
+    # to upload a fresh, valid one.
+    expiries = {}
+    for doc_type in docs:
+        if doc_type not in EXPIRY_DOC_TYPES:
+            continue
+        label = ALL_DOC_LABELS.get(doc_type, doc_type)
+        expires, expiry_error = _parse_expiry(form.get("expiry_" + doc_type), label)
+        if expiry_error:
+            reason = ("expired" if "is expired" in expiry_error
+                      else "missing_expiry" if "enter the expiry date" in expiry_error
+                      else "invalid_expiry")
+            _record_document_flag(form, doc_type, reason, hashes[doc_type])
+            return err(expiry_error)
+        expiries[doc_type] = expires
+
     account = form["bank_account_number"].strip()
     routing = form["bank_routing_number"].strip()
     driver = Driver(
@@ -4553,7 +4811,9 @@ def register_driver():
     for doc_type, (data, mime, original_name) in docs.items():
         db.session.add(DriverDocument(
             driver_id=driver.id, doc_type=doc_type, file=data,
-            mime=mime, original_name=original_name))
+            mime=mime, original_name=original_name,
+            file_hash=hashlib.sha256(data).hexdigest(),
+            expires_on=expiries.get(doc_type)))
     db.session.commit()
     return jsonify({"driver": {
         "id": driver.id,
@@ -5840,8 +6100,39 @@ def owner_drivers():
         # GET /api/owner/documents/<id>. Profile picture has no document
         # row — it is served via GET /api/owner/drivers/<id>/photo.
         "doc_ids": {doc.doc_type: doc.id for doc in d.documents},
+        # Expiry dates typed at registration (owner decision
+        # 2026-11-19); NULL where the document has no expiry or
+        # predates the check.
+        "doc_expiries": {doc.doc_type: (doc.expires_on.isoformat()
+                                        if doc.expires_on else None)
+                         for doc in d.documents},
         "bank_masked": bank_masked(d),
     } for d in drivers])
+
+
+@app.route("/api/owner/document-flags", methods=["GET"])
+def owner_document_flags():
+    """Read-only flagged registration attempts for the owner dashboard
+    (owner decision 2026-11-19): registrations rejected by the
+    duplicate, photo-sanity or expiry checks. Information only — no
+    action, no approval step. Newest first, latest 50."""
+    error = require_owner()
+    if error:
+        return error
+    flags = (DocumentFlag.query
+             .order_by(DocumentFlag.created_at.desc(), DocumentFlag.id.desc())
+             .limit(50).all())
+    return jsonify({"flags": [{
+        "id": f.id,
+        "created_at": iso(f.created_at),
+        "name": f.name,
+        "phone": f.phone,
+        "email": f.email,
+        "doc_type": f.doc_type,
+        "doc_label": f.doc_label,
+        "reason": f.reason,
+        "detail": f.detail,
+    } for f in flags]})
 
 
 @app.route("/api/owner/driver-referrals", methods=["GET"])

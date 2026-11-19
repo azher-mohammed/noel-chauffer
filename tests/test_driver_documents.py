@@ -69,6 +69,14 @@ class DmvDrivingLicenseCase(unittest.TestCase):
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"D{self._seq:05d}",
             "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
         }
         data.update(overrides)
         if files:
@@ -80,12 +88,12 @@ class DmvDrivingLicenseCase(unittest.TestCase):
         # All 7 compulsory uploads (owner decision 2026-11-17).
         return {
             "profile_photo": (io.BytesIO(photo_factory.VALID_PROFILE_PHOTO), "photo.jpg"),
-            "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
-            "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
-            "doc_fh1": (io.BytesIO(b"fake png"), "fh1.png"),
-            "doc_registration": (io.BytesIO(b"fake png"), "reg.png"),
-            "doc_inspection": (io.BytesIO(b"fake png"), "insp.png"),
-            "doc_vehicle_permit": (io.BytesIO(b"fake png"), "permit.png"),
+            "doc_dmv_license": (io.BytesIO(photo_factory.doc_photo()), "license.png"),
+            "doc_tlc_license": (io.BytesIO(photo_factory.doc_photo()), "tlc.png"),
+            "doc_fh1": (io.BytesIO(photo_factory.doc_photo()), "fh1.png"),
+            "doc_registration": (io.BytesIO(photo_factory.doc_photo()), "reg.png"),
+            "doc_inspection": (io.BytesIO(photo_factory.doc_photo()), "insp.png"),
+            "doc_vehicle_permit": (io.BytesIO(photo_factory.doc_photo()), "permit.png"),
         }
 
     # -- labels -------------------------------------------------------------
@@ -158,7 +166,7 @@ class DmvDrivingLicenseCase(unittest.TestCase):
     def test_old_field_name_is_ignored(self):
         # The removed duplicate field no longer maps to any doc type.
         files = self.all_files()
-        files["doc_drivers_license"] = (io.BytesIO(b"fake png"), "license.png")
+        files["doc_drivers_license"] = (io.BytesIO(photo_factory.doc_photo()), "license.png")
         resp = self.register(files=files)
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         docs = resp.get_json()["driver"]["docs"]

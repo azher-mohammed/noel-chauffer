@@ -73,6 +73,14 @@ class CompulsoryDocumentsCase(unittest.TestCase):
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"CD{self._seq:05d}",
             "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
         }
         data.update(files)
         return self.client.post("/api/drivers/register", data=data,
@@ -86,7 +94,7 @@ class CompulsoryDocumentsCase(unittest.TestCase):
             # The profile photo must be a real portrait image
             # (server shape/size rules); other docs accept any bytes.
             data = (photo_factory.VALID_PROFILE_PHOTO
-                    if field == "profile_photo" else b"fake doc")
+                    if field == "profile_photo" else photo_factory.doc_photo())
             files[field] = (io.BytesIO(data), fname)
         return files
 
@@ -143,7 +151,7 @@ class CompulsoryDocumentsCase(unittest.TestCase):
 
     def test_fh1_pdf_still_accepted(self):
         files = self.all_files()
-        files["doc_fh1"] = (io.BytesIO(b"%PDF- fake"), "fh1.pdf")
+        files["doc_fh1"] = (io.BytesIO(photo_factory.doc_pdf()), "fh1.pdf")
         resp = self.register(files)
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         self.assertEqual(resp.get_json()["driver"]["docs"]["fh1_insurance"], "completed")
@@ -152,7 +160,7 @@ class CompulsoryDocumentsCase(unittest.TestCase):
         # A present-but-invalid upload keeps its own error (PDF for a
         # photo-only item), rather than being reported as missing.
         files = self.all_files(omit={"doc_inspection"})
-        files["doc_dmv_license"] = (io.BytesIO(b"%PDF- fake"), "license.pdf")
+        files["doc_dmv_license"] = (io.BytesIO(photo_factory.doc_pdf()), "license.pdf")
         resp = self.register(files)
         self.assertEqual(resp.status_code, 400)
         self.assertIn("doc_dmv_license", resp.get_json()["error"])

@@ -73,10 +73,18 @@ class PassportProfilePhotoCase(unittest.TestCase):
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"PP{self._seq:05d}",
             "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
             "profile_photo": (io.BytesIO(profile_bytes), profile_name),
         }
         for field, fname in (docs or DOC_FILES).items():
-            data[field] = (io.BytesIO(b"fake doc"), fname)
+            data[field] = (io.BytesIO(photo_factory.doc_photo()), fname)
         return self.client.post("/api/drivers/register", data=data,
                                 content_type="multipart/form-data")
 
@@ -153,13 +161,21 @@ class PassportProfilePhotoCase(unittest.TestCase):
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"DD{self._seq:05d}",
             "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
             "profile_photo": (io.BytesIO(photo_factory.VALID_PROFILE_PHOTO), "photo.jpg"),
             "doc_dmv_license": (io.BytesIO(photo_factory.png(800, 600)), "license.png"),
-            "doc_tlc_license": (io.BytesIO(b"fake doc"), "tlc.png"),
-            "doc_fh1": (io.BytesIO(b"fake doc"), "fh1.png"),
-            "doc_registration": (io.BytesIO(b"fake doc"), "reg.png"),
-            "doc_inspection": (io.BytesIO(b"fake doc"), "insp.png"),
-            "doc_vehicle_permit": (io.BytesIO(b"fake doc"), "permit.png"),
+            "doc_tlc_license": (io.BytesIO(photo_factory.doc_photo()), "tlc.png"),
+            "doc_fh1": (io.BytesIO(photo_factory.doc_photo()), "fh1.png"),
+            "doc_registration": (io.BytesIO(photo_factory.doc_photo()), "reg.png"),
+            "doc_inspection": (io.BytesIO(photo_factory.doc_photo()), "insp.png"),
+            "doc_vehicle_permit": (io.BytesIO(photo_factory.doc_photo()), "permit.png"),
         }
         resp = self.client.post("/api/drivers/register", data=data,
                                 content_type="multipart/form-data")

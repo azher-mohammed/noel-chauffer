@@ -71,10 +71,18 @@ class PlateFormatCase(unittest.TestCase):
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": plate,
             "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
         }
         for field, _label, fname in NY_FIELDS:
             filedata = (photo_factory.VALID_PROFILE_PHOTO
-                        if field == "profile_photo" else b"fake doc")
+                        if field == "profile_photo" else photo_factory.doc_photo())
             data[field] = (io.BytesIO(filedata), fname)
         return self.client.post("/api/drivers/register", data=data,
                                 content_type="multipart/form-data")

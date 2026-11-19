@@ -112,6 +112,8 @@ input, select { font: inherit; }
 .doc-item .doc-name { font-weight: 600; font-size: 15.5px; }
 .doc-item .doc-hint { font-size: 13px; color: var(--grey); margin: 3px 0 10px; }
 .doc-item input[type="file"] { width: 100%; font-size: 14.5px; }
+.doc-item .expiry-label { display: block; font-size: 13px; color: var(--grey); margin: 10px 0 4px; }
+.doc-item .expiry-input { width: 100%; font-size: 14.5px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: inherit; }
 /* Per-item red error state (owner decision 2026-11-18): when a
    document upload fails, the failing item itself turns red and
    shows the message inside it, so the driver can tell WHICH item

@@ -102,6 +102,7 @@
     loadSupportMessages();
     loadDrivers();
     loadDriverReferrals();
+    loadDocumentFlags();
   }
 
   /* 1-hour pickup reminder trigger (owner decision 2026-11-18):
@@ -569,6 +570,40 @@
       .catch(function () { $("referrals-feed").innerHTML = '<div class="empty">Could not load driver referrals.</div>'; });
   }
 
+  /* ---------- Flagged documents ---------- */
+  /* Owner decision 2026-11-19: registration attempts rejected by
+     the duplicate, photo-sanity or expiry checks. Read-only
+     information — no action, no approval step. */
+  function loadDocumentFlags() {
+    fetch("/api/owner/document-flags", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var list = asList(j, "flags");
+        var feed = $("flags-feed");
+        if (!list.length) { feed.innerHTML = '<div class="empty">No flagged documents yet.</div>'; return; }
+        var reasons = {
+          duplicate_other_driver: "Same photo already used on another driver account",
+          duplicate_same_driver: "Same photo in two document slots",
+          blank_photo: "Photo looks blank or unreadable",
+          tiny_photo: "Photo too small",
+          unreadable_photo: "Photo could not be read",
+          expired: "Document expired",
+          missing_expiry: "No expiry date given",
+          invalid_expiry: "Expiry date not readable"
+        };
+        feed.innerHTML = list.map(function (f) {
+          var when = f.created_at || "";
+          var who = [f.name, f.phone].filter(Boolean).join(" · ") || "Unknown driver";
+          return '<div class="feed-item"><div class="ch">Needs attention</div>' +
+            '<div class="body"><strong>' + esc(reasons[f.reason] || f.reason || "Flagged") + "</strong> — " +
+            esc(f.doc_label || f.doc_type || "") + "<br>" + esc(who) +
+            (f.detail ? " · " + esc(f.detail) : "") + '</div>' +
+            (when ? '<div class="t">' + esc(when) + "</div>" : "") + "</div>";
+        }).join("");
+      })
+      .catch(function () { $("flags-feed").innerHTML = '<div class="empty">Could not load flagged documents.</div>'; });
+  }
+
   /* ---------- Drivers + document viewer ---------- */
   /* The drivers list is kept for the dispatcher-lite assign control
      in the booking detail panel. */
@@ -806,6 +841,13 @@
             chip.className = "doc-chip";
             var label = esc(spec.label) + ' — <span class="' + (done ? "st-done" : "st-todo") + '">' +
               (done ? "Completed" : "Items remaining") + "</span>";
+            var expiries = d.doc_expiries || {};
+            if (done && expiries[spec.key]) {
+              var expDate = expiries[spec.key];
+              var isPast = expDate < new Date().toISOString().slice(0, 10);
+              label += ' · Expires ' + esc(expDate) +
+                (isPast ? ' — <span class="st-todo">expired</span>' : "");
+            }
             var viewUrl = null;
             if (done) {
               if (spec.photo) {

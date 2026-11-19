@@ -54,7 +54,6 @@ REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARD = {"card_number": "4242424242424242", "card_exp": "12/30",
         "card_cvc": "123", "card_name": "Clear Drivers Customer"}
 PHOTO_BYTES = photo_factory.VALID_PROFILE_PHOTO
-DOC_BYTES = b"\xff\xd8\xff clear-drivers-test dmv license"
 
 
 def read(rel):
@@ -81,13 +80,21 @@ class ClearDriversCase(unittest.TestCase):
             "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black",
             "plate": f"D{self._driver_seq:05d}",
             "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
             "profile_photo": (io.BytesIO(PHOTO_BYTES), "photo.jpg"),
-            "doc_dmv_license": (io.BytesIO(DOC_BYTES), "dmv.jpg"),
-            "doc_tlc_license": (io.BytesIO(DOC_BYTES), "tlc.jpg"),
-            "doc_fh1": (io.BytesIO(DOC_BYTES), "fh1.jpg"),
-            "doc_registration": (io.BytesIO(DOC_BYTES), "reg.jpg"),
-            "doc_inspection": (io.BytesIO(DOC_BYTES), "insp.jpg"),
-            "doc_vehicle_permit": (io.BytesIO(DOC_BYTES), "permit.jpg"),
+            "doc_dmv_license": (io.BytesIO(photo_factory.doc_photo()), "dmv.jpg"),
+            "doc_tlc_license": (io.BytesIO(photo_factory.doc_photo()), "tlc.jpg"),
+            "doc_fh1": (io.BytesIO(photo_factory.doc_photo()), "fh1.jpg"),
+            "doc_registration": (io.BytesIO(photo_factory.doc_photo()), "reg.jpg"),
+            "doc_inspection": (io.BytesIO(photo_factory.doc_photo()), "insp.jpg"),
+            "doc_vehicle_permit": (io.BytesIO(photo_factory.doc_photo()), "permit.jpg"),
         }, content_type="multipart/form-data")
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         body = resp.get_json()

@@ -51,7 +51,6 @@ REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARD = {"card_number": "4242424242424242", "card_exp": "12/30",
         "card_cvc": "123", "card_name": "Clear Rides Customer"}
 PHOTO_BYTES = photo_factory.VALID_PROFILE_PHOTO
-DOC_BYTES = b"\xff\xd8\xff clear-test dmv license"
 
 
 def read(rel):
@@ -72,19 +71,30 @@ class ClearRidesCase(unittest.TestCase):
     def register_driver(self):
         self._driver_seq += 1
         phone = f"+1555007{self._driver_seq:04d}"
+        # Remember the DMV bytes: the clear test asserts the kept
+        # document still holds exactly what was uploaded.
+        self._dmv_bytes = photo_factory.doc_photo()
         resp = self.client.post("/api/drivers/register", data={
             "name": f"Clear Driver {self._driver_seq}", "phone": phone,
             "email": f"cd{self._driver_seq}@test.com",
             "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black",
             "plate": f"C{self._driver_seq:05d}",
             "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
             "profile_photo": (io.BytesIO(PHOTO_BYTES), "photo.jpg"),
-            "doc_dmv_license": (io.BytesIO(DOC_BYTES), "dmv.jpg"),
-            "doc_tlc_license": (io.BytesIO(DOC_BYTES), "tlc.jpg"),
-            "doc_fh1": (io.BytesIO(DOC_BYTES), "fh1.jpg"),
-            "doc_registration": (io.BytesIO(DOC_BYTES), "reg.jpg"),
-            "doc_inspection": (io.BytesIO(DOC_BYTES), "insp.jpg"),
-            "doc_vehicle_permit": (io.BytesIO(DOC_BYTES), "permit.jpg"),
+            "doc_dmv_license": (io.BytesIO(self._dmv_bytes), "dmv.jpg"),
+            "doc_tlc_license": (io.BytesIO(photo_factory.doc_photo()), "tlc.jpg"),
+            "doc_fh1": (io.BytesIO(photo_factory.doc_photo()), "fh1.jpg"),
+            "doc_registration": (io.BytesIO(photo_factory.doc_photo()), "reg.jpg"),
+            "doc_inspection": (io.BytesIO(photo_factory.doc_photo()), "insp.jpg"),
+            "doc_vehicle_permit": (io.BytesIO(photo_factory.doc_photo()), "permit.jpg"),
         }, content_type="multipart/form-data")
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         body = resp.get_json()
@@ -220,7 +230,7 @@ class ClearRidesCase(unittest.TestCase):
             self.assertEqual(kept.profile_photo, PHOTO_BYTES)
             self.assertEqual(len(kept.documents), 6)
             self.assertEqual(kept.documents[0].doc_type, "dmv_license")
-            self.assertEqual(kept.documents[0].file, DOC_BYTES)
+            self.assertEqual(kept.documents[0].file, self._dmv_bytes)
         # The driver still signs in and sees an empty offers list.
         resp = self.client.get("/api/drivers/me/offers",
                                headers={"X-Driver-Token": token})

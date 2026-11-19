@@ -115,6 +115,14 @@ class DriverSigninCase(unittest.TestCase):
             "car_colour": "Black", "plate": f"SG{self._seq:05d}",
             "state": "New York", "bank_account_number": "123456789",
             "bank_routing_number": "021000021",
+            "expiry_dmv_license": "2030-01-01",
+            "expiry_tlc_license": "2030-01-01",
+            "expiry_fh1_insurance": "2030-01-01",
+            "expiry_registration": "2030-01-01",
+            "expiry_inspection": "2030-01-01",
+            "expiry_vehicle_permit": "2030-01-01",
+            "expiry_vehicle_registration": "2030-01-01",
+            "expiry_insurance_card": "2030-01-01",
         }
         if not omit_password:
             data["password"] = password
@@ -124,7 +132,7 @@ class DriverSigninCase(unittest.TestCase):
         for field, fname in FIELDS:
             data[field] = (io.BytesIO(
                 photo_factory.VALID_PROFILE_PHOTO
-                if field == "profile_photo" else b"fake doc"), fname)
+                if field == "profile_photo" else photo_factory.doc_photo()), fname)
         return self.client.post("/api/drivers/register", data=data,
                                 content_type="multipart/form-data")
 

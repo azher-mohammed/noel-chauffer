@@ -141,6 +141,44 @@
     state.pendingPayload = null;
   }
 
+  /* A ride is live while a booking is being tracked and its status is
+     not a terminal one. While a ride is live the customer sees ONLY
+     that ride: the booking form stays hidden, and the form cannot be
+     re-submitted into a duplicate booking. */
+  var TERMINAL_RIDE_STATUSES = ["cancelled", "canceled", "completed", "no_show"];
+  function hasActiveRide() {
+    if (!state.bookingId) return false;
+    if (!state.booking) return true;
+    return TERMINAL_RIDE_STATUSES.indexOf(state.booking.status || "") === -1;
+  }
+
+  /* Fresh empty booking form: used whenever the customer starts a NEW
+     booking (Book another ride, or after a cancellation) so the
+     previous ride's values can never be re-submitted as a duplicate.
+     The only pre-filled return is the return-trip button, which sets
+     its swapped addresses itself, after this reset. */
+  function clearBookingForm() {
+    ["bk-name", "bk-phone", "bk-email", "bk-pickup", "bk-dropoff",
+     "bk-date", "bk-time", "bk-referral"
+    ].forEach(function (id) { var el = $(id); if (el) el.value = ""; });
+    $("bk-passengers").value = "1";
+    $("bk-hours").value = "2";
+    $("booking-error").textContent = "";
+    var btn = $("book-submit");
+    btn.disabled = false;
+    btn.textContent = "View options";
+    tabs.forEach(function (t) {
+      var active = t.getAttribute("data-ride-type") === "one_way";
+      t.classList.toggle("active", active);
+      t.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    state.rideType = "one_way";
+    show($("field-dropoff"));
+    show($("field-passengers"));
+    hide($("field-hours"));
+    clearBookingPlaces();
+  }
+
   function attachPlaces(inputId, listId, kind) {
     var input = $(inputId);
     var list = $(listId);
@@ -270,6 +308,11 @@
   /* ---------- Create a booking ---------- */
   $("booking-form").addEventListener("submit", function (e) {
     e.preventDefault();
+    /* While a ride is live the form is hidden; this guard stops any
+       re-submit of the same ride (double tap, restored page) from
+       creating a duplicate booking. A fresh booking first clears the
+       ride state — see Book another ride / return trip / cancel. */
+    if (hasActiveRide()) return;
     var err = $("booking-error");
     err.textContent = "";
     var payload = {
@@ -428,7 +471,10 @@
     var btn = $("class-continue");
     function proceedWith(updated) {
       hide($("class-step"));
-      show($("booking-card"));
+      /* The booking form stays hidden once the ride exists: the
+         customer sees only the ride from here on. A new booking
+         comes from the separate "Book another ride" button. */
+      hide($("booking-card"));
       state.classBooking = null;
       startTracking(updated, state.classPhone);
     }
@@ -522,6 +568,10 @@
     state.flightNumber = null;
     state.flightResolved = false;
     state.pendingPayload = null;
+    /* The booking form stays hidden while the ride is live: the
+       customer sees only this ride (status, chauffeur, chat, map)
+       until it ends or they pick "Book another ride". */
+    hide($("booking-card"));
     hide($("thankyou-block"));
     hide($("invoice-panel"));
     hide($("pay-panel"));
@@ -961,8 +1011,17 @@
         hide($("status-actions"));
         hide($("pay-panel"));
         hide($("total-box"));
+        hide($("thankyou-block"));
         show($("status-finding"));
         $("status-message").textContent = "This booking was cancelled.";
+        /* No ride is live any more: the form returns, fresh and
+           empty, so the customer can book again without the old
+           ride's values — and the submit guard no longer blocks it. */
+        state.bookingId = null;
+        state.booking = null;
+        state.paid = false;
+        clearBookingForm();
+        show($("booking-card"));
       })
       .catch(function () {
         var line = $("cancel-result");
@@ -977,6 +1036,9 @@
     if (!b) return;
     stopPolling();
     hide($("status-card"));
+    hide($("thankyou-block"));
+    hide($("invoice-panel"));
+    show($("booking-card"));
     tabs.forEach(function (t) {
       var active = t.getAttribute("data-ride-type") === "one_way";
       t.classList.toggle("active", active);
@@ -999,13 +1061,23 @@
     $("bk-date").focus();
   });
 
+  /* ---------- Book another ride: the SEPARATE option ---------- */
+  /* The only way back to the booking form once a ride exists (the
+     return-trip button is the other, for the ride home). It opens a
+     FRESH EMPTY form — the previous ride's values are cleared, so
+     tapping "View options" can only ever create a new booking. */
   $("new-booking-btn").addEventListener("click", function () {
     stopPolling();
     hide($("status-card"));
+    hide($("thankyou-block"));
+    hide($("invoice-panel"));
     state.bookingId = null;
     state.booking = null;
     state.paid = false;
+    clearBookingForm();
+    show($("booking-card"));
     $("booking-card").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("bk-date").focus();
   });
 
   /* ---------- Live map (Leaflet, with text fallback) ---------- */

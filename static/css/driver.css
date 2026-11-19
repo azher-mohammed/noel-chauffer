@@ -953,6 +953,7 @@ input, select { font: inherit; }
 }
 .seo-drive h1 { font-size: 1.6rem; margin: 0 0 12px; color: #d4af37; }
 .seo-drive h2 { font-size: 1.2rem; margin: 24px 0 8px; color: #d4af37; }
+.seo-drive h3 { font-size: 1.05rem; margin: 16px 0 6px; color: #d4af37; }
 .seo-drive p { margin: 0 0 12px; color: #e8e8e8; }
 .seo-drive ul, .seo-drive ol { margin: 0 0 12px; padding-left: 22px; }
 .seo-drive li { margin-bottom: 6px; }

@@ -175,13 +175,32 @@ class ClearDriversCase(unittest.TestCase):
 
     # -- auth ---------------------------------------------------------------
     def test_clear_requires_owner_login(self):
-        resp = self.client.post("/api/owner/clear-drivers", json={})
+        resp = self.client.post("/api/owner/clear-drivers", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 401)
         # A logged-out session is rejected too.
         self.owner_login()
         self.client.post("/api/owner/logout", json={})
+        resp = self.client.post("/api/owner/clear-drivers", json={"pin": "9999"})
+        self.assertEqual(resp.status_code, 401)
+
+    # -- PIN re-confirmation (owner decision 2026-11-19) ------------------
+    def test_clear_requires_pin_even_when_logged_in(self):
+        self.seed_drivers_and_rides()
+        self.assertEqual(self.counts()["drivers"], 2)
+        self.owner_login()
+        # No PIN at all: rejected, nothing removed.
         resp = self.client.post("/api/owner/clear-drivers", json={})
         self.assertEqual(resp.status_code, 401)
+        self.assertEqual(self.counts()["drivers"], 2)
+        # Wrong PIN: rejected, nothing removed.
+        resp = self.client.post("/api/owner/clear-drivers", json={"pin": "0000"})
+        self.assertEqual(resp.status_code, 401)
+        self.assertIn("Wrong PIN", resp.get_data(as_text=True))
+        self.assertEqual(self.counts()["drivers"], 2)
+        # Correct PIN: proceeds.
+        resp = self.client.post("/api/owner/clear-drivers", json={"pin": "9999"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.counts()["drivers"], 0)
 
     def test_clear_rejects_get(self):
         self.owner_login()
@@ -208,7 +227,7 @@ class ClearDriversCase(unittest.TestCase):
         self.assertEqual(before["referral_codes"], 3)
 
         self.owner_login()
-        resp = self.client.post("/api/owner/clear-drivers", json={})
+        resp = self.client.post("/api/owner/clear-drivers", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         body = resp.get_json()
         self.assertTrue(body["cleared"])
@@ -259,21 +278,21 @@ class ClearDriversCase(unittest.TestCase):
 
     def test_clear_is_idempotent_on_empty_db(self):
         self.owner_login()
-        resp = self.client.post("/api/owner/clear-drivers", json={})
+        resp = self.client.post("/api/owner/clear-drivers", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 200)
         deleted = resp.get_json()["deleted"]
         self.assertEqual(deleted["drivers"], 0)
         self.assertEqual(deleted["documents"], 0)
         self.assertEqual(deleted["booking_exclusions"], 0)
         self.assertEqual(deleted["bookings_unlinked"], 0)
-        resp = self.client.post("/api/owner/clear-drivers", json={})
+        resp = self.client.post("/api/owner/clear-drivers", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.get_json()["cleared"])
 
     def test_re_registration_with_same_phone_succeeds(self):
         driver, token = self.register_driver(phone="+15550110000")
         self.owner_login()
-        self.assertEqual(self.client.post("/api/owner/clear-drivers", json={}).status_code, 200)
+        self.assertEqual(self.client.post("/api/owner/clear-drivers", json={"pin": "9999"}).status_code, 200)
         # The freed phone number registers again, as a brand-new driver
         # (new token; SQLite may reuse the row id, so the token — not
         # the id — proves it is a fresh registration).
@@ -302,7 +321,14 @@ class ClearDriversCase(unittest.TestCase):
         js = read("static/js/owner.js")
         self.assertIn("/api/owner/clear-drivers", js)
         self.assertIn("clear-drivers-btn", js)
-        self.assertIn("window.confirm(", js)
+        # PIN re-confirmation (owner decision 2026-11-19): the clear
+        # button no longer uses a bare confirm() — tapping it opens a
+        # PIN prompt first and the PIN is sent with the request for a
+        # server-side check.
+        self.assertNotIn("Remove ALL drivers?", js)
+        self.assertIn("pin-confirm-modal", js)
+        self.assertIn("pin-confirm-input", js)
+        self.assertIn("pin: pin", js)
         # On success the handler shows the returned counts and refreshes
         # the lists, including the driver list.
         self.assertIn("window.alert(", js)

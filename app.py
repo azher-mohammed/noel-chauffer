@@ -44,7 +44,7 @@ from cryptography.fernet import Fernet
 from flask import Flask, Response, jsonify, request, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from PIL import Image, ImageOps
-from sqlalchemy import Numeric, func
+from sqlalchemy import Numeric, func, or_
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -3320,6 +3320,21 @@ def require_owner():
     return None
 
 
+def require_owner_pin():
+    """Re-confirm the owner PIN at the moment of a destructive action
+    (owner decision 2026-11-19, voice call): whenever the owner clears
+    anything — rides or drivers, website or owner app — the PIN must be
+    typed again right then. A signed-in session alone is NOT enough.
+    The PIN travels in the request body and is checked here,
+    server-side, against OWNER_PIN — never trusted from the client.
+    Returns an error response when the PIN is missing or wrong."""
+    data = request.get_json(silent=True) or {}
+    pin = data.get("pin")
+    if pin is None or not hmac.compare_digest(str(pin), OWNER_PIN):
+        return err("Wrong PIN.", 401)
+    return None
+
+
 def driver_vehicle_class(driver):
     """A driver's vehicle class: stored at registration, or derived
     from the car model for drivers registered before the class system
@@ -5965,8 +5980,64 @@ def owner_bookings():
     error = require_owner()
     if error:
         return error
-    bookings = Booking.query.order_by(Booking.created_at.desc(), Booking.id.desc()).all()
-    return jsonify([_owner_booking_row(b) for b in bookings])
+    # Server-side search + pagination (owner decision 2026-11-19):
+    # at 10,000 rides the dashboard must NOT load every booking at
+    # once. ?q= searches the database (customer name, phone, pickup,
+    # drop-off, driver name, booking number/ID, date, status) and the
+    # list comes back one page at a time, newest first, 50 per page.
+    # A bare call (no ?q= and no ?page=) keeps returning the plain
+    # list, so older callers keep working unchanged.
+    q = (request.args.get("q") or "").strip()
+    page_raw = request.args.get("page")
+    per_page_raw = request.args.get("per_page")
+    paginated = page_raw is not None or bool(q)
+    try:
+        page = int(page_raw) if page_raw is not None else 1
+    except (TypeError, ValueError):
+        page = 1
+    page = max(page, 1)
+    try:
+        per_page = int(per_page_raw) if per_page_raw is not None else 50
+    except (TypeError, ValueError):
+        per_page = 50
+    per_page = min(max(per_page, 1), 100)
+
+    query = Booking.query
+    if q:
+        like = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        conditions = [
+            Booking.customer_name.ilike(like, escape="\\"),
+            Booking.phone.ilike(like, escape="\\"),
+            Booking.pickup.ilike(like, escape="\\"),
+            Booking.dropoff.ilike(like, escape="\\"),
+            Booking.status.ilike(like, escape="\\"),
+            Booking.date.ilike(like, escape="\\"),
+        ]
+        # Booking number/ID: "#123" or "123".
+        digits = q.lstrip("#")
+        if digits.isdigit():
+            conditions.append(Booking.id == int(digits))
+        # Driver name: whoever accepted the ride or was assigned it.
+        driver_ids = db.session.query(Driver.id).filter(Driver.name.ilike(like, escape="\\"))
+        conditions.append(Booking.accepted_driver_id.in_(driver_ids))
+        conditions.append(Booking.assigned_driver_id.in_(driver_ids))
+        query = query.filter(or_(*conditions))
+    query = query.order_by(Booking.created_at.desc(), Booking.id.desc())
+    if not paginated:
+        return jsonify([_owner_booking_row(b) for b in query.all()])
+    total = query.count()
+    pages = (total + per_page - 1) // per_page if total else 0
+    if pages and page > pages:
+        page = pages
+    bookings = query.offset((page - 1) * per_page).limit(per_page).all()
+    return jsonify({
+        "bookings": [_owner_booking_row(b) for b in bookings],
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "pages": pages,
+        "q": q,
+    })
 
 
 @app.route("/api/owner/bookings/<int:booking_id>", methods=["GET"])
@@ -6360,6 +6431,11 @@ def owner_clear_rides():
     automatically, and ride history is otherwise retained for a
     minimum of one year.
 
+    PIN re-confirmation (owner decision 2026-11-19): the request must
+    carry the owner PIN in its JSON body ("pin") and it is checked
+    server-side by require_owner_pin() — a signed-in session alone is
+    not enough, and a missing or wrong PIN deletes nothing.
+
     Deleted: bookings, chat messages, booking events (alerts),
     emergency cancel records, driver referral credits, payments,
     decline exclusions and outbox messages. Kept untouched: drivers,
@@ -6370,6 +6446,9 @@ def owner_clear_rides():
     the code is what a customer holds and may still present.
     """
     error = require_owner()
+    if error:
+        return error
+    error = require_owner_pin()
     if error:
         return error
     # Children first: their booking FKs have no ON DELETE CASCADE,
@@ -6410,6 +6489,11 @@ def owner_clear_drivers():
     button (itself guarded by a confirm dialog). Nothing calls it
     automatically.
 
+    PIN re-confirmation (owner decision 2026-11-19): the request must
+    carry the owner PIN in its JSON body ("pin") and it is checked
+    server-side by require_owner_pin() — a signed-in session alone is
+    not enough, and a missing or wrong PIN removes nothing.
+
     Removed: every Driver row, every DriverDocument row (via the ORM
     cascade on Driver.documents), and every BookingExclusion row
     (they reference drivers). Detached, never deleted: bookings keep
@@ -6419,6 +6503,9 @@ def owner_clear_drivers():
     phone number becomes free to register again.
     """
     error = require_owner()
+    if error:
+        return error
+    error = require_owner_pin()
     if error:
         return error
     # Bookings are KEPT: only the driver links are detached, so ride
@@ -6447,6 +6534,111 @@ def owner_clear_drivers():
     }
     log.info("owner cleared all drivers: %s", removed)
     return jsonify({"cleared": True, "deleted": removed})
+
+
+@app.route("/api/owner/drivers/<int:driver_id>/remove", methods=["POST"])
+def owner_remove_driver(driver_id):
+    """Owner-only MANUAL removal of ONE driver (owner decision
+    2026-11-19, voice call): the owner can remove an individual
+    driver from the dashboard or the owner app.
+
+    Mirrors the bulk clear-drivers reset, scoped to one driver:
+    the Driver row and every DriverDocument row go (ORM cascade),
+    that driver's BookingExclusion rows go, and bookings keep their
+    records — accepted_driver_id / assigned_driver_id are set to
+    NULL. Referral credits are untouched (snapshots, no FKs), and a
+    removed driver's phone number becomes free to register again.
+
+    PIN re-confirmation (owner decision 2026-11-19): the request
+    must carry the owner PIN in its JSON body ("pin") and it is
+    checked server-side by require_owner_pin() — a signed-in session
+    alone is not enough, and a missing or wrong PIN removes nothing.
+    """
+    error = require_owner()
+    if error:
+        return error
+    error = require_owner_pin()
+    if error:
+        return error
+    driver = db.session.get(Driver, driver_id)
+    if not driver:
+        return err("Driver not found.", 404)
+    unlinked_accepted = Booking.query.filter(
+        Booking.accepted_driver_id == driver.id
+    ).update({"accepted_driver_id": None}, synchronize_session=False)
+    unlinked_assigned = Booking.query.filter(
+        Booking.assigned_driver_id == driver.id
+    ).update({"assigned_driver_id": None}, synchronize_session=False)
+    exclusions = BookingExclusion.query.filter_by(
+        driver_id=driver.id
+    ).delete(synchronize_session=False)
+    documents = DriverDocument.query.filter_by(driver_id=driver.id).count()
+    name = driver.name
+    db.session.delete(driver)
+    db.session.commit()
+    removed = {
+        "drivers": 1,
+        "documents": documents,
+        "booking_exclusions": exclusions,
+        "bookings_unlinked": unlinked_accepted + unlinked_assigned,
+    }
+    log.info("owner removed driver %s (%s): %s", driver_id, name, removed)
+    return jsonify({"removed": True, "deleted": removed})
+
+
+@app.route("/api/owner/bookings/<int:booking_id>/remove", methods=["POST"])
+def owner_remove_booking(booking_id):
+    """Owner-only MANUAL removal of ONE ride (owner decision
+    2026-11-19, voice call): the owner can remove an individual
+    booking from the dashboard or the owner app.
+
+    Mirrors the bulk clear-rides reset, scoped to one booking: the
+    booking and its chat messages, booking events, emergency cancel
+    records, driver referral credits, payments, decline exclusions
+    and outbox messages go. Referral codes stay valid — a code
+    issued by the deleted booking keeps its code and used_count,
+    only the link to the booking is detached (issued_booking_id set
+    to NULL). Drivers and their documents are untouched.
+
+    PIN re-confirmation (owner decision 2026-11-19): the request
+    must carry the owner PIN in its JSON body ("pin") and it is
+    checked server-side by require_owner_pin() — a signed-in session
+    alone is not enough, and a missing or wrong PIN deletes nothing.
+    """
+    error = require_owner()
+    if error:
+        return error
+    error = require_owner_pin()
+    if error:
+        return error
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    deleted = {
+        "chat_messages": ChatMessage.query.filter_by(
+            booking_id=booking.id).delete(synchronize_session=False),
+        "booking_events": BookingEvent.query.filter_by(
+            booking_id=booking.id).delete(synchronize_session=False),
+        "emergency_cancels": EmergencyCancel.query.filter_by(
+            booking_id=booking.id).delete(synchronize_session=False),
+        "driver_referral_credits": DriverReferralCredit.query.filter_by(
+            booking_id=booking.id).delete(synchronize_session=False),
+        "payments": Payment.query.filter_by(
+            booking_id=booking.id).delete(synchronize_session=False),
+        "booking_exclusions": BookingExclusion.query.filter_by(
+            booking_id=booking.id).delete(synchronize_session=False),
+        "outbox_messages": OutboxMessage.query.filter_by(
+            booking_id=booking.id).delete(synchronize_session=False),
+    }
+    detached = ReferralCode.query.filter(
+        ReferralCode.issued_booking_id == booking.id
+    ).update({"issued_booking_id": None}, synchronize_session=False)
+    deleted["referral_codes_detached"] = detached
+    db.session.delete(booking)
+    db.session.commit()
+    deleted["bookings"] = 1
+    log.info("owner removed booking %s: %s", booking_id, deleted)
+    return jsonify({"removed": True, "deleted": deleted})
 
 
 @app.route("/api/owner/drivers", methods=["GET"])

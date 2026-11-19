@@ -167,13 +167,32 @@ class ClearRidesCase(unittest.TestCase):
 
     # -- auth ---------------------------------------------------------------
     def test_clear_requires_owner_login(self):
-        resp = self.client.post("/api/owner/clear-rides", json={})
+        resp = self.client.post("/api/owner/clear-rides", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 401)
         # A logged-out session is rejected too.
         self.owner_login()
         self.client.post("/api/owner/logout", json={})
+        resp = self.client.post("/api/owner/clear-rides", json={"pin": "9999"})
+        self.assertEqual(resp.status_code, 401)
+
+    # -- PIN re-confirmation (owner decision 2026-11-19) ------------------
+    def test_clear_requires_pin_even_when_logged_in(self):
+        self.seed_rides()
+        self.assertEqual(self.counts()["bookings"], 2)
+        self.owner_login()
+        # No PIN at all: rejected, nothing deleted.
         resp = self.client.post("/api/owner/clear-rides", json={})
         self.assertEqual(resp.status_code, 401)
+        self.assertEqual(self.counts()["bookings"], 2)
+        # Wrong PIN: rejected, nothing deleted.
+        resp = self.client.post("/api/owner/clear-rides", json={"pin": "0000"})
+        self.assertEqual(resp.status_code, 401)
+        self.assertIn("Wrong PIN", resp.get_data(as_text=True))
+        self.assertEqual(self.counts()["bookings"], 2)
+        # Correct PIN: proceeds.
+        resp = self.client.post("/api/owner/clear-rides", json={"pin": "9999"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.counts()["bookings"], 0)
 
     def test_clear_rejects_get(self):
         self.owner_login()
@@ -193,7 +212,7 @@ class ClearRidesCase(unittest.TestCase):
         self.assertEqual(before["referral_codes"], 2)
 
         self.owner_login()
-        resp = self.client.post("/api/owner/clear-rides", json={})
+        resp = self.client.post("/api/owner/clear-rides", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         body = resp.get_json()
         self.assertTrue(body["cleared"])
@@ -217,7 +236,7 @@ class ClearRidesCase(unittest.TestCase):
     def test_clear_keeps_driver_documents_and_photo(self):
         driver, token, _, _ = self.seed_rides()
         self.owner_login()
-        resp = self.client.post("/api/owner/clear-rides", json={})
+        resp = self.client.post("/api/owner/clear-rides", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 200)
         after = self.counts()
         self.assertEqual(after["drivers"], 1)
@@ -246,7 +265,7 @@ class ClearRidesCase(unittest.TestCase):
 
     def test_clear_is_idempotent_on_empty_db(self):
         self.owner_login()
-        resp = self.client.post("/api/owner/clear-rides", json={})
+        resp = self.client.post("/api/owner/clear-rides", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 200)
         deleted = resp.get_json()["deleted"]
         self.assertEqual(deleted["bookings"], 0)
@@ -255,7 +274,7 @@ class ClearRidesCase(unittest.TestCase):
         self.assertEqual(deleted["payments"], 0)
         self.assertEqual(deleted["booking_exclusions"], 0)
         self.assertEqual(deleted["outbox_messages"], 0)
-        resp = self.client.post("/api/owner/clear-rides", json={})
+        resp = self.client.post("/api/owner/clear-rides", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.get_json()["cleared"])
 
@@ -264,7 +283,7 @@ class ClearRidesCase(unittest.TestCase):
         code = booking["referral_code"]
         self.assertTrue(code)
         self.owner_login()
-        self.assertEqual(self.client.post("/api/owner/clear-rides", json={}).status_code, 200)
+        self.assertEqual(self.client.post("/api/owner/clear-rides", json={"pin": "9999"}).status_code, 200)
         with app_module.app.app_context():
             row = app_module.ReferralCode.query.filter_by(code=code).first()
             self.assertIsNotNone(row)
@@ -288,7 +307,14 @@ class ClearRidesCase(unittest.TestCase):
         js = read("static/js/owner.js")
         self.assertIn("/api/owner/clear-rides", js)
         self.assertIn("clear-rides-btn", js)
-        self.assertIn("window.confirm(", js)
+        # PIN re-confirmation (owner decision 2026-11-19): the clear
+        # button no longer uses a bare confirm() — tapping it opens a
+        # PIN prompt first and the PIN is sent with the request for a
+        # server-side check.
+        self.assertNotIn("Delete ALL rides?", js)
+        self.assertIn("pin-confirm-modal", js)
+        self.assertIn("pin-confirm-input", js)
+        self.assertIn("pin: pin", js)
         # On success the dashboard refreshes its lists.
         for loader in ("loadBookings()", "loadPayouts()", "loadAlerts()",
                        "loadOutbox()", "loadSummaryThenEnterSoft()"):

@@ -106,6 +106,32 @@ td .sub { color: var(--grey); font-size: 13px; }
 .viewer iframe { width: 100%; height: 70vh; border: 1px solid var(--line); }
 .viewer .close-row { text-align: right; margin-bottom: 8px; }
 
+/* Bookings search (owner decision 2026-11-19): find one trip without
+   checking every ride one by one. */
+.bookings-search { width: 100%; max-width: 560px; padding: 11px 14px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 15px; margin: 0 0 14px; background: var(--white); }
+.bookings-search:focus { outline: none; border-color: var(--gold); }
+.bookings-pager { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; }
+.bookings-pager span { color: var(--grey); font-size: 14px; }
+.bookings-pager .row-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* PIN re-confirmation modal (owner decision 2026-11-19): every
+   clear/remove action asks for the PIN again at that moment. */
+.pin-confirm-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.pin-confirm-card { background: var(--white); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 8px; padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 14px 34px rgba(0,0,0,0.25); }
+.pin-confirm-card h3 { margin: 0 0 8px; font-family: Georgia, serif; font-weight: 400; font-size: 22px; }
+.pin-confirm-card p { color: var(--grey); font-size: 14.5px; margin: 0 0 16px; }
+.pin-confirm-card input { width: 100%; padding: 13px; border: 1px solid #cfccc2; border-radius: 4px; text-align: center; font-size: 20px; letter-spacing: 0.3em; }
+.pin-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+.pin-confirm-actions button { padding: 10px 18px; border-radius: 4px; font-size: 15px; }
+#pin-confirm-submit { background: var(--black); color: var(--white); border: 0; }
+#pin-confirm-cancel { background: transparent; border: 1px solid #cfccc2; }
+
+/* Per-row Remove buttons (owner decision 2026-11-19): one driver, one
+   ride at a time — each guarded by the same PIN prompt. */
+.row-btn.danger-row-btn { border-color: #c0392b; color: #a83232; margin-left: 6px; }
+.row-btn.danger-row-btn:hover { border-color: #e74c3c; }
+.driver-remove-btn { margin-top: 12px; }
+
 /* Dispatcher-lite assign control in the booking detail panel */
 .assign-box { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); align-items: center; }
 .assign-box select { padding: 9px 10px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 15px; min-width: 240px; background: var(--white); }

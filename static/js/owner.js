@@ -175,58 +175,141 @@
       .catch(function () { window.location.reload(); });
   });
 
-  /* ---------- Clear all rides (TEMPORARY TEST-ONLY: remove before real launch) ---------- */
-  $("clear-rides-btn").addEventListener("click", function () {
-    if (!window.confirm("Delete ALL rides? This removes every booking, chat message, alert and outbox message. Drivers and their documents are kept. This cannot be undone.")) return;
-    var btn = $("clear-rides-btn");
-    btn.disabled = true;
-    fetch("/api/owner/clear-rides", {
+  /* ---------- PIN re-confirmation (owner decision 2026-11-19) ----------
+     Every clear/remove action asks for the PIN again at that moment.
+     The PIN is sent to the server with the action and checked there
+     (require_owner_pin); a signed-in session alone is never enough.
+     A wrong PIN leaves everything exactly as it was. */
+  var pinConfirmAction = null;
+  function openPinConfirm(title, text, action) {
+    pinConfirmAction = action;
+    $("pin-confirm-title").textContent = title;
+    $("pin-confirm-text").textContent = text;
+    $("pin-confirm-error").textContent = "";
+    $("pin-confirm-input").value = "";
+    show($("pin-confirm-modal"));
+    $("pin-confirm-input").focus();
+  }
+  function closePinConfirm() {
+    pinConfirmAction = null;
+    hide($("pin-confirm-modal"));
+  }
+  $("pin-confirm-cancel").addEventListener("click", closePinConfirm);
+  $("pin-confirm-modal").addEventListener("click", function (e) {
+    if (e.target === $("pin-confirm-modal")) closePinConfirm();
+  });
+  $("pin-confirm-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var pin = $("pin-confirm-input").value.trim();
+    if (!pin) { $("pin-confirm-error").textContent = "Please enter your PIN."; return; }
+    var action = pinConfirmAction;
+    if (!action) { closePinConfirm(); return; }
+    /* The action posts the PIN and reports a wrong PIN back; the
+       modal stays open so the owner can retry. */
+    action(pin, function (wrongPin) {
+      if (wrongPin) {
+        $("pin-confirm-error").textContent = "Wrong PIN. Nothing was cleared or removed.";
+        $("pin-confirm-input").value = "";
+        $("pin-confirm-input").focus();
+      } else {
+        closePinConfirm();
+      }
+    });
+  });
+
+  /* POST a PIN-guarded destructive action. done receives
+     { ok, status, j }; status 401 means the PIN was wrong. */
+  function postWithPin(url, pin, done) {
+    fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: "{}"
+      body: JSON.stringify({ pin: pin })
     })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }).catch(function () { return { ok: r.ok, j: {} }; }); })
-      .then(function (res) {
-        btn.disabled = false;
-        if (!res.ok) return;
-        hide($("booking-detail"));
-        $("booking-detail").innerHTML = "";
-        loadSummaryThenEnterSoft();
-        loadBookings();
-        loadPayouts();
-        loadAlerts();
-        loadOutbox();
-      })
-      .catch(function () { btn.disabled = false; });
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }).catch(function () { return { ok: r.ok, status: r.status, j: {} }; }); })
+      .then(function (res) { done(res); })
+      .catch(function () { done({ ok: false, status: 0, j: {} }); });
+  }
+
+  /* ---------- Clear all rides (TEMPORARY TEST-ONLY: remove before real launch) ---------- */
+  $("clear-rides-btn").addEventListener("click", function () {
+    openPinConfirm("Enter PIN to clear all rides",
+      "This deletes every ride on the account — every booking, chat message, alert and outbox message. Drivers and their documents are kept. This cannot be undone.",
+      function (pin, finish) {
+        var btn = $("clear-rides-btn");
+        btn.disabled = true;
+        postWithPin("/api/owner/clear-rides", pin, function (res) {
+          btn.disabled = false;
+          if (res.status === 401) { finish(true); return; }
+          finish(false);
+          if (!res.ok) return;
+          hide($("booking-detail"));
+          $("booking-detail").innerHTML = "";
+          loadSummaryThenEnterSoft();
+          loadBookings();
+          loadPayouts();
+          loadAlerts();
+          loadOutbox();
+        });
+      });
   });
 
   /* ---------- Remove all drivers (TEMPORARY TEST-ONLY: remove before real launch) ---------- */
   $("clear-drivers-btn").addEventListener("click", function () {
-    if (!window.confirm("Remove ALL drivers? This deletes every driver registration, document and profile photo. Ride history is kept, but bookings will no longer show a driver. Drivers must re-register. This cannot be undone.")) return;
-    var btn = $("clear-drivers-btn");
-    btn.disabled = true;
-    fetch("/api/owner/clear-drivers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: "{}"
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }).catch(function () { return { ok: r.ok, j: {} }; }); })
-      .then(function (res) {
-        btn.disabled = false;
-        if (!res.ok) return;
-        var d = res.j.deleted || {};
-        window.alert("Removed " + (d.drivers || 0) + " driver(s), " + (d.documents || 0) + " document(s) and " + (d.booking_exclusions || 0) + " exclusion(s). " + (d.bookings_unlinked || 0) + " booking(s) unlinked. Ride history was kept.");
-        loadSummaryThenEnterSoft();
-        loadBookings();
-        loadPayouts();
-        loadAlerts();
-        loadOutbox();
-        loadDrivers();
-      })
-      .catch(function () { btn.disabled = false; });
+    openPinConfirm("Enter PIN to remove all drivers",
+      "This removes every driver registration, document and profile photo. Ride history is kept, but bookings will no longer show a driver. Drivers must re-register. This cannot be undone.",
+      function (pin, finish) {
+        var btn = $("clear-drivers-btn");
+        btn.disabled = true;
+        postWithPin("/api/owner/clear-drivers", pin, function (res) {
+          btn.disabled = false;
+          if (res.status === 401) { finish(true); return; }
+          finish(false);
+          if (!res.ok) return;
+          var d = res.j.deleted || {};
+          window.alert("Removed " + (d.drivers || 0) + " driver(s), " + (d.documents || 0) + " document(s) and " + (d.booking_exclusions || 0) + " exclusion(s). " + (d.bookings_unlinked || 0) + " booking(s) unlinked. Ride history was kept.");
+          loadSummaryThenEnterSoft();
+          loadBookings();
+          loadPayouts();
+          loadAlerts();
+          loadOutbox();
+          loadDrivers();
+        });
+      });
   });
+
+  /* ---------- Remove ONE driver (owner decision 2026-11-19) ---------- */
+  function removeDriver(d) {
+    openPinConfirm("Enter PIN to remove driver",
+      "Remove " + (d.name || "this driver") + "? This deletes the driver registration, documents and profile photo. Ride history is kept, but bookings will no longer show this driver. The driver must re-register. This cannot be undone.",
+      function (pin, finish) {
+        postWithPin("/api/owner/drivers/" + encodeURIComponent(d.id) + "/remove", pin, function (res) {
+          if (res.status === 401) { finish(true); return; }
+          finish(false);
+          if (!res.ok) return;
+          loadDrivers();
+          loadBookings();
+          loadSummaryThenEnterSoft();
+        });
+      });
+  }
+
+  /* ---------- Remove ONE ride (owner decision 2026-11-19) ---------- */
+  function removeBooking(b) {
+    openPinConfirm("Enter PIN to remove ride",
+      "Remove ride #" + b.id + " (" + (b.route || "") + ")? This deletes the booking and its messages. Drivers are kept. This cannot be undone.",
+      function (pin, finish) {
+        postWithPin("/api/owner/bookings/" + encodeURIComponent(b.id) + "/remove", pin, function (res) {
+          if (res.status === 401) { finish(true); return; }
+          finish(false);
+          if (!res.ok) return;
+          hide($("booking-detail"));
+          $("booking-detail").innerHTML = "";
+          loadBookings();
+          loadSummaryThenEnterSoft();
+        });
+      });
+  }
 
   /* ---------- Summary ---------- */
   function renderSummary(s) {
@@ -278,14 +361,59 @@
     };
   }
 
+  /* ---------- Bookings table: server-side search + pages ----------
+     At 10,000 rides the dashboard must NOT load every booking at
+     once (owner decision 2026-11-19). The list loads 50 rows at a
+     time, newest first, and the search box queries the server
+     (GET /api/owner/bookings?q=…&page=…), debounced 300 ms as the
+     owner types — finding one trip among thousands is instant,
+     with no scrolling through rides. */
+  var bookingsPage = 1;
+  var bookingsQuery = "";
+  var bookingsTotalPages = 1;
+  var bookingsTotal = 0;
+  var bookingsSearchTimer = null;
+  var BOOKINGS_PER_PAGE = 50;
+
+  function bookingsUrl() {
+    var url = "/api/owner/bookings?page=" + bookingsPage + "&per_page=" + BOOKINGS_PER_PAGE;
+    if (bookingsQuery) url += "&q=" + encodeURIComponent(bookingsQuery);
+    return url;
+  }
+
+  function renderBookingsPager() {
+    var pager = $("bookings-pager");
+    if (!pager) return;
+    if (bookingsTotal === 0) { hide(pager); return; }
+    show(pager);
+    $("bookings-page-info").textContent =
+      "Page " + bookingsPage + " of " + Math.max(bookingsTotalPages, 1) +
+      " · " + bookingsTotal + " ride" + (bookingsTotal === 1 ? "" : "s");
+    $("bookings-prev").disabled = bookingsPage <= 1;
+    $("bookings-next").disabled = bookingsPage >= bookingsTotalPages;
+  }
+
   function loadBookings() {
-    fetch("/api/owner/bookings", { credentials: "same-origin" })
+    fetch(bookingsUrl(), { credentials: "same-origin" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var list = asList(j, "bookings");
+        if (j && typeof j === "object" && !Array.isArray(j)) {
+          bookingsTotal = Number(j.total) || 0;
+          bookingsTotalPages = Number(j.pages) || 1;
+          /* The server clamps an out-of-range page; follow it. */
+          if (j.page && Number(j.page) !== bookingsPage) bookingsPage = Number(j.page);
+        }
         var body = $("bookings-body");
         body.innerHTML = "";
-        if (!list.length) { show($("bookings-empty")); return; }
+        if (!list.length) {
+          show($("bookings-empty"));
+          $("bookings-empty").textContent = bookingsQuery
+            ? "No rides match that search."
+            : "No bookings yet.";
+          renderBookingsPager();
+          return;
+        }
         hide($("bookings-empty"));
         list.forEach(function (b) {
           var f = breakdownFields(b);
@@ -311,21 +439,46 @@
             "<td><input class=\"toll-input\" type=\"number\" min=\"0\" step=\"0.01\" value=\"" +
             esc(f.toll !== null && f.toll !== undefined ? f.toll : "") +
             "\" aria-label=\"Toll for this ride\"><button class=\"toll-save\" type=\"button\">Save</button></td>" +
-            "<td><button class=\"row-btn\" type=\"button\">View</button></td>";
+            "<td><button class=\"row-btn\" type=\"button\">View</button>" +
+            "<button class=\"row-btn danger-row-btn ride-remove-btn\" type=\"button\">Remove</button></td>";
           tr.querySelector(".toll-save").addEventListener("click", function () {
             var val = tr.querySelector(".toll-input").value;
             saveToll(b.id, val, tr);
           });
           tr.querySelector(".row-btn").addEventListener("click", function () { loadBookingDetail(b.id); });
+          tr.querySelector(".ride-remove-btn").addEventListener("click", function () { removeBooking(b); });
           body.appendChild(tr);
         });
+        renderBookingsPager();
       })
       .catch(function () {
         $("bookings-body").innerHTML = "";
         show($("bookings-empty"));
         $("bookings-empty").textContent = "Could not load bookings.";
+        renderBookingsPager();
       });
   }
+
+  /* Search as he types (300 ms debounce) + page buttons. A new
+     search always starts back on page 1. */
+  $("bookings-search").addEventListener("input", function () {
+    clearTimeout(bookingsSearchTimer);
+    bookingsSearchTimer = setTimeout(function () {
+      bookingsQuery = $("bookings-search").value.trim();
+      bookingsPage = 1;
+      loadBookings();
+    }, 300);
+  });
+  $("bookings-prev").addEventListener("click", function () {
+    if (bookingsPage <= 1) return;
+    bookingsPage -= 1;
+    loadBookings();
+  });
+  $("bookings-next").addEventListener("click", function () {
+    if (bookingsPage >= bookingsTotalPages) return;
+    bookingsPage += 1;
+    loadBookings();
+  });
 
   function saveToll(id, value, row) {
     var toll = value === "" ? 0 : Number(value);
@@ -917,6 +1070,12 @@
             chips.appendChild(chip);
           });
           card.appendChild(chips);
+          var removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "row-btn danger-row-btn driver-remove-btn";
+          removeBtn.textContent = "Remove driver";
+          removeBtn.addEventListener("click", function () { removeDriver(d); });
+          card.appendChild(removeBtn);
           box.appendChild(card);
         });
       })

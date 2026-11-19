@@ -49,6 +49,7 @@
 
     <h2>Bookings</h2>
     <p class="section-note">Full per-ride breakdown, as recorded. Tolls are entered by you per ride.</p>
+    <input id="bookings-search" type="search" class="bookings-search" placeholder="Search rides — customer, phone, pickup, drop-off, driver, booking #, date, status…" aria-label="Search bookings" autocomplete="off">
     <div class="panel">
       <table>
         <thead>
@@ -71,6 +72,11 @@
         <tbody id="bookings-body"></tbody>
       </table>
       <div class="empty hidden" id="bookings-empty">No bookings yet.</div>
+    </div>
+    <div class="bookings-pager hidden" id="bookings-pager">
+      <button type="button" class="row-btn" id="bookings-prev">← Newer</button>
+      <span id="bookings-page-info"></span>
+      <button type="button" class="row-btn" id="bookings-next">Older →</button>
     </div>
     <div class="detail-panel hidden" id="booking-detail"></div>
 
@@ -135,6 +141,23 @@
     <div class="close-row"><button class="row-btn" type="button" id="viewer-close">Close</button></div>
     <h3 id="viewer-title">Document</h3>
     <div id="viewer-body"></div>
+  </div>
+</div>
+
+<!-- PIN re-confirmation (owner decision 2026-11-19): every clear/remove
+     action asks for the PIN again at that moment. -->
+<div class="pin-confirm-backdrop hidden" id="pin-confirm-modal">
+  <div class="pin-confirm-card" role="dialog" aria-label="Enter PIN to confirm">
+    <h3 id="pin-confirm-title">Enter PIN to continue</h3>
+    <p id="pin-confirm-text"></p>
+    <form id="pin-confirm-form" novalidate>
+      <input id="pin-confirm-input" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" aria-label="Owner PIN">
+      <p class="pin-error" id="pin-confirm-error" role="alert"></p>
+      <div class="pin-confirm-actions">
+        <button type="button" id="pin-confirm-cancel" class="row-btn">Cancel</button>
+        <button type="submit" id="pin-confirm-submit">Confirm</button>
+      </div>
+    </form>
   </div>
 </div>
 

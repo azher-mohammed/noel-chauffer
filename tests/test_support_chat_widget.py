@@ -333,7 +333,7 @@ class SupportChatWidgetCase(unittest.TestCase):
     def test_clear_rides_keeps_support_messages(self):
         self.client.post("/api/support-messages", json={"text": "kept question"})
         self.owner_login()
-        resp = self.client.post("/api/owner/clear-rides", json={})
+        resp = self.client.post("/api/owner/clear-rides", json={"pin": "9999"})
         self.assertEqual(resp.status_code, 200)
         resp = self.client.get("/api/owner/support-messages")
         self.assertEqual(resp.status_code, 200)

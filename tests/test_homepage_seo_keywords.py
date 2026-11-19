@@ -12,6 +12,14 @@ transfer", "luxury car service New York", "car service NYC" and
 "airport car service" — as new FAQ entries (visible + JSON-LD) and in
 the Airport Transfers card, naming LaGuardia and Newark alongside JFK.
 No prices anywhere on the page (owner rule).
+
+Owner decision 2026-11-19 (voice call, "Yes" to Los Angeles, Chicago,
+Miami): add the top-3-city keywords — "black car service Los Angeles"
+and "LAX airport transfer", "chauffeur service Chicago" and "ORD
+airport transfer", "luxury car service Miami" and "MIA airport
+transfer" — as three more FAQ entries (visible + JSON-LD) and in the
+Airport Transfers card, naming LAX, ORD and MIA alongside the NYC
+airports.
 """
 import json
 import re
@@ -103,11 +111,43 @@ class HomepageSeoKeywordsTest(unittest.TestCase):
 
     def test_airport_transfers_card_names_all_airports(self):
         self.assertIn(
-            "Flying in or out of JFK, LaGuardia or Newark?", self.html
+            "Flying in or out of JFK, LaGuardia, Newark, LAX, ORD or MIA?",
+            self.html,
         )
         self.assertIn(
             "at the right terminal at JFK, LaGuardia or Newark", self.html
         )
+
+    def test_faq_covers_top_three_city_keywords(self):
+        blocks = re.findall(
+            r'<script type="application/ld\+json">(.*?)</script>',
+            self.html,
+            re.S,
+        )
+        schemas = [json.loads(b) for b in blocks]
+        faq = next(s for s in schemas if s.get("@type") == "FAQPage")
+        questions = [q["name"] for q in faq["mainEntity"]]
+        new_questions = [
+            "Do you do LAX airport transfers?",
+            "Do you do ORD airport transfers?",
+            "Do you do MIA airport transfers?",
+        ]
+        for question in new_questions:
+            self.assertIn(question, questions)
+            # Visible FAQ must match the schema, so users see what Google reads.
+            self.assertIn(f"<h3>{question}</h3>", self.html)
+
+    def test_homepage_contains_top_three_city_keywords(self):
+        lowered = self.html.lower()
+        for keyword in [
+            "black car service los angeles",
+            "lax airport transfer",
+            "chauffeur service chicago",
+            "ord airport transfer",
+            "luxury car service miami",
+            "mia airport transfer",
+        ]:
+            self.assertIn(keyword, lowered, keyword)
 
     def test_service_schema_names_all_airports(self):
         blocks = re.findall(

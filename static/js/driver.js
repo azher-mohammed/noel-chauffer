@@ -1533,7 +1533,7 @@
     show(banner);
   }
   function refreshDriverState() {
-    fetch("/api/drivers/me", { headers: authHeaders() })
+    return fetch("/api/drivers/me", { headers: authHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var d = unwrapDriver(j);
@@ -1545,10 +1545,47 @@
       })
       .catch(function () { /* leave the toggle as it was */ });
   }
+  /* ---------- Document expiry notice ---------- */
+  /* Owner decision 2026-11-19: a document expiring within 10 days
+     warns here; an expired document pauses the registration (no
+     offers, cannot go available) until the driver uploads a new one
+     from the Documents screen — the block then lifts automatically.
+     The dates come from /api/drivers/me. */
+  function renderExpiry() {
+    var banner = $("expiry-banner");
+    var d = state.driver || {};
+    var expired = d.expired_docs || [];
+    var expiring = d.expiring_docs || [];
+    if (!expired.length && !expiring.length) { hide(banner); return; }
+    banner.classList.remove("expired");
+    var text = "";
+    if (expired.length) {
+      banner.classList.add("expired");
+      text = "Your registration is paused — your " +
+        expired.map(function (x) { return x.label + " (expired " + x.expires_on + ")"; }).join(", ") +
+        " expired. Upload a new, valid document to reactivate it.";
+    } else {
+      text = "Your " +
+        expiring.map(function (x) {
+          return x.label + " expires " + x.expires_on +
+            (x.days_left === 0 ? " (today)" : x.days_left === 1 ? " (tomorrow)" : " (in " + x.days_left + " days)");
+        }).join(", ") +
+        ". Upload a new document soon so your registration stays active.";
+    }
+    banner.textContent = text;
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-ghost";
+    btn.textContent = "View documents";
+    btn.addEventListener("click", function () { showScreen("documents"); });
+    banner.appendChild(btn);
+    show(banner);
+  }
   function renderAvailability() {
     var st = $("avail-state");
     var btn = $("avail-toggle");
     renderSuspension();
+    renderExpiry();
     if (suspensionEnd()) {
       st.textContent = "Your driver app is paused";
       st.classList.remove("on");
@@ -1556,6 +1593,18 @@
       btn.classList.remove("on");
       btn.disabled = true;
       $("avail-note").textContent = "Job offers are paused until your suspension ends.";
+      return;
+    }
+    /* An expired document pauses the registration (owner decision
+       2026-11-19): the toggle stays off until the driver uploads a
+       new, valid document from the Documents screen. */
+    if (state.driver && state.driver.expiry_blocked) {
+      st.textContent = "Your registration is paused";
+      st.classList.remove("on");
+      btn.textContent = "Go available";
+      btn.classList.remove("on");
+      btn.disabled = true;
+      $("avail-note").textContent = "Upload a new document to reactivate your registration.";
       return;
     }
     btn.disabled = false;
@@ -2652,7 +2701,87 @@
       row.innerHTML = '<span class="name">' + esc(DOC_TYPE_LABELS[docType] || docType) + "</span>" +
         '<span class="badge ' + (done ? "done" : "todo") + '">' + (done ? "Completed" : "Items remaining") + "</span>";
       box.appendChild(row);
+      /* Expiry (owner decision 2026-11-19): show the stored expiry
+         date, and a re-upload box when the document is expired or
+         expiring within 10 days — the renewal path that lifts the
+         registration pause automatically. */
+      var expiries = (state.driver && state.driver.doc_expiries) || {};
+      var expDate = expiries[docType];
+      var expiredList = (state.driver && state.driver.expired_docs) || [];
+      var expiringList = (state.driver && state.driver.expiring_docs) || [];
+      var isExpired = expiredList.some(function (x) { return x.doc_type === docType; });
+      var expiring = null;
+      expiringList.forEach(function (x) { if (x.doc_type === docType) expiring = x; });
+      if (done && expDate) {
+        var expEl = document.createElement("div");
+        expEl.className = "doc-expiry" + (isExpired ? " expired" : (expiring ? " soon" : ""));
+        expEl.textContent = isExpired ? ("Expired " + expDate)
+          : (expiring ? ("Expires " + expDate + " — in " + expiring.days_left + (expiring.days_left === 1 ? " day" : " days"))
+                      : ("Expires " + expDate));
+        box.appendChild(expEl);
+      }
+      if (done && (isExpired || expiring)) {
+        var hasExpiry = ((state.driver && state.driver.expiry_doc_types) || []).indexOf(docType) !== -1;
+        var up = document.createElement("div");
+        up.className = "doc-reupload";
+        var upHtml = '<label class="doc-reupload-label">Upload a new, valid document</label>' +
+          '<input type="file" class="doc-reupload-file" accept="image/*,.pdf">';
+        if (hasExpiry) {
+          upHtml += '<label class="doc-reupload-label">Expiry date — as printed on the document</label>' +
+            '<input type="date" class="doc-reupload-expiry">';
+        }
+        upHtml += '<button type="button" class="btn-primary doc-reupload-btn">Upload new document</button>' +
+          '<div class="doc-reupload-error" role="alert"></div>';
+        up.innerHTML = upHtml;
+        up.querySelector(".doc-reupload-btn").addEventListener("click", function () {
+          uploadDocReplacement(docType, hasExpiry, up);
+        });
+        box.appendChild(up);
+      }
     });
+  }
+
+  /* Re-upload one document (owner decision 2026-11-19): the renewal
+     path for an expired or expiring document. Same server checks as
+     registration — duplicate photo, photo sanity, valid future
+     expiry — and a fresh expiry lifts the registration pause
+     automatically, with no owner action. */
+  function uploadDocReplacement(docType, hasExpiry, box) {
+    var fileInput = box.querySelector(".doc-reupload-file");
+    var dateInput = box.querySelector(".doc-reupload-expiry");
+    var errEl = box.querySelector(".doc-reupload-error");
+    var btn = box.querySelector(".doc-reupload-btn");
+    errEl.textContent = "";
+    var file = fileInput && fileInput.files && fileInput.files[0];
+    if (!file) { errEl.textContent = "Please choose a document photo to upload."; return; }
+    var fd = new FormData();
+    fd.append("doc_type", docType);
+    fd.append("document", file);
+    if (hasExpiry) {
+      if (!dateInput || !dateInput.value) {
+        errEl.textContent = "Please enter the expiry date as printed on the document.";
+        return;
+      }
+      fd.append("expiry_" + docType, dateInput.value);
+    }
+    btn.disabled = true;
+    btn.textContent = "Uploading…";
+    fetch("/api/drivers/me/documents", { method: "POST", headers: authHeaders(), body: fd })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          errEl.textContent = (res.j && res.j.error) || "Upload failed — please try again.";
+          btn.disabled = false;
+          btn.textContent = "Upload new document";
+          return;
+        }
+        refreshDriverState().then(function () { renderDocuments(); });
+      })
+      .catch(function () {
+        errEl.textContent = "Upload failed — please try again.";
+        btn.disabled = false;
+        btn.textContent = "Upload new document";
+      });
   }
 
   /* ---------- Profile ---------- */

@@ -829,6 +829,76 @@ input, select { font: inherit; }
   line-height: 1.4;
 }
 
+/* Document expiry notice (owner decision 2026-11-19): amber while a
+   document is expiring within 10 days, red once it has expired and
+   the registration is paused. Same shape as the suspension banner. */
+#screen-home .expiry-banner {
+  border: 1px solid #e3c878;
+  background: #fdf3d7;
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+#screen-home .expiry-banner.expired {
+  border-color: #d8a7a7;
+  background: #fdecea;
+}
+#screen-home .expiry-banner button {
+  margin-top: 10px;
+}
+
+/* Document expiry line + re-upload box on the Documents screen
+   (owner decision 2026-11-19): the renewal path that lifts the
+   registration pause automatically. Dark card to match the list. */
+#screen-documents .doc-expiry {
+  font-size: 13.5px;
+  color: #b9b7ae;
+  margin: -4px 0 10px;
+}
+#screen-documents .doc-expiry.soon {
+  color: #e3c878;
+  font-weight: 600;
+}
+#screen-documents .doc-expiry.expired {
+  color: #ff9d97;
+  font-weight: 600;
+}
+#screen-documents .doc-reupload {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  padding: 13px 15px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#screen-documents .doc-reupload-label {
+  font-size: 13px;
+  color: #b9b7ae;
+}
+#screen-documents .doc-reupload-file,
+#screen-documents .doc-reupload-expiry {
+  width: 100%;
+  font-size: 14.5px;
+  padding: 8px 10px;
+  border: 1px solid #3a3a3c;
+  border-radius: 8px;
+  background: #262628;
+  color: #f2f0ea;
+}
+#screen-documents .doc-reupload-error {
+  color: #ff9d97;
+  font-size: 13.5px;
+}
+#screen-documents .doc-reupload-error:empty {
+  display: none;
+}
+
 /* Driver referral (owner decision 2026-11-18): the referral section
    on the Profile screen. Dark card matching the profile card, with
    every text colour pinned light — the dark canvas sets near-white

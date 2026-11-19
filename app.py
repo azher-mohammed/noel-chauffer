@@ -2253,6 +2253,12 @@ class DriverDocument(db.Model):
     # types without an expiry, and for rows created before this
     # existed — those drivers are never blocked retroactively.
     expires_on = db.Column(db.Date, nullable=True)
+    # When the 10-day expiry alert last fired for THIS expiry date
+    # (owner decision 2026-11-19). NULL means no alert sent yet for
+    # the stored expiry — the idempotency flag for run_expiry_alerts.
+    # Resets only when the driver re-uploads the document with a
+    # different expiry date, so a new expiry gets its own alert.
+    expiry_alert_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     __table_args__ = (db.UniqueConstraint("driver_id", "doc_type"),)
@@ -2812,6 +2818,12 @@ with app.app_context():
                 _conn.execute(
                     _sa_text("ALTER TABLE driver_documents ADD COLUMN expires_on DATE")
                 )
+        if "expiry_alert_sent_at" not in _ddcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE driver_documents ADD COLUMN "
+                             "expiry_alert_sent_at TIMESTAMP WITH TIME ZONE")
+                )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("driver document verification column check failed: %s", exc)
 
@@ -3160,6 +3172,61 @@ def suspension_message(driver):
             + " (New York time). You will not get job offers until then.")
 
 
+# --- Driver document expiry enforcement (owner decision 2026-11-19) ------
+# Two owner decisions from the same voice call:
+#   1. Ten-day advance alert ("poore documents ki expiry 10 din pehle
+#      hi karna"): when a stored expiry date comes within 10 days, the
+#      driver is alerted once per document per expiry (see
+#      run_expiry_alerts below).
+#   2. Expiry = registration deactivated ("jaisa expire ho jayega phir
+#      bhi document hai to uska band kar dena... registration band kar
+#      dena, phir wo registration paper upload karega, phir active
+#      karna"): a driver with any stored expiry date in the past is
+#      blocked — cannot go available, gets no offers — until he
+#      re-uploads that document with a valid future expiry date, at
+#      which point the block lifts AUTOMATICALLY (the block is computed
+#      from the stored dates, never stored on the driver).
+# Only a STORED expiry date can block: documents with no expiry on
+# file (rows created before the verification build) never block, same
+# as the existing registration-gate rule. Sign-in still works while
+# blocked, exactly like the 48-hour fault suspension.
+EXPIRY_ALERT_DAYS = 10
+
+
+def expired_documents(driver, today=None):
+    """DriverDocument rows whose stored expiry date has passed. A
+    document expiring TODAY is still valid — only a date before today
+    counts as expired, matching _parse_expiry at registration."""
+    today = today or _today_ny()
+    return [d for d in driver.documents
+            if d.expires_on is not None and d.expires_on < today]
+
+
+def expiring_documents(driver, today=None, days=EXPIRY_ALERT_DAYS):
+    """DriverDocument rows whose stored expiry date is today or
+    within the next `days` days — the 10-day advance-alert window."""
+    today = today or _today_ny()
+    return [d for d in driver.documents
+            if d.expires_on is not None
+            and 0 <= (d.expires_on - today).days <= days]
+
+
+def is_driver_expiry_blocked(driver, today=None):
+    return bool(expired_documents(driver, today))
+
+
+def expiry_block_message(driver, today=None):
+    """Plain-English block notice naming the expired document(s),
+    for API errors and the driver app banner."""
+    docs = expired_documents(driver, today)
+    if not docs:
+        return "Your driver registration is paused."
+    labels = ", ".join(ALL_DOC_LABELS.get(d.doc_type, d.doc_type) for d in docs)
+    return (f"Your driver registration is paused because your {labels} "
+            "expired. Upload a new, valid document in the driver app "
+            "to reactivate your registration.")
+
+
 # Neutral subject for queued emails whose caller passes no subject
 # of its own (the reset and reminder callers pass theirs).
 DEFAULT_EMAIL_SUBJECT = "Noel Chauffer"
@@ -3493,6 +3560,109 @@ def _due_pickup_reminder_for_driver(driver_id, now=None):
         if _pickup_reminder_due(booking, now):
             return booking
     return None
+
+
+# --- Driver document expiry alerts (owner decision 2026-11-19) -----------
+# Ten-day advance alert for EVERY document with a stored expiry date
+# ("poore documents ki expiry 10 din pehle hi karna", "ten days
+# before"). One alert per document per expiry, via the
+# expiry_alert_sent_at flag on the DriverDocument row: the flag is
+# set when the alert fires and resets only when the driver re-uploads
+# that document with a different expiry date, so a new expiry gets
+# its own alert. A document already inside the 10-day window when
+# the check first runs alerts immediately; a document already expired
+# (missed window) alerts once with the expired wording, so a blocked
+# driver who never opens the app still hears why. No alert when the
+# expiry is more than 10 days away.
+#
+# Channels (same as the 1-hour pickup reminder): an in-app notice in
+# the driver app (from /api/drivers/me — expired_docs /
+# expiring_docs), plus one SMS and one email in the owner-dashboard
+# outbox via add_outbox. Email rows are actually sent by Resend when
+# configured (see _try_send_email); SMS rows are recorded only —
+# Resend is email-only, SMS is never sent. There is no BookingEvent
+# for these alerts: BookingEvent.booking_id is NOT NULL and a
+# document alert has no booking, so owner visibility is the outbox
+# rows plus GET /api/owner/expiring-documents below.
+# Scheduling follows the pickup-reminder pattern exactly: the check
+# fires from the app's existing contact points (driver-app
+# /api/drivers/me and /api/drivers/me/offers, owner dashboard load)
+# plus a cron endpoint — no new infrastructure, no billing change.
+
+
+def expiry_alert_body(driver, doc, days_left):
+    """Alert text naming the document and its expiry date."""
+    label = ALL_DOC_LABELS.get(doc.doc_type, doc.doc_type)
+    exp = doc.expires_on.strftime("%B %d, %Y")
+    if days_left < 0:
+        return (f"Noel Chauffer: your {label} expired on {exp}. Your "
+                "driver registration is paused — please upload a new, "
+                "valid document in the driver app to reactivate it.")
+    if days_left == 0:
+        when = "today"
+    elif days_left == 1:
+        when = "tomorrow"
+    else:
+        when = f"in {days_left} days"
+    return (f"Noel Chauffer: your {label} expires {when} ({exp}). "
+            "Please upload a new, valid document in the driver app "
+            "so your registration stays active.")
+
+
+def run_expiry_alerts(now=None, driver_id=None):
+    """Queue the 10-day expiry alert for every qualifying document.
+
+    Qualifies: a stored expiry date within the next 10 days (or
+    already past, if never alerted), and no alert sent yet for this
+    expiry (expiry_alert_sent_at is NULL — the idempotency flag, so
+    repeated runs fire once). Each firing queues one SMS + one email
+    outbox entry to the driver (email actually sent via Resend when
+    configured; SMS recorded only) and sets the flag. Returns the
+    alerted documents as dicts. `driver_id` scopes the run to one
+    driver; None runs every driver.
+    """
+    now = now or utcnow()
+    today = _today_ny()
+    query = (DriverDocument.query
+             .filter(DriverDocument.expires_on.isnot(None),
+                     DriverDocument.expiry_alert_sent_at.is_(None)))
+    if driver_id is not None:
+        query = query.filter(DriverDocument.driver_id == driver_id)
+    alerted = []
+    for doc in query.all():
+        days_left = (doc.expires_on - today).days
+        if days_left > EXPIRY_ALERT_DAYS:
+            continue
+        driver = db.session.get(Driver, doc.driver_id)
+        if not driver:
+            continue
+        body = expiry_alert_body(driver, doc, days_left)
+        add_outbox("sms", driver.phone, body)
+        if driver.email:
+            add_outbox("email", driver.email, body,
+                       subject="Your Noel Chauffer document expires soon")
+        doc.expiry_alert_sent_at = now
+        alerted.append({
+            "driver_id": driver.id,
+            "doc_type": doc.doc_type,
+            "expires_on": doc.expires_on.isoformat(),
+            "days_left": days_left,
+        })
+    if alerted:
+        db.session.commit()
+    return alerted
+
+
+def _run_expiry_alerts_best_effort(driver_id=None):
+    """Run the expiry-alert check without ever breaking the caller's
+    response: an alert failure must not fail a driver poll or a
+    dashboard load. Logs and rolls back on any error."""
+    try:
+        return run_expiry_alerts(driver_id=driver_id)
+    except Exception as exc:
+        db.session.rollback()
+        log.warning("expiry alert check failed: %s", exc)
+        return []
 
 
 def _refunded_booking_ids():
@@ -4834,11 +5004,108 @@ def register_driver():
     }, "token": driver.token}), 201
 
 
+@app.route("/api/drivers/me/documents", methods=["POST"])
+def driver_reupload_document():
+    """Re-upload ONE document for a signed-in driver (owner decision
+    2026-11-19): the renewal path for an expired or expiring document.
+    The same checks as registration run — duplicate-file hash, photo
+    sanity, and a valid future expiry date — and the stored row is
+    replaced. The expiry block lifts AUTOMATICALLY: it is computed
+    from the stored expiry dates, so a fresh future expiry unblocks
+    the driver with no owner action. Works while blocked (this IS the
+    unblock path); sign-in is unchanged."""
+    driver, error = require_driver()
+    if error:
+        return error
+    doc_type = (request.form.get("doc_type") or "").strip()
+    required = [t for t in required_docs_for(driver.state or "New York",
+                                             getattr(driver, "city", None))
+                if t != "profile_picture"]
+    if doc_type not in required:
+        return err("Unknown document type.")
+    label = ALL_DOC_LABELS.get(doc_type, doc_type)
+    storage = request.files.get("document")
+    if storage is None or not storage.filename:
+        return err(f"Please choose a {label} photo to upload.")
+    allowed = IMAGE_EXTS | {".pdf"} if doc_type == "fh1_insurance" else IMAGE_EXTS
+    parsed, upload_error = _validate_upload(storage, allowed, "document")
+    if upload_error:
+        return upload_error
+    data, mime, original_name = parsed
+    # Photo sanity for document images (PDFs skip it), same as
+    # registration.
+    if mime != "application/pdf":
+        photo_error = _doc_photo_error(data, label)
+        if photo_error:
+            return err(photo_error)
+    new_hash = hashlib.sha256(data).hexdigest()
+    # Same file bytes already submitted by a DIFFERENT driver.
+    other = (DriverDocument.query
+             .filter(DriverDocument.file_hash == new_hash,
+                     DriverDocument.driver_id != driver.id)
+             .first())
+    if other is not None:
+        return err("This document photo was already used for another driver "
+                   "account. Please upload your own document.")
+    # Same file bytes as one of THIS driver's OTHER documents.
+    own_other = (DriverDocument.query
+                 .filter(DriverDocument.file_hash == new_hash,
+                         DriverDocument.driver_id == driver.id,
+                         DriverDocument.doc_type != doc_type)
+                 .first())
+    if own_other is not None:
+        other_label = ALL_DOC_LABELS.get(own_other.doc_type, own_other.doc_type)
+        return err(f"Your {label} photo is the same as your {other_label} photo — "
+                   "please upload a different photo for each document.")
+    # Expiry date, typed by the driver from the date printed on the
+    # document. A past date is rejected, same as registration.
+    expires = None
+    if doc_type in EXPIRY_DOC_TYPES:
+        expires, expiry_error = _parse_expiry(
+            request.form.get("expiry_" + doc_type), label)
+        if expiry_error:
+            return err(expiry_error)
+    existing = DriverDocument.query.filter_by(
+        driver_id=driver.id, doc_type=doc_type).first()
+    if existing is not None:
+        # The 10-day alert flag resets only when the expiry date
+        # itself changes, so re-uploading the same document with the
+        # same expiry never queues a duplicate alert.
+        if existing.expires_on != expires:
+            existing.expiry_alert_sent_at = None
+        existing.file = data
+        existing.mime = mime
+        existing.original_name = original_name
+        existing.file_hash = new_hash
+        existing.expires_on = expires
+        doc = existing
+    else:
+        doc = DriverDocument(
+            driver_id=driver.id, doc_type=doc_type, file=data,
+            mime=mime, original_name=original_name,
+            file_hash=new_hash, expires_on=expires)
+        db.session.add(doc)
+    db.session.commit()
+    return jsonify({
+        "document": {
+            "doc_type": doc.doc_type,
+            "label": label,
+            "expires_on": doc.expires_on.isoformat() if doc.expires_on else None,
+        },
+        "expiry_blocked": is_driver_expiry_blocked(driver),
+    })
+
+
 @app.route("/api/drivers/me", methods=["GET"])
 def driver_me():
     driver, error = require_driver()
     if error:
         return error
+    # Fire the 10-day expiry-alert check whenever the driver opens
+    # the app (same contact-point pattern as the pickup reminder):
+    # best-effort, never breaks this response.
+    _run_expiry_alerts_best_effort(driver_id=driver.id)
+    today = _today_ny()
     return jsonify({"driver": {
         "id": driver.id,
         "name": driver.name,
@@ -4857,6 +5124,25 @@ def driver_me():
         "bank_masked": bank_masked(driver),
         "available": driver.available,
         "suspended_until": iso(driver_suspension_end(driver)),
+        # Document expiry state (owner decision 2026-11-19): the
+        # driver app shows the in-app notice from these fields.
+        # expired_docs pauses the registration; expiring_docs is the
+        # 10-day advance warning. doc_expiries covers every stored
+        # document (None where no expiry is on file).
+        "expiry_blocked": is_driver_expiry_blocked(driver, today),
+        "expired_docs": [{"doc_type": d.doc_type,
+                          "label": ALL_DOC_LABELS.get(d.doc_type, d.doc_type),
+                          "expires_on": d.expires_on.isoformat()}
+                         for d in expired_documents(driver, today)],
+        "expiring_docs": [{"doc_type": d.doc_type,
+                           "label": ALL_DOC_LABELS.get(d.doc_type, d.doc_type),
+                           "expires_on": d.expires_on.isoformat(),
+                           "days_left": (d.expires_on - today).days}
+                          for d in expiring_documents(driver, today)],
+        "doc_expiries": {doc.doc_type: (doc.expires_on.isoformat()
+                                        if doc.expires_on else None)
+                         for doc in driver.documents},
+        "expiry_doc_types": sorted(EXPIRY_DOC_TYPES),
     }})
 
 
@@ -5111,6 +5397,10 @@ def driver_availability():
     # 2026-11-18); going offline is always allowed.
     if data["available"] and is_driver_suspended(driver):
         return err(suspension_message(driver), 409)
+    # An expired document pauses the registration (owner decision
+    # 2026-11-19); going offline is always allowed.
+    if data["available"] and is_driver_expiry_blocked(driver):
+        return err(expiry_block_message(driver), 409)
     driver.available = bool(data["available"])
     db.session.commit()
     return jsonify({"available": driver.available})
@@ -5121,10 +5411,17 @@ def driver_offers():
     driver, error = require_driver()
     if error:
         return error
+    # Fire the 10-day expiry-alert check on every offers poll (the
+    # app polls while open): best-effort, never breaks this response.
+    _run_expiry_alerts_best_effort(driver_id=driver.id)
     # A suspended driver gets no offers until the suspension lifts
     # (owner decision 2026-11-18). The app shows the suspension
     # notice from /api/drivers/me, so an empty list is enough here.
     if is_driver_suspended(driver):
+        return jsonify([])
+    # An expired document pauses the registration (owner decision
+    # 2026-11-19): no offers until the driver re-uploads a valid one.
+    if is_driver_expiry_blocked(driver):
         return jsonify([])
     # Owner decision 2026-11-16: job offers reach every registered
     # driver, available or offline — the "Go available" toggle no
@@ -5189,6 +5486,10 @@ def driver_accept(booking_id):
     # direct accept call must fail too.
     if is_driver_suspended(driver):
         return err(suspension_message(driver), 409)
+    # Same defense in depth for an expired document (owner decision
+    # 2026-11-19): a blocked driver must never accept a job.
+    if is_driver_expiry_blocked(driver):
+        return err(expiry_block_message(driver), 409)
     if BookingExclusion.query.filter_by(booking_id=booking_id, driver_id=driver.id).first():
         return err("You have declined this booking.", 409)
     # Class match is enforced here too, so a driver can never accept a
@@ -5955,6 +6256,80 @@ def run_pickup_reminders_endpoint():
             return error
     reminded = run_pickup_reminders()
     return jsonify({"reminded": reminded})
+
+
+@app.route("/api/owner/expiring-documents", methods=["GET"])
+def owner_expiring_documents():
+    """Read-only expiring-soon + expired document list for the owner
+    dashboard (owner decision 2026-11-19): every stored document
+    expiring within the next 10 days, plus every expired one — expired
+    means that driver's registration is paused until they upload a
+    new document. Information only — no action, no approval step.
+    Earliest expiry first."""
+    error = require_owner()
+    if error:
+        return error
+    today = _today_ny()
+    rows = []
+    for doc in (DriverDocument.query
+                .filter(DriverDocument.expires_on.isnot(None))
+                .order_by(DriverDocument.expires_on, DriverDocument.id)
+                .all()):
+        days_left = (doc.expires_on - today).days
+        if days_left > EXPIRY_ALERT_DAYS:
+            continue
+        driver = db.session.get(Driver, doc.driver_id)
+        if not driver:
+            continue
+        rows.append({
+            "driver_id": driver.id,
+            "driver_name": driver.name,
+            "phone": driver.phone,
+            "email": driver.email,
+            "doc_type": doc.doc_type,
+            "label": ALL_DOC_LABELS.get(doc.doc_type, doc.doc_type),
+            "expires_on": doc.expires_on.isoformat(),
+            "days_left": days_left,
+            "status": "expired" if days_left < 0 else "expiring_soon",
+            "alert_sent": doc.expiry_alert_sent_at is not None,
+        })
+    return jsonify({"documents": rows})
+
+
+@app.route("/api/owner/run-expiry-alerts", methods=["POST"])
+def run_expiry_alerts_endpoint():
+    """Trigger the 10-day document expiry alert check for every driver.
+
+    Called by the owner dashboard when it loads (fire-and-forget),
+    so alerts queue whenever the owner has the dashboard open — no
+    new infrastructure, no billing change. For fully automatic firing
+    without anyone having an app open, point a scheduler at this
+    endpoint (Render cron jobs have no free-plan guarantee, so no
+    scheduler is configured by this code — the owner sets one up only
+    if he wants it):
+
+      POST https://noelchauffer.com/api/owner/run-expiry-alerts
+      Authorization: Bearer <EXPIRY_ALERT_CRON_SECRET>
+      once a day
+
+    with EXPIRY_ALERT_CRON_SECRET set to the same value in Render's
+    environment. Any external scheduler (Render cron job,
+    cron-job.org, UptimeRobot) works the same way.
+
+    Auth: the owner session, OR the bearer <redacted> above. With
+    EXPIRY_ALERT_CRON_SECRET unset, bearer <redacted> is disabled and
+    only the owner session works. The check is idempotent: repeated
+    triggers never queue a second alert for the same document expiry.
+    """
+    cron_secret = os.environ.get("EXPIRY_ALERT_CRON_SECRET", "")
+    auth = request.headers.get("Authorization", "")
+    bearer_ok = bool(cron_secret) and hmac.compare_digest(auth, "Bearer " + cron_secret)
+    if not bearer_ok:
+        error = require_owner()
+        if error:
+            return error
+    alerted = run_expiry_alerts()
+    return jsonify({"alerted": alerted})
 
 
 @app.route("/api/owner/support-messages", methods=["GET"])

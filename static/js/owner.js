@@ -103,6 +103,8 @@
     loadDrivers();
     loadDriverReferrals();
     loadDocumentFlags();
+    runExpiryAlerts();
+    loadExpiringDocuments();
   }
 
   /* 1-hour pickup reminder trigger (owner decision 2026-11-18):
@@ -121,6 +123,50 @@
       .then(function (r) { return r.json().catch(function () { return {}; }); })
       .then(function () { loadOutbox(); loadAlerts(); })
       .catch(function () { /* reminders never break the dashboard */ });
+  }
+
+  /* 10-day document expiry alerts (owner decision 2026-11-19):
+     same fire-and-forget pattern as the pickup reminders — run the
+     check when the dashboard loads, then reload the outbox and the
+     expiring-documents list so queued alerts show at once. */
+  function runExpiryAlerts() {
+    fetch("/api/owner/run-expiry-alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: "{}"
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function () { loadOutbox(); loadExpiringDocuments(); })
+      .catch(function () { /* expiry alerts never break the dashboard */ });
+  }
+
+  /* ---------- Documents expiring soon ---------- */
+  /* Owner decision 2026-11-19: every stored document expiring
+     within 10 days, plus expired ones (registration paused).
+     Read-only information — no action, no approval step. */
+  function loadExpiringDocuments() {
+    fetch("/api/owner/expiring-documents", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var list = asList(j, "documents");
+        var feed = $("expiry-feed");
+        if (!list.length) { feed.innerHTML = '<div class="empty">No documents expiring in the next 10 days.</div>'; return; }
+        feed.innerHTML = list.map(function (d) {
+          var who = [d.driver_name, d.phone].filter(Boolean).join(" · ") || "Unknown driver";
+          var when = d.days_left < 0
+            ? "Expired " + esc(d.expires_on) + " — registration paused"
+            : d.days_left === 0 ? "Expires today"
+            : d.days_left === 1 ? "Expires tomorrow"
+            : "Expires in " + d.days_left + " days";
+          return '<div class="feed-item"><div class="ch">' + (d.status === "expired" ? "Expired" : "Expiring soon") + "</div>" +
+            '<div class="body"><strong>' + esc(d.label || d.doc_type || "") + "</strong> — " + esc(when) +
+            "<br>" + esc(who) +
+            (d.alert_sent ? ' · <span class="ch">Driver alerted</span>' : "") + "</div>" +
+            '<div class="t">' + esc(d.expires_on || "") + "</div></div>";
+        }).join("");
+      })
+      .catch(function () { $("expiry-feed").innerHTML = '<div class="empty">Could not load expiring documents.</div>'; });
   }
 
   $("logout-btn").addEventListener("click", function () {
@@ -844,9 +890,12 @@
             var expiries = d.doc_expiries || {};
             if (done && expiries[spec.key]) {
               var expDate = expiries[spec.key];
-              var isPast = expDate < new Date().toISOString().slice(0, 10);
+              var todayStr = new Date().toISOString().slice(0, 10);
+              var isPast = expDate < todayStr;
+              var daysLeft = Math.round((new Date(expDate + "T00:00:00Z") - new Date(todayStr + "T00:00:00Z")) / 86400000);
               label += ' · Expires ' + esc(expDate) +
-                (isPast ? ' — <span class="st-todo">expired</span>' : "");
+                (isPast ? ' — <span class="st-todo">expired</span>'
+                        : (daysLeft <= 10 ? ' — <span class="st-todo">expiring soon (in ' + daysLeft + (daysLeft === 1 ? ' day' : ' days') + ')</span>' : ""));
             }
             var viewUrl = null;
             if (done) {

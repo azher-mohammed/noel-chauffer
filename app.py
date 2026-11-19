@@ -4668,19 +4668,21 @@ def _hash_reset_token(token):
 
 @app.route("/api/drivers/me/forgot-password", methods=["POST"])
 def driver_forgot_password():
-    """Request a password reset link. ALWAYS returns the same generic
+    """Request a password link. ALWAYS returns the same generic
     message, whether or not the email matches a driver — it never
-    reveals whether an email is registered. A token is created only
-    for a driver who actually has a password hash (drivers
-    registered before passwords existed keep using the phone
-    lookup). Issuing a token invalidates the driver's previous
-    unused tokens, so only the newest link works."""
+    reveals whether an email is registered. A token is created for
+    ANY existing driver. A driver who already has a password gets
+    the reset email; a driver registered before passwords existed
+    (no password hash) gets a create-password email instead, so
+    they can set a password for the first time. Issuing a token
+    invalidates the driver's previous unused tokens, so only the
+    newest link works."""
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     driver = None
     if email:
         driver = Driver.query.filter(func.lower(Driver.email) == email).first()
-    if driver and driver.password_hash:
+    if driver:
         now = utcnow()
         for old in PasswordResetToken.query.filter_by(
                 driver_id=driver.id, used_at=None).all():
@@ -4692,10 +4694,16 @@ def driver_forgot_password():
             expires_at=now + RESET_TOKEN_TTL,
         ))
         reset_link = request.host_url.rstrip("/") + "/driver?reset=" + token
-        add_outbox("email", driver.email,
-                   "Noel Chauffer: reset your driver app password using "
-                   "this link (it expires in 5 minutes): " + reset_link,
-                   subject="Reset your Noel Chauffer password")
+        if driver.password_hash:
+            add_outbox("email", driver.email,
+                       "Noel Chauffer: reset your driver app password using "
+                       "this link (it expires in 5 minutes): " + reset_link,
+                       subject="Reset your Noel Chauffer password")
+        else:
+            add_outbox("email", driver.email,
+                       "Noel Chauffer: create your driver app password using "
+                       "this link (it expires in 5 minutes): " + reset_link,
+                       subject="Create your Noel Chauffer driver password")
         db.session.commit()
     return jsonify({"message": RESET_REQUEST_MESSAGE})
 

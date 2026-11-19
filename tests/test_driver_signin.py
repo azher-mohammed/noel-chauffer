@@ -18,6 +18,11 @@ hashed only, 5-minute expiry, prior tokens invalidated, reset link
 queued via the existing outbox (RECORDED, NOT SENT — no email
 service is connected). No reset email is actually delivered until
 an email service is connected; the owner shares the queued link.
+A driver without a password hash (registered before passwords
+existed) gets a create-password email instead of the reset email,
+and the same token lets them set a password for the first time
+(owner decision 2026-11-18: Sana Baga's account predates
+passwords, so her reset requests silently sent nothing).
 
 Rules pinned here:
 - Only the password hash is stored, never the plaintext; the hash
@@ -296,6 +301,8 @@ class DriverSigninCase(unittest.TestCase):
         self.assertEqual(rows[0].channel, "email")
         self.assertEqual(rows[0].recipient, "driver@test.com")
         self.assertIn("/driver?reset=", rows[0].body)
+        # A driver who already has a password gets the reset wording.
+        self.assertIn("reset your driver app password", rows[0].body)
 
     def test_forgot_unknown_email_identical_response(self):
         self.register(email="driver@test.com")
@@ -308,14 +315,39 @@ class DriverSigninCase(unittest.TestCase):
         with app_module.app.app_context():
             self.assertEqual(app_module.PasswordResetToken.query.count(), 1)
 
-    def test_forgot_driver_without_hash_creates_nothing(self):
+    def test_forgot_driver_without_hash_gets_create_password_email(self):
+        # A driver registered before passwords existed (no hash) gets
+        # a CREATE-password email, not the reset email — this is how
+        # Sana Baga sets a password for the first time (2026-11-18).
         self.register(omit_password=True, email="legacy@test.com")
         resp = self.forgot("legacy@test.com")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get_json()["message"], GENERIC_RESET_REQUEST)
-        self.assertEqual(len(self.outbox_rows()), 0)
+        rows = self.outbox_rows()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].channel, "email")
+        self.assertEqual(rows[0].recipient, "legacy@test.com")
+        self.assertIn("/driver?reset=", rows[0].body)
+        self.assertIn("create your driver app password", rows[0].body)
+        self.assertNotIn("reset your driver app password", rows[0].body)
         with app_module.app.app_context():
-            self.assertEqual(app_module.PasswordResetToken.query.count(), 0)
+            self.assertEqual(app_module.PasswordResetToken.query.count(), 1)
+
+    def test_create_password_token_sets_password_and_signin_works(self):
+        self.register(omit_password=True, email="legacy@test.com")
+        self.forgot("legacy@test.com")
+        token = self.reset_token_from_outbox()
+        reset = self.client.post("/api/drivers/me/reset-password",
+                                 json={"token": token, "password": "newpass1",
+                                       "password_confirm": "newpass1"})
+        self.assertEqual(reset.status_code, 200, reset.text[:300])
+        with app_module.app.app_context():
+            row = app_module.Driver.query.filter_by(
+                email="legacy@test.com").first()
+            self.assertIsNotNone(row.password_hash)
+            self.assertTrue(check_password_hash(row.password_hash, "newpass1"))
+        # The new password signs in; the driver had no old password.
+        self.assertEqual(self.signin("legacy@test.com", "newpass1").status_code, 200)
 
     def test_reset_token_stored_hashed_never_plaintext(self):
         self.register()

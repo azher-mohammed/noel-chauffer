@@ -92,17 +92,19 @@ class EmailSenderCase(unittest.TestCase):
         self.client = app_module.app.test_client()
         self._seq = 0
 
-    def register(self, email="sender@test.com"):
+    def register(self, email="sender@test.com", omit_password=False):
         self._seq += 1
         data = {
             "name": "Sender Driver", "phone": f"+1555008{self._seq:04d}",
             "email": email,
-            "password": "secret123", "password_confirm": "secret123",
             "car_model": "Cadillac Escalade", "car_year": "2023",
             "car_colour": "Black", "plate": f"SN{self._seq:05d}",
             "state": "New York", "bank_account_number": "123456789",
             "bank_routing_number": "021000021",
         }
+        if not omit_password:
+            data["password"] = "secret123"
+            data["password_confirm"] = "secret123"
         for field, fname in FIELDS:
             data[field] = (io.BytesIO(
                 photo_factory.VALID_PROFILE_PHOTO
@@ -185,6 +187,29 @@ class EmailSenderCase(unittest.TestCase):
         _url, _headers, payload = request_parts(mock_urlopen)
         self.assertEqual(payload["subject"], "Reset your Noel Chauffer password")
         self.assertEqual(payload["to"], ["sender@test.com"])
+        self.assertIn("reset your driver app password", payload["text"])
+        self.assertIn("/driver?reset=", payload["text"])
+        rows = self.outbox_rows()
+        self.assertEqual(len(rows), 1)
+        self.assertIsNotNone(rows[0].sent_at)
+
+    def test_create_password_email_uses_create_subject(self):
+        # A driver without a password hash gets the create-password
+        # email (subject + body), not the reset email — owner
+        # decision 2026-11-18 (Sana Baga).
+        self.register(email="legacy@test.com", omit_password=True)
+        with mock.patch.dict(os.environ, {"RESEND_API_KEY": FAKE_KEY}), \
+                mock.patch.object(email_sender, "urlopen",
+                                  return_value=ok_response(200)) as mock_urlopen:
+            resp = self.client.post("/api/drivers/me/forgot-password",
+                                    json={"email": "legacy@test.com"})
+        self.assertEqual(resp.status_code, 200)
+        _url, _headers, payload = request_parts(mock_urlopen)
+        self.assertEqual(payload["subject"],
+                         "Create your Noel Chauffer driver password")
+        self.assertEqual(payload["to"], ["legacy@test.com"])
+        self.assertIn("create your driver app password", payload["text"])
+        self.assertNotIn("reset your driver app password", payload["text"])
         self.assertIn("/driver?reset=", payload["text"])
         rows = self.outbox_rows()
         self.assertEqual(len(rows), 1)

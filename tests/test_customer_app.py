@@ -16,7 +16,8 @@ pricing, toll, dispatch, or payment logic. These tests pin:
   skippable, the class chooser breakdown-free, payment before
   dispatch, the trip chat gated on accept, the support chat
   scripted-only with owner reporting, and the referral display
-  benefit-free (benefit TBD, as on the website).
+  states the friend-only 5% first-ride discount (owner decision
+  2026-11-18, as on the website).
 - The API contract the app relies on works end to end through the
   test client: create -> class totals -> class select -> pay ->
   offered; history lookup; support message storage + owner listing;

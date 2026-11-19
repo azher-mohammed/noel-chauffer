@@ -11,9 +11,8 @@ The old rule (total + payment only after a driver accepts) is dead.
 - Driver accept -> trip stages run with no second payment step.
 - Free cancellation (>1h) refunds the upfront payment in full; late
   cancellation / no-show keeps the full price.
-- Hourly rides follow the same flow; referral codes are accepted but
-  give a $0 discount for now (the old $20-fee waiver is dead: there is
-  no fee; a new benefit is TBD).
+- Hourly rides follow the same flow; referral codes give 5% off a new
+  customer's first one-way booking (owner decision 2026-11-18).
 - Driver payloads never carry miles, fare, tax, or total anywhere.
 
 Run:  python -m unittest discover -s tests -v
@@ -399,10 +398,10 @@ class PayBeforeDispatchCase(unittest.TestCase):
         code = first["referral_code"]
         self.assertTrue(code)
         referred = self.book(referral_code=code)
-        self.assertTrue(approx(referred["total"], "162.00"), referred)
+        self.assertTrue(approx(referred["total"], "153.90"), referred)
         resp = self.pay(referred["id"])
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "162.00"))
+        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "153.90"))
 
     # -- driver visibility boundary ---------------------------------------------
     def test_driver_payloads_never_carry_fare_or_miles(self):

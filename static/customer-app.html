@@ -75,6 +75,7 @@
         <div class="field" id="ca-field-referral">
           <label for="ca-referral">Referral code (optional)</label>
           <input id="ca-referral" name="referral_code" type="text" autocomplete="off" placeholder="If a friend referred you, enter their code">
+          <p class="hint">First ride? Enter a friend's referral code for 5% off.</p>
         </div>
         <button class="btn-primary btn-gold" type="submit" id="ca-book-submit">View options</button>
         <p class="form-error" id="ca-booking-error" role="alert"></p>
@@ -113,6 +114,7 @@
           <span class="class-option-total" id="ca-class-total-suv"></span>
         </button>
       </div>
+      <p class="form-note hidden" id="ca-class-discount-note">Referral discount applied — 5% off your first ride.</p>
       <p class="form-note">One single total per class. No breakdown, no hidden charges.</p>
       <p class="form-error" id="ca-class-error" role="alert"></p>
       <div class="class-actions">
@@ -209,7 +211,7 @@
         <p class="status-line" id="ca-thankyou-summary"></p>
         <div class="referral-box">
           <h3>Refer a friend</h3>
-          <p>Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form.</p>
+          <p>Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form. Your friend gets 5% off their first ride.</p>
           <p id="ca-referral-code-line" class="hidden">Your referral code: <strong id="ca-referral-code-value"></strong></p>
           <button class="btn-ghost hidden" type="button" id="ca-referral-show-btn">Refer a Friend</button>
           <p id="ca-referral-link-line" class="hidden">Your referral link: <a id="ca-referral-link-anchor" href="#"></a></p>
@@ -287,7 +289,7 @@
   <!-- ============ REFERRAL ============ -->
   <section class="screen hidden" id="screen-referral">
     <h2>Refer a friend</h2>
-    <p class="intro">Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form.</p>
+    <p class="intro">Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form. Your friend gets 5% off their first ride.</p>
     <div class="referral-box">
       <p id="ca-tab-referral-line" class="hidden">Your referral code: <strong id="ca-tab-referral-value"></strong></p>
       <button class="btn-ghost hidden" type="button" id="ca-tab-referral-show-btn">Refer a Friend</button>

@@ -18,7 +18,9 @@ Pricing assertions use the live geo result: miles are read back from the
 owner booking detail and the expected totals are computed with the same
 pricing module the server uses. When live geo returns 18.0 miles for
 JFK Airport -> Times Square (as verified before), the exact figures
-$162.00 / $72.00 / $162.00 / $180.50 / $90.50 / $177.00 are asserted too.
+$162.00 / $72.00 / $162.00 / $180.50 / $90.50 / $177.00 are asserted too
+for bookings WITHOUT a referral code; the referral booking asserts the
+5% discounted figures ($153.90 total, $8.10 discount).
 """
 
 import io
@@ -33,7 +35,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from payouts import completion_date, week_for  # noqa: E402
-from pricing import compute_extra_distance, compute_hourly, compute_one_way, waiting_charge  # noqa: E402
+from pricing import compute_extra_distance, compute_hourly, compute_one_way, money, waiting_charge  # noqa: E402
 
 BASE = os.environ.get("NOEL_BASE_URL", "http://127.0.0.1:5055").rstrip("/")
 OWNER_PIN = os.environ.get("NOEL_OWNER_PIN", "4321")
@@ -311,12 +313,15 @@ detail_ref = s.get(BASE + f"/api/owner/bookings/{b_ref['id']}", timeout=TIMEOUT)
 toll_ref = Decimal(str(detail_ref["toll"]))
 expected_ref = compute_one_way(Decimal(str(detail_ref["miles"])),
                                referral=True, toll=toll_ref)
-check("referral total = formula (discount $0 for now)",
+check("referral total = formula (5% off first booking)",
       approx(detail_ref["customer_total"], expected_ref["total"]),
       f"got {detail_ref['customer_total']} expected {expected_ref['total']}")
 if Decimal(str(detail_ref["miles"])) == Decimal("18.0"):
-    check("18.0 mi referral total is $162.00 + stored toll (no discount)",
-          approx(detail_ref["customer_total"], Decimal("162.00") + toll_ref))
+    # 18.0 mi, sedan: (162.00 + toll) * 5% off, discount rounded first.
+    _subtotal = Decimal("162.00") + toll_ref
+    check("18.0 mi referral total is (162.00 + toll) less 5%",
+          approx(detail_ref["customer_total"],
+                 _subtotal - money(_subtotal * Decimal("0.05"))))
 
 # Exact-miles regression (live 2026-11-17 booking NOEL-9TR127): the typed
 # text "JFK Terminal 1 Arrivals" matches nothing in Nominatim, so the

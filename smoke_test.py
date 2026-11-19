@@ -62,7 +62,8 @@ check("18mi SUV total 180.00", r["total"] == Decimal("180.00"), str(r["total"]))
 check("18mi SUV driver 126.00", r["driver_earnings"] == Decimal("126.00"))
 check("18mi SUV profit 54.00", r["profit"] == Decimal("54.00"))
 r = compute_one_way(Decimal("18.0"), referral=True)
-check("18mi referral total 162.00 (discount $0)", r["total"] == Decimal("162.00"), str(r["total"]))
+check("18mi referral total 153.90 (5% off)", r["total"] == Decimal("153.90"), str(r["total"]))
+check("18mi referral discount 8.10", r["referral_discount"] == Decimal("8.10"), str(r))
 r = compute_one_way(Decimal("18.0"), toll=Decimal("18.50"))
 check("18mi toll total 180.50", r["total"] == Decimal("180.50"))
 check("18mi toll driver 90.50", r["driver_earnings"] == Decimal("90.50"))
@@ -375,8 +376,8 @@ with app_module.app.app_context():
 resp = client.post(f"/api/bookings/{b2['id']}/pay", json={
     "card_number": "5555555555554444", "card_exp": "01/31",
     "card_cvc": "321", "card_name": "Second Customer"})
-check("b2 pay 162.00 (referral, $0 discount)", resp.status_code == 200
-      and approx(resp.get_json()["payment"]["amount"], 162.00),
+check("b2 pay 153.90 (referral, 5% off first booking)", resp.status_code == 200
+      and approx(resp.get_json()["payment"]["amount"], 153.90),
       resp.get_data(as_text=True)[:150])
 resp = client.post(f"/api/drivers/me/offers/{b2['id']}/accept", headers={"X-Driver-Token": token2})
 check("driver2 accepts b2", resp.status_code == 200)
@@ -387,19 +388,19 @@ check("driver cancel re-dispatches", resp.status_code == 200
 resp = client.get(f"/api/bookings/{b2['id']}")
 got = resp.get_json()["booking"]
 check("driver null, total still visible after re-dispatch", got["driver"] is None
-      and approx(got["total"], 162.00), str(got))
+      and approx(got["total"], 153.90), str(got))
 resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token2})
 check("cancelling driver excluded", all(o["booking_id"] != b2["id"] for o in resp.get_json()))
 resp = client.post(f"/api/owner/bookings/{b2['id']}/toll", json={"toll": 18.50})
 check("toll recompute w/ referral", resp.status_code == 200
-      and approx(resp.get_json()["booking"]["customer_total"], 180.50)
+      and approx(resp.get_json()["booking"]["customer_total"], 171.47)
       and approx(resp.get_json()["booking"]["driver_earnings"], 90.50),
       resp.get_data(as_text=True)[:250])
 resp = client.post(f"/api/drivers/me/offers/{b2['id']}/accept", headers={"X-Driver-Token": token1})
 check("driver1 accepts re-dispatched b2", resp.status_code == 200)
 resp = client.post(f"/api/owner/bookings/{b2['id']}/toll", json={"toll": 10.00})
 check("toll after pay exposes balance_due", resp.status_code == 200
-      and approx(resp.get_json()["balance_due"], 10.00), resp.get_data(as_text=True)[:250])
+      and approx(resp.get_json()["balance_due"], 9.50), resp.get_data(as_text=True)[:250])
 
 print("== cancellation + hourly + history ==")
 resp = client.post("/api/bookings", json={

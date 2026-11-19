@@ -18,8 +18,11 @@ routes, zero new server logic — purely client-side):
 Clicking the link prefills the booking form's referral field;
 booking-time validation is unchanged (an unknown code is rejected
 exactly as a mistyped one), attribution is identical to a typed
-code (used_count increments, $0 discount — benefit TBD), and the
-existing "Your referral code:" line + explainer text are untouched.
+code (used_count increments), and a NEW customer's first booking
+with the code gets 5% off (owner decision 2026-11-18) while the
+referring customer gets nothing. The existing "Your referral code:"
+line is untouched; the explainer text gains one sentence stating
+the friend's 5% off.
 
 These tests pin:
 - The "Refer a Friend" button, link line, anchor, Copy and Share
@@ -29,13 +32,15 @@ These tests pin:
   load, prefills the referral field (app: opens the Book tab),
   reveals the link on button tap, and offers Copy (clipboard +
   fallback) and native Share.
-- No benefit/discount/reward wording was added anywhere in the
-  new referral-link code or markup.
+- The referral sections state the friend-only 5% first-ride
+  discount ("Your friend gets 5% off their first ride."); no
+  referrer-benefit wording exists anywhere in the customer files.
 - No new server route exists for referrals.
 - Pages load fine with an unknown ref value (?ref= garbage).
-- Typed-code booking behavior is unchanged: valid code accepted,
-  used_count increments, totals identical ($0 discount); invalid
-  code rejected with the existing message.
+- Typed-code booking behavior: valid code accepted, used_count
+  increments; a first booking with the code totals 5% less, a
+  repeat phone totals the same; invalid code rejected with the
+  existing message.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -200,18 +205,26 @@ class ReferralLinkJsCase(unittest.TestCase):
             self.assertIn("navigator.share", block, rel)
             self.assertIn('"Copied"', block, rel)
 
-    # -- no invented benefit -------------------------------------------------
-    def test_no_benefit_or_discount_wording_added(self):
-        banned = ("discount", "reward", "credit", "earn", "free ride",
-                  "save $", "% off", "$5", "$10", "$20")
+    # -- friend-only benefit, no referrer promise ---------------------------
+    def test_no_referrer_benefit_wording(self):
+        # The 5% discount is for the NEW customer only (owner decision
+        # 2026-11-18): the referral sections may say the friend gets
+        # 5% off their first ride, but nothing may promise the
+        # referrer anything.
         for rel in ("static/js/customer.js", "static/js/customer-app.js"):
             block = referral_link_block(read(rel))
-            for word in banned:
-                self.assertNotIn(word, block.lower(), f"{rel} referral block must not promise {word!r}")
+            for word in ("reward", "earn", "cash back", "cashback",
+                         "free ride", "$5", "$10", "$20"):
+                self.assertNotIn(word, block.lower(),
+                                 f"{rel} referral block must not promise {word!r}")
         for rel in ("static/index.html", "static/customer-app.html"):
             html = read(rel)
-            for word in banned:
-                self.assertNotIn(word, html.lower(), f"{rel} must not promise {word!r}")
+            self.assertIn("Your friend gets 5% off their first ride.", html, rel)
+            for word in ("you earn", "you get 5%", "your reward",
+                         "cash back", "cashback", "free ride", "both get",
+                         "$5", "$10", "$20"):
+                self.assertNotIn(word, html.lower(),
+                                 f"{rel} must not promise the referrer {word!r}")
 
     def test_prefill_does_not_validate_or_fetch(self):
         # The prefill must never add validation semantics: no fetch, no
@@ -272,8 +285,12 @@ class ReferralLinkServerCase(unittest.TestCase):
         code = first["referral_code"]
         self.assertTrue(code)
         referred = self.book(referral_code=code)
-        # $0 discount: totals identical with and without the code.
-        self.assertEqual(referred["class_totals"], first["class_totals"])
+        # 5% off for this phone's first booking with the code: the
+        # totals are 5% lower than the same ride without a code.
+        # (18.0 miles, toll $0.00 in this test env: $162.00 -> $153.90.)
+        self.assertEqual(referred["class_totals"]["sedan"], 153.90)
+        self.assertEqual(referred["class_totals"]["suv"], 171.00)
+        self.assertEqual(referred["referral_discount"], 8.10)
         # Attribution identical: used_count increments.
         with app_module.app.app_context():
             row = app_module.ReferralCode.query.filter_by(code=code).first()

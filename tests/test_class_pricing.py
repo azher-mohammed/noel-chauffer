@@ -6,7 +6,8 @@ Settled rules under test:
   SUV) $10/mile. NO booking fee. Driver: sedan $4/mile, SUV $7/mile.
 - NO tax, NO gratuity on any new booking. Toll passed to the driver.
   Total = fare + toll. Profit = total - driver earnings.
-- Referral codes give a $0 discount for now (TBD). Hourly unchanged.
+- Referral codes give 5% off a new customer's first one-way booking
+  (owner decision 2026-11-18); driver pay unchanged. Hourly unchanged.
 - The customer picks a class on the separate "Choose your experience"
   page before paying; dispatch is filtered by class; driver payloads
   never carry miles, fare, tax, total, gratuity, or fee keys.
@@ -152,12 +153,24 @@ class TestClassPricingPure(unittest.TestCase):
                                  r["fare"]
                                  - (r["driver_earnings"] - r["toll"]))
 
-    def test_referral_code_is_zero_discount_for_now(self):
+    def test_referral_code_is_five_percent_off(self):
+        # 5% off the total for a first booking with a valid code
+        # (owner decision 2026-11-18); driver pay unchanged.
         for cls in ("sedan", "suv"):
             plain = compute_one_way(D("18.0"), vehicle_class=cls)
             referred = compute_one_way(D("18.0"), vehicle_class=cls, referral=True)
-            self.assertEqual(referred["total"], plain["total"], cls)
-            self.assertEqual(referred["profit"], plain["profit"], cls)
+            self.assertEqual(referred["total"],
+                             plain["total"] - referred["referral_discount"], cls)
+            self.assertEqual(referred["driver_earnings"],
+                             plain["driver_earnings"], cls)
+            self.assertEqual(referred["profit"],
+                             plain["profit"] - referred["referral_discount"], cls)
+        self.assertEqual(
+            compute_one_way(D("18.0"), vehicle_class="sedan", referral=True)["total"],
+            D("153.90"))
+        self.assertEqual(
+            compute_one_way(D("18.0"), vehicle_class="suv", referral=True)["total"],
+            D("171.00"))
 
     def test_hourly_unchanged(self):
         r = compute_hourly(3)
@@ -549,14 +562,14 @@ class ClassApiCase(unittest.TestCase):
         self.assertTrue(approx(row["tax"], "0.00"), row)
         self.assertTrue(approx(row["fare"], "180.00"), row)
 
-    def test_referral_code_gives_zero_discount_via_api(self):
+    def test_referral_code_gives_five_percent_off_via_api(self):
         first = self.book()
         code = first["referral_code"]
         self.assertTrue(code)
         referred = self.book(referral_code=code)
-        self.assertTrue(approx(referred["total"], "162.00"), referred)
+        self.assertTrue(approx(referred["total"], "153.90"), referred)
         resp = self.pay(referred["id"])
-        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "162.00"))
+        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "153.90"))
 
     # -- static copy: options page + no rates anywhere customer-facing -------
     def test_static_options_page_copy(self):

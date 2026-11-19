@@ -31,10 +31,18 @@ classes, each with its own per-mile rate and driver rate. NO booking fee.
   pays and the driver sees as a separate Toll line BEFORE
   accepting. The owner can still adjust the toll afterwards in
   the dashboard (not on completed rides).
-- Referral codes are accepted but give a $0 discount for now: the old
-  benefit (waiving the $20 booking fee) no longer applies since there
-  is no fee. A new referral benefit is TBD pending the owner's
-  decision — do not invent one.
+- Referral discount (owner decision 2026-11-18, voice call): when a
+  NEW customer books their FIRST ride with a valid referral code
+  (from a customer's referral link), they get 5% off the total
+  (fare + toll). The referring customer gets NOTHING — there is no
+  referrer reward of any kind. The discount comes out of Noel's
+  profit only: driver earnings are unchanged. First booking only,
+  identified by phone number: a phone with any prior booking gets
+  no discount. If the referred friend later refers someone else,
+  that next new customer gets 5% off their first booking too
+  (every booking issues its own referral code); referrers never
+  earn at any step. One-way rides only; hourly rides never get a
+  referral discount.
 - HOURLY: total = $90/hour; driver = $50/hour. No fee, no gratuity,
   no tax. Unchanged by the tax/gratuity removal (hourly never had
   either).
@@ -73,8 +81,11 @@ CLASS_LABELS = {"sedan": "Business Class", "suv": "Business SUV"}
 # No tax rate, no gratuity rate: both were removed by owner orders
 # 2026-11-17. "tax"/"gratuity" breakdown keys stay at $0.00.
 BOOKING_FEE = Decimal("0")
-# Referral discount is $0 for now — TBD pending the owner's decision.
-REFERRAL_DISCOUNT = Decimal("0")
+# Referral discount (owner decision 2026-11-18, voice call): 5% off
+# the total for a NEW customer's first one-way booking made with a
+# valid referral code. The referrer gets nothing; the discount comes
+# out of Noel's profit only (driver earnings are unchanged).
+REFERRAL_DISCOUNT_RATE = Decimal("0.05")
 HOURLY_CUSTOMER = Decimal("90")
 HOURLY_DRIVER = Decimal("50")
 WAITING_RATE_PER_MIN = Decimal("1")
@@ -194,7 +205,9 @@ def compute_one_way(miles, toll=Decimal("0"), vehicle_class="sedan", referral: b
     """Return fare breakdown for a one-way ride. All values Decimal.
 
     vehicle_class: "sedan" (Business Class) or "suv" (Business SUV).
-    referral is accepted but gives a $0 discount for now (TBD).
+    referral: a NEW customer's first booking with a valid referral
+    code gets 5% off the total (fare + toll). Driver earnings are
+    unchanged — the discount comes out of Noel's profit only.
     """
     miles = miles_1dp(miles)
     toll = money(toll)
@@ -205,8 +218,10 @@ def compute_one_way(miles, toll=Decimal("0"), vehicle_class="sedan", referral: b
     gratuity = Decimal("0.00")
     tax = Decimal("0.00")
     total = money(fare + toll)
+    referral_discount = Decimal("0.00")
     if referral:
-        total = money(total - REFERRAL_DISCOUNT)
+        referral_discount = money(total * REFERRAL_DISCOUNT_RATE)
+        total = money(total - referral_discount)
     driver_earnings = money(CLASS_DRIVER_RATES[vehicle_class] * miles + toll)
     profit = money(total - driver_earnings)
     return {
@@ -217,17 +232,25 @@ def compute_one_way(miles, toll=Decimal("0"), vehicle_class="sedan", referral: b
         "booking_fee": BOOKING_FEE,
         "toll": toll,
         "total": total,
+        "referral_discount": referral_discount,
         "driver_earnings": driver_earnings,
         "profit": profit,
         "vehicle_class": vehicle_class,
     }
 
 
-def compute_class_totals(miles, toll=Decimal("0")) -> dict:
-    """Single total per vehicle class, for the options page."""
+def compute_class_totals(miles, toll=Decimal("0"), referral: bool = False) -> dict:
+    """Single total per vehicle class, for the options page.
+
+    referral: when True, each class total carries the 5% first-ride
+    referral discount (owner decision 2026-11-18) — the totals the
+    customer sees are the discounted totals.
+    """
     return {
-        "sedan": compute_one_way(miles, toll=toll, vehicle_class="sedan")["total"],
-        "suv": compute_one_way(miles, toll=toll, vehicle_class="suv")["total"],
+        "sedan": compute_one_way(miles, toll=toll, vehicle_class="sedan",
+                                 referral=referral)["total"],
+        "suv": compute_one_way(miles, toll=toll, vehicle_class="suv",
+                               referral=referral)["total"],
     }
 
 

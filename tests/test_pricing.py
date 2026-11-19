@@ -49,13 +49,16 @@ class TestOneWay(unittest.TestCase):
         self.assertEqual(r["driver_earnings"], D("126.00"))
         self.assertEqual(r["profit"], D("54.00"))
 
-    def test_18_miles_with_referral_is_no_discount_for_now(self):
-        # Referral codes are accepted but give a $0 discount for now
-        # (the old $20-fee waiver is dead: there is no fee). TBD.
+    def test_18_miles_with_referral_is_five_percent_off(self):
+        # Referral: a new customer's first booking with a valid code
+        # gets 5% off the total (owner decision 2026-11-18). Driver
+        # pay is unchanged; the discount comes out of profit only.
         r = compute_one_way(D("18.0"), referral=True)
-        self.assertEqual(r["total"], D("162.00"))
+        self.assertEqual(r["referral_discount"], D("8.10"))
+        self.assertEqual(r["total"], D("153.90"))
         self.assertEqual(r["gratuity"], D("0.00"))
         self.assertEqual(r["driver_earnings"], D("72.00"))
+        self.assertEqual(r["profit"], D("81.90"))
 
     def test_18_miles_with_toll(self):
         # Toll passes through to the driver: total and driver

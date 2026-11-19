@@ -2231,6 +2231,14 @@ class Booking(db.Model):
     hours = db.Column(Numeric(5, 1), nullable=True)
     toll = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     referral_code_used = db.Column(db.String(40), nullable=True)
+    # 5% first-ride referral discount actually granted on this booking
+    # (owner decision 2026-11-18, voice call): the amount taken off
+    # the total for a NEW customer's first one-way booking made with
+    # a valid referral code. NULL on rows created before the discount
+    # existed (no discount recorded); $0.00 when a code was used but
+    # no discount applied (not a first booking). The referrer gets
+    # nothing — there is no referrer reward.
+    referral_discount = db.Column(Numeric(10, 2), nullable=True)
     # Optional flight number for airport rides, asked as a separate step
     # after the booking form; skippable, never blocks the booking. No
     # live flight tracking: the airline name is derived from the IATA
@@ -2698,6 +2706,22 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("driver referral column check failed: %s", exc)
+    # Same pattern for the customer referral discount (added with the
+    # 5% first-ride referral discount, owner decision 2026-11-18).
+    # Nullable, so rows created before the discount existed keep
+    # reading as "no discount recorded".
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _bcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("bookings")]
+        if "referral_discount" not in _bcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE bookings ADD COLUMN referral_discount NUMERIC(10, 2)")
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("referral discount column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -2726,6 +2750,54 @@ def generate_referral_code() -> str:
         code = "NOEL-" + "".join(secrets.choice(alphabet) for _ in range(6))
         if not ReferralCode.query.filter_by(code=code).first():
             return code
+
+
+# --- Customer referral 5% discount (owner decision 2026-11-18, voice
+# call): the NEW customer gets 5% off their FIRST one-way booking made
+# with a valid referral code. The referring customer gets NOTHING.
+# First booking only, identified by phone number. If the referred
+# friend later refers someone else, that next new customer gets 5%
+# off their first booking too (every booking issues its own code);
+# referrers never earn at any step.
+def _phone_key(phone):
+    """Normalize a phone number for first-booking comparison: digits
+    only, US country code stripped, last 10 digits. Two spellings of
+    the same number ("+1 929-385-7597" vs "9293857597") compare equal.
+    """
+    import re as _re
+
+    digits = _re.sub(r"\D", "", str(phone or ""))
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    return digits[-10:] if len(digits) >= 10 else digits
+
+
+def is_first_booking_by_phone(phone):
+    """True when no prior booking row exists for this phone number
+    (any status — including a cancelled unpaid booking: the owner
+    rule is 'if that phone already has a prior booking, no
+    discount'). Called at booking creation, before the new booking
+    is stored, so the booking being created is never counted.
+    """
+    key = _phone_key(phone)
+    if not key:
+        return False
+    for (stored,) in db.session.query(Booking.phone).all():
+        if _phone_key(stored) == key:
+            return False
+    return True
+
+
+def booking_referral_discount_applies(booking):
+    """True when this booking was granted the 5% first-ride referral
+    discount at creation. The stored amount is the source of truth:
+    NULL (rows created before the discount existed) or $0.00 (a code
+    was used but no discount applied) both mean no discount, so
+    recomputes (class change, toll change) preserve the
+    creation-time decision instead of re-deciding it.
+    """
+    amount = getattr(booking, "referral_discount", None)
+    return amount is not None and Decimal(str(amount)) > 0
 
 
 # --- Driver referral link (owner decision 2026-11-18, voice call +
@@ -3118,7 +3190,7 @@ def _recomputed_breakdown(booking):
         booking.miles or Decimal("0"),
         toll=booking.toll or Decimal("0"),
         vehicle_class=booking_vehicle_class(booking),
-        referral=bool(booking.referral_code_used),
+        referral=booking_referral_discount_applies(booking),
     )
 
 
@@ -3388,8 +3460,10 @@ def recompute_booking_fare(booking):
     (total = fare + toll; gratuity and tax are $0.00 for new
     computations — see pricing.py).
 
-    Referral codes are accepted but give a $0 discount for now (the
-    old $20-fee waiver no longer applies; a new benefit is TBD).
+    The 5% first-ride referral discount is NOT re-decided here: a
+    booking granted it at creation keeps it (recomputed at 5% of
+    the new total) and a booking without it never gains it — the
+    stored referral_discount is the source of truth.
     """
     if booking.ride_type == "hourly":
         result = compute_hourly(booking.hours or Decimal("0"))
@@ -3399,7 +3473,7 @@ def recompute_booking_fare(booking):
             booking.miles or Decimal("0"),
             toll=booking.toll or Decimal("0"),
             vehicle_class=booking_vehicle_class(booking),
-            referral=bool(booking.referral_code_used),
+            referral=booking_referral_discount_applies(booking),
         )
         booking.vehicle_class = result["vehicle_class"]
     booking.fare_total = result["total"]
@@ -3408,6 +3482,10 @@ def recompute_booking_fare(booking):
     booking.booking_fee = result["booking_fee"]
     booking.fare = result["fare"]
     booking.tax = result["tax"]
+    # 5% first-ride referral discount granted on this booking
+    # (one-way only; hourly rides never get one). None on hourly
+    # rides, $0.00 when a code was used but no discount applied.
+    booking.referral_discount = result.get("referral_discount")
     return result
 
 
@@ -3498,8 +3576,13 @@ def _booking_create_view(booking, referral_code=None):
     }
     if booking.ride_type == "one_way":
         totals = compute_class_totals(
-            booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"))
+            booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"),
+            referral=booking_referral_discount_applies(booking))
         view["class_totals"] = {k: num(v) for k, v in totals.items()}
+    # 5% first-ride referral discount granted on this booking
+    # ($0.00 when a code was used but no discount applied; None on
+    # hourly rides and rows created before the discount existed).
+    view["referral_discount"] = num(getattr(booking, "referral_discount", None))
     if referral_code is not None:
         view["referral_code"] = referral_code
     return view
@@ -3645,9 +3728,16 @@ def create_booking():
         )
         # Default class is sedan (Business Class, pre-selected on the
         # options page); the customer may switch to SUV before paying.
+        # 5% first-ride referral discount (owner decision 2026-11-18):
+        # a valid code earns the discount ONLY on this phone's first
+        # booking — a phone with any prior booking gets no discount,
+        # and the referrer gets nothing. The discount is decided
+        # here, at creation, and stored on the booking; class changes
+        # and toll changes recompute it at 5% of the new total.
         booking.vehicle_class = "sedan"
+        referral_eligible = referral_valid and is_first_booking_by_phone(booking.phone)
         result = compute_one_way(booking.miles, toll=booking.toll,
-                                 vehicle_class="sedan", referral=referral_valid)
+                                 vehicle_class="sedan", referral=referral_eligible)
 
     booking.fare_total = result["total"]
     booking.driver_earnings = result["driver_earnings"]
@@ -3655,6 +3745,10 @@ def create_booking():
     booking.booking_fee = result["booking_fee"]
     booking.fare = result["fare"]
     booking.tax = result["tax"]
+    # 5% first-ride referral discount granted on this booking
+    # (one-way only; hourly rides never get one). None on hourly
+    # rides, $0.00 when a code was used but no discount applied.
+    booking.referral_discount = result.get("referral_discount")
 
     db.session.add(booking)
     db.session.flush()  # booking.id needed for the referral code + outbox
@@ -3751,11 +3845,13 @@ def get_booking(booking_id):
         },
         "invoice": invoice,
         "referral_code": referral.code if referral else None,
+        "referral_discount": num(getattr(booking, "referral_discount", None)),
         "chat_language": booking_customer_chat_language(booking),
     }
     if booking.ride_type == "one_way":
         totals = compute_class_totals(
-            booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"))
+            booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"),
+            referral=booking_referral_discount_applies(booking))
         view["class_totals"] = {k: num(v) for k, v in totals.items()}
     return jsonify({"booking": view})
 
@@ -5270,6 +5366,8 @@ def _owner_booking_row(b):
         "toll": num(b.toll),
         "gratuity": num(b.gratuity),
         "booking_fee": num(b.booking_fee),
+        "referral_discount": num(getattr(b, "referral_discount", None)),
+        "referral_code_used": b.referral_code_used,
         "waiting_charge": num(b.waiting_charge),
         "extra_miles": num(b.extra_miles),
         "extra_distance_charge": num(b.extra_distance_charge),

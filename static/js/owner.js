@@ -226,7 +226,8 @@
       toll: pick(b, ["toll", "toll_amount"]) !== null ? pick(b, ["toll", "toll_amount"]) : pick(inv, ["toll"]),
       waiting: pick(b, ["waiting_charge", "waiting"]) !== null ? pick(b, ["waiting_charge", "waiting"]) : pick(inv, ["waiting_charge"]),
       extra: pick(b, ["extra_distance_charge", "extra_distance"]) !== null ? pick(b, ["extra_distance_charge", "extra_distance"]) : pick(inv, ["extra_distance_charge"]),
-      profit: pick(b, ["profit", "owner_profit", "net"])
+      profit: pick(b, ["profit", "owner_profit", "net"]),
+      referral_discount: pick(b, ["referral_discount"])
     };
   }
 
@@ -379,6 +380,7 @@
           ["Customer phone", b.phone || b.customer_phone || "—"],
           ["Customer email", b.email || b.customer_email || "—"],
           ["Referral code", b.referral_code_used || b.referral_code || "—"],
+          ["Referral discount", money(f.referral_discount)],
           ["Driver", driver.name || b.driver_name || "—"],
           ["Driver phone", driver.phone || "—"],
           ["Car", [driver.car_year, driver.car_model, driver.car_colour].filter(Boolean).join(" · ") || "—"],

@@ -398,6 +398,14 @@
     var totals = booking.class_totals || {};
     $("class-total-sedan").textContent = money(totals.sedan !== undefined ? totals.sedan : booking.total);
     $("class-total-suv").textContent = money(totals.suv);
+    /* 5% first-ride referral discount (owner decision 2026-11-18):
+       the note shows only when this booking actually got the
+       discount — the class totals above are already discounted. */
+    if (booking.referral_discount && Number(booking.referral_discount) > 0) {
+      show($("class-discount-note"));
+    } else {
+      hide($("class-discount-note"));
+    }
     $("class-error").textContent = "";
     paintClassSelection();
     hide($("booking-card"));

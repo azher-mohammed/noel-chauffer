@@ -5771,6 +5771,18 @@ def owner_driver_photo(driver_id):
 
 # ------------------------------------------------------------------- main ---
 
+# Popular-places warm-up: the committed snapshot in geo_places_snapshot.json
+# already covers the first request; this background thread refreshes those
+# entries from live data when the upstream answers. Production only:
+# render.yaml sets NOEL_SEARCH_WARMUP=1. Never started in tests or local
+# runs unless the variable is set explicitly.
+if os.environ.get("NOEL_SEARCH_WARMUP") == "1":
+    try:
+        geo_module.start_popular_places_refresh()
+    except Exception:
+        app.logger.warning("places warm-up failed to start", exc_info=True)
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)

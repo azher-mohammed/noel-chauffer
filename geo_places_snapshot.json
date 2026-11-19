@@ -1,0 +1,1575 @@
+{
+  "generated": "2026-11-19",
+  "source": "Nominatim via geo.search_places (see scripts/generate_places_snapshot.py)",
+  "notes": "Regenerate with: ~/workspace/.venv-noel/bin/python scripts/generate_places_snapshot.py",
+  "queries": {
+    "jfk": {
+      "results": [
+        {
+          "display_name": "John F. Kennedy International Airport, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6429479,
+          "lon": -73.7793734,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": true
+        },
+        {
+          "display_name": "Terminal 1 Arrivals, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6434795,
+          "lon": -73.7900299,
+          "address": {
+            "road": "Terminal 1 Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 1 Departures, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6429223,
+          "lon": -73.7896378,
+          "address": {
+            "road": "Terminal 1 Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 4 Arrivals, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6445132,
+          "lon": -73.7827285,
+          "address": {
+            "road": "Terminal 4 Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 4 Departures, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6441043,
+          "lon": -73.7826751,
+          "address": {
+            "road": "Terminal 4 Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 5 Arrivals, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6460738,
+          "lon": -73.7768402,
+          "address": {
+            "road": "Terminal 5 Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 5 Departures, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6450044,
+          "lon": -73.778402,
+          "address": {
+            "road": "Terminal 5 Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 7 Arrivals, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6483595,
+          "lon": -73.7830755,
+          "address": {
+            "road": "Terminal 7 Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 7 Departures, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6487353,
+          "lon": -73.7846272,
+          "address": {
+            "road": "Terminal 7 Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 8 Arrivals, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6468219,
+          "lon": -73.7896325,
+          "address": {
+            "road": "Terminal 8 Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 8 Departures, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6474565,
+          "lon": -73.7875864,
+          "address": {
+            "road": "Terminal 8 Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "jfk terminal 1": {
+      "results": [
+        {
+          "display_name": "Terminal 1, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6430714,
+          "lon": -73.7890699,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 1, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6435616,
+          "lon": -73.7893673,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "jfk terminal 4": {
+      "results": [
+        {
+          "display_name": "Terminal 4, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6440503,
+          "lon": -73.7819897,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 4, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6439222,
+          "lon": -73.7824099,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "jfk terminal 5": {
+      "results": [
+        {
+          "display_name": "Terminal 5, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.64628,
+          "lon": -73.7760551,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 5, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.64628,
+          "lon": -73.7760551,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 5, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6466718,
+          "lon": -73.7797568,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 5, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6468134,
+          "lon": -73.7798601,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "jfk terminal 8": {
+      "results": [
+        {
+          "display_name": "Terminal 8, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6466575,
+          "lon": -73.7892038,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal 8, JFK Access Road, Queens, Queens County, New York, 11430, United States",
+          "lat": 40.6467488,
+          "lon": -73.7888644,
+          "address": {
+            "road": "JFK Access Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11430",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "laguardia": {
+      "results": [
+        {
+          "display_name": "LaGuardia Airport, Grand Central Parkway, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7757145,
+          "lon": -73.873364,
+          "address": {
+            "road": "Grand Central Parkway",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": true
+        },
+        {
+          "display_name": "Central Terminal Drive, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7731231,
+          "lon": -73.8765698,
+          "address": {
+            "road": "Central Terminal Drive",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Marine Terminal Road, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7715772,
+          "lon": -73.8856427,
+          "address": {
+            "road": "Marine Terminal Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B Arrivals, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7725113,
+          "lon": -73.8713021,
+          "address": {
+            "road": "Terminal B Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B Bus/Taxi Lane, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7711707,
+          "lon": -73.8682219,
+          "address": {
+            "road": "Terminal B Bus/Taxi Lane",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B Departures, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7724733,
+          "lon": -73.8712932,
+          "address": {
+            "road": "Terminal B Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Arrivals, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7677403,
+          "lon": -73.8618846,
+          "address": {
+            "road": "Terminal C Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Departures, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7703123,
+          "lon": -73.8648053,
+          "address": {
+            "road": "Terminal C Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Inner Arrivals, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7677804,
+          "lon": -73.8629903,
+          "address": {
+            "road": "Terminal C Inner Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Inner Departures, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7677849,
+          "lon": -73.8628278,
+          "address": {
+            "road": "Terminal C Inner Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Outer Arrivals, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7707842,
+          "lon": -73.8657951,
+          "address": {
+            "road": "Terminal C Outer Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Outer Departures, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.767962,
+          "lon": -73.863877,
+          "address": {
+            "road": "Terminal C Outer Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "lga": {
+      "results": [
+        {
+          "display_name": "LaGuardia Airport, 112th Street, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7757145,
+          "lon": -73.873364,
+          "address": {
+            "road": "112th Street",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": true
+        },
+        {
+          "display_name": "Central Terminal Drive, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7731231,
+          "lon": -73.8765698,
+          "address": {
+            "road": "Central Terminal Drive",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Marine Terminal Road, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7715772,
+          "lon": -73.8856427,
+          "address": {
+            "road": "Marine Terminal Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B Arrivals, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7725113,
+          "lon": -73.8713021,
+          "address": {
+            "road": "Terminal B Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B Bus/Taxi Lane, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7711707,
+          "lon": -73.8682219,
+          "address": {
+            "road": "Terminal B Bus/Taxi Lane",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B Departures, Queens, Queens County, New York, 11371, United States",
+          "lat": 40.7724733,
+          "lon": -73.8712932,
+          "address": {
+            "road": "Terminal B Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11371",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Arrivals, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7677403,
+          "lon": -73.8618846,
+          "address": {
+            "road": "Terminal C Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Departures, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7703123,
+          "lon": -73.8648053,
+          "address": {
+            "road": "Terminal C Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Inner Arrivals, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7677804,
+          "lon": -73.8629903,
+          "address": {
+            "road": "Terminal C Inner Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Inner Departures, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7677849,
+          "lon": -73.8628278,
+          "address": {
+            "road": "Terminal C Inner Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Outer Arrivals, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.7707842,
+          "lon": -73.8657951,
+          "address": {
+            "road": "Terminal C Outer Arrivals",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C Outer Departures, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.767962,
+          "lon": -73.863877,
+          "address": {
+            "road": "Terminal C Outer Departures",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "laguardia terminal b": {
+      "results": [
+        {
+          "display_name": "Terminal B, LaGuardia Road, Queens, Queens County, New York, 11369, United States",
+          "lat": 40.772898,
+          "lon": -73.8720751,
+          "address": {
+            "road": "LaGuardia Road",
+            "suburb": "Queens",
+            "city": "New York",
+            "county": "Queens County",
+            "state": "New York",
+            "postcode": "11369",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "newark airport": {
+      "results": [
+        {
+          "display_name": "Newark Liberty International Airport, 3, Brewster Road, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6890641,
+          "lon": -74.1772549,
+          "address": {
+            "house_number": "3",
+            "road": "Brewster Road",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": true
+        },
+        {
+          "display_name": "Terminal A - Arrivals, Elizabeth, Union County, New Jersey, 07201, United States",
+          "lat": 40.6826648,
+          "lon": -74.1891012,
+          "address": {
+            "road": "Terminal A - Arrivals",
+            "city": "Elizabeth",
+            "county": "Union County",
+            "state": "New Jersey",
+            "postcode": "07201",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal A - Departures, Elizabeth, Union County, New Jersey, 07201, United States",
+          "lat": 40.6816474,
+          "lon": -74.189458,
+          "address": {
+            "road": "Terminal A - Departures",
+            "city": "Elizabeth",
+            "county": "Union County",
+            "state": "New Jersey",
+            "postcode": "07201",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B - Arrivals, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6885156,
+          "lon": -74.1801188,
+          "address": {
+            "road": "Terminal B - Arrivals",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B - Departures, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6884433,
+          "lon": -74.1801021,
+          "address": {
+            "road": "Terminal B - Departures",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B - Departures - Level 2, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6889892,
+          "lon": -74.1791521,
+          "address": {
+            "road": "Terminal B - Departures - Level 2",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B - Departures - Level 3, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6906267,
+          "lon": -74.1775175,
+          "address": {
+            "road": "Terminal B - Departures - Level 3",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C - Arrivals, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6938339,
+          "lon": -74.1771878,
+          "address": {
+            "road": "Terminal C - Arrivals",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C - Departures, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6931313,
+          "lon": -74.1767582,
+          "address": {
+            "road": "Terminal C - Departures",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Licking County Regional Airport, West Dorsey Mill Road, Heath, Licking County, Ohio, 43056, United States",
+          "lat": 40.0245494,
+          "lon": -82.4601858,
+          "address": {
+            "road": "West Dorsey Mill Road",
+            "village": "Heath",
+            "county": "Licking County",
+            "state": "Ohio",
+            "postcode": "43056",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": true
+        }
+      ]
+    },
+    "ewr": {
+      "results": [
+        {
+          "display_name": "Newark Liberty International Airport, 3, Brewster Road, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6890641,
+          "lon": -74.1772549,
+          "address": {
+            "house_number": "3",
+            "road": "Brewster Road",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": true
+        },
+        {
+          "display_name": "Terminal A - Arrivals, Elizabeth, Union County, New Jersey, 07201, United States",
+          "lat": 40.6826648,
+          "lon": -74.1891012,
+          "address": {
+            "road": "Terminal A - Arrivals",
+            "city": "Elizabeth",
+            "county": "Union County",
+            "state": "New Jersey",
+            "postcode": "07201",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal A - Departures, Elizabeth, Union County, New Jersey, 07201, United States",
+          "lat": 40.6816474,
+          "lon": -74.189458,
+          "address": {
+            "road": "Terminal A - Departures",
+            "city": "Elizabeth",
+            "county": "Union County",
+            "state": "New Jersey",
+            "postcode": "07201",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B - Arrivals, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6885156,
+          "lon": -74.1801188,
+          "address": {
+            "road": "Terminal B - Arrivals",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B - Departures, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6884433,
+          "lon": -74.1801021,
+          "address": {
+            "road": "Terminal B - Departures",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B - Departures - Level 2, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6889892,
+          "lon": -74.1791521,
+          "address": {
+            "road": "Terminal B - Departures - Level 2",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal B - Departures - Level 3, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6906267,
+          "lon": -74.1775175,
+          "address": {
+            "road": "Terminal B - Departures - Level 3",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C - Arrivals, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6938339,
+          "lon": -74.1771878,
+          "address": {
+            "road": "Terminal C - Arrivals",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Terminal C - Departures, Newark, Essex County, New Jersey, 07114, United States",
+          "lat": 40.6931313,
+          "lon": -74.1767582,
+          "address": {
+            "road": "Terminal C - Departures",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07114",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Newark Liberty Airport, Station Road, Newark, Essex County, New Jersey, 07112, United States",
+          "lat": 40.7044195,
+          "lon": -74.1907347,
+          "address": {
+            "road": "Station Road",
+            "city": "Newark",
+            "county": "Essex County",
+            "state": "New Jersey",
+            "postcode": "07112",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "times square": {
+      "results": [
+        {
+          "display_name": "Times Square, Manhattan Community Board 5, Manhattan, New York County, New York, 10036, United States",
+          "lat": 40.7570095,
+          "lon": -73.9859724,
+          "address": {
+            "road": "Times Square",
+            "neighbourhood": "Manhattan Community Board 5",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10036",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Times Square, Manhattan Community Board 5, Manhattan, New York County, New York, 10036, United States",
+          "lat": 40.7572614,
+          "lon": -73.9858998,
+          "address": {
+            "neighbourhood": "Manhattan Community Board 5",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10036",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Times Square, West 42nd Street, Times Square, Manhattan Community Board 5, Manhattan, New York County, New York, 10110, United States",
+          "lat": 40.7555923,
+          "lon": -73.9858388,
+          "address": {
+            "road": "West 42nd Street",
+            "neighbourhood": "Manhattan Community Board 5",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10110",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Times Square, Manhattan Community Board 5, Manhattan, New York County, New York, 10036, United States",
+          "lat": 40.7584763,
+          "lon": -73.9852945,
+          "address": {
+            "road": "Times Square",
+            "neighbourhood": "Manhattan Community Board 5",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10036",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Times Square, Grand River Avenue, Detroit, Wayne County, Michigan, 48226, United States",
+          "lat": 42.3336271,
+          "lon": -83.0521137,
+          "address": {
+            "road": "Grand River Avenue",
+            "city": "Detroit",
+            "county": "Wayne County",
+            "state": "Michigan",
+            "postcode": "48226",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "penn station": {
+      "results": [
+        {
+          "display_name": "34th Street–Penn Station, Plaza 33, Chelsea District, Manhattan Community Board 5, Manhattan, New York County, New York, 10121, United States",
+          "lat": 40.7503468,
+          "lon": -73.991203,
+          "address": {
+            "road": "Plaza 33",
+            "neighbourhood": "Chelsea District",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10121",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "34th Street–Penn Station, 7th Avenue, Chelsea District, Manhattan Community Board 5, Manhattan, New York County, New York, 10121, United States",
+          "lat": 40.7500792,
+          "lon": -73.9913481,
+          "address": {
+            "road": "7th Avenue",
+            "neighbourhood": "Chelsea District",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10121",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "34th Street–Penn Station, 7th Avenue, Garment District, Manhattan Community Board 5, Manhattan, New York County, New York, 10123, United States",
+          "lat": 40.7515107,
+          "lon": -73.9901498,
+          "address": {
+            "road": "7th Avenue",
+            "neighbourhood": "Garment District",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10123",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Penn Station, Buccaneer Trace Apartments, Wilmington Island, Chatham County, Georgia, 31410, United States",
+          "lat": 32.0080301,
+          "lon": -80.9749594,
+          "address": {
+            "road": "Penn Station",
+            "neighbourhood": "Buccaneer Trace Apartments",
+            "town": "Wilmington Island",
+            "county": "Chatham County",
+            "state": "Georgia",
+            "postcode": "31410",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Penn Station, Cedar Fork, Mifflin Township, Pike County, Ohio, 45646, United States",
+          "lat": 39.0890954,
+          "lon": -83.3233538,
+          "address": {
+            "road": "Penn Station",
+            "county": "Pike County",
+            "state": "Ohio",
+            "postcode": "45646",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "grand central": {
+      "results": [
+        {
+          "display_name": "Grand Central, East 42nd Street, Midtown South, Manhattan Community Board 5, Manhattan, New York County, New York, 10178, United States",
+          "lat": 40.752769,
+          "lon": -73.979189,
+          "address": {
+            "road": "East 42nd Street",
+            "neighbourhood": "Midtown South",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10178",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Grand Central, Plainfield Township, Northampton County, Pennsylvania, 18072, United States",
+          "lat": 40.8442623,
+          "lon": -75.2640688,
+          "address": {
+            "city": "Plainfield Township",
+            "county": "Northampton County",
+            "state": "Pennsylvania",
+            "postcode": "18072",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "empire state building": {
+      "results": [
+        {
+          "display_name": "Empire State Building, 350, 5th Avenue, Koreatown, Manhattan Community Board 5, Manhattan, New York County, New York, 10118, United States",
+          "lat": 40.7484421,
+          "lon": -73.9856589,
+          "address": {
+            "house_number": "350",
+            "road": "5th Avenue",
+            "neighbourhood": "Koreatown",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10118",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "central park": {
+      "results": [
+        {
+          "display_name": "Central Park, New York County, New York, 11025, United States",
+          "lat": 40.7827725,
+          "lon": -73.9653627,
+          "address": {
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "11025",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Central Park, Grays Harbor County, Washington, United States",
+          "lat": 46.972732,
+          "lon": -123.702099,
+          "address": {
+            "village": "Central Park",
+            "county": "Grays Harbor County",
+            "state": "Washington",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Garfield Park, 100, East Garfield Park, Chicago, West Chicago Township, Cook County, Illinois, 60624, United States",
+          "lat": 41.8813319,
+          "lon": -87.7183469,
+          "address": {
+            "house_number": "100",
+            "suburb": "East Garfield Park",
+            "city": "Chicago",
+            "county": "Cook County",
+            "state": "Illinois",
+            "postcode": "60624",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Central Park, Atlanta, Fulton County, Georgia, United States",
+          "lat": 33.7683023,
+          "lon": -84.3763755,
+          "address": {
+            "city": "Atlanta",
+            "county": "Fulton County",
+            "state": "Georgia",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Central Park, Celebrate Virginia, Fredericksburg, Virginia, United States",
+          "lat": 38.3025011,
+          "lon": -77.509565,
+          "address": {
+            "suburb": "Celebrate Virginia",
+            "city": "Fredericksburg",
+            "state": "Virginia",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "wall street": {
+      "results": [
+        {
+          "display_name": "Wall Street, Financial District, Manhattan Community Board 1, Manhattan, New York County, New York, 10005, United States",
+          "lat": 40.7058089,
+          "lon": -74.0084337,
+          "address": {
+            "road": "Wall Street",
+            "neighbourhood": "Financial District",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10005",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Wall Street, Financial District, Manhattan Community Board 1, Manhattan, New York County, New York, 10271, United States",
+          "lat": 40.7067714,
+          "lon": -74.010122,
+          "address": {
+            "road": "Wall Street",
+            "neighbourhood": "Financial District",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10271",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Wall Street, Financial District, Manhattan Community Board 1, Manhattan, New York County, New York, 10005, United States",
+          "lat": 40.7064001,
+          "lon": -74.0095353,
+          "address": {
+            "road": "Wall Street",
+            "neighbourhood": "Financial District",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10005",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Wall Street, Broadway, Financial District, Manhattan Community Board 1, Manhattan, New York County, New York, 10006, United States",
+          "lat": 40.7079284,
+          "lon": -74.0114693,
+          "address": {
+            "road": "Broadway",
+            "neighbourhood": "Financial District",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10006",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "brooklyn bridge": {
+      "results": [
+        {
+          "display_name": "Brooklyn Bridge, Dumbo, Brooklyn, Kings County, New York, 11242, United States",
+          "lat": 40.7020375,
+          "lon": -73.9915987,
+          "address": {
+            "road": "Brooklyn Bridge",
+            "neighbourhood": "Dumbo",
+            "suburb": "Brooklyn",
+            "city": "New York",
+            "county": "Kings County",
+            "state": "New York",
+            "postcode": "11242",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Brooklyn Bridge, Seaport, Manhattan Community Board 1, Manhattan, New York County, New York, 10038, United States",
+          "lat": 40.7102302,
+          "lon": -74.0019097,
+          "address": {
+            "road": "Brooklyn Bridge",
+            "neighbourhood": "Seaport",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10038",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Brooklyn Bridge, Manhattan Community Board 3, Manhattan, New York County, New York, 10038, United States",
+          "lat": 40.7092945,
+          "lon": -74.0007295,
+          "address": {
+            "road": "Brooklyn Bridge",
+            "neighbourhood": "Manhattan Community Board 3",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10038",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "grand central terminal": {
+      "results": [
+        {
+          "display_name": "Grand Central Terminal, 89, East 42nd Street, Midtown, Manhattan Community Board 5, Manhattan, New York County, New York, 10178, United States",
+          "lat": 40.7526944,
+          "lon": -73.977253,
+          "address": {
+            "house_number": "89",
+            "road": "East 42nd Street",
+            "neighbourhood": "Manhattan Community Board 5",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10178",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Grand Central Terminal, 89, East 42nd Street, Midtown, Manhattan Community Board 5, Manhattan, New York County, New York, 10168, United States",
+          "lat": 40.7528064,
+          "lon": -73.9771792,
+          "address": {
+            "house_number": "89",
+            "road": "East 42nd Street",
+            "neighbourhood": "Manhattan Community Board 5",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10168",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "port authority bus terminal": {
+      "results": [
+        {
+          "display_name": "Port Authority Bus Terminal, 625, 8th Avenue, Garment District, Manhattan Community Board 4, Manhattan, New York County, New York, 10018, United States",
+          "lat": 40.7568641,
+          "lon": -73.9914724,
+          "address": {
+            "house_number": "625",
+            "road": "8th Avenue",
+            "neighbourhood": "Garment District",
+            "suburb": "Manhattan",
+            "city": "New York",
+            "county": "New York County",
+            "state": "New York",
+            "postcode": "10018",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    }
+  }
+}

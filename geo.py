@@ -14,12 +14,18 @@ failure.
 
 from __future__ import annotations
 
+import base64
+import http.client
 import json
 import logging
 import math
+import os
 import re
+import threading
+import time
 import urllib.parse
 import urllib.request
+from urllib.error import HTTPError
 
 log = logging.getLogger(__name__)
 
@@ -53,10 +59,199 @@ _ADDRESS_KEYS = (
 )
 
 
+_tls = threading.local()
+
+
+def _proxy_for(host: str):
+    """Egress proxy for a host, or None when direct is right.
+
+    Mirrors what urllib does with the environment: HTTPS_PROXY (or
+    https_proxy) wins, no_proxy bypasses. The proxy URL may carry
+    credentials, which are sent as a Proxy-Authorization header (the
+    same thing urllib/curl do with these variables). Returns
+    (proxy_host, proxy_port, auth_header_or_None). Production (Render)
+    sets no proxy variables, so this is a no-op there.
+    """
+    proxies = urllib.request.getproxies()
+    proxy_url = proxies.get("https")
+    if not proxy_url:
+        return None
+    if urllib.request.proxy_bypass(host):
+        return None
+    parsed = urllib.parse.urlparse(proxy_url)
+    if not parsed.hostname:
+        return None
+    auth = None
+    if parsed.username:
+        creds = urllib.parse.unquote(parsed.username)
+        if parsed.password:
+            creds += ":" + urllib.parse.unquote(parsed.password)
+        auth = "Basic " + base64.b64encode(creds.encode("utf-8")).decode("ascii")
+    return (parsed.hostname, parsed.port or 3128, auth)
+
+
+def _connection_for(host: str):
+    """One reused HTTPS connection per thread per host (keep-alive).
+
+    Each thread keeps its own connections, so no lock is needed and the
+    sync and threaded gunicorn workers are both safe. A connection is
+    dropped (and recreated on the next call) when a request on it fails.
+    When an egress proxy is configured (this dev VM), the connection
+    goes through it with a CONNECT tunnel; direct otherwise.
+    """
+    conns = getattr(_tls, "connections", None)
+    if conns is None:
+        conns = _tls.connections = {}
+    conn = conns.get(host)
+    if conn is None:
+        proxy = _proxy_for(host)
+        if proxy is not None:
+            proxy_host, proxy_port, auth = proxy
+            # HTTPSConnection to the proxy: connect() opens the CONNECT
+            # tunnel to the target host, then wraps the socket in TLS
+            # (SNI = the tunnel host). A plain HTTPConnection here
+            # would send the request unencrypted down the tunnel.
+            conn = http.client.HTTPSConnection(
+                proxy_host, proxy_port, timeout=TIMEOUT
+            )
+            headers = {"Proxy-Authorization": auth} if auth else None
+            conn.set_tunnel(host, 443, headers=headers)
+        else:
+            conn = http.client.HTTPSConnection(host, timeout=TIMEOUT)
+        conns[host] = conn
+    return conn
+
+
+def _drop_connection(host: str):
+    conns = getattr(_tls, "connections", None)
+    if conns:
+        conns.pop(host, None)
+
+
 def _http_get_json(url: str):
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    """GET a URL and parse its JSON body, reusing a keep-alive connection.
+
+    Same contract as the old urllib version: the custom User-Agent, the
+    10s timeout, and raising on any failure (HTTP errors included) so
+    callers keep their fail-soft behaviour. A stale server-closed
+    connection raises a connection error, which is retried once on a
+    fresh connection; a real HTTP error (e.g. Nominatim 403) is NOT
+    retried. This removes one TLS handshake (~0.2–0.5s) from every
+    Nominatim / OSRM / Photon call.
+    """
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.netloc
+    path = parsed.path or "/"
+    if parsed.params:  # urlparse splits ';' coords (OSRM routes) into params
+        path += ";" + parsed.params
+    if parsed.query:
+        path += "?" + parsed.query
+    for attempt in (0, 1):
+        conn = _connection_for(host)
+        try:
+            # Origin-form path with an explicit Host header for the
+            # TARGET host. (putrequest would otherwise take Host from
+            # the proxy host on a tunneled connection — OSRM rejects
+            # that with 400 — and an absolute-form target makes
+            # Nominatim drop the connection.)
+            conn.putrequest("GET", path, skip_host=True)
+            conn.putheader("Host", host)
+            conn.putheader("User-Agent", USER_AGENT)
+            conn.endheaders()
+            resp = conn.getresponse()
+            body = resp.read()
+        except (http.client.HTTPException, OSError) as exc:
+            # Stale keep-alive connection the server already closed:
+            # drop it and retry once on a fresh one.
+            _drop_connection(host)
+            if attempt == 0:
+                continue
+            raise
+        if resp.status != 200:
+            raise HTTPError(url, resp.status, resp.reason, resp.getheaders(), None)
+        return json.loads(body.decode("utf-8"))
+    raise RuntimeError("unreachable")  # pragma: no cover
+
+
+# --------------------------------------------------------------------------
+# Photon fallback (Komoot, free, no key): used ONLY when a Nominatim
+# request itself fails (network error, 403/429 block). A Nominatim
+# answer of "no match" (valid empty list) is genuine and never falls
+# back. Photon results are normalized to Nominatim-shaped items and
+# flow through the same parsing, so the public result shape is
+# unchanged. Airports rank first and duplicate names collapse, so a
+# "JFK" fallback still shows the airport before JFK Expressway.
+# --------------------------------------------------------------------------
+
+_PHOTON_URL = "https://photon.komoot.io/api/"
+
+
+def _photon_items(query: str, limit: int = 5):
+    """Photon search results as Nominatim-shaped items, or [].
+
+    Raises on any request failure. Never invents data: only live
+    Photon features, with the airport (aeroway/aerodrome) first.
+    """
+    url = (
+        _PHOTON_URL + "?q=" + urllib.parse.quote(query)
+        + "&limit=" + str(max(1, min(10, int(limit))))
+    )
+    data = _http_get_json(url)
+    features = data.get("features") if isinstance(data, dict) else None
+    if not features:
+        return []
+    items = []
+    for feature in features:
+        props = feature.get("properties") or {}
+        geometry = feature.get("geometry") or {}
+        coords = geometry.get("coordinates") or []
+        if len(coords) != 2:
+            continue
+        name = props.get("name")
+        if not name:
+            continue
+        address = {}
+        if props.get("housenumber"):
+            address["house_number"] = str(props["housenumber"])
+        road = props.get("street")
+        if road:
+            if props.get("housenumber"):
+                road = str(props["housenumber"]) + " " + road
+            address["road"] = road
+        if props.get("city"):
+            address["city"] = props["city"]
+        if props.get("state"):
+            address["state"] = props["state"]
+        if props.get("postcode"):
+            address["postcode"] = str(props["postcode"])
+        if props.get("country"):
+            address["country"] = props["country"]
+        if props.get("countrycode"):
+            address["country_code"] = str(props["countrycode"]).lower()
+        display_parts = [name]
+        for key in ("road", "city", "state", "postcode", "country"):
+            if address.get(key) and address[key] not in display_parts:
+                display_parts.append(address[key])
+        items.append({
+            "display_name": ", ".join(display_parts),
+            "lat": str(coords[1]),
+            "lon": str(coords[0]),
+            "class": props.get("osm_key"),
+            "type": props.get("osm_value"),
+            "address": address,
+        })
+    seen = set()
+    deduped = []
+    for item in items:
+        first = item["display_name"].split(",")[0].strip().lower()
+        if first in seen:
+            continue
+        seen.add(first)
+        deduped.append(item)
+    deduped.sort(key=lambda it: (
+        0 if (it.get("class") == "aeroway" and it.get("type") == "aerodrome") else 1
+    ))
+    return deduped
 
 
 def _geocode_query(address: str):
@@ -79,9 +274,22 @@ def _geocode_query(address: str):
             details = raw_address if isinstance(raw_address, dict) else None
             return coords, details, False
         return None, None, False
-    except Exception as exc:  # never raise: caller handles the miss
-        log.warning("geocode failed for %r: %s", address, exc)
-        return None, None, True
+    except Exception as exc:  # Nominatim request failed: Photon fallback
+        log.warning("geocode Nominatim failed for %r, trying Photon: %s",
+                    address, exc)
+        try:
+            items = _photon_items(address, 1)
+        except Exception as exc2:  # never raise: caller handles the miss
+            log.warning("geocode Photon failed for %r: %s", address, exc2)
+            return None, None, True
+        if not items:
+            return None, None, False
+        item = items[0]
+        try:
+            coords = (float(item["lat"]), float(item["lon"]))
+        except (KeyError, TypeError, ValueError):
+            return None, None, True
+        return coords, item.get("address"), False
 
 
 def _strip_retry_words(address: str):
@@ -334,18 +542,27 @@ def search_places(query: str, limit: int = 5):
             + "&q=" + urllib.parse.quote(q)
         )
         data = _http_get_json(url)
-        if isinstance(data, list):
-            for raw in data:
-                parsed = _parse_place(raw)
-                if not parsed:
-                    continue
-                result, cls, typ = parsed
-                results.append(result)
-                if airport is None and cls == "aeroway" and typ == "aerodrome":
-                    airport = result
-    except Exception as exc:  # never raise: autocomplete degrades to plain text
-        log.warning("place search failed for %r: %s", q, exc)
-        return []
+        if not isinstance(data, list):
+            data = []
+    except Exception as exc:
+        # Nominatim request failed (not "no match" — that is a valid
+        # empty list above): fall back to Photon, same result shape.
+        log.warning("place search Nominatim failed for %r, trying Photon: %s",
+                    q, exc)
+        try:
+            data = _photon_items(q, limit)
+        except Exception as exc2:
+            # never raise: autocomplete degrades to plain text
+            log.warning("place search Photon failed for %r: %s", q, exc2)
+            return []
+    for raw in data:
+        parsed = _parse_place(raw)
+        if not parsed:
+            continue
+        result, cls, typ = parsed
+        results.append(result)
+        if airport is None and cls == "aeroway" and typ == "aerodrome":
+            airport = result
     if airport is not None:
         terminals = _airport_terminals(airport["lat"], airport["lon"])
         if terminals:
@@ -363,6 +580,133 @@ def search_places(query: str, limit: int = 5):
     if len(_search_cache) < _CACHE_LIMIT:
         _search_cache[key] = results
     return results
+
+
+# --------------------------------------------------------------------------
+# Popular-places warm cache.
+#
+# Why a committed snapshot: the live Render service's Nominatim calls
+# currently return NOTHING (every /api/places/search returns an empty
+# list — verified 2026-11-18; direct Nominatim calls from elsewhere
+# work fine, so the shared Render egress IP is being throttled or
+# blocked). A background thread that seeds from live Nominatim alone
+# would therefore seed nothing. The snapshot is real Nominatim data —
+# the exact search_places output for these queries, captured with
+# scripts/generate_places_snapshot.py — frozen in
+# geo_places_snapshot.json, so the most-typed queries answer instantly
+# with zero upstream calls. Nothing here is invented: airports and
+# landmarks do not move. Regenerate after any terminal changes with:
+#   python scripts/generate_places_snapshot.py
+# A background refresh (start_popular_places_refresh, production only)
+# re-fetches the same queries from live data when the upstream answers
+# and replaces an entry only when the live result is non-empty, so a
+# failed refresh never clobbers the snapshot values.
+# --------------------------------------------------------------------------
+
+_POPULAR_SEARCH_QUERIES = (
+    "JFK", "JFK Terminal 1", "JFK Terminal 4", "JFK Terminal 5",
+    "JFK Terminal 8", "LaGuardia", "LGA", "LaGuardia Terminal B",
+    "Newark Airport", "EWR", "Times Square", "Penn Station",
+    "Grand Central", "Empire State Building", "Central Park",
+    "Wall Street", "Brooklyn Bridge", "Grand Central Terminal",
+    "Port Authority Bus Terminal",
+)
+_SNAPSHOT_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "geo_places_snapshot.json"
+)
+_REFRESH_GAP_SECONDS = 1.1
+_refresh_started = False
+_SNAPSHOT_LOADED = False
+
+
+def load_places_snapshot():
+    """Load the committed popular-places snapshot into _search_cache.
+
+    No network, never raises. Safe to call repeatedly (no-op after the
+    first load). Entries use the same (query, limit=5) keys as a live
+    search, so a seeded query is indistinguishable from a cached live
+    one. Tests clear _search_cache in setUp, so they are unaffected.
+    """
+    global _SNAPSHOT_LOADED
+    if _SNAPSHOT_LOADED:
+        return
+    _SNAPSHOT_LOADED = True
+    try:
+        with open(_SNAPSHOT_PATH, "r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+        queries = payload.get("queries") or {}
+        for query, entry in queries.items():
+            results = (entry or {}).get("results") or []
+            if not isinstance(results, list) or not results:
+                continue
+            key = (str(query).strip().lower(), 5)
+            if key in _search_cache or len(_search_cache) >= _CACHE_LIMIT:
+                continue
+            _search_cache[key] = [
+                dict(item, address=dict(item.get("address") or {}))
+                for item in results
+                if isinstance(item, dict)
+            ]
+    except Exception as exc:  # missing/corrupt file: live search still works
+        log.warning("places snapshot failed to load: %s", exc)
+
+
+def refresh_popular_places(search_fn=None, sleep_fn=None):
+    """Re-fetch popular queries from live data, one shot, in order.
+
+    An entry is replaced only when the live result is non-empty; on a
+    failed or empty live result the previous (snapshot or live) value
+    is restored, so a refresh can never leave a popular query empty.
+    search_fn/sleep_fn are injectable for tests. Never raises.
+    """
+    search = search_fn or search_places
+    sleep = sleep_fn or time.sleep
+    for query in _POPULAR_SEARCH_QUERIES:
+        key = (query.lower(), 5)
+        previous = _search_cache.get(key)
+        _search_cache.pop(key, None)
+        try:
+            fresh = search(query, 5)
+        except Exception:
+            fresh = []
+        if fresh:
+            # Cache explicitly: refresh must not depend on search_fn
+            # caching (the real search_places does, a test double may
+            # not). Storing copies keeps the cache immutable to callers.
+            _search_cache[key] = [
+                dict(item, address=dict(item.get("address") or {}))
+                for item in fresh
+                if isinstance(item, dict)
+            ]
+        elif previous:
+            _search_cache[key] = previous
+        # Pace every iteration: Nominatim's usage policy asks for at
+        # most 1 request/second, and a search can make several.
+        sleep(_REFRESH_GAP_SECONDS)
+
+
+def start_popular_places_refresh():
+    """Start the one-shot background refresh thread (daemon, no-op twice).
+
+    Called from app.py only when NOEL_SEARCH_WARMUP=1 (production).
+    The thread sleeps briefly first so boot is never blocked.
+    """
+    global _refresh_started
+    if _refresh_started:
+        return
+    _refresh_started = True
+
+    def _run():
+        time.sleep(5)
+        refresh_popular_places()
+
+    thread = threading.Thread(target=_run, name="places-refresh", daemon=True)
+    thread.start()
+
+
+# The snapshot loads at import so the very first request after a
+# (free-tier) restart already has the popular queries warm.
+load_places_snapshot()
 
 
 def haversine_miles(lat1, lng1, lat2, lng2) -> float:

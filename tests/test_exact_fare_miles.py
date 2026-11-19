@@ -133,10 +133,24 @@ class GeocodeRetryCase(_CacheGuard):
             self.assertEqual(fetch.call_count, 1)
 
     def test_no_retry_on_request_error(self):
+        # A request error must not trigger the arrivals/departures
+        # strip-retry. The Photon fallback (a different provider, one
+        # extra call) still runs — it is not the strip-retry.
+        urls = []
+
+        def fetch(url):
+            urls.append(url)
+            raise RuntimeError("down")
+
         with mock.patch.object(geo_module, "_http_get_json",
-                               side_effect=RuntimeError("down")) as fetch:
+                               side_effect=fetch):
             self.assertIsNone(geo_module.geocode("JFK Terminal 1 Arrivals"))
-            self.assertEqual(fetch.call_count, 1)
+        nominatim_urls = [u for u in urls
+                          if "nominatim.openstreetmap.org" in u]
+        self.assertEqual(len(nominatim_urls), 1)
+        self.assertIn("JFK%20Terminal%201%20Arrivals", nominatim_urls[0])
+        photon_urls = [u for u in urls if "photon.komoot.io" in u]
+        self.assertEqual(len(photon_urls), 1)
 
 
 class GeocodeCacheCase(_CacheGuard):
@@ -147,7 +161,10 @@ class GeocodeCacheCase(_CacheGuard):
 
         def fetch(url):
             calls["n"] += 1
-            if calls["n"] <= 2:
+            # Each failing geocode now makes 2 upstream calls (Nominatim
+            # + the Photon fallback), so the first 4 fail and the 5th
+            # succeeds.
+            if calls["n"] <= 4:
                 raise RuntimeError("down")
             return _terminal_payload(*TERMINAL_1)
 
@@ -156,7 +173,7 @@ class GeocodeCacheCase(_CacheGuard):
             self.assertIsNone(geo_module.geocode("JFK Terminal 1"))
             # A later success must still get through: no poisoned miss.
             self.assertEqual(geo_module.geocode("JFK Terminal 1"), TERMINAL_1)
-        self.assertEqual(calls["n"], 3)
+        self.assertEqual(calls["n"], 5)
 
     def test_empty_results_are_not_cached(self):
         with mock.patch.object(geo_module, "_http_get_json",

@@ -24,13 +24,20 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    # One gthread worker with 2 threads: a slow upstream call (Nominatim /
+    # OSRM, ~1s) in one thread no longer blocks page loads and the other
+    # autocomplete field. Threads share memory (free-tier friendly);
+    # Flask-SQLAlchemy sessions are thread-local and the geo caches are
+    # plain dicts, so no extra locking is needed. See geo.py keep-alive.
+    startCommand: gunicorn app:app --workers 1 --threads 2
     healthCheckPath: /
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: noel-chauffer-db
           property: connectionString
+      - key: NOEL_SEARCH_WARMUP
+        value: "1"
       - key: OWNER_PIN
         sync: false
       - key: SECRET_KEY

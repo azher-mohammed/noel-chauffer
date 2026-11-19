@@ -1015,9 +1015,14 @@
     mapEl.classList.remove("hidden");
     if (!state.mapReady) {
       state.map = window.L.map("map").setView([lat, lng], 14);
-      window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      /* CARTO dark basemap (free, no key): a proper CDN, so tiles load
+         without the OSM tile server's rate limits, and the dark tiles
+         match the site's black-and-gold luxury look. Markers, popups
+         and behaviour are unchanged. */
+      window.L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
         maxZoom: 19,
-        attribution: "© OpenStreetMap contributors"
+        subdomains: "abcd",
+        attribution: "© OpenStreetMap contributors © CARTO"
       }).addTo(state.map);
       state.marker = window.L.marker([lat, lng]).addTo(state.map);
       state.marker.bindPopup("Your chauffeur").openPopup();

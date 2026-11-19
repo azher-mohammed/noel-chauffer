@@ -5,6 +5,13 @@ Owner decision 2026-11-18: the two best customer keywords are
 the page title, the meta description, the Service schema and the FAQ
 (both the visible section and the FAQPage JSON-LD), so Google can match
 the page to those searches.
+
+Owner decision 2026-11-19 ("to ye sab daalo"): add the five keywords
+that were still missing — "LaGuardia airport transfer", "Newark airport
+transfer", "luxury car service New York", "car service NYC" and
+"airport car service" — as new FAQ entries (visible + JSON-LD) and in
+the Airport Transfers card, naming LaGuardia and Newark alongside JFK.
+No prices anywhere on the page (owner rule).
 """
 import json
 import re
@@ -39,7 +46,10 @@ class HomepageSeoKeywordsTest(unittest.TestCase):
         schemas = [json.loads(b) for b in blocks]
         service = next(s for s in schemas if s.get("@type") == "Service")
         self.assertIn("Black car service", service["serviceType"])
-        self.assertIn("JFK airport transfers", service["description"])
+        # JFK airport transfers are covered as part of the three-airport
+        # list ("JFK, LaGuardia and Newark airport transfers").
+        self.assertIn("JFK", service["description"])
+        self.assertIn("airport transfers", service["description"])
 
     def test_faq_covers_best_keywords(self):
         blocks = re.findall(
@@ -60,6 +70,56 @@ class HomepageSeoKeywordsTest(unittest.TestCase):
             self.html,
         )
         self.assertIn("<h3>Do you do JFK airport transfers?</h3>", self.html)
+
+    def test_faq_covers_new_airport_keywords(self):
+        blocks = re.findall(
+            r'<script type="application/ld\+json">(.*?)</script>',
+            self.html,
+            re.S,
+        )
+        schemas = [json.loads(b) for b in blocks]
+        faq = next(s for s in schemas if s.get("@type") == "FAQPage")
+        questions = [q["name"] for q in faq["mainEntity"]]
+        new_questions = [
+            "Do you do LaGuardia airport transfers?",
+            "Do you do Newark airport transfers?",
+            "Do you offer luxury car service in New York?",
+        ]
+        for question in new_questions:
+            self.assertIn(question, questions)
+            # Visible FAQ must match the schema, so users see what Google reads.
+            self.assertIn(f"<h3>{question}</h3>", self.html)
+
+    def test_homepage_contains_new_keywords(self):
+        lowered = self.html.lower()
+        for keyword in [
+            "laguardia airport transfer",
+            "newark airport transfer",
+            "luxury car service new york",
+            "car service nyc",
+            "airport car service",
+        ]:
+            self.assertIn(keyword, lowered, keyword)
+
+    def test_airport_transfers_card_names_all_airports(self):
+        self.assertIn(
+            "Flying in or out of JFK, LaGuardia or Newark?", self.html
+        )
+        self.assertIn(
+            "at the right terminal at JFK, LaGuardia or Newark", self.html
+        )
+
+    def test_service_schema_names_all_airports(self):
+        blocks = re.findall(
+            r'<script type="application/ld\+json">(.*?)</script>',
+            self.html,
+            re.S,
+        )
+        schemas = [json.loads(b) for b in blocks]
+        service = next(s for s in schemas if s.get("@type") == "Service")
+        self.assertIn("Luxury car service", service["serviceType"])
+        self.assertIn("LaGuardia and Newark airport transfers",
+                      service["description"])
 
 
 if __name__ == "__main__":

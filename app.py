@@ -3817,6 +3817,11 @@ def owner_page():
     return _serve_page("owner.html", "owner dashboard")
 
 
+@app.route("/privacy")
+def privacy_page():
+    return _serve_page("privacy.html", "privacy policy")
+
+
 # ------------------------------------------------------- place search ------
 
 @app.route("/api/places/search", methods=["GET"])

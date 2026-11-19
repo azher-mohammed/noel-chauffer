@@ -6329,18 +6329,12 @@ def run_pickup_reminders_endpoint():
     return jsonify({"reminded": reminded})
 
 
-@app.route("/api/owner/expiring-documents", methods=["GET"])
-def owner_expiring_documents():
-    """Read-only expiring-soon + expired document list for the owner
-    dashboard (owner decision 2026-11-19): every stored document
-    expiring within the next 10 days, plus every expired one — expired
-    means that driver's registration is paused until they upload a
-    new document. Information only — no action, no approval step.
-    Earliest expiry first."""
-    error = require_owner()
-    if error:
-        return error
-    today = _today_ny()
+def _expiring_document_rows(today):
+    """Every stored document expiring within the next 10 days, plus
+    every expired one — expired means that driver's registration is
+    paused until they upload a new document. Earliest expiry first.
+    Shared by the owner dashboard endpoint and the daily summary
+    email (owner decision 2026-11-19)."""
     rows = []
     for doc in (DriverDocument.query
                 .filter(DriverDocument.expires_on.isnot(None))
@@ -6364,7 +6358,21 @@ def owner_expiring_documents():
             "status": "expired" if days_left < 0 else "expiring_soon",
             "alert_sent": doc.expiry_alert_sent_at is not None,
         })
-    return jsonify({"documents": rows})
+    return rows
+
+
+@app.route("/api/owner/expiring-documents", methods=["GET"])
+def owner_expiring_documents():
+    """Read-only expiring-soon + expired document list for the owner
+    dashboard (owner decision 2026-11-19): every stored document
+    expiring within the next 10 days, plus every expired one — expired
+    means that driver's registration is paused until they upload a
+    new document. Information only — no action, no approval step.
+    Earliest expiry first."""
+    error = require_owner()
+    if error:
+        return error
+    return jsonify({"documents": _expiring_document_rows(_today_ny())})
 
 
 @app.route("/api/owner/run-expiry-alerts", methods=["POST"])
@@ -6401,6 +6409,217 @@ def run_expiry_alerts_endpoint():
             return error
     alerted = run_expiry_alerts()
     return jsonify({"alerted": alerted})
+
+
+# ------------------------------------------------------- daily summary -----
+# Owner decision 2026-11-19 ("rozana summary bhej do"): every morning
+# at 09:00 America/New_York the owner gets one short email covering
+# the previous day (midnight-midnight NY time): rides completed,
+# gross collected, profit, driver owed, new driver registrations,
+# documents expiring soon, emergency cancels, and active/upcoming
+# rides. The numbers come straight from the production database —
+# owner notification emails are not reliably sent, so this is NOT
+# built from Gmail.
+#
+# Trigger: Render cron jobs have no free-plan tier (billed per run
+# from ~$1/month), so no Render cron is configured here. The
+# endpoint below is called by the owner's external scheduler
+# (a Muse cron) once a day:
+#
+#   POST https://noelchauffer.com/api/cron/daily-summary
+#   Authorization: Bearer <DAILY_SUMMARY_CRON_SECRET>
+#
+# with DAILY_SUMMARY_CRON_SECRET set to the same value in Render's
+# environment. A dry run — POST with {"dry_run": true} — returns the
+# summary JSON and sends NO email, for verification.
+
+# Booking statuses that still need doing (everything not completed,
+# cancelled, or no-show).
+ACTIVE_BOOKING_STATUSES = ("offered", "accepted", "en_route", "arrived", "in_progress")
+
+# The owner's mailbox for the daily summary.
+DAILY_SUMMARY_TO = os.environ.get("DAILY_SUMMARY_TO", "m.azherahmed1@gmail.com")
+
+
+def _ny_date_of(dt):
+    """New York date of a stored timestamp. Naive timestamps are
+    read as UTC, matching completion_date() in payouts.py."""
+    from zoneinfo import ZoneInfo
+
+    if dt is None:
+        return None
+    if isinstance(dt, date) and not isinstance(dt, datetime):
+        return dt
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ZoneInfo("America/New_York")).date()
+
+
+def compute_daily_summary(day=None):
+    """One day's owner numbers (day = a New York date; default
+    yesterday). Rides count on their completion date; gross counts
+    completed rides with a succeeded, non-refunded payment (fare
+    total + waiting charge — the same rule as the owner summary);
+    profit is gross minus the driver share of those rides. A
+    refunded ride still counts as completed, but contributes $0.
+    Driver owed (yesterday) is the unpaid driver share of
+    yesterday's completed rides; driver owed (total) is the same
+    unpaid-share rule over all completed rides, as the owner
+    summary computes it."""
+    day = day or (_today_ny() - timedelta(days=1))
+    paid_ids = {p.booking_id for p in Payment.query.filter_by(status="succeeded").all()}
+    refunded_ids = _refunded_booking_ids()
+
+    completed = []
+    gross = Decimal("0.00")
+    driver_cost = Decimal("0.00")
+    driver_owed_yesterday = Decimal("0.00")
+    for b in Booking.query.filter_by(status="completed").all():
+        try:
+            done = completion_date(b.completed_at, b.created_at)
+        except ValueError:
+            continue
+        if done != day:
+            continue
+        completed.append(b)
+        if b.id in refunded_ids:
+            continue
+        if b.id in paid_ids:
+            gross += money(b.fare_total) + money(b.waiting_charge)
+        driver_cost += money(b.driver_earnings)
+        if not b.payout_paid:
+            driver_owed_yesterday += money(b.driver_earnings)
+
+    driver_owed_total = Decimal("0.00")
+    for b in Booking.query.filter_by(status="completed").all():
+        if b.id in refunded_ids or b.payout_paid:
+            continue
+        driver_owed_total += money(b.driver_earnings)
+
+    new_drivers = [d for d in Driver.query.all() if _ny_date_of(d.created_at) == day]
+    cancels = [c for c in EmergencyCancel.query.all() if _ny_date_of(c.created_at) == day]
+    active = (Booking.query
+              .filter(Booking.status.in_(ACTIVE_BOOKING_STATUSES))
+              .order_by(Booking.date, Booking.time, Booking.id)
+              .all())
+    return {
+        "date": day.isoformat(),
+        "rides_completed": len(completed),
+        "completed_rides": [{
+            "id": b.id,
+            "customer_name": b.customer_name,
+            "route": f"{b.pickup} to {b.dropoff}" if b.dropoff else b.pickup,
+            "date": b.date,
+            "time": b.time,
+            "driver_name": b.accepted_driver.name if b.accepted_driver else None,
+            "customer_paid": num(money(b.fare_total) + money(b.waiting_charge)),
+            "driver_earnings": num(b.driver_earnings),
+            "profit": num(booking_profit(b)),
+        } for b in completed],
+        "gross": num(gross),
+        "profit": num(gross - driver_cost),
+        "driver_owed_yesterday": num(driver_owed_yesterday),
+        "driver_owed_total": num(driver_owed_total),
+        "new_drivers_count": len(new_drivers),
+        "new_drivers": [{
+            "id": d.id, "name": d.name, "phone": d.phone,
+        } for d in new_drivers],
+        "documents_expiring_soon": _expiring_document_rows(_today_ny()),
+        "emergency_cancels_count": len(cancels),
+        "emergency_cancels": [{
+            "driver_name": c.driver_name,
+            "reason": c.reason_label or c.reason,
+            "judgment": c.judgment,
+            "flagged": bool(c.flagged),
+        } for c in cancels],
+        "active_rides_count": len(active),
+        "active_rides": [{
+            "id": b.id,
+            "customer_name": b.customer_name,
+            "route": f"{b.pickup} to {b.dropoff}" if b.dropoff else b.pickup,
+            "date": b.date,
+            "time": b.time,
+            "status": b.status,
+            "driver_name": b.accepted_driver.name if b.accepted_driver else None,
+        } for b in active],
+    }
+
+
+def format_daily_summary_email(summary):
+    """Short plain-text email for the owner (Roman Urdu/English mix,
+    like his other owner mail). Returns (subject, body)."""
+    day = date.fromisoformat(summary["date"])
+    subject = "Noel Chauffer — daily summary, " + day.strftime("%b %d, %Y")
+    lines = [
+        "Assalam-o-Alaikum Azher bhai — kal ka hisaab "
+        f"({day.strftime('%b %d, %Y')}):",
+        "",
+        f"Rides completed: {summary['rides_completed']}",
+        f"Gross collected: ${summary['gross']:.2f}",
+        f"Profit: ${summary['profit']:.2f}",
+        f"Driver owed (kal ki rides): ${summary['driver_owed_yesterday']:.2f}",
+        f"Driver owed (total outstanding): ${summary['driver_owed_total']:.2f}",
+        "",
+        f"New drivers: {summary['new_drivers_count']}",
+    ]
+    for d in summary["new_drivers"]:
+        lines.append(f"- {d['name']} ({d['phone']})")
+    lines.append("")
+    lines.append(f"Documents expiring soon: {len(summary['documents_expiring_soon'])}")
+    for doc in summary["documents_expiring_soon"]:
+        left = doc["days_left"]
+        when = "expired" if left < 0 else (f"{left} din baaqi" if left != 1 else "1 din baaqi")
+        lines.append(f"- {doc['driver_name']} — {doc['label']}, expires {doc['expires_on']} ({when})")
+    lines.append("")
+    lines.append(f"Emergency cancels: {summary['emergency_cancels_count']}")
+    for c in summary["emergency_cancels"]:
+        lines.append(f"- {c['driver_name']} — {c['reason']} ({c['judgment']})")
+    lines.append("")
+    lines.append(f"Active / upcoming rides: {summary['active_rides_count']}")
+    for r in summary["active_rides"][:20]:
+        driver = f", driver {r['driver_name']}" if r["driver_name"] else ""
+        lines.append(f"- #{r['id']} — {r['route']}, {r['date']} {r['time']}, {r['status']}{driver}")
+    if summary["active_rides_count"] > 20:
+        lines.append(f"  ...aur {summary['active_rides_count'] - 20} rides")
+    lines.append("")
+    lines.append("— Noel Chauffer (noelchauffer.com)")
+    return subject, "\n".join(lines)
+
+
+@app.route("/api/cron/daily-summary", methods=["POST"])
+def daily_summary_endpoint():
+    """Send (or dry-run) the daily owner summary email.
+
+    Auth: the owner session, OR the bearer secret
+    Authorization: Bearer <DAILY_SUMMARY_CRON_SECRET>. With
+    DAILY_SUMMARY_CRON_SECRET unset, bearer auth is disabled and
+    only the owner session works. Body {"dry_run": true} (or
+    ?dry_run=1) returns the summary JSON and sends NO email.
+    Optional {"date": "YYYY-MM-DD"} summarises that NY date
+    instead of yesterday (verification aid)."""
+    cron_secret = os.environ.get("DAILY_SUMMARY_CRON_SECRET") or ""
+    auth = request.headers.get("Authorization", "")
+    bearer_ok = bool(cron_secret) and hmac.compare_digest(auth, "Bearer " + cron_secret)
+    if not bearer_ok:
+        error = require_owner()
+        if error:
+            return error
+    data = request.get_json(silent=True) or {}
+    dry_run = bool(data.get("dry_run")) or request.args.get("dry_run") in ("1", "true", "yes")
+    day = None
+    raw_date = data.get("date") or request.args.get("date")
+    if raw_date:
+        try:
+            day = date.fromisoformat(str(raw_date))
+        except ValueError:
+            return err("date must be YYYY-MM-DD.", 400)
+    summary = compute_daily_summary(day)
+    if dry_run:
+        return jsonify({"dry_run": True, "sent": False, "summary": summary})
+    subject, body = format_daily_summary_email(summary)
+    status = send_email(DAILY_SUMMARY_TO, subject, body)
+    return jsonify({"sent": status == EMAIL_SENT,
+                    "email_status": status, "summary": summary})
 
 
 @app.route("/api/owner/support-messages", methods=["GET"])

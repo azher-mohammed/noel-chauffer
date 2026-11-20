@@ -55,6 +55,7 @@ classes, each with its own per-mile rate and driver rate. NO booking fee.
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
@@ -81,6 +82,21 @@ CLASS_LABELS = {"sedan": "Business Class", "suv": "Business SUV"}
 # No tax rate, no gratuity rate: both were removed by owner orders
 # 2026-11-17. "tax"/"gratuity" breakdown keys stay at $0.00.
 BOOKING_FEE = Decimal("0")
+
+
+def pricing_mode():
+    """Which fare engine is live: "legacy" (default) or "blacklane".
+
+    The Blacklane-style engine (blacklane_pricing.py) is built but
+    changes NO live price until the owner explicitly says to switch:
+    set NOEL_PRICING=blacklane in the Render environment to flip the
+    customer fare computation to it. Anything else (including an
+    empty value) means the legacy $9/$10 formula. Read from the
+    environment on every call so tests can flip it in-process.
+    """
+    return ("blacklane"
+            if os.environ.get("NOEL_PRICING", "legacy").strip().lower() == "blacklane"
+            else "legacy")
 # Referral discount (owner decision 2026-11-18, voice call): 5% off
 # the total for a NEW customer's first one-way booking made with a
 # valid referral code. The referrer gets nothing; the discount comes

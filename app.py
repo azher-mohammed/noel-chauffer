@@ -89,8 +89,14 @@ from pricing import (
     invoice_total,
     miles_1dp,
     money,
+    pricing_mode,
     waiting_charge,
     waiting_time_elapsed,
+)
+from blacklane_pricing import (
+    blacklane_class_label,
+    blacklane_class_totals,
+    compute_blacklane_one_way,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -3882,12 +3888,30 @@ def recompute_booking_fare(booking):
         result = compute_hourly(booking.hours or Decimal("0"))
         booking.vehicle_class = None
     else:
-        result = compute_one_way(
-            booking.miles or Decimal("0"),
-            toll=booking.toll or Decimal("0"),
-            vehicle_class=booking_vehicle_class(booking),
-            referral=booking_referral_discount_applies(booking),
-        )
+        # First Class has no driver rate (owner decision pending):
+        # a booking stored with that class must never be repriced
+        # with an invented rate — fail loud instead of guessing.
+        if (booking.vehicle_class or "").strip().lower() == "first":
+            raise ValueError(
+                "First Class driver pay is not set — a First Class "
+                "booking cannot be priced.")
+        if pricing_mode() == "blacklane":
+            result = compute_blacklane_one_way(
+                booking.miles or Decimal("0"),
+                booking_vehicle_class(booking),
+                booking.pickup, booking.dropoff,
+                pickup_details=geo_module.geocode_address(booking.pickup),
+                dropoff_details=geo_module.geocode_address(booking.dropoff),
+                toll=booking.toll or Decimal("0"),
+                referral=booking_referral_discount_applies(booking),
+            )
+        else:
+            result = compute_one_way(
+                booking.miles or Decimal("0"),
+                toll=booking.toll or Decimal("0"),
+                vehicle_class=booking_vehicle_class(booking),
+                referral=booking_referral_discount_applies(booking),
+            )
         booking.vehicle_class = result["vehicle_class"]
     booking.fare_total = result["total"]
     booking.driver_earnings = result["driver_earnings"]
@@ -3982,6 +4006,96 @@ def place_search():
         return jsonify({"results": []})
 
 
+# ------------------------------------------------------- fare preview -----
+# Blacklane-style fare preview (owner tool, 2026-11-20): compare the
+# live legacy fare with the Blacklane-style fare for a route, without
+# creating a booking. GET /api/fare-preview?pickup=...&dropoff=...
+# [&class=sedan|suv|first]. The legacy total is fare + map toll; the
+# Blacklane-style total is base fare + Blacklane fees (no map toll in
+# the customer total — see blacklane_pricing.py). First Class shows
+# its customer fare only: driver pay for First Class is TBD (owner
+# decision pending), so driver_earnings/profit are null for it.
+# An address that cannot be resolved is a 400 — no distance is ever
+# invented, same rule as booking creation. Read-only: nothing is
+# stored, and the bookings pause does not apply.
+@app.route("/api/fare-preview", methods=["GET"])
+def fare_preview():
+    pickup = (request.args.get("pickup") or "").strip()
+    dropoff = (request.args.get("dropoff") or "").strip()
+    if not pickup or not dropoff:
+        return err("pickup and dropoff are required.")
+    vehicle_class = (request.args.get("class") or "").strip().lower() or None
+    if vehicle_class is not None and vehicle_class not in ("sedan", "suv", "first"):
+        return err("class must be sedan, suv or first.")
+    miles, pickup_coords, dropoff_coords = geo_module.distance_miles(pickup, dropoff)
+    if miles is None:
+        return err("We couldn't find one of the addresses you entered. "
+                   "Please pick the pickup and drop-off from the address "
+                   "suggestions and try again.")
+    geometry = None
+    if pickup_coords and dropoff_coords:
+        geometry = geo_module.route_geometry(
+            pickup_coords[0], pickup_coords[1],
+            dropoff_coords[0], dropoff_coords[1])
+    toll = estimate_upfront_toll(
+        geo_module.geocode_state(pickup),
+        geo_module.geocode_state(dropoff),
+        pickup,
+        dropoff,
+        geometry,
+    )
+    pickup_details = geo_module.geocode_address(pickup)
+    dropoff_details = geo_module.geocode_address(dropoff)
+    miles_dec = Decimal(str(miles))
+
+    def _legacy_view(cls):
+        result = compute_one_way(miles_dec, toll=toll, vehicle_class=cls)
+        return {
+            "total": num(result["total"]),
+            "fare": num(result["fare"]),
+            "toll": num(result["toll"]),
+            "driver_earnings": num(result["driver_earnings"]),
+            "profit": num(result["profit"]),
+            "vehicle_class": cls,
+            "vehicle_class_label": class_label(cls),
+        }
+
+    def _blacklane_view(cls):
+        result = compute_blacklane_one_way(
+            miles_dec, cls, pickup, dropoff,
+            pickup_details=pickup_details, dropoff_details=dropoff_details,
+            toll=toll)
+        fees = result["fees"]
+        return {
+            "total": num(result["total"]),
+            "base": num(result["base"]),
+            "fees": {k: num(v) for k, v in fees.items()},
+            "toll": num(result["toll"]),
+            "driver_earnings": num(result["driver_earnings"]),
+            "profit": num(result["profit"]),
+            "vehicle_class": cls,
+            "vehicle_class_label": blacklane_class_label(cls),
+            "first_class_driver_pay_tbd": result["first_class_driver_pay_tbd"],
+            "tax_rate_estimated": result["tax_rate_estimated"],
+            "meet_and_greet_unknown": result["meet_and_greet_unknown"],
+        }
+
+    classes = [vehicle_class] if vehicle_class else ["sedan", "suv", "first"]
+    legacy = {cls: _legacy_view(cls) for cls in classes if cls != "first"}
+    blacklane = {cls: _blacklane_view(cls) for cls in classes}
+    return jsonify({
+        "pickup": pickup,
+        "dropoff": dropoff,
+        "miles": num(miles_dec),
+        "toll": num(toll),
+        "pricing_mode": pricing_mode(),
+        "legacy": legacy,
+        "blacklane": blacklane,
+        "first_class_driver_pay": (
+            "TBD — the owner has not set the First Class driver rate yet."),
+    })
+
+
 # ------------------------------------------------------- customer booking ---
 
 def _booking_create_view(booking, referral_code=None):
@@ -4003,10 +4117,27 @@ def _booking_create_view(booking, referral_code=None):
         **flight_info(booking.flight_number, booking.pickup, booking.dropoff),
     }
     if booking.ride_type == "one_way":
-        totals = compute_class_totals(
-            booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"),
-            referral=booking_referral_discount_applies(booking))
-        view["class_totals"] = {k: num(v) for k, v in totals.items()}
+        if pricing_mode() == "blacklane":
+            # Blacklane mode: three class totals (Business, Business
+            # SUV, First Class). First Class shows its customer fare
+            # but is NOT bookable — its driver rate is not set (owner
+            # decision pending), so select_vehicle_class refuses it.
+            totals = blacklane_class_totals(
+                booking.miles or Decimal("0"), booking.pickup, booking.dropoff,
+                pickup_details=geo_module.geocode_address(booking.pickup),
+                dropoff_details=geo_module.geocode_address(booking.dropoff),
+                toll=booking.toll or Decimal("0"),
+                referral=booking_referral_discount_applies(booking))
+            view["class_totals"] = {k: num(v) for k, v in totals.items()}
+            view["first_class_bookable"] = False
+            view["first_class_note"] = (
+                "First Class driver pay has not been set yet, so First "
+                "Class rides cannot be booked.")
+        else:
+            totals = compute_class_totals(
+                booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"),
+                referral=booking_referral_discount_applies(booking))
+            view["class_totals"] = {k: num(v) for k, v in totals.items()}
     # 5% first-ride referral discount granted on this booking
     # ($0.00 when a code was used but no discount applied; None on
     # hourly rides and rows created before the discount existed).
@@ -4164,8 +4295,19 @@ def create_booking():
         # and toll changes recompute it at 5% of the new total.
         booking.vehicle_class = "sedan"
         referral_eligible = referral_valid and is_first_booking_by_phone(booking.phone)
-        result = compute_one_way(booking.miles, toll=booking.toll,
-                                 vehicle_class="sedan", referral=referral_eligible)
+        if pricing_mode() == "blacklane":
+            # Blacklane mode (NOEL_PRICING=blacklane): the customer
+            # total is base fare + Blacklane fees (no map toll in the
+            # total — see blacklane_pricing.py); driver pay stays
+            # miles x driver rate + map toll.
+            result = compute_blacklane_one_way(
+                booking.miles, "sedan", booking.pickup, booking.dropoff,
+                pickup_details=geo_module.geocode_address(booking.pickup),
+                dropoff_details=geo_module.geocode_address(booking.dropoff),
+                toll=booking.toll, referral=referral_eligible)
+        else:
+            result = compute_one_way(booking.miles, toll=booking.toll,
+                                     vehicle_class="sedan", referral=referral_eligible)
 
     booking.fare_total = result["total"]
     booking.driver_earnings = result["driver_earnings"]
@@ -4218,6 +4360,18 @@ def select_vehicle_class(booking_id):
         return err("The vehicle class can only be changed before payment.", 409)
     data = request.get_json(silent=True) or {}
     vehicle_class = data.get("vehicle_class")
+    if vehicle_class == "first":
+        # First Class customer fare exists in the Blacklane engine,
+        # but the First Class DRIVER rate is not set (owner decision
+        # pending, 2026-11-20) — so a First Class booking must never
+        # be created or dispatched with an invented rate. Refuse
+        # here, before anything is stored; in legacy mode "first" is
+        # not a class at all and falls through to the error below.
+        if pricing_mode() == "blacklane":
+            return err("First Class is not bookable yet — the driver rate "
+                       "for First Class has not been set. Please choose "
+                       "Business Class or Business SUV.", 409)
+        return err("vehicle_class must be sedan or suv.")
     if vehicle_class not in ("sedan", "suv"):
         return err("vehicle_class must be sedan or suv.")
     booking.vehicle_class = vehicle_class
@@ -6026,6 +6180,14 @@ def driver_offers():
         # appears only in that driver's offers.
         if b.assigned_driver_id is not None and b.assigned_driver_id != driver.id:
             continue
+        # First Class (Blacklane engine): no driver rate has been set
+        # (owner decision pending), so a First Class booking must
+        # never be offered to any driver. Checked on the RAW column:
+        # booking_vehicle_class() maps unknown classes to "sedan",
+        # which would otherwise let a First Class job through as a
+        # sedan job.
+        if b.vehicle_class == "first":
+            continue
         if b.ride_type == "one_way" and booking_vehicle_class(b) != driver_class:
             continue
         # No double-booking: hide jobs whose time overlaps a ride
@@ -6077,6 +6239,12 @@ def driver_accept(booking_id):
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
+    # First Class (Blacklane engine): no driver rate has been set
+    # (owner decision pending) — a direct accept call must fail too,
+    # never let a First Class job through with an invented rate.
+    if booking.vehicle_class == "first":
+        return err("First Class rides are not open yet — the driver rate "
+                   "for First Class has not been set.", 409)
     if (booking.ride_type == "one_way"
             and booking_vehicle_class(booking) != driver_vehicle_class(driver)):
         return err("This ride is for a different vehicle class.", 409)

@@ -366,6 +366,29 @@ def geocode_state(address: str):
     return None
 
 
+def geocode_address(address: str):
+    """Return the cached geocoder address-details dict for an address, or None.
+
+    Cache-only on purpose (same contract as geocode_state): it reads
+    the address details stored by geocode() and NEVER makes an
+    upstream request itself. The Blacklane pricing engine reads the
+    state/county/city from it to apply the fee rules; when the cache
+    is cold (picked-suggestion coordinates, or a failed lookup) the
+    caller falls back to matching the address display text. Returns
+    a copy so callers cannot mutate the cache. Never raises.
+    """
+    key = (address or "").strip().lower()
+    if not key:
+        return None
+    try:
+        details = _geocode_address_cache.get(key)
+    except Exception:
+        return None
+    if not isinstance(details, dict):
+        return None
+    return dict(details)
+
+
 def _parse_place(item):
     """Normalize one Nominatim item to (result dict, class, type) or None.
 

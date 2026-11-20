@@ -30,6 +30,7 @@ from unittest import mock
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-map-tolls-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "test.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "map-tolls-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -300,6 +301,7 @@ class RouteGeometryCase(unittest.TestCase):
     """route_geometry is cache-only; route_miles warms the cache."""
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         self._saved = dict(geo_module._route_cache)
         geo_module._route_cache.clear()
 
@@ -347,6 +349,7 @@ class MapTollBookingCase(unittest.TestCase):
     """End to end: quote, stored booking, and offer payload agree."""
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -438,8 +441,8 @@ class MapTollBookingCase(unittest.TestCase):
         self.assertTrue(approx(booking["class_totals"]["suv"], "187.46"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "7.46"))
         got = self.client.get(f"/api/bookings/{booking['id']}").get_json()["booking"]
-        self.assertTrue(approx(got["total"], "169.46"), got)
-        self.assertTrue(approx(got["class_totals"]["suv"], "187.46"), got)
+        self.assertNotIn("total", got)
+        self.assertNotIn("class_totals", got)
 
     def test_queensboro_route_quote_has_zero_toll(self):
         self.seed_geometry(QUEENSBORO_BRIDGE)
@@ -486,16 +489,18 @@ class MapTollBookingCase(unittest.TestCase):
         self.assertTrue(approx(self.stored_toll(booking["id"]), "0.00"))
 
     # -- driver offer payload (before accept) ------------------------------
-    def test_offer_payload_carries_map_toll(self):
+    def test_offer_payload_carries_no_map_toll_or_earnings(self):
         _, token = self.register_driver()
         self.seed_geometry(MIDTOWN_TUNNEL)
         booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         offers = self.offers(token)
         self.assertEqual(len(offers), 1)
-        # 18 miles x $4 sedan rate = $72 driving pay + $7.46 toll.
-        self.assertTrue(approx(offers[0]["toll"], "7.46"), offers[0])
-        self.assertTrue(approx(offers[0]["earnings"], "79.46"), offers[0])
+        # The $7.46 toll is stored (see stored_toll below) but hidden
+        # from the driver while prices are paused.
+        self.assertNotIn("toll", offers[0])
+        self.assertNotIn("earnings", offers[0])
+        self.assertTrue(approx(self.stored_toll(booking["id"]), "7.46"))
         forbidden = {"miles", "fare", "total", "gratuity", "tax", "profit"}
         self.assertFalse(forbidden & set(offers[0]))
 
@@ -510,8 +515,8 @@ class MapTollBookingCase(unittest.TestCase):
                                 json={"toll": 12.00})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         offers = self.offers(token)
-        self.assertTrue(approx(offers[0]["toll"], "12.00"), offers[0])
-        self.assertTrue(approx(offers[0]["earnings"], "84.00"), offers[0])
+        self.assertNotIn("toll", offers[0])
+        self.assertNotIn("earnings", offers[0])
         self.assertTrue(approx(self.stored_toll(booking["id"]), "12.00"))
 
 

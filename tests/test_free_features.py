@@ -28,6 +28,7 @@ from decimal import Decimal
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-free-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "free.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "free-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -64,6 +65,7 @@ def read(rel):
 
 class FreeFeaturesCase(unittest.TestCase):
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -327,12 +329,11 @@ class FreeFeaturesCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         # Driver-facing complete response gains NO new money field.
         self.assertNotIn("extra_distance_charge", resp.get_json().get("invoice", {}))
-        # Customer invoice: fare_total now includes the extra distance.
+        # Customer view: no invoice and no total while prices are paused.
         resp = self.client.get(f"/api/bookings/{booking['id']}")
         got = resp.get_json()["booking"]
-        self.assertTrue(approx(got["invoice"]["total"], "207.00"))
-        self.assertTrue(approx(got["invoice"]["extra_distance_charge"], "45.00"))
-        self.assertTrue(approx(got["total"], "207.00"))
+        self.assertIsNone(got["invoice"])
+        self.assertNotIn("total", got)
         # Owner breakdown: fare/driver increased; gratuity/tax stay $0.
         self.owner_login()
         resp = self.client.get(f"/api/owner/bookings/{booking['id']}")

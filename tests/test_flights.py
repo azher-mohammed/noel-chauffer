@@ -27,6 +27,7 @@ import unittest
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-flights-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "flights.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "flights-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -133,6 +134,7 @@ class FlightsApiTestCase(unittest.TestCase):
     _counter = 0
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         self.client = app_module.app.test_client()
 
     def _book(self, pickup, dropoff, **extra):
@@ -228,7 +230,8 @@ class TestDriverFlightPayloads(FlightsApiTestCase):
         self.assertEqual(trip["flight_number"], "EK215")
         self.assertEqual(trip["airline_name"], "Emirates")
         self.assertEqual(trip["terminal"], "Terminal 4 Arrivals")
-        self.assertIn("earnings", trip)
+        self.assertNotIn("earnings", trip)
+        self.assertNotIn("toll", trip)
         self.assertFalse(FORBIDDEN_KEYS & set(trip.keys()))
 
         resp = self.client.get("/api/drivers/me/active-trip", headers=headers)

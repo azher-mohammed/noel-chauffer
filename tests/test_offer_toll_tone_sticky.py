@@ -1,10 +1,10 @@
 """Tests for the driver offer card: toll line, new-offer tone, sticky job.
 
 Owner decisions 2026-11-16 (voice call):
-- The toll shows as a SEPARATE line on the driver job card, under the
-  earnings, and only when a toll applies ("agar toll laga to").
-  Earnings from the API include the toll; the card shows the driving
-  pay on its own and the toll on its own line.
+ - While prices are paused (owner decision 2026-11-20) the driver job
+  card shows NO toll line and NO earnings: pickup, drop-off and time
+  only. The toll math itself is unchanged (see test_pricing_split_matches_card)
+  and the owner still sees the toll on the booking detail.
 - When a ride/job arrives, the driver hears a tone so he knows a job
   came in. The tone repeats the chime pattern for 30 seconds and
   stops when he accepts/declines, when the offer disappears, or when
@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-offer-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "offer.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "offer-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -64,6 +65,7 @@ def read(rel):
 
 class OfferTollToneCase(unittest.TestCase):
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -132,28 +134,30 @@ class OfferTollToneCase(unittest.TestCase):
                                headers={"X-Driver-Token": token}).get_json()
 
     # -- toll in driver payloads ------------------------------------------
-    def test_offers_carry_toll_and_earnings_include_it(self):
+    def test_offers_carry_no_toll_or_earnings(self):
         _, token = self.register_driver()
         booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.set_toll(booking["id"], 16.00)
         offers = self.offers(token)
         self.assertEqual(len(offers), 1)
-        self.assertTrue(approx(offers[0]["toll"], "16.00"), offers[0])
-        # 18 miles x $4 sedan rate = $72 driving pay + $16 toll.
-        self.assertTrue(approx(offers[0]["earnings"], "88.00"), offers[0])
+        self.assertNotIn("toll", offers[0])
+        self.assertNotIn("earnings", offers[0])
         self.assertFalse(FORBIDDEN_KEYS & set(offers[0]))
+        # The toll is still stored and visible to the owner.
+        detail = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
+        self.assertTrue(approx(detail["toll"], "16.00"), detail)
 
-    def test_no_toll_means_zero_toll_in_offers(self):
+    def test_no_toll_means_no_toll_or_earnings_in_offers(self):
         _, token = self.register_driver()
         booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         offers = self.offers(token)
         self.assertEqual(len(offers), 1)
-        self.assertTrue(approx(offers[0]["toll"], "0.00"), offers[0])
-        self.assertTrue(approx(offers[0]["earnings"], "72.00"), offers[0])
+        self.assertNotIn("toll", offers[0])
+        self.assertNotIn("earnings", offers[0])
 
-    def test_toll_in_accept_and_active_trip_payloads(self):
+    def test_accept_and_active_trip_carry_no_toll_or_earnings(self):
         _, token = self.register_driver()
         booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
@@ -163,12 +167,16 @@ class OfferTollToneCase(unittest.TestCase):
             headers={"X-Driver-Token": token})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         accepted = resp.get_json()["booking"]
-        self.assertTrue(approx(accepted["toll"], "16.00"), accepted)
+        self.assertNotIn("toll", accepted)
+        self.assertNotIn("earnings", accepted)
         trip = self.client.get(
             "/api/drivers/me/active-trip",
             headers={"X-Driver-Token": token}).get_json()["booking"]
-        self.assertTrue(approx(trip["toll"], "16.00"), trip)
-        self.assertTrue(approx(trip["earnings"], "88.00"), trip)
+        self.assertNotIn("toll", trip)
+        self.assertNotIn("earnings", trip)
+        # The toll is still stored and visible to the owner.
+        detail = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
+        self.assertTrue(approx(detail["toll"], "16.00"), detail)
 
     def test_pricing_split_matches_card(self):
         # The example card: 20-mile SUV, $140 driving pay + $16 toll.
@@ -197,15 +205,16 @@ class OfferTollToneCase(unittest.TestCase):
         self.assertEqual(self.offers(token), [])
 
     # -- frontend rendering ---------------------------------------------------
-    def test_driver_js_renders_toll_line_only_when_toll_applies(self):
+    def test_driver_js_renders_no_toll_line_or_earnings(self):
         driver_js = read("static/js/driver.js")
-        self.assertIn("toll-line", driver_js)
-        self.assertIn('pickNumber(o, ["toll"])', driver_js)
-        self.assertIn("toll: pickNumber(b, [\"toll\"])", driver_js)
-        self.assertIn("if (toll > 0)", driver_js)
-        self.assertIn("if (tripToll > 0)", driver_js)
-        self.assertIn("baseEarnings", driver_js)
-        self.assertIn("tripBase", driver_js)
+        self.assertNotIn("toll-line", driver_js)
+        self.assertNotIn('pickNumber(o, ["toll"])', driver_js)
+        self.assertNotIn("toll: pickNumber(b, [\"toll\"])", driver_js)
+        self.assertNotIn("if (toll > 0)", driver_js)
+        self.assertNotIn("if (tripToll > 0)", driver_js)
+        self.assertNotIn("baseEarnings", driver_js)
+        self.assertNotIn("tripBase", driver_js)
+        self.assertIn("Amounts are hidden while prices are being updated.", driver_js)
 
     def test_driver_js_rings_for_new_offers_only(self):
         driver_js = read("static/js/driver.js")

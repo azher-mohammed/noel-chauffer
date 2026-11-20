@@ -1,10 +1,11 @@
 """Tests for the driver referral link (owner decision 2026-11-18,
 voice call + chat confirmation 09:35 EST).
 
-- The driver app has a referral section on the Profile screen showing
-  EXACTLY "Get $5 in cash for each ride you refer." plus the driver's
+ - The driver app has a referral section on the Profile screen showing
+  "Refer a driver friend and earn referral credit." (no $ figure while
+  prices are paused, owner decision 2026-11-20) plus the driver's
   shareable link (Copy + Share, same pattern as the customer referral
-  link) and his own referral earnings.
+  link) and his own referral job counts.
 - The referral is a LINK, not a code number: /driver?ref=CODE lands a
   signed-out friend straight in driver registration (bypassing the
   login screen), with the referrer captured. The registration form
@@ -35,6 +36,7 @@ from decimal import Decimal
 _tmpdir = tempfile.mkdtemp(prefix="noel-driver-referral-")
 _db_url = "sqlite:///" + os.path.join(_tmpdir, "test.db")
 os.environ["DATABASE_URL"] = _db_url
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "driver-referral-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -65,6 +67,7 @@ def read(rel):
 
 class DriverReferralCase(unittest.TestCase):
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -223,14 +226,14 @@ class DriverReferralCase(unittest.TestCase):
         code_b = self.referral_view(token_b)["referral_code"]
         self.assertRegex(code_b, CODE_RE)
         self.assertNotEqual(code_a, code_b)
-        # The referrer sees the friend in his breakdown: 0 jobs, $0.
+        # The referrer sees the friend in his breakdown: 0 jobs, no amounts.
         view_a = self.referral_view(token_a)
         self.assertEqual(len(view_a["referred_drivers"]), 1)
         friend = view_a["referred_drivers"][0]
         self.assertEqual(friend["name"], driver_b["name"])
         self.assertEqual(friend["jobs_counted"], 0)
-        self.assertEqual(friend["earned"], 0)
-        self.assertEqual(view_a["total_earned"], 0)
+        self.assertNotIn("earned", friend)
+        self.assertNotIn("total_earned", view_a)
         self.assertEqual(view_a["jobs_counted"], 0)
 
     def test_invalid_referral_code_registers_normally(self):
@@ -275,13 +278,13 @@ class DriverReferralCase(unittest.TestCase):
             self.assertEqual(row["referrer_name"], driver_a["name"])
             self.assertEqual(row["referred_driver_name"], driver_b["name"])
         view_a = self.referral_view(token_a)
-        self.assertEqual(view_a["total_earned"], 75.00)
+        self.assertNotIn("total_earned", view_a)
+        self.assertNotIn("credit_per_job", view_a)
         self.assertEqual(view_a["jobs_counted"], 15)
-        self.assertEqual(view_a["credit_per_job"], 5.00)
         self.assertEqual(view_a["max_jobs_per_driver"], 15)
         friend = view_a["referred_drivers"][0]
         self.assertEqual(friend["jobs_counted"], 15)
-        self.assertEqual(friend["earned"], 75.00)
+        self.assertNotIn("earned", friend)
 
     def test_no_referrer_no_credits(self):
         _, token = self.register_driver()
@@ -303,7 +306,7 @@ class DriverReferralCase(unittest.TestCase):
         _, token_b = self.register_driver(referral_code=code_a)
         self.complete_job(token_b)
         view_b = self.referral_view(token_b)
-        self.assertEqual(view_b["total_earned"], 0)
+        self.assertNotIn("total_earned", view_b)
         self.assertEqual(view_b["referred_drivers"], [])
         # Nothing about the referrer leaks into the referred driver's
         # own view.
@@ -319,7 +322,7 @@ class DriverReferralCase(unittest.TestCase):
         earn = self.client.get("/api/drivers/me/earnings",
                                headers={"X-Driver-Token": token_a}).get_json()
         self.assertEqual(earn["completed_rides"], 0)
-        self.assertEqual(earn["total_earnings"], 0)
+        self.assertNotIn("total_earnings", earn)
 
     # -- owner visibility --------------------------------------------------
     def test_owner_referrals_endpoint(self):
@@ -411,8 +414,9 @@ class DriverReferralCase(unittest.TestCase):
     def test_profile_screen_has_referral_section_with_exact_line(self):
         html = read("static/driver.html")
         profile = html[html.index('id="screen-profile"'):html.index('id="tabbar"')]
-        # The owner's dictated line, verbatim.
-        self.assertIn("Get $5 in cash for each ride you refer.", profile)
+        # No $ figure while prices are paused (owner decision 2026-11-20).
+        self.assertIn("Refer a driver friend and earn referral credit.", profile)
+        self.assertNotIn("$5", profile)
         for element_id in ("driver-referral-box", "driver-referral-show-btn",
                            "driver-referral-link-line",
                            "driver-referral-link-anchor",
@@ -424,7 +428,7 @@ class DriverReferralCase(unittest.TestCase):
         self.assertIn("Copy link", profile)
         self.assertIn("Share link", profile)
         # The line appears exactly once in the whole driver app.
-        self.assertEqual(html.count("Get $5 in cash for each ride you refer."), 1)
+        self.assertEqual(html.count("Refer a driver friend and earn referral credit."), 1)
 
     def test_registration_form_has_no_referral_field(self):
         # Registration stays easy: no extra field or step — the

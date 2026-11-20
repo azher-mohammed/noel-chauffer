@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-payflow-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "payflow.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "payflow-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -58,6 +59,7 @@ def approx(a, b):
 
 class PayBeforeDispatchCase(unittest.TestCase):
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -128,10 +130,11 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertEqual(booking["status"], "awaiting_payment")
         self.assertTrue(approx(booking["total"], "162.00"), booking)
 
-    def test_total_visible_before_any_driver_accept(self):
+    def test_total_hidden_before_any_driver_accept(self):
         booking = self.book()
         got = self.get_booking(booking["id"])
-        self.assertTrue(approx(got["total"], "162.00"), got)
+        self.assertNotIn("total", got)
+        self.assertNotIn("class_totals", got)
         self.assertIsNone(got["driver"])
         self.assertIs(got["tracking"]["visible"], False)
 
@@ -172,7 +175,8 @@ class PayBeforeDispatchCase(unittest.TestCase):
                                  headers={"X-Driver-Token": token}).get_json()
         self.assertEqual(len(offers), 1)
         self.assertEqual(offers[0]["booking_id"], booking["id"])
-        self.assertTrue(approx(offers[0]["earnings"], "72.00"))
+        self.assertNotIn("earnings", offers[0])
+        self.assertNotIn("toll", offers[0])
         self.assertFalse(FORBIDDEN_KEYS & set(offers[0]))
 
     def test_double_pay_rejected(self):
@@ -201,7 +205,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         got = self.get_booking(booking["id"])
         self.assertEqual(got["driver"]["name"], "Pay Driver 1")
-        self.assertTrue(approx(got["total"], "162.00"))
+        self.assertNotIn("total", got)
         for event in ("en_route", "arrived", "start", "complete"):
             resp = self.client.post(f"/api/drivers/me/trip/{booking['id']}/event",
                                     json={"event": event, "waiting_minutes": 75}
@@ -211,7 +215,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
                              f"{event}: {resp.get_data(as_text=True)[:200]}")
         got = self.get_booking(booking["id"])
         self.assertEqual(got["status"], "completed")
-        self.assertTrue(approx(got["invoice"]["total"], "177.00"))
+        self.assertIsNone(got["invoice"])
 
     def test_driver_cancel_keeps_payment_and_redispatches(self):
         _, token1 = self.register_driver()
@@ -225,10 +229,10 @@ class PayBeforeDispatchCase(unittest.TestCase):
                                 headers={"X-Driver-Token": token1})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get_json()["booking"]["status"], "offered")
-        # Customer still sees the total; driver details are gone again.
+        # Customer sees no total; driver details are gone again.
         got = self.get_booking(booking["id"])
         self.assertIsNone(got["driver"])
-        self.assertTrue(approx(got["total"], "162.00"))
+        self.assertNotIn("total", got)
         # Payment kept; the other driver sees the offer again.
         self.owner_login()
         detail = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
@@ -386,7 +390,8 @@ class PayBeforeDispatchCase(unittest.TestCase):
         offers = self.client.get("/api/drivers/me/offers",
                                  headers={"X-Driver-Token": token}).get_json()
         self.assertEqual(len(offers), 1)
-        self.assertTrue(approx(offers[0]["earnings"], "150.00"))
+        self.assertNotIn("earnings", offers[0])
+        self.assertNotIn("toll", offers[0])
         self.assertFalse(FORBIDDEN_KEYS & set(offers[0]))
         resp = self.client.post(f"/api/drivers/me/offers/{booking['id']}/accept",
                                 headers={"X-Driver-Token": token})
@@ -399,7 +404,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         earn = self.client.get("/api/drivers/me/earnings",
                                headers={"X-Driver-Token": token}).get_json()
         self.assertEqual(earn["completed_rides"], 1)
-        self.assertTrue(approx(earn["total_earnings"], "150.00"))
+        self.assertNotIn("total_earnings", earn)
 
     def test_referral_total_shown_and_paid(self):
         first = self.book()
@@ -423,12 +428,13 @@ class PayBeforeDispatchCase(unittest.TestCase):
                                 headers={"X-Driver-Token": token})
         trip = resp.get_json()["booking"]
         self.assertFalse(FORBIDDEN_KEYS & set(trip))
-        self.assertIn("earnings", trip)
+        self.assertNotIn("earnings", trip)
+        self.assertNotIn("toll", trip)
         active = self.client.get("/api/drivers/me/active-trip",
                                  headers={"X-Driver-Token": token}).get_json()["booking"]
         self.assertFalse(FORBIDDEN_KEYS & set(active))
 
-    def test_history_shows_total_for_unpaid_and_paid(self):
+    def test_history_shows_no_total_for_unpaid_and_paid(self):
         unpaid = self.book()
         paid = self.book()
         self.assertEqual(self.pay(paid["id"]).status_code, 200)
@@ -437,10 +443,10 @@ class PayBeforeDispatchCase(unittest.TestCase):
             phone_p = app_module.db.session.get(app_module.Booking, paid["id"]).phone
         hist_u = self.client.get("/api/bookings", query_string={"phone": phone_u}).get_json()
         self.assertEqual(len(hist_u), 1)
-        self.assertTrue(approx(hist_u[0]["total"], "162.00"), hist_u)
+        self.assertNotIn("total", hist_u[0])
         hist_p = self.client.get("/api/bookings", query_string={"phone": phone_p}).get_json()
         self.assertEqual(len(hist_p), 1)
-        self.assertTrue(approx(hist_p[0]["total"], "162.00"), hist_p)
+        self.assertNotIn("total", hist_p[0])
 
     # -- static copy matches the new flow ----------------------------------------
     def test_static_copy_matches_new_flow(self):

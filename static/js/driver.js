@@ -1,7 +1,7 @@
 /* Noel Chauffer — driver app logic.
-   The driver sees ONLY his own pay per job: his earnings, plus the
-   toll on its own line when a toll applies. No other money figure
-   is ever displayed. A job offer stays on screen until the driver
+   While prices are paused the driver sees NO money figure at all:
+   a job shows pickup, drop-off and time only. A job offer stays on
+   screen until the driver
    accepts or declines it — it never expires on its own — and a tone
    repeats for 30 seconds when a new offer arrives so the driver
    knows a job came in, stopping when he answers or the offer goes.
@@ -926,8 +926,6 @@
       hours: b.hours,
       vehicle_class: b.vehicle_class,
       vehicle_class_label: b.vehicle_class_label,
-      earnings: pickNumber(b, ["earnings", "driver_earnings", "amount"]),
-      toll: pickNumber(b, ["toll"]),
       route_url: b.route_url,
       route_waze_url: b.route_waze_url,
       free_waiting_minutes: b.free_waiting_minutes,
@@ -1764,7 +1762,7 @@
     try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) { /* ignore */ }
   }
 
-  /* ---------- Job offers (earnings only) ---------- */
+  /* ---------- Job offers (no amounts while prices are being updated) ---------- */
   function startOffersPolling() {
     if (state.offersTimer) clearInterval(state.offersTimer);
     state.offersTimer = setInterval(function () {
@@ -1825,10 +1823,7 @@
     /* The job stays put until the driver accepts or declines it: when
        nothing about the offers changed, leave the cards untouched so
        the list never flickers or rebuilds under the driver's tap. */
-    var sig = list.map(function (o) {
-      return [offerId(o), pickNumber(o, ["earnings", "driver_earnings", "amount"]),
-              pickNumber(o, ["toll"]) || 0].join(":");
-    }).join("|");
+    var sig = list.map(function (o) { return offerId(o); }).join("|");
     if (sig === state.lastOffersSig) return;
     state.lastOffersSig = sig;
     box.innerHTML = "";
@@ -1842,21 +1837,10 @@
       var cls = classLabelFor(o);
       if (cls) when += (when ? " · " : "") + cls;
       if (o.ride_type === "hourly") when += (when ? " · " : "") + "By the hour" + (o.hours ? " · " + o.hours + " hour(s)" : "");
-      var earnings = pickNumber(o, ["earnings", "driver_earnings", "amount"]);
-      var toll = pickNumber(o, ["toll"]) || 0;
-      /* Earnings from the API include the toll; the card shows the
-         driving pay on its own and the toll as a separate line, only
-         when a toll applies. */
-      var baseEarnings = earnings;
-      if (toll > 0 && earnings !== null) {
-        baseEarnings = Math.max(0, Math.round((earnings - toll) * 100) / 100);
-      }
+      /* PAUSED (owner decision 2026-11-20): offers show pickup,
+         drop-off and time only — no earnings, no toll. */
       var html = '<div class="route">' + route + "</div>" +
-        '<div class="when">' + esc(when) + "</div>" +
-        '<div class="earnings"><span class="label">Your earnings</span><span class="amount">' + esc(money(baseEarnings)) + "</span></div>";
-      if (toll > 0) {
-        html += '<div class="toll-line"><span class="label">Toll</span><span class="amount">' + esc(money(toll)) + "</span></div>";
-      }
+        '<div class="when">' + esc(when) + "</div>";
       if (o.route_url) {
         html += '<a class="route-link" href="' + esc(o.route_url) + '" target="_blank" rel="noopener">Google Maps ↗</a>';
       }
@@ -2021,21 +2005,9 @@
       flightEl.textContent = "";
       hide(flightEl);
     }
-    /* Same split as the offer card: driving pay on its own, and the
-       toll as a separate line only when a toll applies. */
-    var tripToll = pickNumber(t, ["toll"]) || 0;
-    var tripBase = t.earnings;
-    if (tripToll > 0 && tripBase !== null) {
-      tripBase = Math.max(0, Math.round((tripBase - tripToll) * 100) / 100);
-    }
-    var tripEarningsHtml =
-      '<div class="earnings" style="background:#fffdf4;border:1px solid var(--gold);border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">' +
-      '<span class="label" style="font-size:13px;letter-spacing:0.05em;text-transform:uppercase;color:var(--grey);">Your earnings</span>' +
-      '<span class="amount" style="font-family:Georgia,serif;font-size:26px;">' + esc(money(tripBase)) + "</span></div>";
-    if (tripToll > 0) {
-      tripEarningsHtml += '<div class="toll-line"><span class="label">Toll</span><span class="amount">' + esc(money(tripToll)) + "</span></div>";
-    }
-    $("trip-earnings").innerHTML = tripEarningsHtml;
+    /* PAUSED (owner decision 2026-11-20): no earnings shown on the
+       trip screen. */
+    $("trip-earnings").innerHTML = "";
     /* Navigation links are staged (pickup until picked up, then
        drop-off) and re-render with the stages — see
        renderTripNavLinks. */
@@ -2629,8 +2601,7 @@
         '<div class="pw-top"><div class="pw-range">' + esc(fmtDay(w.start) + " – " + fmtDay(w.end)) + "</div>" +
         '<span class="badge ' + (paid ? "done" : "todo") + '">' + (paid ? "Paid" : "Unpaid") + "</span></div>" +
         '<div class="pw-meta">Due ' + esc(fmtDay(w.due_date)) +
-        (count !== null ? " · " + count + " ride(s)" : "") + "</div>" +
-        '<div class="pw-amount">' + esc(money(pickNumber(w, ["total_earnings", "total", "amount"]))) + "</div>";
+        (count !== null ? " · " + count + " ride(s)" : "") + "</div>";
       box.appendChild(card);
     });
   }
@@ -2640,27 +2611,14 @@
       .then(function (j) {
         var weeks = j.weeks || j.pay_periods || j.payouts || [];
         renderPayoutWeeks(weeks);
-        /* Unpaid earnings available for instant cash-out: the sum of
-           the unpaid pay weeks. The driver sees only his own
-           earnings — never miles, customer price or total fare. */
-        var unpaid = 0;
-        (weeks || []).forEach(function (w) {
-          var paid = w.paid === true || w.status === "paid";
-          if (!paid) {
-            var v = pickNumber(w, ["total_earnings", "total", "amount"]);
-            if (v !== null) unpaid += v;
-          }
-        });
-        state.unpaidCashout = unpaid;
+        /* PAUSED (owner decision 2026-11-20): amounts are hidden, so
+           there is nothing available to cash out. */
+        state.unpaidCashout = 0;
         renderPayoutSetup();
         var list = Array.isArray(j) ? j : (j.earnings || j.rides || j.completed || []);
         var box = $("earnings-list");
         box.innerHTML = "";
-        var sum = 0;
-        var haveRows = false;
         list.forEach(function (r) {
-          var val = pickNumber(r, ["earnings", "driver_earnings", "amount"]);
-          if (val !== null) { sum += val; haveRows = true; }
           var route = esc(r.route || "");
           if (!route) {
             route = esc(r.pickup || "");
@@ -2676,18 +2634,15 @@
           }
           var div = document.createElement("div");
           div.className = "earn-item";
-          div.innerHTML = "<div><div class=\"r\">" + (route || "Ride") + "</div><div class=\"m\">" + esc(meta) + "</div></div>" +
-            "<div class=\"a\">" + esc(money(val)) + "</div>";
+          div.innerHTML = "<div><div class=\"r\">" + (route || "Ride") + "</div><div class=\"m\">" + esc(meta) + "</div></div>";
           box.appendChild(div);
         });
+        /* PAUSED (owner decision 2026-11-20): amounts are hidden. */
+        $("earnings-sum").textContent = "Amounts are hidden while prices are being updated.";
         if (!list.length) {
           show($("earnings-empty"));
-          var only = pickNumber(j, ["total_earnings", "earnings_sum", "sum", "earned", "amount", "total_earned"]);
-          $("earnings-sum").textContent = only !== null ? money(only) : money(0);
         } else {
           hide($("earnings-empty"));
-          var summary = pickNumber(j, ["total_earnings", "earnings_sum", "sum", "earned", "amount", "total_earned"]);
-          $("earnings-sum").textContent = money(summary !== null ? summary : (haveRows ? sum : 0));
         }
       })
       .catch(function () { /* keep the previous view on a failed check */ });
@@ -2695,11 +2650,11 @@
 
   /* ---------- Payout setup (Stripe Connect) ---------- */
   /* Weekly payout (free, due 7 days after the week starts) needs a
-     bank account on file; instant cash-out (1.5% fee, on the
-     driver's side) needs a linked debit card. Bank details are
-     entered in Stripe's hosted onboarding only — never in this app
-     and never sent to Noel. The driver sees only his own earnings
-     here: the cash-out gross, fee and net, and the unpaid total. */
+     bank account on file; instant cash-out needs a linked debit
+     card. Bank details are entered in Stripe's hosted onboarding
+     only — never in this app and never sent to Noel. PAUSED (owner
+     decision 2026-11-20): instant cash-out is paused and no amounts
+     are shown anywhere on this screen. */
   function renderPayoutSetup() {
     var statusEl = $("payout-setup-status");
     if (!statusEl) return;
@@ -2741,14 +2696,11 @@
     } else {
       debitEl.textContent = "No debit card linked — link one to cash out instantly";
     }
-    cashoutAmount.textContent = (state.unpaidCashout === null || state.unpaidCashout === undefined)
-      ? "—" : money(state.unpaidCashout);
-    /* Cash out is only offered when there is something to cash out
-       and a debit card is linked; without a linked card, only the
-       free weekly payout is available. The server still enforces
-       this (409) — the button state is only the visible hint. */
+    /* PAUSED (owner decision 2026-11-20): instant cash-out is paused
+       and no amount is shown. */
+    cashoutAmount.textContent = "Paused while prices are being updated.";
     if (cashoutBtn) {
-      cashoutBtn.disabled = !(s.debit_card_linked && state.unpaidCashout !== null && state.unpaidCashout > 0);
+      cashoutBtn.disabled = true;
     }
   }
 
@@ -2829,6 +2781,9 @@
     var result = $("payout-cashout-result");
     err.textContent = "";
     result.textContent = "";
+    /* PAUSED (owner decision 2026-11-20): instant cash-out is paused. */
+    err.textContent = "Instant cash-out is paused while prices are being updated. Please check back soon.";
+    return;
     var gross = state.unpaidCashout;
     if (!gross || gross <= 0) {
       err.textContent = "There are no unpaid earnings to cash out.";
@@ -2873,8 +2828,8 @@
     fetch("/api/drivers/me/tax-info", { headers: authHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        var total = pickNumber(j, ["earnings_year", "total_earnings"]);
-        $("tax-earnings-2026").textContent = money(total !== null ? total : 0);
+        /* PAUSED (owner decision 2026-11-20): amounts are hidden. */
+        $("tax-earnings-2026").textContent = "Amounts are hidden while prices are being updated.";
         var rides = pickNumber(j, ["completed_rides_year", "ride_count"]);
         $("tax-rides-2026").textContent = rides !== null
           ? rides + (rides === 1 ? " completed ride" : " completed rides") + " in 2026"
@@ -3076,19 +3031,16 @@
   function renderDriverReferralEarnings(j) {
     var box = $("driver-referral-earnings");
     if (!box) return;
-    var total = pickNumber(j, ["total_earned"]);
     var maxJobs = pickNumber(j, ["max_jobs_per_driver"]) || 15;
-    var html = '<div class="referral-total"><span class="k">Referral earnings</span><span>' +
-      esc(money(total !== null ? total : 0)) + "</span></div>";
+    /* PAUSED (owner decision 2026-11-20): no referral amounts shown. */
+    var html = '<p class="form-note">Referral amounts are hidden while prices are being updated.</p>';
     var friends = (j && j.referred_drivers) || [];
     if (!friends.length) {
       html += '<p class="form-note">No friends referred yet. Share your link to get started.</p>';
     } else {
       friends.forEach(function (f) {
         var counted = pickNumber(f, ["jobs_counted"]);
-        var earned = pickNumber(f, ["earned"]);
         html += '<div class="referral-earn-row"><span>' + esc(f.name || "Driver") + "</span><span>" +
-          esc(money(earned !== null ? earned : 0)) + " · " +
           esc(String(counted !== null ? counted : 0)) + " of " + esc(String(maxJobs)) + " rides</span></div>";
       });
     }

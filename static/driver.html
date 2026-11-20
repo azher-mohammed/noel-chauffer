@@ -20,7 +20,7 @@
   "@context": "https://schema.org",
   "@type": "JobPosting",
   "title": "Chauffeur Driver",
-  "description": "Drive with Noel Chauffer, a luxury car-with-chauffeur service across the USA. Drivers use their own cars, see job offers in the driver app, and accept the jobs they want. You see what each job pays before you accept it.",
+  "description": "Drive with Noel Chauffer, a luxury car-with-chauffeur service across the USA. Drivers use their own cars, see job offers in the driver app, and accept the jobs they want. You see each job's pickup, drop-off and time before you accept it.",
   "datePosted": "2026-11-18",
   "directApply": true,
   "employmentType": "CONTRACTOR",
@@ -389,7 +389,7 @@
       <p class="form-note" id="payout-weekly-note"></p>
       <button class="btn-ghost" type="button" id="payout-setup-btn">Set up payouts</button>
       <div class="payout-line"><span class="payout-key">Instant payout</span><span id="payout-debit-line">—</span></div>
-      <p class="form-note">Instant cash-out costs 1.5% of the amount. Without a linked debit card, only the free weekly payout is available.</p>
+      <p class="form-note">Instant cash-out is paused while prices are being updated.</p>
       <button class="btn-ghost" type="button" id="payout-link-card-btn">Link debit card</button>
       <div class="payout-line"><span class="payout-key">Available to cash out now</span><span id="payout-cashout-amount">—</span></div>
       <button class="btn-primary btn-gold" type="button" id="payout-cashout-btn" disabled>Cash out now</button>
@@ -403,7 +403,7 @@
     <div id="earnings-list"></div>
     <div class="empty-state hidden" id="earnings-empty">
       <div class="big">✦</div>
-      <p>No completed rides yet.<br>Your earnings will appear here after your first ride.</p>
+      <p>No completed rides yet.<br>Amounts are hidden while prices are being updated.</p>
     </div>
   </section>
 
@@ -441,8 +441,8 @@
     <div class="profile-card" id="profile-card"></div>
     <div class="section-title">Refer friends</div>
     <div class="referral-box" id="driver-referral-box">
-      <p class="referral-line">Get $5 in cash for each ride you refer.</p>
-      <p class="form-note">Share your link with a driver friend. When they register with your link and complete rides, you earn $5 for each of their first 15 rides.</p>
+      <p class="referral-line">Refer a driver friend and earn referral credit.</p>
+      <p class="form-note">Share your link with a driver friend. When they register with your link and complete rides, you earn referral credit for each of their first 15 rides.</p>
       <button class="btn-ghost hidden" type="button" id="driver-referral-show-btn">Refer a Friend</button>
       <p id="driver-referral-link-line" class="hidden">Your referral link: <a id="driver-referral-link-anchor" href="#"></a></p>
       <div id="driver-referral-actions" class="referral-actions hidden">
@@ -458,7 +458,7 @@
   <!-- Bottom tabs -->
   <nav class="tabbar hidden" id="tabbar" aria-label="Driver app">
     <button type="button" data-screen="home" class="active"><span class="ico">◆</span>Home</button>
-    <button type="button" data-screen="earnings"><span class="ico">$</span>Earnings</button>
+    <button type="button" data-screen="earnings"><span class="ico">✦</span>Earnings</button>
     <button type="button" data-screen="tax"><span class="ico">§</span>Tax info</button>
     <button type="button" data-screen="documents"><span class="ico">▤</span>Documents</button>
     <button type="button" data-screen="profile"><span class="ico">●</span>Profile</button>
@@ -492,9 +492,9 @@
   <h2>Why drive with Noel Chauffer?</h2>
   <ul>
     <li><strong>Your own car, your own schedule.</strong> Go available when you want, and take the jobs you choose.</li>
-    <li><strong>Earn on every trip.</strong> You see what each job pays before you accept it.</li>
+    <li><strong>Earn on every trip.</strong> You see each job's pickup, drop-off and time before you accept it.</li>
     <li><strong>Weekly payouts</strong>, tracked in the driver app.</li>
-    <li><strong>$5 in cash for each ride you refer.</strong> Refer a driver friend and earn $5 for each of their first 15 completed rides.</li>
+    <li><strong>Referral credit for every ride you refer.</strong> Refer a driver friend and earn referral credit for each of their first 15 completed rides.</li>
     <li><strong>Jobs across New York and the USA</strong>, including airport trips.</li>
   </ul>
   <h2>How to start</h2>

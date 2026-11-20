@@ -55,6 +55,7 @@ from collections import Counter
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-ref-link-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "test.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "reflink-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -239,6 +240,7 @@ class ReferralLinkJsCase(unittest.TestCase):
 
 class ReferralLinkServerCase(unittest.TestCase):
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()

@@ -29,6 +29,7 @@ from decimal import Decimal
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-payouts-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "payouts.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "payouts-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -126,6 +127,7 @@ class PayoutApiCase(unittest.TestCase):
     """In-process API tests with a fresh DB per test."""
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -218,7 +220,7 @@ class PayoutApiCase(unittest.TestCase):
                                headers={"X-Driver-Token": token})
         body = resp.get_json()
         self.assertEqual(body["completed_rides"], 2)
-        self.assertEqual(D(str(body["total_earnings"])), D("144.00"))
+        self.assertNotIn("total_earnings", body)
         weeks = body["weeks"]
         self.assertEqual(len(weeks), 2)
         # Newest week first.
@@ -226,7 +228,7 @@ class PayoutApiCase(unittest.TestCase):
         self.assertEqual((weeks[0]["start"], weeks[0]["end"], weeks[0]["due_date"]),
                          ("2026-11-30", "2026-12-06", "2026-12-07"))
         self.assertEqual(weeks[0]["ride_count"], 1)
-        self.assertEqual(D(str(weeks[0]["total_earnings"])), D("72.00"))
+        self.assertNotIn("total_earnings", weeks[0])
         self.assertEqual(weeks[0]["status"], "unpaid")
         self.assertIs(weeks[0]["paid"], False)
         self.assertEqual(weeks[1]["index"], 0)
@@ -242,7 +244,13 @@ class PayoutApiCase(unittest.TestCase):
         self.assertIs(rides[b1]["payout_paid"], False)
         self.assertEqual(rides[b2]["week_start"], "2026-11-30")
         self.assertEqual(rides[b2]["due_date"], "2026-12-07")
-        self.assertEqual(rides[b1]["earnings"], 72.00)
+        self.assertNotIn("earnings", rides[b1])
+        # The same money is still visible to the owner: $72 in each week.
+        self.owner_login()
+        payouts = self.client.get("/api/owner/payouts").get_json()
+        by_week = {p["index"]: p for p in payouts}
+        self.assertEqual(D(str(by_week[0]["total_earnings"])), D("72.00"))
+        self.assertEqual(D(str(by_week[2]["total_earnings"])), D("72.00"))
 
     def test_multiple_rides_sum_in_one_week(self):
         _driver, token = self.register_driver()
@@ -254,7 +262,10 @@ class PayoutApiCase(unittest.TestCase):
                                headers={"X-Driver-Token": token}).get_json()
         self.assertEqual(len(body["weeks"]), 1)
         self.assertEqual(body["weeks"][0]["ride_count"], 2)
-        self.assertEqual(D(str(body["weeks"][0]["total_earnings"])), D("222.00"))
+        self.assertNotIn("total_earnings", body["weeks"][0])
+        self.owner_login()
+        payouts = self.client.get("/api/owner/payouts").get_json()
+        self.assertEqual(D(str(payouts[0]["total_earnings"])), D("222.00"))
 
     def test_boundary_completion_dates_split_weeks(self):
         _driver, token = self.register_driver()
@@ -344,7 +355,7 @@ class PayoutApiCase(unittest.TestCase):
         week0 = [w for w in body["weeks"] if w["index"] == 0][0]
         self.assertEqual(week0["status"], "unpaid")
         self.assertEqual(week0["ride_count"], 2)
-        self.assertEqual(D(str(week0["total_earnings"])), D("144.00"))
+        self.assertNotIn("total_earnings", week0)
         self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("72.00"))
 
     # -- owed math ---------------------------------------------------------
@@ -414,7 +425,7 @@ class PayoutApiCase(unittest.TestCase):
                                headers={"X-Driver-Token": token}).get_json()
         self.assertEqual(body["completed_rides"], 0)
         self.assertEqual(body["weeks"], [])
-        self.assertEqual(D(str(body["total_earnings"])), D("0.00"))
+        self.assertNotIn("total_earnings", body)
         self.owner_login()
         self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("0.00"))
         payouts = self.client.get("/api/owner/payouts").get_json()

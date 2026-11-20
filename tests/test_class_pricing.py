@@ -26,6 +26,7 @@ from decimal import Decimal
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-class-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "class.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "class-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -263,6 +264,7 @@ class TestModelClassMapping(unittest.TestCase):
 
 class ClassApiCase(unittest.TestCase):
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -354,7 +356,8 @@ class ClassApiCase(unittest.TestCase):
         got = self.client.get(f"/api/bookings/{booking['id']}").get_json()["booking"]
         self.assertEqual(got["vehicle_class"], "sedan")
         self.assertEqual(got["vehicle_class_label"], "Business Class")
-        self.assertTrue(approx(got["class_totals"]["suv"], "180.00"), got)
+        self.assertNotIn("class_totals", got)
+        self.assertNotIn("total", got)
 
     def test_hourly_booking_has_no_class_or_totals(self):
         resp = self.client.post("/api/bookings", json={
@@ -450,8 +453,10 @@ class ClassApiCase(unittest.TestCase):
         self.assertEqual([o["booking_id"] for o in suv_offers], [suv_booking["id"]])
         self.assertEqual(sedan_offers[0]["vehicle_class_label"], "Business Class")
         self.assertEqual(suv_offers[0]["vehicle_class_label"], "Business SUV")
-        self.assertTrue(approx(sedan_offers[0]["earnings"], "72.00"))
-        self.assertTrue(approx(suv_offers[0]["earnings"], "126.00"))
+        self.assertNotIn("earnings", sedan_offers[0])
+        self.assertNotIn("toll", sedan_offers[0])
+        self.assertNotIn("earnings", suv_offers[0])
+        self.assertNotIn("toll", suv_offers[0])
 
     def test_accept_enforces_class_match(self):
         _, sedan_token = self.register_driver("Cadillac CT6")
@@ -496,7 +501,8 @@ class ClassApiCase(unittest.TestCase):
                                 headers={"X-Driver-Token": suv_token})
         trip = resp.get_json()["booking"]
         self.assertFalse(FORBIDDEN_KEYS & set(trip), str(trip))
-        self.assertIn("earnings", trip)
+        self.assertNotIn("earnings", trip)
+        self.assertNotIn("toll", trip)
         active = self.client.get("/api/drivers/me/active-trip",
                                  headers={"X-Driver-Token": suv_token}).get_json()["booking"]
         self.assertFalse(FORBIDDEN_KEYS & set(active), str(active))
@@ -509,7 +515,7 @@ class ClassApiCase(unittest.TestCase):
             self.assertFalse(FORBIDDEN_KEYS & set(week), str(week))
         for ride in earn["rides"]:
             self.assertFalse(FORBIDDEN_KEYS & set(ride), str(ride))
-        self.assertTrue(approx(earn["total_earnings"], "126.00"))
+        self.assertNotIn("total_earnings", earn)
         # The sedan driver never saw the SUV booking at all.
         self.assertEqual(self.client.get("/api/drivers/me/offers",
                                          headers={"X-Driver-Token": sedan_token}).get_json(), [])

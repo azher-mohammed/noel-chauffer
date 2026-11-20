@@ -1,15 +1,13 @@
 /* Noel Chauffer — customer app logic (browser-based, /app).
    Talks only to the /api/* contract — the SAME endpoints and flow as
-   the customer website (static/js/customer.js). The total is NEVER
-   computed here: it comes from the API with the booking. Flow:
-   booking form (+ the flight-number step for airport rides) ->
-   "Choose your experience" options screen (Business Class /
-   Business SUV, one single total each) -> card payment -> only then
-   is the booking sent to drivers. The customer picks a class, sees
-   the single total, pays by card, and only then is the booking sent
-   to drivers. Ride tracking lives in the My Rides tab; the support
-   chat is scripted answers only (no AI); the referral tab mirrors
-   the website's referral display exactly. No customer accounts
+   the customer website (static/js/customer.js). Bookings are PAUSED
+   while prices are being updated (owner decision 2026-11-20): the
+   booking form shows the paused notice and submits nothing, and no
+   totals are shown anywhere. Existing rides keep their status,
+   chauffeur, chat and map views. Ride tracking lives in the My Rides
+   tab; the support chat is scripted answers only (no AI); the
+   referral tab mirrors the website's referral display exactly.
+   No customer accounts
    exist: rides are looked up by phone number, as on the website. */
 (function () {
   "use strict";
@@ -65,8 +63,12 @@
   }
 
   function $(id) { return document.getElementById(id); }
-  function show(el) { el.classList.remove("hidden"); }
-  function hide(el) { el.classList.add("hidden"); }
+  function show(el) { if (el) el.classList.remove("hidden"); }
+  function hide(el) { if (el) el.classList.add("hidden"); }
+  /* Bookings are PAUSED while prices are being updated (owner
+     decision 2026-11-20). Flip to false when the new price list
+     is live; the server still enforces the pause either way. */
+  var BOOKINGS_PAUSED = true;
   function money(n) {
     if (n === null || n === undefined || isNaN(Number(n))) return "";
     return "$" + Number(n).toFixed(2);
@@ -355,6 +357,12 @@
     if (hasActiveRide()) return;
     var err = $("ca-booking-error");
     err.textContent = "";
+    /* Bookings are PAUSED while prices are being updated (owner
+       decision 2026-11-20): nothing is submitted. */
+    if (BOOKINGS_PAUSED) {
+      err.textContent = "Bookings are paused while we update our prices. Please check back soon.";
+      return;
+    }
     var payload = {
       customer_name: $("ca-name").value.trim(),
       phone: $("ca-phone").value.trim(),
@@ -456,8 +464,8 @@
 
   /* Choose your experience: a SEPARATE options screen after the booking
      form (and the flight step). The booking already exists, unpaid;
-     the customer picks a class — each option shows its own single
-     total, no breakdown, no rates, no miles — and then continues to
+     the customer picks a class — no totals are shown while prices
+     are paused — and then continues to
      the card payment. Sedan (Business Class) is pre-selected. Back
      cancels the unpaid booking and returns to the form to edit. */
   function paintClassSelection() {
@@ -475,12 +483,10 @@
     state.classPhone = phone;
     state.selectedClass = booking.vehicle_class || "sedan";
     $("ca-class-trip-summary").textContent = summaryText(booking);
-    var totals = booking.class_totals || {};
-    $("ca-class-total-sedan").textContent = money(totals.sedan !== undefined ? totals.sedan : booking.total);
-    $("ca-class-total-suv").textContent = money(totals.suv);
+    /* PAUSED (owner decision 2026-11-20): no class totals are shown. */
     /* 5% first-ride referral discount (owner decision 2026-11-18):
        the note shows only when this booking actually got the
-       discount — the class totals above are already discounted. */
+       discount. No class totals are shown while prices are paused. */
     if (booking.referral_discount && Number(booking.referral_discount) > 0) {
       show($("ca-class-discount-note"));
     } else {
@@ -578,8 +584,8 @@
         }
         var booking = res.j.booking;
         /* One-way rides go to the separate options screen first (pick a
-           class, each with its own single total); hourly rides have
-           no class and go straight to the payment step. */
+           class); hourly rides have no class and go straight to the
+           payment step. (Unreachable while bookings are paused.) */
         if (booking.ride_type === "one_way" && booking.class_totals) {
           showClassStep(booking, payload.phone);
         } else {
@@ -625,8 +631,7 @@
        ride stays in front of the customer until "Book another ride". */
     clearBookingForm();
     $("ca-status-summary").textContent = summaryText(booking);
-    /* The create response already carries the single total: show it
-       and open the card payment box at once, before any polling. */
+    /* PAUSED: no total is shown and the payment box never opens. */
     renderBooking(booking);
     pollOnce();
     state.pollTimer = setInterval(pollOnce, 3000);
@@ -693,30 +698,24 @@
       show($("ca-status-finding"));
       hide($("ca-driver-block"));
       if (st === "awaiting_payment") {
-        $("ca-status-heading").textContent = "Your total is ready";
-        $("ca-status-message").textContent = "Please pay by card below — your chauffeur will be assigned right after payment.";
+        $("ca-status-heading").textContent = "Bookings are paused";
+        $("ca-status-message").textContent = "Bookings are paused while we update our prices. Please check back soon.";
       } else {
         $("ca-status-heading").textContent = "Finding your chauffeur…";
         $("ca-status-message").textContent = statusLabel(st) || "Your request is with us. Please keep this page open.";
       }
     }
 
-    /* The single total: shown from the moment the booking exists. The
-       card payment box opens with it; only after payment is the
-       booking sent to drivers, so no payment step exists later. */
-    if (b.total !== null && b.total !== undefined) {
-      show($("ca-total-box"));
-      $("ca-total-amount").textContent = money(b.total);
-      $("ca-pay-amount-label").textContent = money(b.total);
-    } else {
-      hide($("ca-total-box"));
-    }
+    /* PAUSED (owner decision 2026-11-20): no total is ever shown and
+       the card payment box never opens. An unpaid booking stays
+       visible with the paused notice instead. */
+    hide($("ca-total-box"));
     if (st === "awaiting_payment") {
-      show($("ca-pay-panel"));
-      initPayment();
+      show($("ca-paused-note"));
     } else {
-      hide($("ca-pay-panel"));
+      hide($("ca-paused-note"));
     }
+    hide($("ca-pay-panel"));
 
     /* Live map: ONLY when the API says tracking is visible. */
     var tr = b.tracking || {};
@@ -732,24 +731,8 @@
     if (state.paid || st === "offered" || st === "accepted" || st === "en_route" || st === "arrived" || st === "started" || st === "on_trip" || st === "in_progress" || st === "completed") {
       showThankYou(b);
     }
-    if (b.invoice) {
-      show($("ca-invoice-panel"));
-      var invTotal = (b.invoice.total !== null && b.invoice.total !== undefined) ? b.invoice.total : b.total;
-      $("ca-invoice-total").textContent = money(invTotal);
-      if (b.invoice.waiting_charge) {
-        show($("ca-invoice-waiting-row"));
-        $("ca-invoice-waiting").textContent = money(b.invoice.waiting_charge);
-      } else {
-        hide($("ca-invoice-waiting-row"));
-      }
-      if (b.invoice.extra_distance_charge) {
-        show($("ca-invoice-extra-row"));
-        $("ca-invoice-extra").textContent = money(b.invoice.extra_distance_charge);
-      } else {
-        hide($("ca-invoice-extra-row"));
-      }
-      $("ca-invoice-grand").textContent = money(invTotal);
-    }
+    /* PAUSED (owner decision 2026-11-20): invoices show no figures;
+       the invoice panel stays hidden. */
 
     if (st === "cancelled" || st === "canceled") {
       hide($("ca-status-actions"));
@@ -767,7 +750,7 @@
 
   /* ---------- In-app chat with the chauffeur (text only) ---------- */
   /* Opens once a driver has accepted; messages carry text only and
-     the customer still sees only the single total elsewhere. The
+     the customer sees no prices anywhere. The
      chat rides on the same polling loop as the booking status. */
   var CHAT_OPEN_STATUSES = ["accepted", "en_route", "arrived", "in_progress"];
   function chatOpenFor(b) {
@@ -1443,14 +1426,12 @@
         list.forEach(function (b) {
           var item = document.createElement("div");
           item.className = "history-item";
-          var totalHtml = (b.total !== null && b.total !== undefined)
-            ? '<div class="h-total">' + esc(money(b.total)) + "</div>" : "";
           item.innerHTML = '<div class="h-top"><div>' +
             '<div class="h-route">' + esc(rideLabel(b)) + "</div>" +
             '<div class="h-meta">' + esc(whenLabel(b)) +
             (b.ride_type === "hourly" ? " · By the hour" : " · One way") + "</div>" +
             '<div><span class="pill">' + esc(statusLabel(b.status)) + "</span></div>" +
-            "</div>" + totalHtml + "</div>";
+            "</div></div>";
           var viewBtn = document.createElement("button");
           viewBtn.type = "button";
           viewBtn.className = "btn-ghost h-view";
@@ -1518,14 +1499,17 @@
       }
       return false;
     };
+    if (has("paus")) {
+      return "Bookings are paused while we update our prices. Please check back soon.";
+    }
     if (has("cancel", "refund")) {
-      return "Cancellation is free if you cancel more than 1 hour before pickup. If you cancel 1 hour or less before pickup, the full price of the ride applies.";
+      return "Cancellation is free if you cancel more than 1 hour before pickup. If you cancel 1 hour or less before pickup, the cancellation is not refundable.";
     }
     if (has("wait", "airport", "late", "delay")) {
-      return "Waiting is free for 60 minutes at airports and 15 minutes at other pickups. After that, waiting is charged at $1/min. A no-show is charged the full price.";
+      return "Waiting is free for 60 minutes at airports and 15 minutes at other pickups. After that, waiting charges apply.";
     }
     if (has("price", "cost", "much", "total", "charge", "pay", "payment")) {
-      return "After you complete the booking form, choose Business Class or Business SUV — each class shows its own single total, with no breakdown and no hidden charges. You pay by card in the app, and then your chauffeur is assigned.";
+      return "Bookings are paused while we update our prices. Please check back soon.";
     }
     if (has("lost", "left", "forgot", "belonging", "item")) {
       return "I am sorry to hear that. Please report it here as soon as you can, and within 7 days. The driver checks the car after every ride. Unclaimed items go to the police station after one week.";
@@ -1549,15 +1533,15 @@
       return "If a friend referred you, enter their referral code in the booking form. After your ride, the Referral tab shows you how to refer a friend too.";
     }
     if (has("book", "reserve", "ride", "pickup", "how")) {
-      return "To book: fill in the form in the Book tab — pickup, drop-off (or hours), date, time, and your name, phone and email — then tap “View options” to choose your class. Each class shows its own single total — you pay by card, and then your chauffeur will be assigned.";
+      return "Bookings are paused while we update our prices. Please check back soon.";
     }
     if (has("hello", "hi", "hey", "salam")) {
-      return "Hello, and welcome to Noel Chauffer. I can help with booking, the total, cancellation, waiting time, lost items, or a problem with a ride.";
+      return "Hello, and welcome to Noel Chauffer. Bookings are paused while we update our prices — please check back soon. I can still help with cancellation, waiting time, lost items, or a problem with a ride.";
     }
     if (has("human", "person", "agent", "support", "help")) {
       return "You are chatting with the Noel Chauffer team here. The team replies within 24 hours. If your matter is urgent, please describe it here and we will escalate it to the owner.";
     }
-    return "Happy to help. I can answer questions about booking a ride, when you see the total, cancellation, waiting time, your chauffeur's details, cars, return trips, by-the-hour rides, or lost items — just ask.";
+    return "Happy to help. Bookings are paused while we update our prices. I can answer questions about cancellation, waiting time, your chauffeur's details, cars, return trips, by-the-hour rides, or lost items — just ask.";
   }
   function supportHandleQuestion(q) {
     if (!q) return;

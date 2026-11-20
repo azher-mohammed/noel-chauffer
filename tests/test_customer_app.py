@@ -36,6 +36,7 @@ from collections import Counter
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-customerapp-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "test.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "customerapp-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -63,6 +64,7 @@ def read(rel):
 
 class CustomerAppPageCase(unittest.TestCase):
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -169,10 +171,12 @@ class CustomerAppPageCase(unittest.TestCase):
                        "* miles", "compute_", "fare_total", "fare =",
                        "gratuity", "booking_fee", "tax ="):
             self.assertNotIn(banned, js, f"app JS must not contain {banned!r}")
-        # Totals come from the API with the booking, as on the website.
-        self.assertIn("booking.class_totals", js)
-        self.assertIn("money(totals.sedan", js)
-        self.assertIn("money(b.total)", js)
+        # No total is rendered anywhere while bookings are paused
+        # (owner decision 2026-11-20): the class-total and total-box
+        # rendering is gone; only the paused notice is shown.
+        self.assertNotIn("money(totals.sedan", js)
+        self.assertNotIn("money(b.total)", js)
+        self.assertIn("Bookings are paused while we update our prices", js)
 
     def test_app_js_keeps_flight_step_skippable(self):
         js = read("static/js/customer-app.js")

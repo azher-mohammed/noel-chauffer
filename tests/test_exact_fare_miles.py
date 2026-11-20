@@ -33,6 +33,7 @@ from unittest import mock
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-exact-miles-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "test.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "exact-miles-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -78,6 +79,7 @@ class _CacheGuard(unittest.TestCase):
     """Save/restore the geo caches around each test."""
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         self._saved_coords = dict(geo_module._geocode_cache)
         self._saved_address = dict(geo_module._geocode_address_cache)
         self._saved_routes = dict(geo_module._route_cache)
@@ -194,6 +196,7 @@ class DistanceMilesCase(_CacheGuard):
     """distance_miles: no invented miles, coords used as-is."""
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         super().setUp()
         _restore_real_distance_miles()
 
@@ -248,6 +251,7 @@ class BookingExactMilesCase(unittest.TestCase):
     """End to end: rejection on unresolvable text, coords priced as-is."""
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         _restore_real_distance_miles()
         with app_module.app.app_context():
             app_module.db.drop_all()

@@ -21,6 +21,7 @@ from PIL import Image
 # --- test env BEFORE importing the app -------------------------------------
 tmpdir = tempfile.mkdtemp(prefix="noel-smoke-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(tmpdir, "smoke.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "smoke-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -113,17 +114,42 @@ print("== driver registration ==")
 _photo_buf = io.BytesIO()
 Image.new("RGB", (400, 500), (200, 30, 30)).save(_photo_buf, format="JPEG")
 photo_bytes = _photo_buf.getvalue()
+# Document photos must be REAL images (photo-sanity check, 2026-11-19):
+# a small non-blank JPEG, at least 200px on each side. Each document
+# gets a DIFFERENT image (duplicate check rejects identical bytes).
+_DOC_SEQ = [0]
+def _doc_bytes(seed):
+    # Every call makes a UNIQUE image: the duplicate check is global
+    # across driver accounts, so two registrations may share no bytes.
+    _DOC_SEQ[0] += 1
+    _salt = _DOC_SEQ[0]
+    _buf = io.BytesIO()
+    _img = Image.new("RGB", (300, 300), ((seed + _salt * 13) % 256, (seed * 3 + _salt) % 256, (seed * 7 + _salt * 5) % 256))
+    for _x in range(0, 300, 10):
+        for _y in range(0, 300, 10):
+            _img.putpixel((_x, _y), (200, 200, 200))
+    _img.save(_buf, format="JPEG")
+    return _buf.getvalue()
+doc_bytes = _doc_bytes(11)
 resp = client.post("/api/drivers/register", data={
     "name": "Test Driver", "phone": "+15550001111", "email": "driver@test.com",
     "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T12345",
     "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
+    "expiry_dmv_license": "2030-01-01",
+    "expiry_tlc_license": "2030-01-01",
+    "expiry_fh1_insurance": "2030-01-01",
+    "expiry_registration": "2030-01-01",
+    "expiry_inspection": "2030-01-01",
+    "expiry_vehicle_permit": "2030-01-01",
+    "expiry_vehicle_registration": "2030-01-01",
+    "expiry_insurance_card": "2030-01-01",
     "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
     "doc_fh1": (io.BytesIO(b"%PDF- fake"), "fh1.pdf"),
-    "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
-    "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
-    "doc_registration": (io.BytesIO(b"fake png"), "reg.png"),
-    "doc_inspection": (io.BytesIO(b"fake png"), "insp.png"),
-    "doc_vehicle_permit": (io.BytesIO(b"fake png"), "permit.png"),
+    "doc_dmv_license": (io.BytesIO(_doc_bytes(11)), "license.png"),
+    "doc_tlc_license": (io.BytesIO(_doc_bytes(22)), "tlc.png"),
+    "doc_registration": (io.BytesIO(_doc_bytes(33)), "reg.png"),
+    "doc_inspection": (io.BytesIO(_doc_bytes(44)), "insp.png"),
+    "doc_vehicle_permit": (io.BytesIO(_doc_bytes(55)), "permit.png"),
 }, content_type="multipart/form-data")
 check("driver1 register 201", resp.status_code == 201, resp.get_data(as_text=True)[:200])
 d1 = resp.get_json()["driver"]
@@ -137,13 +163,21 @@ resp = client.post("/api/drivers/register", data={
     "name": "Second Driver", "phone": "+15550002222", "email": "d2@test.com",
     "car_model": "Lincoln Continental", "car_year": "2024", "car_colour": "Black", "plate": "T67890",
     "state": "New York", "bank_account_number": "987654321", "bank_routing_number": "021000021",
+    "expiry_dmv_license": "2030-01-01",
+    "expiry_tlc_license": "2030-01-01",
+    "expiry_fh1_insurance": "2030-01-01",
+    "expiry_registration": "2030-01-01",
+    "expiry_inspection": "2030-01-01",
+    "expiry_vehicle_permit": "2030-01-01",
+    "expiry_vehicle_registration": "2030-01-01",
+    "expiry_insurance_card": "2030-01-01",
     "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
-    "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
-    "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
-    "doc_fh1": (io.BytesIO(b"fake png"), "fh1.png"),
-    "doc_registration": (io.BytesIO(b"fake png"), "reg.png"),
-    "doc_inspection": (io.BytesIO(b"fake png"), "insp.png"),
-    "doc_vehicle_permit": (io.BytesIO(b"fake png"), "permit.png"),
+    "doc_dmv_license": (io.BytesIO(_doc_bytes(11)), "license.png"),
+    "doc_tlc_license": (io.BytesIO(_doc_bytes(22)), "tlc.png"),
+    "doc_fh1": (io.BytesIO(_doc_bytes(66)), "fh1.png"),
+    "doc_registration": (io.BytesIO(_doc_bytes(33)), "reg.png"),
+    "doc_inspection": (io.BytesIO(_doc_bytes(44)), "insp.png"),
+    "doc_vehicle_permit": (io.BytesIO(_doc_bytes(55)), "permit.png"),
 }, content_type="multipart/form-data")
 check("driver2 register 201", resp.status_code == 201, resp.get_data(as_text=True)[:200])
 token2 = resp.get_json()["token"]
@@ -154,6 +188,14 @@ resp = client.post("/api/drivers/register", data={
     "name": "No Docs", "phone": "+15550004444", "email": "nd@test.com",
     "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T00000",
     "state": "New York", "bank_account_number": "111222333", "bank_routing_number": "021000021",
+    "expiry_dmv_license": "2030-01-01",
+    "expiry_tlc_license": "2030-01-01",
+    "expiry_fh1_insurance": "2030-01-01",
+    "expiry_registration": "2030-01-01",
+    "expiry_inspection": "2030-01-01",
+    "expiry_vehicle_permit": "2030-01-01",
+    "expiry_vehicle_registration": "2030-01-01",
+    "expiry_insurance_card": "2030-01-01",
 }, content_type="multipart/form-data")
 check("no documents -> 400 naming every missing item",
       resp.status_code == 400
@@ -167,12 +209,20 @@ resp = client.post("/api/drivers/register", data={
     "name": "One Missing", "phone": "+15550005555", "email": "om@test.com",
     "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T00001",
     "state": "New York", "bank_account_number": "111222333", "bank_routing_number": "021000021",
+    "expiry_dmv_license": "2030-01-01",
+    "expiry_tlc_license": "2030-01-01",
+    "expiry_fh1_insurance": "2030-01-01",
+    "expiry_registration": "2030-01-01",
+    "expiry_inspection": "2030-01-01",
+    "expiry_vehicle_permit": "2030-01-01",
+    "expiry_vehicle_registration": "2030-01-01",
+    "expiry_insurance_card": "2030-01-01",
     "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
-    "doc_dmv_license": (io.BytesIO(b"fake png"), "license.png"),
-    "doc_tlc_license": (io.BytesIO(b"fake png"), "tlc.png"),
-    "doc_fh1": (io.BytesIO(b"fake png"), "fh1.png"),
-    "doc_registration": (io.BytesIO(b"fake png"), "reg.png"),
-    "doc_inspection": (io.BytesIO(b"fake png"), "insp.png"),
+    "doc_dmv_license": (io.BytesIO(_doc_bytes(11)), "license.png"),
+    "doc_tlc_license": (io.BytesIO(_doc_bytes(22)), "tlc.png"),
+    "doc_fh1": (io.BytesIO(_doc_bytes(66)), "fh1.png"),
+    "doc_registration": (io.BytesIO(_doc_bytes(33)), "reg.png"),
+    "doc_inspection": (io.BytesIO(_doc_bytes(44)), "insp.png"),
 }, content_type="multipart/form-data")
 check("one document missing -> 400 naming only that item",
       resp.status_code == 400
@@ -180,9 +230,25 @@ check("one document missing -> 400 naming only that item",
       "Please upload all required documents to complete registration.",
       resp.get_data(as_text=True)[:300])
 resp = client.post("/api/drivers/register", data={
-    "name": "Dup", "phone": "+15550001111", "car_model": "Cadillac Escalade",
-    "car_year": "2023", "car_colour": "Y",
-    "plate": "Z", "state": "New York", "bank_account_number": "1", "bank_routing_number": "2",
+    "name": "Dup", "phone": "+15550001111", "email": "dup@test.com",
+    "car_model": "Cadillac Escalade", "car_year": "2023", "car_colour": "Black",
+    "plate": "ZDUP01", "state": "New York", "bank_account_number": "123456789",
+    "bank_routing_number": "021000021",
+    "expiry_dmv_license": "2030-01-01",
+    "expiry_tlc_license": "2030-01-01",
+    "expiry_fh1_insurance": "2030-01-01",
+    "expiry_registration": "2030-01-01",
+    "expiry_inspection": "2030-01-01",
+    "expiry_vehicle_permit": "2030-01-01",
+    "expiry_vehicle_registration": "2030-01-01",
+    "expiry_insurance_card": "2030-01-01",
+    "profile_photo": (io.BytesIO(photo_bytes), "photo.jpg"),
+    "doc_fh1": (io.BytesIO(b"%PDF- fake"), "fh1.pdf"),
+    "doc_dmv_license": (io.BytesIO(_doc_bytes(11)), "license.png"),
+    "doc_tlc_license": (io.BytesIO(_doc_bytes(22)), "tlc.png"),
+    "doc_registration": (io.BytesIO(_doc_bytes(33)), "reg.png"),
+    "doc_inspection": (io.BytesIO(_doc_bytes(44)), "insp.png"),
+    "doc_vehicle_permit": (io.BytesIO(_doc_bytes(55)), "permit.png"),
 }, content_type="multipart/form-data")
 check("duplicate phone rejected", resp.status_code == 409, str(resp.status_code))
 resp = client.post("/api/drivers/register", data={
@@ -213,7 +279,7 @@ resp = client.post("/api/bookings", json={
 check("invalid referral rejected", resp.status_code == 400, str(resp.status_code))
 resp = client.get(f"/api/bookings/{b1['id']}")
 got = resp.get_json()["booking"]
-check("total visible, driver null before accept", approx(got["total"], 162.00) and got["driver"] is None, str(got))
+check("no total shown, driver null before accept", "total" not in got and got["driver"] is None, str(got))
 
 print("== vehicle class selection (options page) ==")
 resp = client.post("/api/bookings", json={
@@ -278,19 +344,19 @@ offers = resp.get_json()
 check("offer listed", len(offers) == 1 and offers[0]["booking_id"] == b1["id"], str(offers))
 leaked = set(offers[0]) & FORBIDDEN_OFFER_KEYS if offers else {"none"}
 check("offer has no miles/fare fields", not leaked, f"leaked: {leaked}")
-check("offer earnings = driver share only", offers and approx(offers[0]["earnings"], 72.00), str(offers))
+check("offer carries no earnings", offers and "earnings" not in offers[0] and "toll" not in offers[0], str(offers))
 check("offer has route_url", offers and offers[0]["route_url"].startswith("https://www.google.com/maps/"))
 check("offer has route_waze_url", offers and offers[0]["route_waze_url"].startswith("https://waze.com/ul?"))
 client.post("/api/drivers/me/availability", json={"available": True},
             headers={"X-Driver-Token": token2})
 resp = client.post(f"/api/drivers/me/offers/{b1['id']}/accept", headers={"X-Driver-Token": token1})
 check("accept 200", resp.status_code == 200, resp.get_data(as_text=True)[:200])
-check("accept earnings 72.00", approx(resp.get_json()["booking"]["earnings"], 72.00))
+check("accept carries no earnings", "earnings" not in resp.get_json()["booking"] and "toll" not in resp.get_json()["booking"], str(resp.get_json()["booking"]))
 resp = client.post(f"/api/drivers/me/offers/{b1['id']}/accept", headers={"X-Driver-Token": token2})
 check("second accept -> 409", resp.status_code == 409, str(resp.status_code))
 resp = client.get(f"/api/bookings/{b1['id']}")
 got = resp.get_json()["booking"]
-check("total visible after accept", approx(got["total"], 162.00), str(got["total"]))
+check("no total shown after accept", "total" not in got, str(got))
 check("driver visible after accept", got["driver"] and got["driver"]["name"] == "Test Driver")
 check("tracking hidden before en_route", got["tracking"]["visible"] is False)
 
@@ -316,16 +382,14 @@ check("arrived ok", trip("arrived").status_code == 200)
 check("start ok", trip("start").status_code == 200)
 resp = trip("complete", waiting_minutes=75)
 check("complete ok", resp.status_code == 200, resp.get_data(as_text=True)[:200])
-inv = resp.get_json().get("invoice", {})
-check("invoice waiting 15.00", approx(inv.get("waiting_charge"), 15.00), str(inv))
-check("invoice total 177.00", approx(inv.get("total"), 177.00), str(inv))
+check("complete response carries no invoice for the driver", "invoice" not in resp.get_json(), str(resp.get_json()))
 resp = client.get(f"/api/bookings/{b1['id']}")
 got = resp.get_json()["booking"]
-check("GET invoice after complete", got["invoice"] and approx(got["invoice"]["total"], 177.00))
+check("GET invoice hidden after complete", got["invoice"] is None, str(got.get("invoice")))
 resp = client.get("/api/drivers/me/earnings", headers={"X-Driver-Token": token1})
 earn = resp.get_json()
-check("driver earnings 72.00 / 1 ride", earn["completed_rides"] == 1
-      and approx(earn["total_earnings"], 72.00), str(earn))
+check("driver earnings hide amounts / 1 ride", earn["completed_rides"] == 1
+      and "total_earnings" not in earn, str(earn))
 resp = client.get(f"/api/bookings/{b1['id']}/driver-photo")
 check("driver photo bytes", resp.status_code == 200 and resp.data == photo_bytes,
       str(resp.status_code))
@@ -387,8 +451,8 @@ check("driver cancel re-dispatches", resp.status_code == 200
       and resp.get_json()["booking"]["status"] == "offered", resp.get_data(as_text=True)[:150])
 resp = client.get(f"/api/bookings/{b2['id']}")
 got = resp.get_json()["booking"]
-check("driver null, total still visible after re-dispatch", got["driver"] is None
-      and approx(got["total"], 153.90), str(got))
+check("driver null, no total after re-dispatch", got["driver"] is None
+      and "total" not in got, str(got))
 resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token2})
 check("cancelling driver excluded", all(o["booking_id"] != b2["id"] for o in resp.get_json()))
 resp = client.post(f"/api/owner/bookings/{b2['id']}/toll", json={"toll": 18.50})
@@ -433,7 +497,7 @@ check("hourly owner row fare 270, tax 0, no class",
       and hrow["vehicle_class"] is None, str(hrow))
 resp = client.get("/api/bookings", query_string={"phone": "+15550009999"})
 hist = resp.get_json()
-check("ride history total for paid ride", len(hist) == 1 and approx(hist[0]["total"], 162.00), str(hist))
+check("ride history hides total for paid ride", len(hist) == 1 and "total" not in hist[0], str(hist))
 resp = client.get("/")
 check("home page route 200", resp.status_code == 200, str(resp.status_code))
 resp = client.get("/api/drivers/me/lookup", json={})
@@ -516,14 +580,16 @@ resp = client.post(f"/api/drivers/me/trip/{bx['id']}/event",
                    headers={"X-Driver-Token": token1})
 check("complete with extra miles ok", resp.status_code == 200, resp.get_data(as_text=True)[:150])
 resp = client.get(f"/api/bookings/{bx['id']}")
-inv = resp.get_json()["booking"]["invoice"]
-check("invoice includes extra distance 45.00",
-      approx(inv["total"], 207.00) and approx(inv["extra_distance_charge"], 45.00), str(inv))
+check("customer invoice hidden after complete with extra miles",
+      resp.get_json()["booking"]["invoice"] is None)
 resp = client.get(f"/api/owner/bookings/{bx['id']}")
 row = resp.get_json()
 check("owner row extra-distance line",
       approx(row["extra_distance_charge"], 45.00) and approx(row["extra_miles"], 5.0)
       and approx(row["driver_earnings"], 92.00), str(row))
+check("owner invoice includes extra distance 45.00",
+      approx(row["invoice"]["total"], 207.00)
+      and approx(row["invoice"]["extra_distance_charge"], 45.00), str(row["invoice"]))
 
 # --- 8. owner clear all rides (TEMPORARY TEST-ONLY: remove with the endpoint) ---
 print("== owner clear all rides ==")
@@ -533,7 +599,7 @@ check("clear-rides without login -> 401", resp.status_code == 401, str(resp.stat
 resp = client.get("/api/owner/bookings")
 before_rides = len(resp.get_json())
 check("bookings exist before clear", before_rides > 0, str(before_rides))
-resp = client.post("/api/owner/clear-rides", json={})
+resp = client.post("/api/owner/clear-rides", json={"pin": "9999"})
 body = resp.get_json()
 check("clear-rides ok", resp.status_code == 200 and body.get("cleared") is True,
       resp.get_data(as_text=True)[:150])
@@ -566,7 +632,7 @@ if test_driver:
 resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token1})
 check("driver token still works, offers empty after clear",
       resp.status_code == 200 and resp.get_json() == [], resp.get_data(as_text=True)[:150])
-resp = client.post("/api/owner/clear-rides", json={})
+resp = client.post("/api/owner/clear-rides", json={"pin": "9999"})
 check("clear-rides idempotent on empty db",
       resp.status_code == 200 and resp.get_json()["deleted"]["bookings"] == 0,
       resp.get_data(as_text=True)[:150])
@@ -578,7 +644,7 @@ check("clear-drivers without login -> 401", resp.status_code == 401, str(resp.st
 resp = client.get("/api/owner/drivers")
 before_drivers = len(resp.get_json())
 check("drivers exist before clear", before_drivers > 0, str(before_drivers))
-resp = client.post("/api/owner/clear-drivers", json={})
+resp = client.post("/api/owner/clear-drivers", json={"pin": "9999"})
 body = resp.get_json()
 check("clear-drivers ok", resp.status_code == 200 and body.get("cleared") is True,
       resp.get_data(as_text=True)[:150])
@@ -592,7 +658,7 @@ check("owner drivers empty after clear", resp.get_json() == [], str(resp.get_jso
 resp = client.get("/api/drivers/me/offers", headers={"X-Driver-Token": token1})
 check("driver token rejected after removal", resp.status_code == 401,
       resp.get_data(as_text=True)[:150])
-resp = client.post("/api/owner/clear-drivers", json={})
+resp = client.post("/api/owner/clear-drivers", json={"pin": "9999"})
 check("clear-drivers idempotent on empty db",
       resp.status_code == 200 and resp.get_json()["deleted"]["drivers"] == 0,
       resp.get_data(as_text=True)[:150])

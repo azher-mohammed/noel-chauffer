@@ -33,6 +33,7 @@ from urllib.parse import parse_qs, urlparse
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-chatxl-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "chatxl.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "chatxl-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -139,6 +140,7 @@ class TranslationUnitCase(unittest.TestCase):
     """Pure translation-module tests: mocked HTTP, no Flask involved."""
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         for key in ("AZURE_TRANSLATOR_KEY", "AZURE_TRANSLATOR_REGION",
                     "AZURE_TRANSLATOR_ENDPOINT"):
             os.environ.pop(key, None)
@@ -324,6 +326,7 @@ class ChatTranslationApiCase(unittest.TestCase):
     """End-to-end chat tests over the Flask test client."""
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         for key in ("AZURE_TRANSLATOR_KEY", "AZURE_TRANSLATOR_REGION",
                     "AZURE_TRANSLATOR_ENDPOINT"):
             os.environ.pop(key, None)

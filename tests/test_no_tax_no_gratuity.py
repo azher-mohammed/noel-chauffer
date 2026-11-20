@@ -30,6 +30,7 @@ from decimal import Decimal
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-notax-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "notax.db")
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "notax-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -60,6 +61,7 @@ def approx(a, b):
 
 class NoTaxNoGratuityCase(unittest.TestCase):
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -207,17 +209,19 @@ class NoTaxNoGratuityCase(unittest.TestCase):
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.drive_to_completion(booking["id"], token, extra_miles=5)
         got = self.client.get(f"/api/bookings/{booking['id']}").get_json()["booking"]
-        invoice = got["invoice"]
+        # Customer view: no invoice while prices are paused.
+        self.assertIsNone(got["invoice"])
+        # Owner row: extra miles raised fare/driver only; tax/gratuity
+        # stayed $0.00; profit $207 - $92 = $115. The owner invoice still
+        # carries the single total: fare $162 + extra fare $45 = $207.
+        self.owner_login()
+        row = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
+        invoice = row["invoice"]
         self.assertIsNotNone(invoice)
-        # Single total only: fare $162 + extra fare $45 = $207.
         self.assertTrue(approx(invoice["total"], "207.00"), invoice)
         self.assertTrue(approx(invoice["extra_distance_charge"], "45.00"), invoice)
         self.assertNotIn("tax", invoice)
         self.assertNotIn("gratuity", invoice)
-        # Owner row: extra miles raised fare/driver only; tax/gratuity
-        # stayed $0.00; profit $207 - $92 = $115.
-        self.owner_login()
-        row = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
         self.assertTrue(approx(row["fare"], "207.00"), row)
         self.assertTrue(approx(row["tax"], "0.00"), row)
         self.assertTrue(approx(row["gratuity"], "0.00"), row)

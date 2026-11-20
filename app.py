@@ -3114,27 +3114,20 @@ def driver_referral_summary(driver):
             Driver.created_at, Driver.id).all()
     breakdown = []
     total_jobs = 0
-    total_earned = Decimal("0.00")
     for friend in friends:
         credits = DriverReferralCredit.query.filter_by(
             referred_driver_id=friend.id,
             referrer_driver_id=driver.id).all()
         jobs = len(credits)
-        earned = sum((c.amount or Decimal("0.00") for c in credits),
-                     Decimal("0.00"))
         total_jobs += jobs
-        total_earned += earned
         breakdown.append({
             "name": friend.name,
             "jobs_counted": jobs,
-            "earned": num(earned),
             "registered_at": iso(friend.created_at),
         })
     return {
         "referral_code": driver_referral_code(driver),
-        "credit_per_job": num(DRIVER_REFERRAL_CREDIT),
         "max_jobs_per_driver": DRIVER_REFERRAL_MAX_JOBS,
-        "total_earned": num(total_earned),
         "jobs_counted": total_jobs,
         "referred_drivers": breakdown,
     }
@@ -3876,8 +3869,11 @@ def _group_payout_weeks(bookings):
 def recompute_booking_fare(booking):
     """Recompute fare/driver/gratuity/tax/fee from miles/hours +
     current toll + vehicle class, at the CURRENT pricing formula
-    (total = fare + toll; gratuity and tax are $0.00 for new
-    computations — see pricing.py).
+    (legacy: total = fare + toll; gratuity and tax are $0.00 for new
+    computations — see pricing.py. Blacklane mode, when
+    NOEL_PRICING=blacklane: total = base fare + Blacklane fees, and
+    tax holds the Blacklane sales-tax component — see
+    blacklane_pricing.py).
 
     The 5% first-ride referral discount is NOT re-decided here: a
     booking granted it at creation keeps it (recomputed at 5% of
@@ -4166,8 +4162,25 @@ def _payload_coords(data, prefix):
     return (lat, lng)
 
 
+# Bookings PAUSED (owner decision 2026-11-20): new bookings are
+# rejected while prices are being updated, so no booking is stored
+# and no charge can happen. The flag defaults to paused; setting
+# BOOKINGS_PAUSED=false in the environment (or flipping
+# app.BOOKINGS_PAUSED in-process, as the tests do) resumes bookings.
+# Internal rates in pricing.py are untouched by the pause.
+BOOKINGS_PAUSED = os.environ.get("BOOKINGS_PAUSED", "true").strip().lower() not in ("false", "0", "no", "")
+BOOKINGS_PAUSED_MESSAGE = "Bookings are paused while we update our prices. Please check back soon."
+
+
+def bookings_paused():
+    """True while new bookings are paused (owner decision 2026-11-20)."""
+    return BOOKINGS_PAUSED
+
+
 @app.route("/api/bookings", methods=["POST"])
 def create_booking():
+    if bookings_paused():
+        return err(BOOKINGS_PAUSED_MESSAGE, 503)
     data = request.get_json(silent=True) or {}
     required = ["customer_name", "phone", "email", "pickup", "date", "time", "ride_type"]
     for field in required:
@@ -4351,6 +4364,8 @@ def select_vehicle_class(booking_id):
     experience") before paying. Only while the booking is still
     awaiting payment and only for one-way rides: after payment the
     booking is already with drivers and its class is fixed."""
+    if bookings_paused():
+        return err(BOOKINGS_PAUSED_MESSAGE, 503)
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
@@ -4391,13 +4406,10 @@ def get_booking(booking_id):
     driver = booking.accepted_driver if booking.status in DRIVER_VISIBLE_STATUSES else None
     referral = ReferralCode.query.filter_by(issued_booking_id=booking.id).first()
     tracking_visible = booking.status in TRACKING_STATUSES
+    # Amounts are hidden while prices are being updated (owner
+    # decision 2026-11-20): no total, no class totals, no invoice
+    # figures are ever sent to the customer.
     invoice = None
-    if booking.status == "completed":
-        invoice = {
-            "total": num(invoice_total(booking.fare_total, booking.waiting_charge)),
-            "waiting_charge": num(booking.waiting_charge),
-            "extra_distance_charge": num(booking.extra_distance_charge),
-        }
     view = {
         "id": booking.id,
         "status": booking.status,
@@ -4419,7 +4431,6 @@ def get_booking(booking_id):
             "plate": driver.plate,
             "photo_url": f"/api/bookings/{booking.id}/driver-photo",
         },
-        "total": num(booking.fare_total),
         "tracking": {
             "visible": tracking_visible,
             "lat": booking.driver_lat if tracking_visible else None,
@@ -4427,14 +4438,8 @@ def get_booking(booking_id):
         },
         "invoice": invoice,
         "referral_code": referral.code if referral else None,
-        "referral_discount": num(getattr(booking, "referral_discount", None)),
         "chat_language": booking_customer_chat_language(booking),
     }
-    if booking.ride_type == "one_way":
-        totals = compute_class_totals(
-            booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"),
-            referral=booking_referral_discount_applies(booking))
-        view["class_totals"] = {k: num(v) for k, v in totals.items()}
     return jsonify({"booking": view})
 
 
@@ -4659,7 +4664,11 @@ def pay_booking(booking_id):
     collected by Stripe.js in the browser, which hands us a
     PaymentMethod id — raw card numbers are rejected here. The call
     places a HOLD for the estimated fare (manual capture); the final
-    fare is captured automatically at ride end."""
+    fare is captured automatically at ride end.
+    PAUSED (owner decision 2026-11-20): no payment is taken while
+    prices are being updated."""
+    if bookings_paused():
+        return err(BOOKINGS_PAUSED_MESSAGE, 503)
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
@@ -4762,7 +4771,11 @@ def pay_booking(booking_id):
 def confirm_booking_payment(booking_id):
     """After a 3-D Secure check: re-read the PaymentIntent. When the
     bank has approved it (requires_capture) the hold is recorded and
-    the booking is sent to drivers, exactly as a direct /pay success."""
+    the booking is sent to drivers, exactly as a direct /pay success.
+    PAUSED (owner decision 2026-11-20): no payment is taken while
+    prices are being updated."""
+    if bookings_paused():
+        return err(BOOKINGS_PAUSED_MESSAGE, 503)
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
@@ -4928,7 +4941,6 @@ def booking_history():
         "date": b.date,
         "time": b.time,
         "status": b.status,
-        "total": num(b.fare_total),
     } for b in bookings])
 
 
@@ -6079,8 +6091,6 @@ def driver_active_trip():
         "vehicle_class_label": class_label(booking_vehicle_class(booking)),
         "customer_name": booking.customer_name,
         "customer_phone": booking.phone,
-        "earnings": num(booking.driver_earnings),
-        "toll": num(booking.toll),
         "route_url": route_url_for(booking),
         "route_waze_url": waze_url_for(booking),
         "free_waiting_minutes": free_waiting_minutes(booking.pickup),
@@ -6197,10 +6207,9 @@ def driver_offers():
         if candidate_window is not None and any(
                 _windows_overlap(candidate_window, w) for w in busy_windows):
             continue
-        # Driver sees ONLY his own pay — never miles, fare, total,
-        # gratuity, tax, or the booking fee. Earnings include any toll;
-        # the toll is also sent on its own so the app can show it as a
-        # separate line (only when a toll applies).
+        # Amounts are hidden while prices are being updated (owner
+        # decision 2026-11-20): offers show pickup, drop-off and
+        # time only — no earnings, no toll.
         offers.append({
             "booking_id": b.id,
             "pickup": b.pickup,
@@ -6211,8 +6220,6 @@ def driver_offers():
             "hours": num(b.hours),
             "vehicle_class": booking_vehicle_class(b),
             "vehicle_class_label": class_label(booking_vehicle_class(b)),
-            "earnings": num(b.driver_earnings),
-            "toll": num(b.toll),
             "route_url": route_url_for(b),
             "route_waze_url": waze_url_for(b),
         })
@@ -6276,7 +6283,7 @@ def driver_accept(booking_id):
         booking,
         f"Noel Chauffer: your chauffeur is {driver.name} ({driver.phone}), "
         f"{driver.car_model} ({driver.car_colour}), plate {driver.plate}. "
-        f"Your ride total is ${booking.fare_total}. Pickup {booking.date} at {booking.time} from {booking.pickup}.",
+        f"Pickup {booking.date} at {booking.time} from {booking.pickup}.",
     )
     add_event(booking.id, "driver_accepted",
               f"Driver {driver.name} accepted booking #{booking.id}.")
@@ -6296,8 +6303,6 @@ def driver_accept(booking_id):
         "vehicle_class_label": class_label(booking_vehicle_class(booking)),
         "customer_name": booking.customer_name,
         "customer_phone": booking.phone,
-        "earnings": num(booking.driver_earnings),
-        "toll": num(booking.toll),
         "route_url": route_url_for(booking),
         "route_waze_url": waze_url_for(booking),
         "free_waiting_minutes": free_waiting_minutes(booking.pickup),
@@ -6460,10 +6465,9 @@ def driver_trip_event(booking_id):
         total = invoice_total(booking.fare_total, booking.waiting_charge)
         outbox_to_customer(
             booking,
-            f"Noel Chauffer: thank you for riding with us. Your invoice total is ${total} "
-            f"(including ${booking.waiting_charge} waiting charge"
-            + (f" and ${booking.extra_distance_charge} extra distance" if extra_dec > 0 else "")
-            + ").",
+            # Amounts are hidden while prices are being updated (owner
+            # decision 2026-11-20): no invoice figures in the message.
+            "Noel Chauffer: thank you for riding with us. Your ride is complete.",
         )
         add_event(booking.id, "trip_completed",
                   f"Booking #{booking.id} completed. Invoice total ${total} "
@@ -6476,7 +6480,9 @@ def driver_trip_event(booking_id):
         # ride; the payment is marked capture_shortfall for the
         # owner to follow up. Test-mode bookings have no real hold.
         _ok, _note = _settle_booking_payment(booking, total)
-        response_extra["invoice"] = {"total": num(total), "waiting_charge": num(booking.waiting_charge)}
+        # Amounts are hidden from the driver while prices are being
+        # updated (owner decision 2026-11-20): no invoice in the
+        # driver's trip-complete response.
     elif event == "cancel":
         if booking.status not in ("accepted", "en_route", "arrived"):
             return err("Cannot cancel a ride in this state.", 409)
@@ -6596,11 +6602,13 @@ def driver_earnings():
         return error
     rides = (Booking.query.filter_by(accepted_driver_id=driver.id, status="completed")
              .order_by(Booking.created_at.desc(), Booking.id.desc()).all())
-    # Only completed, non-refunded trips count toward earnings and payout
-    # weeks. Earnings amounts only — never miles, fares, or totals.
+    # Only completed, non-refunded trips count toward payout weeks.
+    # Amounts are hidden while prices are being updated (owner
+    # decision 2026-11-20): rides list without amounts, weeks keep
+    # dates + paid status only — never miles, fares, or totals.
     eligible = _payout_eligible(rides)
-    total = sum((money(b.driver_earnings) for b in eligible), Decimal("0.00"))
-    weeks = [summary for summary, _ in _group_payout_weeks(eligible)]
+    weeks = [{k: v for k, v in summary.items() if k != "total_earnings"}
+             for summary, _ in _group_payout_weeks(eligible)]
     ride_rows = []
     for b in eligible:
         w = _booking_week(b)
@@ -6610,7 +6618,6 @@ def driver_earnings():
             "route": f"{b.pickup} to {b.dropoff}" if b.dropoff else b.pickup,
             "vehicle_class": booking_vehicle_class(b),
             "vehicle_class_label": class_label(booking_vehicle_class(b)),
-            "earnings": num(b.driver_earnings),
             "completed_date": completion_date(b.completed_at, b.created_at).isoformat(),
             "week_start": w["start"].isoformat(),
             "week_end": w["end"].isoformat(),
@@ -6620,7 +6627,6 @@ def driver_earnings():
         })
     return jsonify({
         "completed_rides": len(eligible),
-        "total_earnings": num(total),
         "weeks": weeks,
         "rides": ride_rows,
     })
@@ -6758,6 +6764,8 @@ def driver_instant_payout():
     driver, error = require_driver()
     if error:
         return error
+    if bookings_paused():
+        return err("Instant cash-out is paused while prices are being updated. Please check back soon.", 503)
     if not stripe_payments.stripe_configured():
         return err("Payouts are not set up yet. Please try again later.", 503)
     if not driver.stripe_connect_account_id:
@@ -6837,7 +6845,8 @@ def driver_tax_info():
     eligible = _payout_eligible(rides)
     year_rides = [b for b in eligible
                   if completion_date(b.completed_at, b.created_at).year == TAX_YEAR]
-    total = sum((money(b.driver_earnings) for b in year_rides), Decimal("0.00"))
+    # Amounts are hidden while prices are being updated (owner
+    # decision 2026-11-20); the $2,000 1099-NEC threshold stays.
     return jsonify({
         "tax_year": TAX_YEAR,
         "forms_available_by": TAX_FORMS_AVAILABLE_BY.isoformat(),
@@ -6857,8 +6866,6 @@ def driver_tax_info():
         ],
         "issuer": "Noel Chauffer (Siahsolutions Inc)",
         "filing_note": "Noel Chauffer issues your 1099. This app does not file taxes for you — file your return yourself, or with an accountant or a tax-filing service.",
-        # Earnings amounts only — never miles, fares, or totals.
-        "earnings_year": num(total),
         "completed_rides_year": len(year_rides),
     })
 

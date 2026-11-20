@@ -30,6 +30,7 @@ from decimal import Decimal
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-tax-info-")
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmpdir}/test.db"
+os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "tax-info-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
@@ -66,6 +67,7 @@ class TaxInfoApiCase(unittest.TestCase):
     """In-process API tests with a fresh DB per test."""
 
     def setUp(self):
+        app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
         with app_module.app.app_context():
             app_module.db.drop_all()
             app_module.db.create_all()
@@ -166,7 +168,7 @@ class TaxInfoApiCase(unittest.TestCase):
         self.assertIn("card or payment network", body["forms"][1]["description"])
         self.assertIn("Siahsolutions Inc", body["issuer"])
         self.assertIn("does not file", body["filing_note"])
-        self.assertEqual(D(str(body["earnings_year"])), D("0.00"))
+        self.assertNotIn("earnings_year", body)
         self.assertEqual(body["completed_rides_year"], 0)
 
     # -- year earnings -------------------------------------------------------
@@ -179,7 +181,7 @@ class TaxInfoApiCase(unittest.TestCase):
         self.backdate_completion(b2, _utc(2026, 12, 31))
         self.backdate_completion(b3, _utc(2025, 12, 20))  # previous year: excluded
         body = self.tax_info(token).get_json()
-        self.assertEqual(D(str(body["earnings_year"])), D("144.00"))
+        self.assertNotIn("earnings_year", body)
         self.assertEqual(body["completed_rides_year"], 2)
 
     def test_tax_info_excludes_other_driver_and_unfinished_rides(self):
@@ -199,7 +201,7 @@ class TaxInfoApiCase(unittest.TestCase):
         resp = self.client.post("/api/bookings", json=payload)
         self.assertEqual(resp.status_code, 201)
         body = self.tax_info(token).get_json()
-        self.assertEqual(D(str(body["earnings_year"])), D("72.00"))
+        self.assertNotIn("earnings_year", body)
         self.assertEqual(body["completed_rides_year"], 1)
 
     def test_tax_info_excludes_refunded_rides(self):
@@ -212,7 +214,7 @@ class TaxInfoApiCase(unittest.TestCase):
             payment.status = "refunded"
             app_module.db.session.commit()
         body = self.tax_info(token).get_json()
-        self.assertEqual(D(str(body["earnings_year"])), D("0.00"))
+        self.assertNotIn("earnings_year", body)
         self.assertEqual(body["completed_rides_year"], 0)
 
     # -- driver privacy ------------------------------------------------------

@@ -147,11 +147,16 @@ input, select, textarea { font: inherit; }
   background: var(--white); color: var(--ink); text-align: left;
 }
 .class-option-car { width: 80px; height: 80px; flex: none; border-radius: 10px; object-fit: contain; background: #fff; }
+/* Capacity sits in the bottom line stuck right under the photo
+   (owner 2026-11-20): person/bag symbols + counts, no words. */
+.class-option-media { display: flex; flex-direction: column; flex: none; width: 80px; }
+.class-option-capacity { display: flex; align-items: center; justify-content: center; gap: 3px; margin-top: 2px; font-size: 13px; line-height: 1; opacity: 0.75; }
+.class-option-capacity .cap-icon { flex: none; }
+.class-option-capacity .cap-dot { opacity: 0.6; }
 .class-option-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; align-items: flex-start; }
 .class-option:hover { border-color: var(--gold); }
 .class-option.selected { background: var(--black); color: var(--white); border-color: var(--black); }
 .class-option-name { font-size: 16px; font-weight: 600; }
-.class-option-capacity { font-size: 13px; opacity: 0.75; }
 .class-option-total { font-family: Georgia, serif; font-size: 22px; }
 .class-details { margin: 6px 0 4px; }
 .class-details h3 { font-size: 15px; margin: 14px 0 6px; }

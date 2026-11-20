@@ -68,6 +68,20 @@ against the quoted $175.91, and Valley Stream -> JFK to ~$149.90
 against the quoted $134.47. The ladder rungs themselves reproduce
 exactly; any other route is an estimate. The fee rules, applied to
 a route's own quoted base, reproduce that route's total exactly.
+
+SUB-CENT LADDER BASES (owner hard rule 2026-11-20 ~02:32 EST:
+"dono mein ek rupay ka fark nahi aana" — zero difference to the
+cent between Blacklane's total and Noel's, on all 100 ladder rungs
+x 3 classes): the ladder points below carry base fares to four
+decimals, recovered from the sheet totals. Blacklane's own totals
+were built from fractional bases, while the sheet prints each base
+rounded to cents — on three rungs (64 Business, 80 Business, 90
+SUV) the rounded base pushes the recomputed total a cent over the
+sheet total. The recovered bases reproduce every one of the 300
+sheet rung totals exactly (see tests/test_blacklane_pricing.py::
+LadderExactCase, which pins all 100 rungs x 3 classes against the
+sheet). The displayed base is still rounded to cents; only the
+fee computation uses the precise value.
 """
 
 from __future__ import annotations
@@ -258,15 +272,15 @@ LADDER = {
         (7.96, Decimal("139.14")),
         (8.9, Decimal("131.93")),
         (10.2, Decimal("138.21")),
-        (11.0, Decimal("141.1")),
+        (11.0, Decimal("141.10")),
         (11.97, Decimal("145.02")),
         (12.95, Decimal("147.96")),
         (14.05, Decimal("151.81")),
         (14.93, Decimal("162.07")),
         (15.75, Decimal("166.42")),
-        (16.87, Decimal("163.32")),
+        (16.87, Decimal("163.3195")),
         (18.0, Decimal("168.22")),
-        (19.22, Decimal("168.28")),
+        (19.22, Decimal("168.2784")),
         (20.01, Decimal("174.75")),
         (20.94, Decimal("175.73")),
         (21.74, Decimal("180.62")),
@@ -281,13 +295,13 @@ LADDER = {
         (30.99, Decimal("211.67")),
         (32.05, Decimal("217.94")),
         (33.03, Decimal("220.13")),
-        (34.19, Decimal("223.0")),
+        (34.19, Decimal("223.0024")),
         (34.74, Decimal("229.93")),
         (35.73, Decimal("229.26")),
         (37.36, Decimal("239.23")),
         (38.08, Decimal("242.54")),
         (39.03, Decimal("240.54")),
-        (39.83, Decimal("250.7")),
+        (39.83, Decimal("250.70")),
         (41.05, Decimal("255.99")),
         (41.94, Decimal("251.73")),
         (42.9, Decimal("266.09")),
@@ -310,10 +324,10 @@ LADDER = {
         (59.83, Decimal("326.94")),
         (60.92, Decimal("329.43")),
         (62.59, Decimal("334.08")),
-        (63.0, Decimal("323.7")),
-        (64.02, Decimal("328.2")),
+        (63.0, Decimal("323.70")),
+        (64.02, Decimal("328.1975")),
         (64.71, Decimal("331.62")),
-        (65.91, Decimal("333.2")),
+        (65.91, Decimal("333.20")),
         (66.99, Decimal("335.68")),
         (67.97, Decimal("345.01")),
         (68.78, Decimal("326.02")),
@@ -321,13 +335,13 @@ LADDER = {
         (71.13, Decimal("348.96")),
         (71.95, Decimal("348.32")),
         (73.07, Decimal("357.56")),
-        (74.1, Decimal("357.58")),
+        (74.1, Decimal("357.5812")),
         (75.08, Decimal("357.74")),
         (75.64, Decimal("362.42")),
         (76.97, Decimal("365.56")),
         (78.21, Decimal("368.45")),
         (78.75, Decimal("374.99")),
-        (79.8, Decimal("373.4")),
+        (79.8, Decimal("373.3975")),
         (80.68, Decimal("377.63")),
         (81.82, Decimal("378.52")),
         (83.11, Decimal("379.95")),
@@ -356,10 +370,10 @@ LADDER = {
         (4.1, Decimal("189.78")),
         (4.93, Decimal("187.18")),
         (5.97, Decimal("202.27")),
-        (6.77, Decimal("204.9")),
+        (6.77, Decimal("204.8982")),
         (7.96, Decimal("219.95")),
         (8.9, Decimal("210.33")),
-        (10.2, Decimal("218.7")),
+        (10.2, Decimal("218.70")),
         (11.0, Decimal("222.57")),
         (11.97, Decimal("227.79")),
         (12.95, Decimal("231.71")),
@@ -376,9 +390,9 @@ LADDER = {
         (23.98, Decimal("282.67")),
         (24.97, Decimal("297.94")),
         (25.94, Decimal("293.15")),
-        (27.06, Decimal("294.59")),
+        (27.06, Decimal("294.5883")),
         (28.02, Decimal("298.95")),
-        (29.06, Decimal("303.94")),
+        (29.06, Decimal("303.9394")),
         (30.13, Decimal("310.72")),
         (30.99, Decimal("316.66")),
         (32.05, Decimal("325.03")),
@@ -391,24 +405,24 @@ LADDER = {
         (39.03, Decimal("355.17")),
         (39.83, Decimal("368.71")),
         (41.05, Decimal("375.77")),
-        (41.94, Decimal("370.08")),
-        (42.9, Decimal("389.24")),
+        (41.94, Decimal("370.0798")),
+        (42.9, Decimal("389.2422")),
         (44.05, Decimal("379.14")),
-        (44.98, Decimal("384.51")),
-        (45.95, Decimal("391.27")),
+        (44.98, Decimal("384.5110")),
+        (45.95, Decimal("391.2713")),
         (46.95, Decimal("411.22")),
-        (48.28, Decimal("405.1")),
+        (48.28, Decimal("405.10")),
         (48.84, Decimal("401.96")),
         (50.02, Decimal("416.24")),
         (50.99, Decimal("409.33")),
-        (51.87, Decimal("416.17")),
+        (51.87, Decimal("416.1720")),
         (52.79, Decimal("425.19")),
         (53.97, Decimal("427.28")),
-        (55.09, Decimal("435.3")),
-        (56.0, Decimal("446.37")),
+        (55.09, Decimal("435.30")),
+        (56.0, Decimal("446.3706")),
         (56.82, Decimal("437.52")),
         (57.94, Decimal("466.46")),
-        (58.8, Decimal("446.25")),
+        (58.8, Decimal("446.2493")),
         (59.83, Decimal("469.22")),
         (60.92, Decimal("471.86")),
         (62.59, Decimal("476.78")),
@@ -439,15 +453,15 @@ LADDER = {
         (87.15, Decimal("539.94")),
         (88.03, Decimal("548.48")),
         (89.29, Decimal("544.51")),
-        (89.84, Decimal("545.4")),
+        (89.84, Decimal("545.3975")),
         (90.98, Decimal("552.23")),
         (91.83, Decimal("556.74")),
         (92.86, Decimal("556.78")),
-        (94.22, Decimal("582.5")),
+        (94.22, Decimal("582.50")),
         (95.17, Decimal("561.28")),
         (96.25, Decimal("565.96")),
         (96.28, Decimal("566.43")),
-        (97.78, Decimal("568.9")),
+        (97.78, Decimal("568.90")),
         (99.04, Decimal("578.29")),
         (100.24, Decimal("580.18")),
     ],
@@ -460,10 +474,10 @@ LADDER = {
         (5.97, Decimal("222.06")),
         (6.77, Decimal("225.51")),
         (7.96, Decimal("245.22")),
-        (8.9, Decimal("232.62")),
+        (8.9, Decimal("232.6224")),
         (10.2, Decimal("243.59")),
         (11.0, Decimal("248.65")),
-        (11.97, Decimal("255.5")),
+        (11.97, Decimal("255.50")),
         (12.95, Decimal("260.63")),
         (14.05, Decimal("267.37")),
         (14.93, Decimal("285.29")),
@@ -474,11 +488,11 @@ LADDER = {
         (20.01, Decimal("307.45")),
         (20.94, Decimal("309.16")),
         (21.74, Decimal("317.71")),
-        (23.21, Decimal("326.7")),
+        (23.21, Decimal("326.6996")),
         (23.98, Decimal("327.41")),
         (24.97, Decimal("347.42")),
         (25.94, Decimal("341.15")),
-        (27.06, Decimal("343.04")),
+        (27.06, Decimal("343.0386")),
         (28.02, Decimal("348.75")),
         (29.06, Decimal("355.29")),
         (30.13, Decimal("364.18")),
@@ -487,7 +501,7 @@ LADDER = {
         (33.03, Decimal("386.74")),
         (34.19, Decimal("391.76")),
         (34.74, Decimal("403.86")),
-        (35.73, Decimal("402.7")),
+        (35.73, Decimal("402.70")),
         (37.36, Decimal("420.12")),
         (38.08, Decimal("425.91")),
         (39.03, Decimal("422.42")),
@@ -512,7 +526,7 @@ LADDER = {
         (57.94, Decimal("567.91")),
         (58.8, Decimal("541.78")),
         (59.83, Decimal("570.97")),
-        (60.92, Decimal("573.9")),
+        (60.92, Decimal("573.90")),
         (62.59, Decimal("579.37")),
         (63.0, Decimal("567.15")),
         (64.02, Decimal("572.46")),
@@ -528,21 +542,21 @@ LADDER = {
         (74.1, Decimal("607.02")),
         (75.08, Decimal("607.21")),
         (75.64, Decimal("612.71")),
-        (76.97, Decimal("616.4")),
+        (76.97, Decimal("616.40")),
         (78.21, Decimal("619.81")),
-        (78.75, Decimal("627.5")),
+        (78.75, Decimal("627.50")),
         (79.8, Decimal("625.64")),
         (80.68, Decimal("630.62")),
         (81.82, Decimal("631.66")),
         (83.11, Decimal("633.34")),
         (84.05, Decimal("641.46")),
         (85.11, Decimal("639.71")),
-        (86.12, Decimal("643.77")),
+        (86.12, Decimal("643.7698")),
         (87.15, Decimal("649.54")),
         (88.03, Decimal("659.03")),
         (89.29, Decimal("654.62")),
         (89.84, Decimal("655.61")),
-        (90.98, Decimal("663.2")),
+        (90.98, Decimal("663.20")),
         (91.83, Decimal("668.13")),
         (92.86, Decimal("668.17")),
         (94.22, Decimal("693.89")),
@@ -552,15 +566,22 @@ LADDER = {
         (97.78, Decimal("680.29")),
         (99.04, Decimal("689.68")),
         (100.24, Decimal("691.57")),
-    ],}
+    ],
+}
+
 
 
 def base_fare(vehicle_class, miles):
     """Base fare for a class at a road distance, by linear interpolation.
 
-    Between ladder points: straight-line interpolation. Below the
-    first point the base is clamped at the class floor (the rung-1
-    base). Above the last point (100.24 mi) the base extends with the
+    Returns the precise interpolated Decimal — NOT rounded to cents.
+    The ladder points carry sub-cent values (recovered from the
+    sheet totals so the engine reproduces them to the cent — see the
+    module docstring), and the fee rules are applied to the precise
+    base; callers round for display and for the total. Between
+    ladder points: straight-line interpolation. Below the first
+    point the base is clamped at the class floor (the rung-1 base).
+    Above the last point (100.24 mi) the base extends with the
     slope of the last segment. The ladder itself is not perfectly
     monotonic — Blacklane prices by route, so a few neighbouring
     rungs dip by a few dollars (e.g. the Weehawken NJ rung prices
@@ -579,13 +600,13 @@ def base_fare(vehicle_class, miles):
     if miles_f >= points[-1][0]:
         (m1, b1), (m2, b2) = points[-2], points[-1]
         slope = (b2 - b1) / Decimal(str(m2 - m1))
-        return money(b2 + slope * Decimal(str(miles_f - m2)))
+        return b2 + slope * Decimal(str(miles_f - m2))
     for (m1, b1), (m2, b2) in zip(points, points[1:]):
         if m1 <= miles_f <= m2:
             if m2 == m1:
                 return b1
             frac = Decimal(str((miles_f - m1) / (m2 - m1)))
-            return money(b1 + (b2 - b1) * frac)
+            return b1 + (b2 - b1) * frac
     return points[-1][1]  # pragma: no cover - unreachable
 
 
@@ -683,13 +704,19 @@ def classify_endpoint(text, details=None):
 def blacklane_fees(pickup, dropoff, base):
     """Fee breakdown for a base fare, from two classified endpoints.
 
-    ``pickup``/``dropoff`` are classify_endpoint() dicts. Returns
-    Decimals: airport_access, ny_congestion, mta_congestion,
+    ``pickup``/``dropoff`` are classify_endpoint() dicts. ``base``
+    arrives at FULL precision (ladder points carry sub-cent values
+    recovered from the sheet totals — see the module docstring): the
+    sales tax and black car fee are computed from the precise base
+    and each rounded to cents, exactly as the sheet's totals were
+    built. Do NOT round the base first — on the rungs whose true
+    base sits a fraction of a cent below its rounded display value,
+    rounding first pushes the total a cent over the sheet total.
+    Returns Decimals: airport_access, ny_congestion, mta_congestion,
     sales_tax, black_car_fee, plus meet_and_greet (always $0.00 —
     non-NY-airport Meet & Greet is not modelled; see the module
     docstring) and the summed fees_total.
     """
-    base = money(base)
     airport = (AIRPORT_ACCESS_FEE
                if (pickup["is_airport"] or dropoff["is_airport"])
                else Decimal("0.00"))
@@ -754,8 +781,8 @@ def compute_blacklane_one_way(miles, vehicle_class, pickup_text,
     profit = money(total - driver_earnings)
     return {
         "miles": miles_dec,
-        "fare": base,
-        "base": base,
+        "fare": money(base),
+        "base": money(base),
         "fees": fees,
         "gratuity": Decimal("0.00"),
         "tax": fees["sales_tax"],

@@ -13,7 +13,10 @@ Settled rules under test:
 - Base fare per class interpolates the 100-rung Times Square ladder
   (1-100 road miles); below rung 1 the base is clamped at the class
   floor (Business $112.97, SUV $175.37, First $187.93); above 100.24
-  mi it extends with the last segment's slope.
+  mi it extends with the last segment's slope. Ladder points carry
+  sub-cent bases recovered from the sheet totals, so the engine
+  reproduces all 100 rungs x 3 classes to the cent (owner hard rule
+  2026-11-20: zero difference); see LadderExactCase.
 - Customer total in Blacklane mode is base + fees ONLY — the map toll
   is NOT added to what the customer pays (Blacklane's own quote has
   no separate toll line); the driver still gets the map toll in his
@@ -36,7 +39,9 @@ Run:  python -m unittest discover -s tests -v
 
 import importlib
 import io
+import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -147,9 +152,11 @@ class TestBlacklaneEnginePure(unittest.TestCase):
 
     def test_interpolation_between_rungs(self):
         # 25.5 mi sits between the 24.97-mi and 25.94-mi rungs.
-        self.assertEqual(base_fare("sedan", D("25.5")), D("195.67"))
+        # base_fare returns the precise (unrounded) interpolation;
+        # the cent-rounded base is what the totals are built from.
+        self.assertEqual(money(base_fare("sedan", D("25.5"))), D("195.67"))
         # Above the top rung the base extends with the last segment.
-        self.assertEqual(base_fare("sedan", D("105")), D("440.56"))
+        self.assertEqual(money(base_fare("sedan", D("105"))), D("440.56"))
 
     def test_first_class_driver_pay_is_nine_dollars_a_mile(self):
         # First Class driver rate $9/mi + toll (owner decision
@@ -523,6 +530,54 @@ class BlacklaneApiCase(unittest.TestCase):
                 self.assertEqual(row.driver_earnings, D("161.10"))
                 self.assertEqual(row.vehicle_class, "first")
                 self.assertIsNotNone(row.fare_total)
+
+
+# ------------------------------------------------- ladder exactness ------
+class LadderExactCase(unittest.TestCase):
+    """Owner hard rule 2026-11-20 ~02:32 EST: 'Dono mein ek rupay ka
+    fark nahi aana' — ZERO difference to the cent between Blacklane's
+    total and Noel's, on all 100 ladder rungs x 3 classes. Expected
+    totals come from the sheet (frozen in the fixture); the engine
+    prices Times Square -> each rung's place at the rung's miles.
+    The dropoff state comes from the place string (the same data
+    live geocoding would supply); the pickup is always Times Square
+    (Manhattan, New York County), so the tax rate is the NYC rate."""
+
+    def test_all_100_rungs_x_3_classes_exact(self):
+        fixture = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "fixtures", "blacklane_ladder_expected.json")
+        with open(fixture, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        self.assertEqual(len(data["rungs"]), 100)
+        ts_details = {"city": "New York", "county": "New York County",
+                      "state": "New York", "country": "United States",
+                      "country_code": "us"}
+        state_map = {"NY": "New York", "NJ": "New Jersey",
+                     "CT": "Connecticut", "PA": "Pennsylvania",
+                     "MA": "Massachusetts"}
+        mismatches = []
+        for rung in data["rungs"]:
+            place = rung["place"]
+            m = re.search(
+                r",\s*(New York|New Jersey|Connecticut|Pennsylvania"
+                r"|Massachusetts|NY|NJ|CT|PA|MA),\s*USA\s*$", place)
+            state = state_map.get(m.group(1), m.group(1)) if m else None
+            self.assertIsNotNone(state, rung)
+            self.assertEqual(state == "New York", rung["ny"], rung)
+            dropoff_details = {"state": state}
+            for cls in ("sedan", "suv", "first"):
+                got = compute_blacklane_one_way(
+                    D(str(rung["miles"])), cls,
+                    "Times Square", place,
+                    pickup_details=ts_details,
+                    dropoff_details=dropoff_details,
+                    toll=D("0"))
+                want = D(str(rung["totals"][cls]))
+                if got["total"] != want:
+                    mismatches.append(
+                        (rung["n"], cls, str(want), str(got["total"])))
+        self.assertEqual(mismatches, [], f"{len(mismatches)} mismatches")
 
 
 # ------------------------------------------------- snapshot geocoding ------

@@ -1,0 +1,1106 @@
+{
+ "source": "Blacklane Price Check - 158 Routes, sheet Quotes, rows 62-161 (100-rung Times Square ladder)",
+ "note": "Expected customer totals (all fees included) for Times Square -> place. Engine must reproduce each to the cent (owner hard rule 2026-11-20: zero difference).",
+ "rungs": [
+  {
+   "n": 1,
+   "miles": 1.08,
+   "place": "Rockefeller Center, Rockefeller Plaza, New York, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 129.32,
+    "suv": 198.81,
+    "first": 212.81
+   }
+  },
+  {
+   "n": 2,
+   "miles": 2.05,
+   "place": "Madison Square Park, Madison Avenue, New York, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 129.32,
+    "suv": 201.82,
+    "first": 215.5
+   }
+  },
+  {
+   "n": 3,
+   "miles": 2.87,
+   "place": "The Eatery at the Metropolitan Museum of Art, 1000 5th Avenue, New York, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 129.32,
+    "suv": 208.29,
+    "first": 223.96
+   }
+  },
+  {
+   "n": 4,
+   "miles": 4.1,
+   "place": "Mariachi New Jersey, Park Avenue, Weehawken, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 120.18,
+    "suv": 195.27,
+    "first": 211.58
+   }
+  },
+  {
+   "n": 5,
+   "miles": 4.93,
+   "place": "The Levy Library - Icahn School of Medicine at Mount Sinai, 1 Gustave L. Levy Place, New York, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 131.1,
+    "suv": 211.97,
+    "first": 228.8
+   }
+  },
+  {
+   "n": 6,
+   "miles": 5.97,
+   "place": "North Academic Center (NAC) Building, 160 Convent Avenue, New York, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 143.7,
+    "suv": 228.78,
+    "first": 250.82
+   }
+  },
+  {
+   "n": 7,
+   "miles": 6.77,
+   "place": "37-11 82nd Street, Jackson Heights, Queens, Jackson Heights, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 145.91,
+    "suv": 231.7,
+    "first": 254.66
+   }
+  },
+  {
+   "n": 8,
+   "miles": 7.96,
+   "place": "NYY Steak, 1 East 161st Street, Bronx, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 158.47,
+    "suv": 248.47,
+    "first": 276.61
+   }
+  },
+  {
+   "n": 9,
+   "miles": 8.9,
+   "place": "63-24 Queens Boulevard, Rego Park, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 150.44,
+    "suv": 237.76,
+    "first": 262.59
+   }
+  },
+  {
+   "n": 10,
+   "miles": 10.2,
+   "place": "New Jersey Truck Stop, Hackensack Avenue, Kearny, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 142.42,
+    "suv": 224.92,
+    "first": 250.43
+   }
+  },
+  {
+   "n": 11,
+   "miles": 11,
+   "place": "Citi Field, Seaver Way, Flushing, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 160.65,
+    "suv": 251.38,
+    "first": 280.44
+   }
+  },
+  {
+   "n": 12,
+   "miles": 11.97,
+   "place": "Riverdale Library, Mosholu Avenue, Bronx, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 165.02,
+    "suv": 257.2,
+    "first": 288.07
+   }
+  },
+  {
+   "n": 13,
+   "miles": 12.95,
+   "place": "Van Cortlandt Park, Broadway and Van, Cortlandt Park South, Bronx, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 168.29,
+    "suv": 261.56,
+    "first": 293.78
+   }
+  },
+  {
+   "n": 14,
+   "miles": 14.05,
+   "place": "New Jersey Imaging Network | Clifton, Broad Street, Clifton, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 156.36,
+    "suv": 243.51,
+    "first": 274.8
+   }
+  },
+  {
+   "n": 15,
+   "miles": 14.93,
+   "place": "Yonkers Amtrak Station, Buena Vista Avenue, Yonkers, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 184,
+    "suv": 282.51,
+    "first": 321.24
+   }
+  },
+  {
+   "n": 16,
+   "miles": 15.75,
+   "place": "New Jersey Imaging Network | Montclair, Park Street, Montclair, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 171.33,
+    "suv": 263.48,
+    "first": 300.96
+   }
+  },
+  {
+   "n": 17,
+   "miles": 16.87,
+   "place": "NewYork-Presbyterian Medical Group Westchester - Multispecialty, Gramatan Avenue, Mount Vernon, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 185.39,
+    "suv": 284.37,
+    "first": 323.67
+   }
+  },
+  {
+   "n": 18,
+   "miles": 18,
+   "place": "New Jersey Tae Kwon Do Chung Do Kwan, Valley Street, South Orange, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 173.18,
+    "suv": 265.94,
+    "first": 304.18
+   }
+  },
+  {
+   "n": 19,
+   "miles": 19.22,
+   "place": "New York Athletic Club - Travers Island, Shore Road, Pelham, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 190.92,
+    "suv": 291.75,
+    "first": 333.33
+   }
+  },
+  {
+   "n": 20,
+   "miles": 20.01,
+   "place": "New Jersey Perinatal Associates, From Road, Paramus, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 179.87,
+    "suv": 274.87,
+    "first": 315.89
+   }
+  },
+  {
+   "n": 21,
+   "miles": 20.94,
+   "place": "New Jersey Perinatal Associates, Old Short Hills Road, Livingston, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 180.87,
+    "suv": 276.21,
+    "first": 317.64
+   }
+  },
+  {
+   "n": 22,
+   "miles": 21.74,
+   "place": "Dr. Preet Randhawa MD (NJ Heart), North Wood Avenue, Linden, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 185.89,
+    "suv": 282.89,
+    "first": 326.4
+   }
+  },
+  {
+   "n": 23,
+   "miles": 23.21,
+   "place": "Irvington NY Recreation and Parks, Main Street, Irvington, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 210.4,
+    "suv": 317.72,
+    "first": 367.36
+   }
+  },
+  {
+   "n": 24,
+   "miles": 23.98,
+   "place": "New Jersey Wind Symphony, S Monroe St, Ridgewood, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 191.57,
+    "suv": 290.49,
+    "first": 336.35
+   }
+  },
+  {
+   "n": 25,
+   "miles": 24.97,
+   "place": "New York Ayyappa Swami Temple, Halstead Avenue, Mamaroneck, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 223.61,
+    "suv": 335.33,
+    "first": 390.44
+   }
+  },
+  {
+   "n": 26,
+   "miles": 25.94,
+   "place": "New Jersey Spine Center, Main Street, Chatham, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 199.64,
+    "suv": 301.23,
+    "first": 350.43
+   }
+  },
+  {
+   "n": 27,
+   "miles": 27.06,
+   "place": "White Plains Hospital, East Post Road, White Plains, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 220.82,
+    "suv": 331.59,
+    "first": 385.56
+   }
+  },
+  {
+   "n": 28,
+   "miles": 28.02,
+   "place": "Tarrytown, Tarrytown, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 224.46,
+    "suv": 336.45,
+    "first": 391.92
+   }
+  },
+  {
+   "n": 29,
+   "miles": 29.06,
+   "place": "Pocantico Hills Pool, Bedford Road, Tarrytown, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 228.62,
+    "suv": 342.01,
+    "first": 399.2
+   }
+  },
+  {
+   "n": 30,
+   "miles": 30.13,
+   "place": "Syosset, Syosset, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 234.28,
+    "suv": 349.57,
+    "first": 409.1
+   }
+  },
+  {
+   "n": 31,
+   "miles": 30.99,
+   "place": "New Jersey Army National Guard Recruiting Station, Madison Avenue, Perth Amboy, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 217.71,
+    "suv": 325.33,
+    "first": 382.01
+   }
+  },
+  {
+   "n": 32,
+   "miles": 32.05,
+   "place": "Ramapo College of New Jersey, Ramapo Valley Road, Mahwah, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 224.14,
+    "suv": 333.91,
+    "first": 393.25
+   }
+  },
+  {
+   "n": 33,
+   "miles": 33.03,
+   "place": "Greenwich Town Hall, Field Point Road, Greenwich, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 226.38,
+    "suv": 336.89,
+    "first": 397.16
+   }
+  },
+  {
+   "n": 34,
+   "miles": 34.19,
+   "place": "Chappaqua Train Station, Allen Place, Chappaqua, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 251.87,
+    "suv": 373.02,
+    "first": 439.82
+   }
+  },
+  {
+   "n": 35,
+   "miles": 34.74,
+   "place": "Cos Cob Fire Department, East Putnam Avenue, Cos Cob, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 236.43,
+    "suv": 350.29,
+    "first": 414.71
+   }
+  },
+  {
+   "n": 36,
+   "miles": 35.73,
+   "place": "Huntington LIRR Train Station, Broadway, Huntington Station, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 258.84,
+    "suv": 382.31,
+    "first": 452.01
+   }
+  },
+  {
+   "n": 37,
+   "miles": 37.36,
+   "place": "Stamford Station, South State Street, Stamford, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 245.96,
+    "suv": 363,
+    "first": 431.37
+   }
+  },
+  {
+   "n": 38,
+   "miles": 38.08,
+   "place": "Ferguson Library, Public Library Plaza, Stamford, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 249.35,
+    "suv": 367.54,
+    "first": 437.31
+   }
+  },
+  {
+   "n": 39,
+   "miles": 39.03,
+   "place": "Preferred Motor Cars Of New Jersey, New Jersey 35, Keyport, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 247.3,
+    "suv": 364.8,
+    "first": 433.73
+   }
+  },
+  {
+   "n": 40,
+   "miles": 39.83,
+   "place": "Glenbrook, Stamford, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 257.72,
+    "suv": 378.68,
+    "first": 451.91
+   }
+  },
+  {
+   "n": 41,
+   "miles": 41.05,
+   "place": "New York Manual Therapy, Pocket Court, Northport, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 288.61,
+    "suv": 422.01,
+    "first": 504.05
+   }
+  },
+  {
+   "n": 42,
+   "miles": 41.94,
+   "place": "Cortlandt Station, Memorial Drive, Croton-on-Hudson, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 283.86,
+    "suv": 415.67,
+    "first": 495.73
+   }
+  },
+  {
+   "n": 43,
+   "miles": 42.9,
+   "place": "Katonah, Katonah, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 299.86,
+    "suv": 437.02,
+    "first": 523.69
+   }
+  },
+  {
+   "n": 44,
+   "miles": 44.05,
+   "place": "Brentwood, Brentwood, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 291.42,
+    "suv": 425.77,
+    "first": 508.96
+   }
+  },
+  {
+   "n": 45,
+   "miles": 44.98,
+   "place": "The Central, Railroad Avenue, Peekskill, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 295.91,
+    "suv": 431.75,
+    "first": 516.79
+   }
+  },
+  {
+   "n": 46,
+   "miles": 45.95,
+   "place": "Verplanck Quarry, 9th Street, Verplanck, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 301.55,
+    "suv": 439.28,
+    "first": 526.65
+   }
+  },
+  {
+   "n": 47,
+   "miles": 46.95,
+   "place": "New York Interfaith Power and Light, U.S. 202, Lincolndale, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 318.22,
+    "suv": 461.5,
+    "first": 555.78
+   }
+  },
+  {
+   "n": 48,
+   "miles": 48.28,
+   "place": "Westport, Railroad Place, Westport, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 285.68,
+    "suv": 415.98,
+    "first": 500.79
+   }
+  },
+  {
+   "n": 49,
+   "miles": 48.84,
+   "place": "NJ LEAF Freehold, Park Avenue, Freehold, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 283.27,
+    "suv": 412.76,
+    "first": 496.57
+   }
+  },
+  {
+   "n": 50,
+   "miles": 50.02,
+   "place": "New York Cancer & Blood Specialists, East Main Street, East Islip, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 322.41,
+    "suv": 467.09,
+    "first": 563.1
+   }
+  },
+  {
+   "n": 51,
+   "miles": 50.99,
+   "place": "Western Union Money Order Only, Gibbs Pond Road, Lake Ronkonkoma, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 316.64,
+    "suv": 459.39,
+    "first": 553.01
+   }
+  },
+  {
+   "n": 52,
+   "miles": 51.87,
+   "place": "Garrison Station, Philipstown, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 322.36,
+    "suv": 467.01,
+    "first": 563
+   }
+  },
+  {
+   "n": 53,
+   "miles": 52.79,
+   "place": "Lewisboro Town Hall, Main Street, South Salem, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 329.89,
+    "suv": 477.06,
+    "first": 576.16
+   }
+  },
+  {
+   "n": 54,
+   "miles": 53.97,
+   "place": "Sayville Station, Depot Street, Sayville, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 331.64,
+    "suv": 479.38,
+    "first": 579.21
+   }
+  },
+  {
+   "n": 55,
+   "miles": 55.09,
+   "place": "Fairfield Metro-North Train Station, Unquowa Road, Fairfield, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 308.9,
+    "suv": 446.93,
+    "first": 541.37
+   }
+  },
+  {
+   "n": 56,
+   "miles": 56,
+   "place": "Brewster Train Station, Brewster, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 347.58,
+    "suv": 500.65,
+    "first": 607.08
+   }
+  },
+  {
+   "n": 57,
+   "miles": 56.82,
+   "place": "Patchogue Train Station, South Ocean Avenue, Patchogue, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 340.18,
+    "suv": 490.79,
+    "first": 594.16
+   }
+  },
+  {
+   "n": 58,
+   "miles": 57.94,
+   "place": "Homewood Suites by Hilton Hamilton, NJ, U.S. 130, Hamilton Township, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 333.2,
+    "suv": 478.87,
+    "first": 582.86
+   }
+  },
+  {
+   "n": 59,
+   "miles": 58.8,
+   "place": "United States Postal Service, Pauls Path, Coram, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 347.48,
+    "suv": 500.51,
+    "first": 606.9
+   }
+  },
+  {
+   "n": 60,
+   "miles": 59.83,
+   "place": "United States Postal Service, Echo Avenue, Miller Place, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 367.63,
+    "suv": 526.09,
+    "first": 639.41
+   }
+  },
+  {
+   "n": 61,
+   "miles": 60.92,
+   "place": "New York Cuts of Sound Beach, Echo Avenue, Sound Beach, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 370.41,
+    "suv": 529.04,
+    "first": 642.68
+   }
+  },
+  {
+   "n": 62,
+   "miles": 62.59,
+   "place": "Western Union, NY-25A, Rocky Point, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 375.58,
+    "suv": 534.51,
+    "first": 648.77
+   }
+  },
+  {
+   "n": 63,
+   "miles": 63,
+   "place": "New York Cancer Foundation, Ramsey Road, Shirley, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 364.02,
+    "suv": 522.26,
+    "first": 635.16
+   }
+  },
+  {
+   "n": 64,
+   "miles": 64.02,
+   "place": "New Jersey Podiatric Medical Society, Tree Farm Road, Pennington, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 337.15,
+    "suv": 483.07,
+    "first": 587.52
+   }
+  },
+  {
+   "n": 65,
+   "miles": 64.71,
+   "place": "United States Postal Service, Montauk Highway, Mastic, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 372.84,
+    "suv": 531.61,
+    "first": 645.55
+   }
+  },
+  {
+   "n": 66,
+   "miles": 65.91,
+   "place": "New Jersey State Police - Bordentown Station, U.S. 130, Bordentown, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 342.28,
+    "suv": 488.5,
+    "first": 593.55
+   }
+  },
+  {
+   "n": 67,
+   "miles": 66.99,
+   "place": "East Fishkill Community Library, New York 376, Hopewell Junction, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 377.36,
+    "suv": 536.39,
+    "first": 650.87
+   }
+  },
+  {
+   "n": 68,
+   "miles": 67.97,
+   "place": "Center Moriches Free Public Library, Montauk Highway, Center Moriches, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 387.76,
+    "suv": 547.41,
+    "first": 663.1
+   }
+  },
+  {
+   "n": 69,
+   "miles": 68.78,
+   "place": "Beacon Station, Long Dock Road, Beacon, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 366.6,
+    "suv": 525.02,
+    "first": 638.22
+   }
+  },
+  {
+   "n": 70,
+   "miles": 69.83,
+   "place": "United States Postal Service, Atlantic Avenue, East Moriches, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 398.27,
+    "suv": 558.55,
+    "first": 675.47
+   }
+  },
+  {
+   "n": 71,
+   "miles": 71.13,
+   "place": "Connecticut Audubon - Deer Pond Farm Sanctuary, Wakeman Hill Road, Sherman, CT, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 358.43,
+    "suv": 505.6,
+    "first": 612.55
+   }
+  },
+  {
+   "n": 72,
+   "miles": 71.95,
+   "place": "Professional Physical and Hand Therapy - Wading River NY, NY-25A, Wading River, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 391.44,
+    "suv": 551.32,
+    "first": 667.44
+   }
+  },
+  {
+   "n": 73,
+   "miles": 73.07,
+   "place": "Baiting Hollow Tree Farm, Fresh Pond Avenue, Calverton, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 401.73,
+    "suv": 562.2,
+    "first": 679.53
+   }
+  },
+  {
+   "n": 74,
+   "miles": 74.1,
+   "place": "Plattekill Library, New York 32, Modena, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 401.76,
+    "suv": 562.23,
+    "first": 679.57
+   }
+  },
+  {
+   "n": 75,
+   "miles": 75.08,
+   "place": "US Post Office, Sullivan Trail, Easton, Pennsylvania, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 367.43,
+    "suv": 515.14,
+    "first": 623.14
+   }
+  },
+  {
+   "n": 76,
+   "miles": 75.64,
+   "place": "Connecticut Sports Arena, Still River Drive, New Milford, CT, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 372.23,
+    "suv": 520.21,
+    "first": 628.78
+   }
+  },
+  {
+   "n": 77,
+   "miles": 76.97,
+   "place": "Gardiner Library, Farmer's Turnpike, Gardiner, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 410.64,
+    "suv": 571.63,
+    "first": 690.02
+   }
+  },
+  {
+   "n": 78,
+   "miles": 78.21,
+   "place": "United States Postal Service, George Washington Plaza, New Milford, Gaylordsville, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 378.41,
+    "suv": 526.76,
+    "first": 636.06
+   }
+  },
+  {
+   "n": 79,
+   "miles": 78.75,
+   "place": "United States Postal Service, Midland Street, Quogue, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 421.14,
+    "suv": 582.77,
+    "first": 702.38
+   }
+  },
+  {
+   "n": 80,
+   "miles": 79.8,
+   "place": "United States Postal Service, Main Street, New Paltz, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 419.37,
+    "suv": 580.9,
+    "first": 700.31
+   }
+  },
+  {
+   "n": 81,
+   "miles": 80.68,
+   "place": "Connecticut Department of Motor Vehicles, State Street, Hamden, CT, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 387.82,
+    "suv": 536.73,
+    "first": 647.14
+   }
+  },
+  {
+   "n": 82,
+   "miles": 81.82,
+   "place": "Dover Plains Station, Railroad St, Dover Plains, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 425.07,
+    "suv": 586.94,
+    "first": 707.01
+   }
+  },
+  {
+   "n": 83,
+   "miles": 83.11,
+   "place": "United States Postal Service, Whitney Avenue, Hamden, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 390.2,
+    "suv": 539.24,
+    "first": 649.92
+   }
+  },
+  {
+   "n": 84,
+   "miles": 84.05,
+   "place": "Connecticut Sportsplex, Foxon Road, North Branford, CT, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 397.27,
+    "suv": 546.74,
+    "first": 658.25
+   }
+  },
+  {
+   "n": 85,
+   "miles": 85.11,
+   "place": "Connecticut Oral & Maxillofacial Surgery Centers, LLC, Washington Avenue, North Haven, CT, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 395.74,
+    "suv": 545.12,
+    "first": 656.45
+   }
+  },
+  {
+   "n": 86,
+   "miles": 86.12,
+   "place": "United States Postal Service, Cottage St, Salt Point, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 436.55,
+    "suv": 599.08,
+    "first": 720.49
+   }
+  },
+  {
+   "n": 87,
+   "miles": 87.15,
+   "place": "Rosendale Library, Main Street, Rosendale, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 442,
+    "suv": 604.86,
+    "first": 726.93
+   }
+  },
+  {
+   "n": 88,
+   "miles": 88.03,
+   "place": "Hyde Park RR Station Museum, River Rd, Hyde Park, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 450.98,
+    "suv": 614.37,
+    "first": 737.5
+   }
+  },
+  {
+   "n": 89,
+   "miles": 89.29,
+   "place": "New Jersey Motor Vehicle Commission, Hampton Road, Cherry Hill, NJ, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 408.74,
+    "suv": 558.87,
+    "first": 671.74
+   }
+  },
+  {
+   "n": 90,
+   "miles": 89.84,
+   "place": "Wallingford Station, N Cherry St, Wallingford, CT, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 409.6,
+    "suv": 559.78,
+    "first": 672.75
+   }
+  },
+  {
+   "n": 91,
+   "miles": 90.98,
+   "place": "Station, Hubbard Road, Guilford, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 416.21,
+    "suv": 566.79,
+    "first": 680.53
+   }
+  },
+  {
+   "n": 92,
+   "miles": 91.83,
+   "place": "ACA K9 Enterprises LLC Albany New York Capital District, Station Road, Kingston, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 459.71,
+    "suv": 623.57,
+    "first": 747.63
+   }
+  },
+  {
+   "n": 93,
+   "miles": 92.86,
+   "place": "United States Postal Service, Main Street, Stone Ridge, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 459.76,
+    "suv": 623.61,
+    "first": 747.67
+   }
+  },
+  {
+   "n": 94,
+   "miles": 94.22,
+   "place": "Connecticut Department of Motor Vehicles Testing Center, Highland Avenue, Cheshire, CT, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 447.01,
+    "suv": 597.81,
+    "first": 711.99
+   }
+  },
+  {
+   "n": 95,
+   "miles": 95.17,
+   "place": "Connecticut GI: Sharon, Hospital Hill Road, Sharon, CT, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 425.26,
+    "suv": 576.06,
+    "first": 690.24
+   }
+  },
+  {
+   "n": 96,
+   "miles": 96.25,
+   "place": "Philadelphia City Hall, John F Kennedy Boulevard, Philadelphia, Pennsylvania, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 430.06,
+    "suv": 580.86,
+    "first": 695.03
+   }
+  },
+  {
+   "n": 97,
+   "miles": 96.28,
+   "place": "Connecticut Police Academy, Preston Avenue, Meriden, CT, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 430.54,
+    "suv": 581.34,
+    "first": 695.52
+   }
+  },
+  {
+   "n": 98,
+   "miles": 97.78,
+   "place": "De Antonio Yachts New York, Pine Neck Avenue, Sag Harbor, NY, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 473.25,
+    "suv": 637.11,
+    "first": 761.18
+   }
+  },
+  {
+   "n": 99,
+   "miles": 99.04,
+   "place": "Henry Carter Hull Library, Killingworth Turnpike, Clinton, Connecticut, USA",
+   "ny": false,
+   "totals": {
+    "sedan": 442.7,
+    "suv": 593.5,
+    "first": 707.67
+   }
+  },
+  {
+   "n": 100,
+   "miles": 100.24,
+   "place": "United States Postal Service, Long Island Avenue, Sag Harbor, New York, USA",
+   "ny": true,
+   "totals": {
+    "sedan": 485.82,
+    "suv": 649.67,
+    "first": 773.74
+   }
+  }
+ ]
+}

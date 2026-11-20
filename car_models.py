@@ -16,6 +16,12 @@ Owner decisions (voice call 2026-11-16):
 - TEMPORARY exception: "Tesla Model 3" is included ONLY so the owner
   (Azhar Mohammed) can try the system with his own 2023 Model 3.
   Remove it when he says so. It is NOT on Uber's Black list.
+  Owner decision 2026-11-19 (voice call): the exception is ONLY for
+  the owner and Sana Baga — no other driver may use Model 3, and it
+  must not even be VISIBLE to them in the dropdown. The endpoint
+  serves it only when the email typed in the form belongs to one of
+  the two (see MODEL_3_ALLOWED_EMAILS), and registration rejects it
+  for anyone else even if posted directly.
 - Tesla Model Y stays EXCLUDED. No other additions.
 - Jeep Wagoneer S is included: the source marks it "SF Bay Area
   only", but keeping the full transcribed list intact is safer than
@@ -150,6 +156,22 @@ VEHICLE_CLASS_BY_MAKE = {
 # Uber's Black list. Remove when the owner says so.
 TEMPORARY_MODEL_3 = "Tesla Model 3"
 
+# Owner decision 2026-11-19 (voice call): the Model 3 exception is
+# ONLY for the owner (Azher Mohammed) and Sana Baga. Both of the
+# owner's own emails are listed because either could be the one on
+# his driver record; Sana's is the address she re-registered with
+# (sanabaga12@gmail.com, 2026-11-18).
+MODEL_3_ALLOWED_EMAILS = frozenset({
+    "m.azherahmed1@gmail.com",
+    "ahmedazher476@gmail.com",
+    "sanabaga12@gmail.com",
+})
+
+
+def model_3_allowed_for(email):
+    """True only for the two drivers allowed the Model 3 exception."""
+    return (email or "").strip().lower() in MODEL_3_ALLOWED_EMAILS
+
 
 def uber_black_models():
     """The 132 transcribed Uber Black models, as 'Make Model' names."""
@@ -160,12 +182,24 @@ def uber_black_models():
     return sorted(models)
 
 
-def allowed_models():
-    """Every model the dropdown offers: the 132 + temporary Model 3."""
-    return sorted(uber_black_models() + [TEMPORARY_MODEL_3])
+def allowed_models(email=None):
+    """Models the dropdown offers for this registrant.
+
+    The 132 Uber Black models for everyone; the temporary Model 3
+    only when `email` belongs to Azher Mohammed or Sana Baga. With
+    no email (or any other email) the list is 132 and Model 3 never
+    appears — other drivers must not even see it.
+    """
+    models = uber_black_models()
+    if model_3_allowed_for(email):
+        models = models + [TEMPORARY_MODEL_3]
+    return sorted(models)
 
 
-ALLOWED_CAR_MODELS = frozenset(allowed_models())
+# Every model the server knows at all (132 + Model 3): the membership
+# check in validate_car_model. Visibility is decided separately by
+# allowed_models(email).
+ALLOWED_CAR_MODELS = frozenset(uber_black_models() + [TEMPORARY_MODEL_3])
 
 
 def vehicle_class_by_model():
@@ -194,13 +228,22 @@ def normalize_car_model(value):
     return (value or "").strip()
 
 
-def validate_car_model(value):
-    """Return (normalized_model, None) or (None, error_message)."""
+def validate_car_model(value, email=None):
+    """Return (normalized_model, None) or (None, error_message).
+
+    `email` is the registrant's email (already normalized). The
+    temporary Model 3 is rejected for anyone but the two allowed
+    drivers, even if it is posted directly instead of picked from
+    the dropdown.
+    """
     model = normalize_car_model(value)
     if not model:
         return None, "Please choose your car model from the list."
     if model not in ALLOWED_CAR_MODELS:
         return None, "That car model is not eligible. Please choose a model from the list."
+    if model == TEMPORARY_MODEL_3 and not model_3_allowed_for(email):
+        return None, ("Tesla Model 3 is only available for selected drivers. "
+                      "Please choose another model from the list.")
     return model, None
 
 

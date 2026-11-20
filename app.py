@@ -4690,9 +4690,16 @@ def car_models():
     One list, served from car_models.py (the transcribed Uber Black
     list + the temporary Model 3 owner-trial exception). The driver
     app fetches this; the server validates against the same set.
+
+    The Model 3 exception is only visible to the two allowed drivers
+    (owner decision 2026-11-19): the form passes the email typed in
+    the registration form as ?email=, and the list includes Model 3
+    only for Azher Mohammed and Sana Baga. Without it (or for any
+    other email) the list is the 132 Uber Black models and Model 3
+    never appears.
     """
     return jsonify({
-        "models": allowed_models(),
+        "models": allowed_models(request.args.get("email", "")),
         "min_year": MIN_CAR_YEAR,
         "max_year": max_car_year(),
     })
@@ -4835,7 +4842,10 @@ def register_driver():
 
     # Car model must come from the eligible list (dropdown), and the
     # model year must be 2022 or newer (owner decision 2026-11-16).
-    car_model, model_error = validate_car_model(form.get("car_model"))
+    # The temporary Model 3 is rejected here for anyone but the two
+    # allowed drivers (owner decision 2026-11-19), even if it is
+    # posted directly instead of picked from the dropdown.
+    car_model, model_error = validate_car_model(form.get("car_model"), email)
     if model_error:
         return err(model_error)
     car_year, year_error = validate_car_year(form.get("car_year"))

@@ -221,14 +221,22 @@ check("rejected registration leaves no driver record", resp.status_code == 404,
       str(resp.status_code))
 
 # Car-model dropdown data + validation (2022 floor, eligible list only).
+# Model 3 is hidden from everyone except the two allowed drivers
+# (owner decision 2026-11-19): anonymous list is 132, no Model 3.
 resp = anon.get(BASE + "/api/car-models", timeout=TIMEOUT)
 check("car-models endpoint 200", resp.status_code == 200, str(resp.status_code))
 models_payload = resp.json()
-check("car-models: 133 entries (132 Uber Black + temporary Model 3)",
-      len(models_payload["models"]) == 133, str(len(models_payload.get("models", []))))
-check("car-models: Model 3 present (temporary exception), Model Y absent",
-      "Tesla Model 3" in models_payload["models"]
+check("car-models: 132 entries for everyone else (Model 3 hidden)",
+      len(models_payload["models"]) == 132, str(len(models_payload.get("models", []))))
+check("car-models: Model 3 absent anonymously, Model Y absent",
+      "Tesla Model 3" not in models_payload["models"]
       and "Tesla Model Y" not in models_payload["models"])
+resp = anon.get(BASE + "/api/car-models",
+                params={"email": "sanabaga12@gmail.com"}, timeout=TIMEOUT)
+check("car-models: Model 3 shown for Sana Baga (allowed driver)",
+      "Tesla Model 3" in resp.json()["models"]
+      and len(resp.json()["models"]) == 133,
+      str(len(resp.json().get("models", []))))
 check("car-models: year bounds 2022..current+1",
       models_payload["min_year"] == 2022
       and models_payload["max_year"] == datetime.now(timezone.utc).year + 1,

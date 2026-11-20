@@ -197,7 +197,10 @@ class TestClassPricingPure(unittest.TestCase):
 class TestModelClassMapping(unittest.TestCase):
     def test_all_133_models_mapped_to_exactly_one_class(self):
         mapping = car_models_module.VEHICLE_CLASS_BY_MODEL
-        self.assertEqual(set(mapping), set(car_models_module.allowed_models()))
+        # The mapping covers every known model (132 + Model 3), even
+        # though the dropdown hides Model 3 from most drivers
+        # (owner decision 2026-11-19).
+        self.assertEqual(set(mapping), set(car_models_module.ALLOWED_CAR_MODELS))
         self.assertEqual(len(mapping), 133)
         for model, cls in mapping.items():
             self.assertIn(cls, ("sedan", "suv"), model)

@@ -3027,19 +3027,35 @@
       }
     });
 
-    fetch("/api/car-models")
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        carModels = j.models || [];
-        carListLoaded = carModels.length > 0;
-        fillYearSelect(j.min_year || 2022, j.max_year || new Date().getFullYear() + 1);
-        if (!carListLoaded) { throw new Error("empty list"); }
-      })
-      .catch(function () {
-        note.textContent = "The car list could not be loaded. Please check your connection and reload this page.";
-        input.disabled = true;
-        $("register-submit").disabled = true;
-      });
+    /* The Model 3 exception is only visible to the two allowed
+       drivers (owner decision 2026-11-19): the list is fetched with
+       the email typed in the registration form, so other drivers
+       never even see Model 3. Re-fetch when the email changes; if
+       the chosen model just left the list, clear it. */
+    function loadCarModels() {
+      var email = $("reg-email").value.trim();
+      var url = email
+        ? "/api/car-models?email=" + encodeURIComponent(email)
+        : "/api/car-models";
+      fetch(url)
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          carModels = j.models || [];
+          carListLoaded = carModels.length > 0;
+          fillYearSelect(j.min_year || 2022, j.max_year || new Date().getFullYear() + 1);
+          if (!carListLoaded) { throw new Error("empty list"); }
+          if (input.value && carModels.indexOf(input.value.trim()) === -1) {
+            input.value = "";
+          }
+        })
+        .catch(function () {
+          note.textContent = "The car list could not be loaded. Please check your connection and reload this page.";
+          input.disabled = true;
+          $("register-submit").disabled = true;
+        });
+    }
+    loadCarModels();
+    $("reg-email").addEventListener("change", loadCarModels);
   }
 
   /* ---------- State dropdown + per-state documents (registration) ---------- */

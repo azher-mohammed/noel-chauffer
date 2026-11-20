@@ -4,6 +4,11 @@
   23 makes) from UBER_BLACK_LIST.md, plus the TEMPORARY "Tesla Model 3"
   owner-trial exception. Model Y and the other NOT-eligible models
   stay out.
+- Owner decision 2026-11-19 (voice call): Model 3 is ONLY for Azher
+  Mohammed and Sana Baga. Everyone else gets 132 models and never
+  even sees Model 3 — the endpoint serves it only when ?email=
+  belongs to one of the two, and registration rejects it for anyone
+  else even if posted directly.
 - Model year floor: 2022 or newer ("2022 se rakhna"), up to the
   current year + 1. The server rejects unlisted models and old years.
 - Registration with a listed model + valid year works end to end, and
@@ -110,17 +115,35 @@ class CarModelsCase(unittest.TestCase):
         got = set(car_models_module.uber_black_models())
         self.assertEqual(got, expected)
 
-    def test_endpoint_serves_132_plus_temporary_model_3(self):
+    def test_endpoint_serves_132_without_model_3_for_everyone_else(self):
+        # Anonymous (no email): 132 Uber Black models, Model 3 hidden.
         resp = self.client.get("/api/car-models")
         self.assertEqual(resp.status_code, 200)
         payload = resp.get_json()
         models = payload["models"]
-        self.assertEqual(len(models), 133)
-        self.assertEqual(len(set(models)), 133, "no duplicate models")
+        self.assertEqual(len(models), 132)
+        self.assertEqual(len(set(models)), 132, "no duplicate models")
         self.assertEqual(models, sorted(models), "sorted for the dropdown")
-        self.assertIn("Tesla Model 3", models)
+        self.assertNotIn("Tesla Model 3", models)
         expected, _ = models_from_source_file()
-        self.assertTrue(expected <= set(models))
+        self.assertEqual(set(models), expected)
+        # Any other email: same 132, Model 3 still hidden.
+        models = self.client.get(
+            "/api/car-models", query_string={"email": "someone@test.com"}
+        ).get_json()["models"]
+        self.assertEqual(len(models), 132)
+        self.assertNotIn("Tesla Model 3", models)
+
+    def test_endpoint_serves_model_3_only_to_the_two_allowed_drivers(self):
+        for email in ("sanabaga12@gmail.com", "m.azherahmed1@gmail.com",
+                      "ahmedazher476@gmail.com", "  SanaBaga12@Gmail.com  "):
+            models = self.client.get(
+                "/api/car-models", query_string={"email": email}
+            ).get_json()["models"]
+            self.assertEqual(len(models), 133, email)
+            self.assertIn("Tesla Model 3", models, email)
+            expected, _ = models_from_source_file()
+            self.assertTrue(expected <= set(models))
 
     def test_excluded_models_absent(self):
         models = set(self.client.get("/api/car-models").get_json()["models"])
@@ -173,8 +196,17 @@ class CarModelsCase(unittest.TestCase):
         resp = self.register(car_model="  ")
         self.assertEqual(resp.status_code, 400)
 
-    def test_model_3_temporary_exception_accepted(self):
+    def test_model_3_only_for_the_two_allowed_drivers(self):
+        # The default test email is nobody special: Model 3 rejected.
         resp = self.register(car_model="Tesla Model 3", car_year="2023")
+        self.assertEqual(resp.status_code, 400, resp.get_data(as_text=True)[:200])
+        self.assertIn("Model 3", resp.get_json()["error"])
+        # Sana Baga and the owner: accepted.
+        resp = self.register(car_model="Tesla Model 3", car_year="2023",
+                             email="sanabaga12@gmail.com")
+        self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
+        resp = self.register(car_model="Tesla Model 3", car_year="2023",
+                             email="m.azherahmed1@gmail.com")
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
 
     def test_model_whitespace_trimmed(self):
@@ -234,6 +266,9 @@ class CarModelsCase(unittest.TestCase):
                   encoding="utf-8") as fh:
             js = fh.read()
         self.assertIn("/api/car-models", js)
+        # The list is fetched with the typed email, so Model 3 only
+        # appears for the two allowed drivers (2026-11-19).
+        self.assertIn("/api/car-models?email=", js)
         self.assertIn('fd.append("car_year"', js)
 
 

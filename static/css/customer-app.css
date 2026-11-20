@@ -180,6 +180,7 @@ input, select { font: inherit; }
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(201, 162, 39, 0.22);
 }
 .class-option-name { font-size: 16px; font-weight: 600; color: var(--white); }
+.class-option-capacity { font-size: 13px; opacity: 0.75; }
 .class-option-total { font-family: Georgia, serif; font-size: 26px; color: var(--gold-soft); }
 .class-actions { margin-top: 8px; }
 

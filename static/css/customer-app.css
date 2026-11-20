@@ -99,6 +99,7 @@ input, select { font: inherit; }
 }
 .field .hint { font-size: 13px; color: var(--muted); margin-top: 5px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-row .field-wide { grid-column: 1 / -1; }
 .field-places { position: relative; }
 
 /* Address suggestions below the field (same pattern as the website). */

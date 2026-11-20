@@ -26,6 +26,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from decimal import Decimal
 
 # --- test env BEFORE importing the app -------------------------------------
@@ -209,7 +210,10 @@ class SlabApiCase(unittest.TestCase):
 
     def test_booking_at_exactly_400_miles_uses_the_last_slab(self):
         self.stub_miles(400.0)
-        resp = self.book()
+        # Legacy customer total ($9/mi) is the fixture here; the slab
+        # driver pay is the point of the test.
+        with mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"}):
+            resp = self.book()
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:300])
         booking = resp.get_json()["booking"]
         with app_module.app.app_context():
@@ -219,7 +223,10 @@ class SlabApiCase(unittest.TestCase):
 
     def test_booking_at_380_miles_pays_the_370_380_slab(self):
         self.stub_miles(380.0)
-        resp = self.book()
+        # Legacy customer total ($9/mi) is the fixture here; the slab
+        # driver pay is the point of the test.
+        with mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"}):
+            resp = self.book()
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:300])
         booking = resp.get_json()["booking"]
         with app_module.app.app_context():

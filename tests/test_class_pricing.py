@@ -22,6 +22,7 @@ import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from decimal import Decimal
 
 # --- test env BEFORE importing the app -------------------------------------
@@ -268,6 +269,11 @@ class TestModelClassMapping(unittest.TestCase):
         self.assertIsNone(car_models_module.class_for_model(""))
 
 
+# These tests pin the legacy $9/$10 totals as their fixtures (the
+# class-switch and discount mechanics are engine-independent); the
+# live engine is Blacklane by default since the owner flip
+# (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class ClassApiCase(unittest.TestCase):
     def setUp(self):
         app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)

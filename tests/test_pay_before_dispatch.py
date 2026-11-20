@@ -23,6 +23,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 
 # --- test env BEFORE importing the app -------------------------------------
@@ -57,6 +58,10 @@ def approx(a, b):
     return a is not None and abs(float(a) - float(b)) < 0.005
 
 
+# These tests pin the legacy $9/$10 totals as fixtures (the
+# pay-before-dispatch mechanics are engine-independent); the live
+# engine is Blacklane by default since the owner flip (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class PayBeforeDispatchCase(unittest.TestCase):
     def setUp(self):
         app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)
@@ -292,11 +297,11 @@ class PayBeforeDispatchCase(unittest.TestCase):
         _, token = self.register_driver()
         # Pickup 2 hours ago: the full 60-minute airport wait has elapsed,
         # so the no-show time gate (owner decision 2026-11-16) allows it.
-        date, time = self.past_pickup(120)
-        booking = self.book(date=date, time=time)
+        booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.client.post(f"/api/drivers/me/offers/{booking['id']}/accept",
                          headers={"X-Driver-Token": token})
+        self.move_pickup(booking["id"], 120)
         for event in ("en_route", "arrived", "no_show"):
             resp = self.client.post(f"/api/drivers/me/trip/{booking['id']}/event",
                                     json={"event": event},
@@ -318,6 +323,18 @@ class PayBeforeDispatchCase(unittest.TestCase):
         except Exception:
             past = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
         return past.strftime("%Y-%m-%d"), past.strftime("%H:%M")
+
+    def move_pickup(self, booking_id, minutes_ago):
+        """Move a booking's pickup to `minutes_ago` in the past, in
+        the DB. The API refuses past pickups (owner decision
+        2026-11-20), so tests that need a past pickup book in the
+        future and move it back here."""
+        date, time = self.past_pickup(minutes_ago)
+        with app_module.app.app_context():
+            b = app_module.db.session.get(app_module.Booking, booking_id)
+            b.date = date
+            b.time = time
+            app_module.db.session.commit()
 
     def trip_event(self, token, booking_id, event):
         return self.client.post(f"/api/drivers/me/trip/{booking_id}/event",
@@ -346,23 +363,23 @@ class PayBeforeDispatchCase(unittest.TestCase):
 
     def test_no_show_airport_requires_full_60_minutes(self):
         _, token = self.register_driver()
-        date, time = self.past_pickup(30)  # JFK: only 30 of 60 minutes elapsed
-        booking = self.book(date=date, time=time)
+        booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.client.post(f"/api/drivers/me/offers/{booking['id']}/accept",
                          headers={"X-Driver-Token": token})
         self.drive_to_arrived(token, booking["id"])
+        self.move_pickup(booking["id"], 30)  # JFK: only 30 of 60 minutes elapsed
         resp = self.trip_event(token, booking["id"], "no_show")
         self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
 
     def test_no_show_regular_pickup_allowed_after_15_minutes(self):
         _, token = self.register_driver()
-        date, time = self.past_pickup(30)  # regular pickup: 15-minute wait elapsed
-        booking = self.book(date=date, time=time, pickup="123 Main Street")
+        booking = self.book(pickup="123 Main Street")
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.client.post(f"/api/drivers/me/offers/{booking['id']}/accept",
                          headers={"X-Driver-Token": token})
         self.drive_to_arrived(token, booking["id"])
+        self.move_pickup(booking["id"], 30)  # regular pickup: 15-minute wait elapsed
         resp = self.trip_event(token, booking["id"], "no_show")
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         self.owner_login()

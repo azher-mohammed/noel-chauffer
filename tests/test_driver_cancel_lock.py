@@ -130,6 +130,18 @@ class DriverCancelLockCase(unittest.TestCase):
         when = _ny_now() + timedelta(minutes=minutes)
         return when.strftime("%Y-%m-%d"), when.strftime("%H:%M")
 
+    def move_pickup(self, booking_id, minutes):
+        """Move a booking's pickup to `minutes` from now, in the DB.
+        The API refuses past pickups (owner decision 2026-11-20), so
+        tests that need a past pickup book in the future and move it
+        back here."""
+        date, time = self.pickup_offset(minutes)
+        with app_module.app.app_context():
+            b = app_module.db.session.get(app_module.Booking, booking_id)
+            b.date = date
+            b.time = time
+            app_module.db.session.commit()
+
     # -- the lock ----------------------------------------------------------
     def test_cancel_allowed_more_than_two_hours_before_pickup(self):
         _, token = self.register_driver()
@@ -183,10 +195,10 @@ class DriverCancelLockCase(unittest.TestCase):
 
     def test_cancel_blocked_when_pickup_in_the_past(self):
         _, token = self.register_driver()
-        date, time = self.pickup_offset(-30)  # pickup 30 minutes ago
-        booking = self.book(date=date, time=time)
+        booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.accept(token, booking["id"])
+        self.move_pickup(booking["id"], -30)  # pickup 30 minutes ago
         resp = self.trip_event(token, booking["id"], "cancel")
         self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
         detail = self.owner_detail(booking["id"])

@@ -26,7 +26,6 @@
   <section class="screen" id="screen-book">
     <div id="ca-booking-card">
       <h2>Book your ride</h2>
-      <p class="paused-notice" role="status">Bookings are paused while we update our prices. Please check back soon.</p>
 
       <div class="ride-tabs" role="tablist" aria-label="Ride type">
         <button type="button" class="ride-tab active" id="ca-tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true">One way</button>
@@ -45,9 +44,15 @@
           <ul class="places-list hidden" id="ca-dropoff-list" role="listbox" aria-label="Drop-off address suggestions"></ul>
         </div>
         <div class="field-row">
-          <div class="field">
+          <div class="field field-wide">
             <label for="ca-date">Date</label>
             <input id="ca-date" name="date" type="date" required>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="ca-flight-number-form">Flight number (optional)</label>
+            <input id="ca-flight-number-form" name="flight_number" type="text" autocomplete="off" placeholder="e.g. LH202, BA2490" maxlength="20">
           </div>
           <div class="field">
             <label for="ca-time">Time</label>
@@ -65,24 +70,28 @@
             <div class="hint">Your chauffeur stays with you for the hours you book.</div>
           </div>
         </div>
+        <!-- Contact is asked on the options page for one-way rides
+             (Blacklane-style); hourly rides have no options page,
+             so this block shows for them. Toggled in customer-app.js. -->
+        <div id="ca-field-contact" class="hidden">
         <div class="field">
           <label for="ca-name">Your name</label>
-          <input id="ca-name" name="customer_name" type="text" required autocomplete="name" placeholder="Full name">
+          <input id="ca-name" name="customer_name" type="text" autocomplete="name" placeholder="Full name">
         </div>
         <div class="field-row">
           <div class="field">
             <label for="ca-phone">Phone number</label>
-            <input id="ca-phone" name="phone" type="tel" required autocomplete="tel" placeholder="Your phone number">
+            <input id="ca-phone" name="phone" type="tel" autocomplete="tel" placeholder="Your phone number">
           </div>
           <div class="field">
             <label for="ca-email">Email</label>
-            <input id="ca-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com">
+            <input id="ca-email" name="email" type="email" autocomplete="email" placeholder="you@example.com">
           </div>
+        </div>
         </div>
         <input type="hidden" id="ca-referral" name="referral_code" value="">
         <button class="btn-primary btn-gold" type="submit" id="ca-book-submit">View options</button>
         <p class="form-error" id="ca-booking-error" role="alert"></p>
-        <p class="form-note">Bookings are paused while we update our prices. Please check back soon.</p>
       </form>
     </div>
 
@@ -106,21 +115,43 @@
     <!-- CHOOSE YOUR EXPERIENCE (separate options page after the booking form) -->
     <div class="hidden" id="ca-class-step" aria-live="polite">
       <h2>Choose your experience</h2>
-      <p class="paused-notice" role="status">Bookings are paused while we update our prices. Please check back soon.</p>
       <p class="intro" id="ca-class-trip-summary"></p>
       <div class="class-options" role="radiogroup" aria-label="Choose your vehicle class">
         <button type="button" class="class-option selected" id="ca-class-option-sedan" data-vehicle-class="sedan" role="radio" aria-checked="true">
           <span class="class-option-name">Business Class</span>
           <span class="class-option-capacity">3 passengers · 2 bags</span>
+          <span class="class-option-total" id="ca-class-total-sedan"></span>
         </button>
         <button type="button" class="class-option" id="ca-class-option-suv" data-vehicle-class="suv" role="radio" aria-checked="false">
           <span class="class-option-name">Business SUV</span>
           <span class="class-option-capacity">5 passengers · 5 bags</span>
+          <span class="class-option-total" id="ca-class-total-suv"></span>
         </button>
         <button type="button" class="class-option hidden" id="ca-class-option-first" data-vehicle-class="first" role="radio" aria-checked="false">
           <span class="class-option-name">First Class</span>
           <span class="class-option-capacity">3 passengers · 2 bags</span>
+          <span class="class-option-total" id="ca-class-total-first"></span>
         </button>
+      </div>
+      <!-- Contact (Blacklane-style): name, phone and email are asked
+           here, on the options page, after the customer picks a class
+           — not on the booking form. -->
+      <div class="class-contact">
+        <h3>Your details</h3>
+        <div class="field">
+          <label for="ca-class-name">Your name</label>
+          <input id="ca-class-name" type="text" autocomplete="name" placeholder="Full name">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="ca-class-phone">Phone number</label>
+            <input id="ca-class-phone" type="tel" autocomplete="tel" placeholder="Your phone number">
+          </div>
+          <div class="field">
+            <label for="ca-class-email">Email</label>
+            <input id="ca-class-email" type="email" autocomplete="email" placeholder="you@example.com">
+          </div>
+        </div>
       </div>
       <p class="form-note hidden" id="ca-class-discount-note">Referral discount applied — 5% off your first ride.</p>
             <p class="form-error" id="ca-class-error" role="alert"></p>
@@ -149,7 +180,6 @@
 
     <!-- LIVE RIDE STATUS (shown for the ride being followed) -->
     <div class="hidden" id="ca-status-card" aria-live="polite">
-      <p class="paused-notice hidden" id="ca-paused-note" role="status">Bookings are paused while we update our prices. Please check back soon.</p>
       <button type="button" class="btn-text" id="ca-status-back">← All rides</button>
       <div id="ca-status-finding">
         <h2 id="ca-status-heading">Finding your chauffeur…</h2>
@@ -179,6 +209,13 @@
         <div class="map-fallback hidden" id="ca-map-fallback"></div>
       </div>
 
+      <div class="total-box hidden" id="ca-total-box">
+        <div>
+          <div class="label">Your total</div>
+          <div class="amount" id="ca-total-amount"></div>
+        </div>
+        <p class="note">One single total for your ride. No breakdown, no hidden charges.</p>
+      </div>
 
       <div class="pay-panel hidden" id="ca-pay-panel">
         <h3>Pay by card</h3>
@@ -255,6 +292,18 @@
         </div>
       </div>
 
+      <div class="invoice-panel hidden" id="ca-invoice-panel">
+        <h3>Your invoice</h3>
+        <table>
+          <tbody>
+            <tr><td>Ride total</td><td id="ca-invoice-total"></td></tr>
+            <tr id="ca-invoice-waiting-row" class="hidden"><td>Waiting charge</td><td id="ca-invoice-waiting"></td></tr>
+            <tr id="ca-invoice-extra-row" class="hidden"><td>Extra distance</td><td id="ca-invoice-extra"></td></tr>
+            <tr class="grand"><td>Amount paid</td><td id="ca-invoice-grand"></td></tr>
+          </tbody>
+        </table>
+        <p class="form-note">Your invoice has been sent to your phone and email.</p>
+      </div>
 
       <div class="chat-panel hidden" id="ca-chat-panel">
         <h3>Chat with your chauffeur</h3>

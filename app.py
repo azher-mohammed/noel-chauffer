@@ -2996,17 +2996,21 @@ def _phone_key(phone):
     return digits[-10:] if len(digits) >= 10 else digits
 
 
-def is_first_booking_by_phone(phone):
+def is_first_booking_by_phone(phone, exclude_booking_id=None):
     """True when no prior booking row exists for this phone number
     (any status — including a cancelled unpaid booking: the owner
     rule is 'if that phone already has a prior booking, no
     discount'). Called at booking creation, before the new booking
-    is stored, so the booking being created is never counted.
+    is stored, so the booking being created is never counted. The
+    contact step calls it after the booking is stored, so it passes
+    its own id to exclude.
     """
     key = _phone_key(phone)
     if not key:
         return False
-    for (stored,) in db.session.query(Booking.phone).all():
+    for (stored, bid) in db.session.query(Booking.phone, Booking.id).all():
+        if exclude_booking_id is not None and bid == exclude_booking_id:
+            continue
         if _phone_key(stored) == key:
             return False
     return True
@@ -3905,7 +3909,7 @@ def _group_payout_weeks(bookings):
     return result
 
 
-def recompute_booking_fare(booking):
+def recompute_booking_fare(booking, referral=None):
     """Recompute fare/driver/gratuity/tax/fee from miles/hours +
     current toll + vehicle class, at the CURRENT pricing formula
     (legacy: total = fare + toll; gratuity and tax are $0.00 for new
@@ -3914,11 +3918,15 @@ def recompute_booking_fare(booking):
     tax holds the Blacklane sales-tax component — see
     blacklane_pricing.py).
 
-    The 5% first-ride referral discount is NOT re-decided here: a
-    booking granted it at creation keeps it (recomputed at 5% of
-    the new total) and a booking without it never gains it — the
-    stored referral_discount is the source of truth.
+    The 5% first-ride referral discount is NOT re-decided here by
+    default: a booking granted it at creation keeps it (recomputed
+    at 5% of the new total) and a booking without it never gains
+    it — the stored referral_discount is the source of truth. Pass
+    referral=True/False to re-decide it instead: the contact step
+    does that, because creation could not decide it — the phone was
+    not known yet.
     """
+    referral_flag = referral if referral is not None else booking_referral_discount_applies(booking)
     if booking.ride_type == "hourly":
         result = compute_hourly(booking.hours or Decimal("0"))
         booking.vehicle_class = None
@@ -3937,14 +3945,14 @@ def recompute_booking_fare(booking):
                 pickup_details=geo_module.geocode_address(booking.pickup),
                 dropoff_details=geo_module.geocode_address(booking.dropoff),
                 toll=booking.toll or Decimal("0"),
-                referral=booking_referral_discount_applies(booking),
+                referral=referral_flag,
             )
         else:
             result = compute_one_way(
                 booking.miles or Decimal("0"),
                 toll=booking.toll or Decimal("0"),
                 vehicle_class=booking_vehicle_class(booking),
-                referral=booking_referral_discount_applies(booking),
+                referral=referral_flag,
             )
         booking.vehicle_class = result["vehicle_class"]
     booking.fare_total = result["total"]
@@ -4358,19 +4366,33 @@ def _payload_coords(data, prefix):
     return (lat, lng)
 
 
-# Bookings PAUSED (owner decision 2026-11-20): new bookings are
-# rejected while prices are being updated, so no booking is stored
-# and no charge can happen. The flag defaults to paused; setting
-# BOOKINGS_PAUSED=false in the environment (or flipping
-# app.BOOKINGS_PAUSED in-process, as the tests do) resumes bookings.
-# Internal rates in pricing.py are untouched by the pause.
-BOOKINGS_PAUSED = os.environ.get("BOOKINGS_PAUSED", "true").strip().lower() not in ("false", "0", "no", "")
+# Bookings LIVE (owner decision 2026-11-20: Blacklane prices + slab
+# driver pay live — "Live kar do", "Driver aur customer dono live
+# kar do"). New bookings are accepted. Setting BOOKINGS_PAUSED=true
+# in the environment (or flipping app.BOOKINGS_PAUSED in-process, as
+# the tests do) pauses them again, so no booking is stored and no
+# charge can happen. Internal rates in pricing.py are untouched by
+# the pause.
+BOOKINGS_PAUSED = os.environ.get("BOOKINGS_PAUSED", "false").strip().lower() not in ("false", "0", "no", "")
 BOOKINGS_PAUSED_MESSAGE = "Bookings are paused while we update our prices. Please check back soon."
 
 
 def bookings_paused():
-    """True while new bookings are paused (owner decision 2026-11-20)."""
+    """True while new bookings are paused. Live by default since the owner flipped prices live on 2026-11-20; set BOOKINGS_PAUSED=true to pause again."""
     return BOOKINGS_PAUSED
+
+
+def booking_received_text(booking):
+    """The "booking received" message: sent at creation when contact
+    is known, or from the contact step when it was entered later
+    (one-way rides, Blacklane-style)."""
+    route_text = f"{booking.pickup} to {booking.dropoff}" if booking.dropoff else booking.pickup
+    return (
+        f"Noel Chauffer: booking received for {booking.date} at {booking.time}, {route_text}. "
+        f"Your total is ${booking.fare_total}. Complete your card payment to confirm "
+        "your ride — your chauffeur will be assigned right after payment, and we "
+        "will message you the chauffeur's details once a driver accepts."
+    )
 
 
 @app.route("/api/bookings", methods=["POST"])
@@ -4378,18 +4400,37 @@ def create_booking():
     if bookings_paused():
         return err(BOOKINGS_PAUSED_MESSAGE, 503)
     data = request.get_json(silent=True) or {}
-    required = ["customer_name", "phone", "email", "pickup", "date", "time", "ride_type"]
+    # Name, phone and email are NOT required here: on one-way rides
+    # the customer enters them on the options page ("Choose your
+    # experience", Blacklane-style) after picking a class, and saves
+    # them with POST /api/bookings/<id>/contact before paying.
+    # Hourly rides have no options page, so they still need contact
+    # up front.
+    required = ["pickup", "date", "time", "ride_type"]
     for field in required:
         if not data.get(field):
             return err(f"Missing required field: {field}.")
     ride_type = data["ride_type"]
     if ride_type not in ("one_way", "hourly"):
         return err("ride_type must be one_way or hourly.")
+    if ride_type == "hourly":
+        for field in ("customer_name", "phone", "email"):
+            if not data.get(field):
+                return err(f"Missing required field: {field}.")
     try:
         datetime.strptime(data["date"], "%Y-%m-%d")
         datetime.strptime(data["time"], "%H:%M")
     except ValueError:
         return err("date must be YYYY-MM-DD and time must be HH:MM.")
+    # Past pickups cannot be booked (owner decision 2026-11-20):
+    # an old date — or today at a time already gone — is rejected.
+    # Compared in America/New_York, the service area.
+    pickup_dt = _pickup_dt(data["date"], data["time"])
+    if pickup_dt is not None:
+        from zoneinfo import ZoneInfo
+        now_ny = datetime.now(ZoneInfo("America/New_York")).replace(second=0, microsecond=0)
+        if pickup_dt < now_ny:
+            return err("Pickup date and time are in the past. Please choose a future date and time.")
 
     referral_code_used = (data.get("referral_code") or "").strip() or None
     referral_valid = False
@@ -4405,9 +4446,9 @@ def create_booking():
     flight_number = normalize_flight_number(data.get("flight_number"))
 
     booking = Booking(
-        customer_name=data["customer_name"],
-        phone=data["phone"],
-        email=data["email"],
+        customer_name=(data.get("customer_name") or "").strip(),
+        phone=(data.get("phone") or "").strip(),
+        email=(data.get("email") or "").strip(),
         pickup=data["pickup"],
         dropoff=data.get("dropoff") or "",
         date=data["date"],
@@ -4545,13 +4586,11 @@ def create_booking():
     db.session.add(ReferralCode(code=new_code, issued_booking_id=booking.id))
 
     route_text = f"{booking.pickup} to {booking.dropoff}" if booking.dropoff else booking.pickup
-    outbox_to_customer(
-        booking,
-        f"Noel Chauffer: booking received for {booking.date} at {booking.time}, {route_text}. "
-        f"Your total is ${booking.fare_total}. Complete your card payment to confirm "
-        "your ride — your chauffeur will be assigned right after payment, and we "
-        "will message you the chauffeur's details once a driver accepts.",
-    )
+    # The "booking received" message can only go out once an address
+    # exists: one-way rides created without contact get it from the
+    # contact step instead.
+    if booking.phone or booking.email:
+        outbox_to_customer(booking, booking_received_text(booking))
     add_event(booking.id, "booking_received",
               f"New booking #{booking.id}: {route_text} on {booking.date} at {booking.time} "
               f"({booking.customer_name}, {booking.phone}).")
@@ -4599,6 +4638,48 @@ def select_vehicle_class(booking_id):
     add_event(booking.id, "class_selected",
               f"Customer selected {class_label(vehicle_class)} for booking "
               f"#{booking.id} (total ${booking.fare_total}).")
+    db.session.commit()
+    return jsonify({"booking": _booking_create_view(booking)})
+
+
+@app.route("/api/bookings/<int:booking_id>/contact", methods=["POST"])
+def save_booking_contact(booking_id):
+    """The customer enters name, phone and email on the options page
+    ("Choose your experience", Blacklane-style) — after the booking
+    is created, before paying. Only while the booking is still
+    awaiting payment. Saving the phone also decides the 5% first-ride
+    referral discount, which creation could not decide because the
+    phone was not known yet: a valid code earns it ONLY on this
+    phone's first booking, and the booking itself is excluded from
+    that check."""
+    if bookings_paused():
+        return err(BOOKINGS_PAUSED_MESSAGE, 503)
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.status != "awaiting_payment":
+        return err("Contact details can only be added before payment.", 409)
+    data = request.get_json(silent=True) or {}
+    for field in ("customer_name", "phone", "email"):
+        if not (data.get(field) or "").strip():
+            return err(f"Missing required field: {field}.")
+    if "@" not in data["email"]:
+        return err("Please enter a valid email address.")
+    had_contact = bool(booking.phone or booking.email)
+    booking.customer_name = data["customer_name"].strip()
+    booking.phone = data["phone"].strip()
+    booking.email = data["email"].strip()
+    if booking.ride_type == "one_way":
+        referral_eligible = bool(booking.referral_code_used) and is_first_booking_by_phone(
+            booking.phone, exclude_booking_id=booking.id)
+        recompute_booking_fare(booking, referral=referral_eligible)
+    add_event(booking.id, "contact_saved",
+              f"Customer contact saved for booking #{booking.id} "
+              f"({booking.customer_name}, {booking.phone}).")
+    if not had_contact:
+        # The "booking received" message could not go out at creation
+        # (no address yet); it goes out now that we have one.
+        outbox_to_customer(booking, booking_received_text(booking))
     db.session.commit()
     return jsonify({"booking": _booking_create_view(booking)})
 
@@ -4879,6 +4960,11 @@ def pay_booking(booking_id):
         return err("Booking not found.", 404)
     if booking.status != "awaiting_payment":
         return err("Payment is taken before the booking is sent to drivers.", 409)
+    # Name, phone and email are collected on the options page
+    # (Blacklane-style) before paying: a booking that reached
+    # payment without them cannot be charged or dispatched.
+    if not booking.customer_name or not booking.phone or not booking.email:
+        return err("Please add your name, phone and email before paying.", 400)
     data = request.get_json(silent=True) or {}
     if not stripe_payments.stripe_configured():
         # TEST MODE (no Stripe keys in Render). Live activation is
@@ -4986,6 +5072,10 @@ def confirm_booking_payment(booking_id):
         return err("Booking not found.", 404)
     if booking.status != "awaiting_payment":
         return err("Payment is taken before the booking is sent to drivers.", 409)
+    # Same guard as /pay: name, phone and email are collected on the
+    # options page before paying.
+    if not booking.customer_name or not booking.phone or not booking.email:
+        return err("Please add your name, phone and email before paying.", 400)
     data = request.get_json(silent=True) or {}
     pi_id = (data.get("payment_intent_id") or "").strip()
     if not pi_id:

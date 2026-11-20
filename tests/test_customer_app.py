@@ -139,6 +139,7 @@ class CustomerAppPageCase(unittest.TestCase):
         for field in ("ca-pickup", "ca-dropoff", "ca-date", "ca-time",
                       "ca-passengers", "ca-hours", "ca-name", "ca-phone",
                       "ca-email", "ca-referral", "ca-flight-number",
+                      "ca-flight-number-form",
                       "ca-class-option-sedan", "ca-class-option-suv",
                       "ca-pay-number", "ca-pay-exp", "ca-pay-cvc",
                       "ca-history-phone", "ca-support-input",
@@ -171,12 +172,13 @@ class CustomerAppPageCase(unittest.TestCase):
                        "* miles", "compute_", "fare_total", "fare =",
                        "gratuity", "booking_fee", "tax ="):
             self.assertNotIn(banned, js, f"app JS must not contain {banned!r}")
-        # No total is rendered anywhere while bookings are paused
-        # (owner decision 2026-11-20): the class-total and total-box
-        # rendering is gone; only the paused notice is shown.
-        self.assertNotIn("money(totals.sedan", js)
-        self.assertNotIn("money(b.total)", js)
-        self.assertIn("Bookings are paused while we update our prices", js)
+        # The options page renders each class total from the booking,
+        # and the booking status shows the single total from the
+        # booking (flip 2026-11-20; the JS only displays the server
+        # total, it never computes a fare itself).
+        self.assertIn("money(totals.sedan", js)
+        self.assertIn("money(b.total)", js)
+        self.assertIn("Bookings are open", js)
 
     def test_app_js_keeps_flight_step_skippable(self):
         js = read("static/js/customer-app.js")

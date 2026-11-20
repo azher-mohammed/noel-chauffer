@@ -25,6 +25,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from decimal import Decimal
 
 # --- test env BEFORE importing the app -------------------------------------
@@ -59,6 +60,10 @@ def approx(a, b):
     return a is not None and abs(float(a) - float(b)) < 0.005
 
 
+# These tests pin the legacy $9/$10 totals as fixtures (the
+# no-tax/no-gratuity mechanics are engine-independent); the live
+# engine is Blacklane by default since the owner flip (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class NoTaxNoGratuityCase(unittest.TestCase):
     def setUp(self):
         app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)

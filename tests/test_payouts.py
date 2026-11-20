@@ -23,6 +23,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -123,6 +124,10 @@ class TestWeekMath(unittest.TestCase):
         self.assertEqual(completion_date(None, created), date(2026, 11, 20))
 
 
+# These tests pin the legacy $9/$10 totals as fixtures (the payout
+# mechanics are engine-independent); the live engine is Blacklane
+# by default since the owner flip (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class PayoutApiCase(unittest.TestCase):
     """In-process API tests with a fresh DB per test."""
 

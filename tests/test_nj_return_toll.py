@@ -189,6 +189,10 @@ class GeocodeStateCase(unittest.TestCase):
             self.assertIsNone(geo_module.geocode_state("Jersey City, NJ"))
 
 
+# These tests pin the legacy $9/$10 totals as fixtures (the return-
+# toll mechanics are engine-independent); the live engine is
+# Blacklane by default since the owner flip (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class NjReturnTollBookingCase(unittest.TestCase):
     """End to end: quote, stored booking, and offer payload agree."""
 

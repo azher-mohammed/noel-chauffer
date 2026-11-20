@@ -1,12 +1,13 @@
 /* Noel Chauffer — customer app logic (browser-based, /app).
    Talks only to the /api/* contract — the SAME endpoints and flow as
-   the customer website (static/js/customer.js). Bookings are PAUSED
-   while prices are being updated (owner decision 2026-11-20): the
-   booking form shows the paused notice and submits nothing, and no
-   totals are shown anywhere. Existing rides keep their status,
-   chauffeur, chat and map views. Ride tracking lives in the My Rides
-   tab; the support chat is scripted answers only (no AI); the
-   referral tab mirrors the website's referral display exactly.
+   the customer website (static/js/customer.js). Bookings are LIVE
+   (owner decision 2026-11-20: Blacklane prices + slab driver pay):
+   the booking form submits, the options screen shows each class
+   total, and the card payment opens from the booking status.
+   Existing rides keep their status, chauffeur, chat and map views.
+   Ride tracking lives in the My Rides tab; the support chat is
+   scripted answers only (no AI); the referral tab mirrors the
+   website's referral display exactly.
    No customer accounts
    exist: rides are looked up by phone number, as on the website. */
 (function () {
@@ -152,10 +153,15 @@
         hide($("ca-field-passengers"));
         show($("ca-field-hours"));
         state.dropoffPlace = null;
+        /* Hourly rides have no options page, so name/phone/email
+           stay on the booking form. One-way rides ask them on the
+           options page instead (Blacklane-style). */
+        show($("ca-field-contact"));
       } else {
         show($("ca-field-dropoff"));
         show($("ca-field-passengers"));
         hide($("ca-field-hours"));
+        hide($("ca-field-contact"));
       }
     });
   });
@@ -217,6 +223,7 @@
     show($("ca-field-dropoff"));
     show($("ca-field-passengers"));
     hide($("ca-field-hours"));
+    hide($("ca-field-contact"));
     clearBookingPlaces();
   }
 
@@ -346,6 +353,24 @@
   attachPlaces("ca-pickup", "ca-pickup-list", "pickup");
   attachPlaces("ca-dropoff", "ca-dropoff-list", "dropoff");
 
+  /* Past dates and times cannot be booked (owner decision
+     2026-11-20). All comparisons use America/New_York, the service
+     area: the date picker starts at today, and submitting a past
+     date — or today at a time already gone — is refused. */
+  function todayNY() {
+    var parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    var y, m, d;
+    parts.forEach(function (p) { if (p.type === "year") y = p.value; if (p.type === "month") m = p.value; if (p.type === "day") d = p.value; });
+    return y + "-" + m + "-" + d;
+  }
+  function nowTimeNY() {
+    var parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+    var h, mi;
+    parts.forEach(function (p) { if (p.type === "hour") h = p.value; if (p.type === "minute") mi = p.value; });
+    return h + ":" + mi;
+  }
+  $("ca-date").min = todayNY();
+
   /* ---------- Create a booking ---------- */
   $("ca-booking-form").addEventListener("submit", function (e) {
     e.preventDefault();
@@ -364,14 +389,19 @@
       return;
     }
     var payload = {
-      customer_name: $("ca-name").value.trim(),
-      phone: $("ca-phone").value.trim(),
-      email: $("ca-email").value.trim(),
       pickup: $("ca-pickup").value.trim(),
       date: $("ca-date").value,
       time: $("ca-time").value,
       ride_type: state.rideType
     };
+    /* Name, phone and email are asked on the options page for
+       one-way rides (Blacklane-style). Hourly rides have no options
+       page, so they are asked here on the form. */
+    if (state.rideType === "hourly") {
+      payload.customer_name = $("ca-name").value.trim();
+      payload.phone = $("ca-phone").value.trim();
+      payload.email = $("ca-email").value.trim();
+    }
     if (state.rideType === "one_way") {
       payload.dropoff = $("ca-dropoff").value.trim();
       var p = parseInt($("ca-passengers").value, 10);
@@ -392,18 +422,41 @@
       payload.dropoff_lat = state.dropoffPlace.lat;
       payload.dropoff_lng = state.dropoffPlace.lon;
     }
-    if (!payload.customer_name || !payload.phone || !payload.email || !payload.pickup || !payload.date || !payload.time) {
-      err.textContent = "Please fill in your name, phone, email, pickup, date and time.";
+    if (!payload.pickup || !payload.date || !payload.time) {
+      err.textContent = "Please fill in your pickup, date and time.";
+      return;
+    }
+    /* Past dates and times cannot be booked (owner decision
+       2026-11-20): an old date — or today at a time already gone —
+       is refused here, before anything is sent. */
+    var today = todayNY();
+    if (payload.date < today) {
+      err.textContent = "Please choose a date from today onwards. Past dates cannot be booked.";
+      return;
+    }
+    if (payload.date === today && payload.time <= nowTimeNY()) {
+      err.textContent = "Please choose a time later than now. Past times cannot be booked.";
+      return;
+    }
+    if (state.rideType === "hourly" && (!payload.customer_name || !payload.phone || !payload.email)) {
+      err.textContent = "Please fill in your name, phone and email.";
       return;
     }
     if (state.rideType === "one_way" && !payload.dropoff) {
       err.textContent = "Please enter a drop-off address.";
       return;
     }
-    /* Airport rides ask for the flight number as a SEPARATE step after
-       this form — never a field inside it. Skipping never blocks the
+    /* Flight number: typed in the booking form (Date, flight number,
+       pickup time) it is used as-is; otherwise airport rides ask for
+       it as a SEPARATE step after this form. Skipping never blocks the
        booking. Detection: the chosen suggestion's airport flag, with
        an address-text fallback (see flight.js). */
+    var formFlight = ($("ca-flight-number-form") || {}).value || "";
+    formFlight = formFlight.trim();
+    if (formFlight) {
+      state.flightNumber = formFlight;
+      state.flightResolved = true;
+    }
     var sides = { any: false, pickup: false, dropoff: false };
     if (window.NoelFlight) {
       sides = window.NoelFlight.airportSides(
@@ -464,10 +517,10 @@
 
   /* Choose your experience: a SEPARATE options screen after the booking
      form (and the flight step). The booking already exists, unpaid;
-     the customer picks a class — no totals are shown while prices
-     are paused — and then continues to
-     the card payment. Sedan (Business Class) is pre-selected. Back
-     cancels the unpaid booking and returns to the form to edit. */
+     the customer picks a class — each option shows its total —
+     and then continues to the card payment. Sedan (Business Class)
+     is pre-selected. Back cancels the unpaid booking and returns
+     to the form to edit. */
   function paintClassSelection() {
     ["sedan", "suv", "first"].forEach(function (cls) {
       var opt = $("ca-class-option-" + cls);
@@ -489,15 +542,26 @@
     var firstAvailable = !!(booking.class_totals && booking.class_totals.first != null);
     if (!firstAvailable && state.selectedClass === "first") state.selectedClass = "sedan";
     if (firstAvailable) { show($("ca-class-option-first")); } else { hide($("ca-class-option-first")); }
-    /* PAUSED (owner decision 2026-11-20): no class totals are shown. */
+    /* Each option shows its total (Blacklane mode, owner decision
+       2026-11-20): the total the customer will pay, with the 5%
+       first-ride referral discount already applied when granted. */
+    var totals = booking.class_totals || {};
+    $("ca-class-total-sedan").textContent = totals.sedan != null ? money(totals.sedan) : "";
+    $("ca-class-total-suv").textContent = totals.suv != null ? money(totals.suv) : "";
+    $("ca-class-total-first").textContent = totals.first != null ? money(totals.first) : "";
     /* 5% first-ride referral discount (owner decision 2026-11-18):
        the note shows only when this booking actually got the
-       discount. No class totals are shown while prices are paused. */
+       discount. */
     if (booking.referral_discount && Number(booking.referral_discount) > 0) {
       show($("ca-class-discount-note"));
     } else {
       hide($("ca-class-discount-note"));
     }
+    /* Contact is asked here (Blacklane-style): start empty — the
+       booking was created without it. */
+    $("ca-class-name").value = "";
+    $("ca-class-phone").value = "";
+    $("ca-class-email").value = "";
     $("ca-class-error").textContent = "";
     paintClassSelection();
     hide($("ca-booking-card"));
@@ -518,35 +582,70 @@
     var err = $("ca-class-error");
     err.textContent = "";
     var btn = $("ca-class-continue");
+    /* Contact (Blacklane-style): name, phone and email are asked on
+       this page, after the class is picked. They are saved first —
+       the invoice and driver messages need them, and saving the
+       phone decides the referral discount — then the class change
+       (if any) and payment follow. */
+    var contactName = $("ca-class-name").value.trim();
+    var contactPhone = $("ca-class-phone").value.trim();
+    var contactEmail = $("ca-class-email").value.trim();
+    if (!contactName || !contactPhone || !contactEmail || contactEmail.indexOf("@") === -1) {
+      err.textContent = "Please fill in your name, phone and email.";
+      return;
+    }
     function proceedWith(updated) {
       hide($("ca-class-step"));
       show($("ca-booking-card"));
       state.classBooking = null;
       startTracking(updated, state.classPhone);
     }
-    if (state.selectedClass === (booking.vehicle_class || "sedan")) {
-      proceedWith(booking);
-      return;
+    function saveContact(next) {
+      fetch("/api/bookings/" + encodeURIComponent(booking.id) + "/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customer_name: contactName, phone: contactPhone, email: contactEmail })
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.j.booking) {
+            btn.disabled = false;
+            err.textContent = (res.j && (res.j.error || res.j.message)) || "Your details could not be saved. Please try again.";
+            return;
+          }
+          state.classPhone = contactPhone;
+          next(res.j.booking);
+        })
+        .catch(function () {
+          btn.disabled = false;
+          err.textContent = "Could not reach the booking service. Please try again.";
+        });
     }
     btn.disabled = true;
-    fetch("/api/bookings/" + encodeURIComponent(booking.id) + "/vehicle-class", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vehicle_class: state.selectedClass })
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        btn.disabled = false;
-        if (!res.ok || !res.j.booking) {
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "That class could not be selected. Please try again.";
-          return;
-        }
-        proceedWith(res.j.booking);
+    saveContact(function (withContact) {
+      if (state.selectedClass === (withContact.vehicle_class || "sedan")) {
+        proceedWith(withContact);
+        return;
+      }
+      fetch("/api/bookings/" + encodeURIComponent(withContact.id) + "/vehicle-class", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vehicle_class: state.selectedClass })
       })
-      .catch(function () {
-        btn.disabled = false;
-        err.textContent = "Could not reach the booking service. Please try again.";
-      });
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          btn.disabled = false;
+          if (!res.ok || !res.j.booking) {
+            err.textContent = (res.j && (res.j.error || res.j.message)) || "That class could not be selected. Please try again.";
+            return;
+          }
+          proceedWith(res.j.booking);
+        })
+        .catch(function () {
+          btn.disabled = false;
+          err.textContent = "Could not reach the booking service. Please try again.";
+        });
+    });
   });
 
   $("ca-class-back").addEventListener("click", function () {
@@ -591,7 +690,7 @@
         var booking = res.j.booking;
         /* One-way rides go to the separate options screen first (pick a
            class); hourly rides have no class and go straight to the
-           payment step. (Unreachable while bookings are paused.) */
+           payment step. */
         if (booking.ride_type === "one_way" && booking.class_totals) {
           showClassStep(booking, payload.phone);
         } else {
@@ -637,7 +736,7 @@
        ride stays in front of the customer until "Book another ride". */
     clearBookingForm();
     $("ca-status-summary").textContent = summaryText(booking);
-    /* PAUSED: no total is shown and the payment box never opens. */
+    /* The total and the card payment box open from renderBooking. */
     renderBooking(booking);
     pollOnce();
     state.pollTimer = setInterval(pollOnce, 3000);
@@ -704,24 +803,30 @@
       show($("ca-status-finding"));
       hide($("ca-driver-block"));
       if (st === "awaiting_payment") {
-        $("ca-status-heading").textContent = "Bookings are paused";
-        $("ca-status-message").textContent = "Bookings are paused while we update our prices. Please check back soon.";
+        $("ca-status-heading").textContent = "Your total is ready";
+        $("ca-status-message").textContent = "Please pay by card below — your chauffeur will be assigned right after payment.";
       } else {
         $("ca-status-heading").textContent = "Finding your chauffeur…";
         $("ca-status-message").textContent = statusLabel(st) || "Your request is with us. Please keep this page open.";
       }
     }
 
-    /* PAUSED (owner decision 2026-11-20): no total is ever shown and
-       the card payment box never opens. An unpaid booking stays
-       visible with the paused notice instead. */
-    hide($("ca-total-box"));
-    if (st === "awaiting_payment") {
-      show($("ca-paused-note"));
+    /* The single total: shown from the moment the booking exists. The
+       card payment box opens with it; only after payment is the
+       booking sent to drivers, so no payment step exists later. */
+    if (b.total !== null && b.total !== undefined) {
+      show($("ca-total-box"));
+      $("ca-total-amount").textContent = money(b.total);
+      $("ca-pay-amount-label").textContent = money(b.total);
     } else {
-      hide($("ca-paused-note"));
+      hide($("ca-total-box"));
     }
-    hide($("ca-pay-panel"));
+    if (st === "awaiting_payment") {
+      show($("ca-pay-panel"));
+      initPayment();
+    } else {
+      hide($("ca-pay-panel"));
+    }
 
     /* Live map: ONLY when the API says tracking is visible. */
     var tr = b.tracking || {};
@@ -737,8 +842,24 @@
     if (state.paid || st === "offered" || st === "accepted" || st === "en_route" || st === "arrived" || st === "started" || st === "on_trip" || st === "in_progress" || st === "completed") {
       showThankYou(b);
     }
-    /* PAUSED (owner decision 2026-11-20): invoices show no figures;
-       the invoice panel stays hidden. */
+    if (b.invoice) {
+      show($("ca-invoice-panel"));
+      var invTotal = (b.invoice.total !== null && b.invoice.total !== undefined) ? b.invoice.total : b.total;
+      $("ca-invoice-total").textContent = money(invTotal);
+      if (b.invoice.waiting_charge) {
+        show($("ca-invoice-waiting-row"));
+        $("ca-invoice-waiting").textContent = money(b.invoice.waiting_charge);
+      } else {
+        hide($("ca-invoice-waiting-row"));
+      }
+      if (b.invoice.extra_distance_charge) {
+        show($("ca-invoice-extra-row"));
+        $("ca-invoice-extra").textContent = money(b.invoice.extra_distance_charge);
+      } else {
+        hide($("ca-invoice-extra-row"));
+      }
+      $("ca-invoice-grand").textContent = money(invTotal);
+    }
 
     if (st === "cancelled" || st === "canceled") {
       hide($("ca-status-actions"));
@@ -1329,6 +1450,7 @@
     show($("ca-field-dropoff"));
     show($("ca-field-passengers"));
     hide($("ca-field-hours"));
+    hide($("ca-field-contact"));
     $("ca-pickup").value = b.dropoff || "";
     $("ca-dropoff").value = b.pickup || "";
     $("ca-date").value = "";
@@ -1506,7 +1628,7 @@
       return false;
     };
     if (has("paus")) {
-      return "Bookings are paused while we update our prices. Please check back soon.";
+      return "No — bookings are open. Enter your pickup and drop-off in the booking form to see your fare.";
     }
     if (has("cancel", "refund")) {
       return "Cancellation is free if you cancel more than 1 hour before pickup. If you cancel 1 hour or less before pickup, the cancellation is not refundable.";
@@ -1515,7 +1637,7 @@
       return "Waiting is free for 60 minutes at airports and 15 minutes at other pickups. After that, waiting charges apply.";
     }
     if (has("price", "cost", "much", "total", "charge", "pay", "payment")) {
-      return "Bookings are paused while we update our prices. Please check back soon.";
+      return "Enter your pickup and drop-off in the Book tab, choose your experience, and you will see the total for each class before you pay.";
     }
     if (has("lost", "left", "forgot", "belonging", "item")) {
       return "I am sorry to hear that. Please report it here as soon as you can, and within 7 days. The driver checks the car after every ride. Unclaimed items go to the police station after one week.";
@@ -1527,7 +1649,7 @@
       return "As soon as your chauffeur accepts, you will see their name, phone number, car, colour and plate number in the My Rides tab — and the same details are sent to your phone and email.";
     }
     if (has("car", "vehicle", "sedan", "suv", "type", "class")) {
-      return "Our rides come in two classes — Business Class and Business SUV — recent high-end cars, clean, comfortable, and prepared for every ride, with phone chargers on board.";
+      return "Our rides come in three classes — Business Class, Business SUV and First Class — recent high-end cars, clean, comfortable, and prepared for every ride, with phone chargers on board.";
     }
     if (has("return", "round trip", "back", "come back")) {
       return "For a return journey, simply book a second one-way ride. After you pay for your first ride, the app offers you a return booking with the addresses already swapped for you.";
@@ -1536,18 +1658,18 @@
       return "Choose the “By the hour” tab in the booking form, enter your pickup, date, time and how many hours you need. Your chauffeur stays with you for the hours you book.";
     }
     if (has("refer", "friend", "code")) {
-      return "If a friend referred you, enter their referral code in the booking form. After your ride, the Referral tab shows you how to refer a friend too.";
+      return "If a friend referred you, open their referral link — it takes you to the booking form with their code already filled in, and your first booking gets 5% off. After your ride, the Referral tab shows you how to refer a friend too.";
     }
     if (has("book", "reserve", "ride", "pickup", "how")) {
-      return "Bookings are paused while we update our prices. Please check back soon.";
+      return "Enter your pickup and drop-off, date and time in the Book tab, choose your experience, and pay by card — your chauffeur is assigned right after payment.";
     }
     if (has("hello", "hi", "hey", "salam")) {
-      return "Hello, and welcome to Noel Chauffer. Bookings are paused while we update our prices — please check back soon. I can still help with cancellation, waiting time, lost items, or a problem with a ride.";
+      return "Hello, and welcome to Noel Chauffer. Bookings are open — enter your pickup and drop-off in the booking form to see your fare. I can still help with prices, cancellation, waiting time, lost items, or a problem with a ride.";
     }
     if (has("human", "person", "agent", "support", "help")) {
       return "You are chatting with the Noel Chauffer team here. The team replies within 24 hours. If your matter is urgent, please describe it here and we will escalate it to the owner.";
     }
-    return "Happy to help. Bookings are paused while we update our prices. I can answer questions about cancellation, waiting time, your chauffeur's details, cars, return trips, by-the-hour rides, or lost items — just ask.";
+    return "Happy to help. Bookings are open. I can answer questions about prices, cancellation, waiting time, your chauffeur's details, cars, return trips, by-the-hour rides, or lost items — just ask.";
   }
   function supportHandleQuestion(q) {
     if (!q) return;

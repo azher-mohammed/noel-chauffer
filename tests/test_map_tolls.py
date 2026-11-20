@@ -345,6 +345,10 @@ class RouteGeometryCase(unittest.TestCase):
                 geo_module.route_geometry(40.6413, -73.7781, 40.7580, -73.9855))
 
 
+# These tests pin the legacy $9/$10 totals as fixtures (the toll
+# mechanics are engine-independent); the live engine is Blacklane
+# by default since the owner flip (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class MapTollBookingCase(unittest.TestCase):
     """End to end: quote, stored booking, and offer payload agree."""
 

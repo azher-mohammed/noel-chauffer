@@ -50,7 +50,7 @@
       "name": "How do I book a ride?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Bookings are paused while we update our prices. Please check back soon."
+        "text": "Enter your pickup and drop-off, date and time, choose your experience, and pay by card — your chauffeur is assigned right after payment."
       }
     },
     {
@@ -58,7 +58,7 @@
       "name": "When do I pay for my ride?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Bookings are paused while we update our prices. Please check back soon."
+        "text": "You pay by card on this page, right after you book, before your chauffeur is assigned."
       }
     },
     {
@@ -221,7 +221,6 @@
     <div class="booking-wrap">
       <div class="booking-card" id="booking-card">
         <h2 class="sr-only">Book your ride</h2>
-        <p class="paused-notice" role="status">Bookings are paused while we update our prices. Please check back soon.</p>
 
         <form id="booking-form" novalidate>
           <div class="field field-places">
@@ -235,9 +234,15 @@
             <ul class="places-list hidden" id="bk-dropoff-list" role="listbox" aria-label="Drop-off address suggestions"></ul>
           </div>
           <div class="field-row">
-            <div class="field">
+            <div class="field field-wide">
               <label for="bk-date">Date</label>
               <input id="bk-date" name="date" type="date" required>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="bk-flight-number">Flight number (optional)</label>
+              <input id="bk-flight-number" name="flight_number" type="text" autocomplete="off" placeholder="e.g. LH202, BA2490" maxlength="20">
             </div>
             <div class="field">
               <label for="bk-time">Time</label>
@@ -255,24 +260,28 @@
               <div class="hint">Your chauffeur stays with you for the hours you book.</div>
             </div>
           </div>
+          <!-- Contact is asked on the options page for one-way rides
+               (Blacklane-style); hourly rides have no options page,
+               so this block shows for them. Toggled in customer.js. -->
+          <div id="field-contact" class="hidden">
           <div class="field">
             <label for="bk-name">Your name</label>
-            <input id="bk-name" name="customer_name" type="text" required autocomplete="name" placeholder="Full name">
+            <input id="bk-name" name="customer_name" type="text" autocomplete="name" placeholder="Full name">
           </div>
           <div class="field-row">
             <div class="field">
               <label for="bk-phone">Phone number</label>
-              <input id="bk-phone" name="phone" type="tel" required autocomplete="tel" placeholder="Your phone number">
+              <input id="bk-phone" name="phone" type="tel" autocomplete="tel" placeholder="Your phone number">
             </div>
             <div class="field">
               <label for="bk-email">Email</label>
-              <input id="bk-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com">
+              <input id="bk-email" name="email" type="email" autocomplete="email" placeholder="you@example.com">
             </div>
+          </div>
           </div>
           <input type="hidden" id="bk-referral" name="referral_code" value="">
           <button class="btn-primary" type="submit" id="book-submit">View options</button>
           <p class="form-error" id="booking-error" role="alert"></p>
-          <p class="form-note">Bookings are paused while we update our prices. Please check back soon.</p>
         </form>
       </div>
     </div>
@@ -301,21 +310,43 @@
   <section class="class-section hidden" id="class-step" aria-live="polite">
     <div class="booking-card">
       <h2>Choose your experience</h2>
-      <p class="paused-notice" role="status">Bookings are paused while we update our prices. Please check back soon.</p>
       <p class="sub" id="class-trip-summary"></p>
       <div class="class-options" role="radiogroup" aria-label="Choose your vehicle class">
         <button type="button" class="class-option selected" id="class-option-sedan" data-vehicle-class="sedan" role="radio" aria-checked="true">
           <span class="class-option-name">Business Class</span>
           <span class="class-option-capacity">3 passengers · 2 bags</span>
+          <span class="class-option-total" id="class-total-sedan"></span>
         </button>
         <button type="button" class="class-option" id="class-option-suv" data-vehicle-class="suv" role="radio" aria-checked="false">
           <span class="class-option-name">Business SUV</span>
           <span class="class-option-capacity">5 passengers · 5 bags</span>
+          <span class="class-option-total" id="class-total-suv"></span>
         </button>
         <button type="button" class="class-option hidden" id="class-option-first" data-vehicle-class="first" role="radio" aria-checked="false">
           <span class="class-option-name">First Class</span>
           <span class="class-option-capacity">3 passengers · 2 bags</span>
+          <span class="class-option-total" id="class-total-first"></span>
         </button>
+      </div>
+      <!-- Contact (Blacklane-style): name, phone and email are asked
+           here, on the options page, after the customer picks a class
+           — not on the booking form. -->
+      <div class="class-contact">
+        <h3>Your details</h3>
+        <div class="field">
+          <label for="class-name">Your name</label>
+          <input id="class-name" type="text" autocomplete="name" placeholder="Full name">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="class-phone">Phone number</label>
+            <input id="class-phone" type="tel" autocomplete="tel" placeholder="Your phone number">
+          </div>
+          <div class="field">
+            <label for="class-email">Email</label>
+            <input id="class-email" type="email" autocomplete="email" placeholder="you@example.com">
+          </div>
+        </div>
       </div>
       <p class="form-note hidden" id="class-discount-note">Referral discount applied — 5% off your first ride.</p>
             <p class="form-error" id="class-error" role="alert"></p>
@@ -329,7 +360,6 @@
   <!-- LIVE BOOKING STATUS (appears after a booking is placed) -->
   <div class="status-panel">
     <div class="status-card hidden" id="status-card" aria-live="polite">
-      <p class="paused-notice hidden" id="paused-note" role="status">Bookings are paused while we update our prices. Please check back soon.</p>
       <div id="status-finding">
         <h2 id="status-heading">Finding your chauffeur…</h2>
         <p class="status-line"><span class="dot"></span><span id="status-message">Your request is with us. Please keep this page open.</span></p>
@@ -379,6 +409,14 @@
         <div class="map-fallback hidden" id="map-fallback"></div>
       </div>
 
+      <div class="total-box hidden" id="total-box">
+        <div>
+          <div class="label">Your total</div>
+          <div class="amount" id="total-amount"></div>
+        </div>
+        <button class="btn-primary btn-gold" type="button" id="pay-open-btn" style="width:auto;padding:12px 26px;">Pay by card</button>
+        <p class="note">One single total for your ride. No breakdown, no hidden charges.</p>
+      </div>
 
       <div class="pay-panel hidden" id="pay-panel">
         <h3>Pay by card</h3>
@@ -455,6 +493,18 @@
         </div>
       </div>
 
+      <div class="invoice-panel hidden" id="invoice-panel">
+        <h3>Your invoice</h3>
+        <table>
+          <tbody>
+            <tr><td>Ride total</td><td id="invoice-total"></td></tr>
+            <tr id="invoice-waiting-row" class="hidden"><td>Waiting charge</td><td id="invoice-waiting"></td></tr>
+            <tr id="invoice-extra-row" class="hidden"><td>Extra distance</td><td id="invoice-extra"></td></tr>
+            <tr class="grand"><td>Amount paid</td><td id="invoice-grand"></td></tr>
+          </tbody>
+        </table>
+        <p class="form-note">Your invoice has been sent to your phone and email.</p>
+      </div>
 
       <div class="status-actions" id="status-actions">
         <button class="btn-danger" type="button" id="cancel-booking-btn">Cancel this booking</button>
@@ -547,8 +597,7 @@
     <div class="policy">
       <h3>Payment</h3>
       <ul>
-        <li>Bookings are paused while we update our prices. Please check back soon.</li>
-                <li>You pay by card on this page, right after you book.</li>
+        <li>You pay by card on this page, right after you book.</li>
         <li>Your chauffeur is assigned right after payment.</li>
         <li>If you cancel more than 1 hour before pickup, your payment is refunded in full.</li>
       </ul>
@@ -581,9 +630,9 @@
     <p class="intro">The answers customers ask for most, before they book.</p>
     <div class="policy">
       <h3>How do I book a ride?</h3>
-      <p>Bookings are paused while we update our prices. Please check back soon.</p>
+      <p>Enter your pickup and drop-off, date and time, choose your experience, and pay by card — your chauffeur is assigned right after payment.</p>
       <h3>When do I pay for my ride?</h3>
-      <p>Bookings are paused while we update our prices. Please check back soon.</p>
+      <p>You pay by card on this page, right after you book, before your chauffeur is assigned.</p>
       <h3>What is the cancellation policy?</h3>
       <p>Cancellation is free more than 1 hour before pickup, with a full refund. If you cancel 1 hour or less before pickup, the cancellation is not refundable.</p>
       <h3>How does waiting time work?</h3>

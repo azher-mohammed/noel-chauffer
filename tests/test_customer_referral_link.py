@@ -50,6 +50,7 @@ import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from collections import Counter
 
 # --- test env BEFORE importing the app -------------------------------------
@@ -240,6 +241,10 @@ class ReferralLinkJsCase(unittest.TestCase):
             self.assertNotIn("Invalid referral code", prefill, rel)
 
 
+# These tests pin the legacy $9/$10 totals as their fixtures; the
+# live engine is Blacklane by default since the owner flip
+# (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class ReferralLinkServerCase(unittest.TestCase):
     def setUp(self):
         app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)

@@ -10,19 +10,22 @@ updated:
 - No $ amount or total reaches the customer or the driver: the
   booking view, history rows, offers, accept/active-trip responses,
   earnings, tax info and referral summary carry no money figures.
-- The paused notice ("Bookings are paused while we update our
-  prices. Please check back soon.") is on the homepage, the customer
-  app and the driver app; the only $ figure left anywhere
-  customer/driver-facing is the $2,000 IRS 1099-NEC threshold.
+- While the pause is on, the customer pages show no prices at all
+  and the driver app hides all money figures; the only $ figure
+  left anywhere customer/driver-facing is the $2,000 IRS 1099-NEC
+  threshold. The static pages themselves now reflect the LIVE
+  state (flip 2026-11-20): no paused notice, class totals shown
+  on the options page — the paused behaviour below is pinned
+  through server fixtures that flip the mode on and back off.
 - Existing rides keep working (accept, trip stages, completion) —
   just without money shown.
 - The pause changes NOTHING for the owner (dashboard money figures
   stay) and nothing in pricing.py (internal $9/$10 rates stay in
   code for the new price-list work).
 
-This module deliberately does NOT set BOOKINGS_PAUSED=false: the
-pause defaults to on, and fixtures that need a booking flip
-app_module.BOOKINGS_PAUSED off and back on again.
+Bookings are LIVE by default since the owner flip (2026-11-20);
+this module's fixtures turn the pause ON in setUp and back OFF
+again where a booking is needed, to pin the paused behaviour.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -36,7 +39,7 @@ import unittest
 from decimal import Decimal
 
 # --- test env BEFORE importing the app -------------------------------------
-# NOTE: no BOOKINGS_PAUSED=false here — the pause must be ON by default.
+# NOTE: no BOOKINGS_PAUSED=false here — bookings are LIVE by default (owner flip 2026-11-20); the pause is turned on by the fixtures below.
 _tmpdir = tempfile.mkdtemp(prefix="noel-bookings-paused-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "paused.db")
 os.environ["OWNER_PIN"] = "9999"
@@ -151,9 +154,27 @@ class PausedCase(unittest.TestCase):
                              f"{event}: {resp.get_data(as_text=True)[:200]}")
 
     # -- the pause itself --------------------------------------------------
-    def test_pause_is_on_by_default(self):
-        self.assertTrue(app_module.BOOKINGS_PAUSED)
-        self.assertTrue(app_module.bookings_paused())
+    def test_bookings_live_by_default(self):
+        # Bookings are LIVE by default since the owner flip
+        # (2026-11-20): a fresh import with no BOOKINGS_PAUSED in
+        # the environment must leave the flag off. Checked in a
+        # subprocess because this process already imported the app
+        # (and this module's fixtures turn the pause on).
+        import subprocess
+        env = {k: v for k, v in os.environ.items()
+               if k != "BOOKINGS_PAUSED"}
+        env["DATABASE_URL"] = "sqlite:///" + os.path.join(
+            tempfile.mkdtemp(prefix="noel-live-default-"), "test.db")
+        env["OWNER_PIN"] = "9999"
+        env["SECRET_KEY"] = "live-default-secret-key"
+        env["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+        out = subprocess.run(
+            [sys.executable, "-c",
+             "import app as m; print(m.BOOKINGS_PAUSED)"],
+            env=env, capture_output=True, text=True, timeout=120,
+            cwd=REPO_DIR)
+        self.assertEqual(out.returncode, 0, out.stderr[-500:])
+        self.assertEqual(out.stdout.strip(), "False")
 
     def test_create_one_way_rejected_and_nothing_stored(self):
         resp = self.client.post("/api/bookings", json=self._booking_payload())
@@ -333,32 +354,47 @@ class PausedCase(unittest.TestCase):
         self.assertEqual(suv["driver_earnings"], D("90.00"))
 
     # -- static customer/driver surfaces --------------------------------------
-    def test_static_pages_show_paused_notice_and_no_price_figures(self):
+    def test_static_pages_show_live_prices_and_no_paused_notice(self):
+        # Flip 2026-11-20: bookings are live, so the static pages
+        # carry no paused notice and the options page shows totals.
+        total_ids = {
+            "static/index.html": ("class-total-sedan", "class-total-suv",
+                                  "class-total-first"),
+            "static/customer-app.html": ("ca-class-total-sedan",
+                                         "ca-class-total-suv",
+                                         "ca-class-total-first"),
+        }
         for rel in ("static/index.html", "static/customer-app.html",
                     "static/driver.html"):
             html = read(rel)
-            if rel == "static/driver.html":
-                # Drivers get the amounts-hidden note, not the booking notice.
-                self.assertIn("Amounts are hidden while prices are being updated.", html, rel)
-            else:
-                self.assertIn(PAUSED_MSG, html, rel)
+            self.assertNotIn(PAUSED_MSG, html, rel)
             figures = re.findall(r"\$\d[\d,]*", html)
             if rel == "static/driver.html":
-                # Only the IRS 1099-NEC threshold figures ($2,000, $600).
+                # No amounts-hidden note any more; only the IRS
+                # 1099-NEC threshold figures ($2,000, $600).
+                self.assertNotIn("Amounts are hidden while prices are being updated.", html, rel)
                 self.assertEqual(sorted(set(figures)), ["$2,000", "$600"], rel)
             else:
+                # Totals are filled by JS at runtime, so no $ figures
+                # sit in the static HTML — but each option carries
+                # its total span.
                 self.assertEqual(figures, [], rel)
-        self.assertNotIn("single total", read("static/index.html"))
-        self.assertNotIn("Your total", read("static/index.html"))
-        self.assertNotIn("Your total", read("static/customer-app.html"))
+                for total_id in total_ids[rel]:
+                    self.assertIn(total_id, html, rel)
+        self.assertIn("Your total", read("static/index.html"))
+        self.assertIn("single total", read("static/index.html"))
+        self.assertIn("Your total", read("static/customer-app.html"))
 
-    def test_customer_js_has_no_price_answers(self):
+    def test_customer_js_paints_class_totals_and_answers_live(self):
+        # Flip 2026-11-20: the options page paints each class total
+        # from the booking, and the support widget answers live.
         for rel in ("static/js/customer.js", "static/js/customer-app.js"):
             js = read(rel)
             self.assertNotIn("$1/min", js, rel)
-            self.assertNotIn("Your total is ready", js, rel)
-            self.assertNotIn("class-total-sedan", js, rel)
-            self.assertIn(PAUSED_MSG, js, rel)
+            self.assertIn("Your total is ready", js, rel)
+            self.assertIn("class-total-sedan", js, rel)
+            self.assertIn("money(totals.sedan", js, rel)
+            self.assertIn("Bookings are open", js, rel)
 
     def test_driver_js_and_html_have_no_price_figures(self):
         js = read("static/js/driver.js")

@@ -37,6 +37,8 @@ import re
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-single-ride-")
@@ -237,6 +239,39 @@ class BookingApiStillWorksCase(unittest.TestCase):
         resp = self.client.post("/api/bookings", json=payload)
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         return resp.get_json()["booking"]
+
+    def test_past_date_and_time_cannot_be_booked(self):
+        # Owner decision 2026-11-20: a past date — or today at a
+        # time already gone — is rejected, so a customer can never
+        # book a ticket for a month or year that has passed.
+        past = {
+            "customer_name": "Past Tester",
+            "phone": "+15550138888",
+            "email": "past@test.com",
+            "pickup": "JFK Airport", "dropoff": "Times Square, New York",
+            "date": "2020-01-01", "time": "12:00", "ride_type": "one_way",
+        }
+        resp = self.client.post("/api/bookings", json=past)
+        self.assertEqual(resp.status_code, 400, resp.get_data(as_text=True)[:200])
+        self.assertIn("in the past", resp.get_json().get("error", ""))
+        # Today at a time two hours ago is past too.
+        now_ny = datetime.now(ZoneInfo("America/New_York"))
+        past_today = dict(past)
+        past_today["date"] = now_ny.strftime("%Y-%m-%d")
+        past_today["time"] = (now_ny - timedelta(hours=2)).strftime("%H:%M")
+        resp = self.client.post("/api/bookings", json=past_today)
+        self.assertEqual(resp.status_code, 400, resp.get_data(as_text=True)[:200])
+        self.assertIn("in the past", resp.get_json().get("error", ""))
+
+    def test_client_blocks_past_date_and_time(self):
+        # The date picker starts at today and the submit handler
+        # refuses a past date or a past time today (owner decision
+        # 2026-11-20), on the website and in the app.
+        for rel in ("static/js/customer.js", "static/js/customer-app.js"):
+            js = read(rel)
+            self.assertIn("todayNY", js, rel)
+            self.assertIn("Past dates cannot be booked", js, rel)
+            self.assertIn("Past times cannot be booked", js, rel)
 
     def test_book_pay_cancel_then_book_again(self):
         phone = "+15550139999"

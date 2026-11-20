@@ -34,6 +34,7 @@ import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from decimal import Decimal
 
 # --- test env BEFORE importing the app -------------------------------------
@@ -106,6 +107,10 @@ class ReferralDiscountPricingCase(unittest.TestCase):
         self.assertEqual(plain["suv"], D("180.00"))
 
 
+# These tests pin the legacy $9/$10 totals as their discount fixtures
+# (the discount math is engine-independent); the live engine is
+# Blacklane by default since the owner flip (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class ReferralDiscountApiCase(unittest.TestCase):
     def setUp(self):
         app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)

@@ -1,5 +1,9 @@
-"""Tests for the flight-number flow (Blacklane-style, separate step).
+"""Tests for the flight-number flow (Blacklane-style).
 
+- Flight number is a field inside the booking form, between Date and
+  Pickup time (owner order 2026-11-20); the separate step after the
+  form stays as the fallback for airport rides where the form field
+  was left empty.
 - Flight-number normalization + IATA airline names (flights.py).
 - Terminal extraction from the chosen place suggestion text.
 - Storage on the booking; a missing or invalid flight number never
@@ -9,8 +13,8 @@
 - Owner ride details show the flight number.
 - Airport detection for the prompt (node harness over
   static/js/flight.js).
-- Static checks: the flight-number input is NOT inside the booking
-  form, skipping is wired, and no flight-tracking claims exist.
+- Static checks: the in-form flight field sits between Date and Time,
+  skipping is wired, and no flight-tracking claims exist.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -145,7 +149,7 @@ class FlightsApiTestCase(unittest.TestCase):
             "email": "flight@example.com",
             "pickup": pickup,
             "dropoff": dropoff,
-            "date": "2026-11-20",
+            "date": "2030-06-01",
             "time": "10:00",
             "ride_type": "one_way",
         }
@@ -330,17 +334,40 @@ class TestFlightStepStatic(unittest.TestCase):
         with open(os.path.join(REPO_DIR, rel), encoding="utf-8") as handle:
             return handle.read()
 
-    def test_flight_step_panel_exists_and_is_separate_from_form(self):
+    def test_flight_field_in_form_and_step_panel_still_exists(self):
         html = self._read("static/index.html")
         self.assertIn('id="flight-step"', html)
         self.assertIn('id="flight-number"', html)
         self.assertIn("/static/js/flight.js", html)
-        # The flight-number input must NOT live inside the booking form.
+        # Owner order 2026-11-20: the flight number is a field inside
+        # the booking form, between Date and Pickup time.
         form_start = html.index('<form id="booking-form"')
         form_end = html.index("</form>", form_start)
         form_html = html[form_start:form_end]
-        self.assertNotIn("flight-number", form_html)
+        self.assertIn('id="bk-flight-number"', form_html)
+        self.assertLess(form_html.index('id="bk-date"'),
+                        form_html.index('id="bk-flight-number"'))
+        self.assertLess(form_html.index('id="bk-flight-number"'),
+                        form_html.index('id="bk-time"'))
+        # The separate step panel stays as the fallback for airport
+        # rides where the form field was left empty.
         self.assertNotIn("flight-step", form_html)
+
+    def test_app_form_has_flight_field_between_date_and_time(self):
+        html = self._read("static/customer-app.html")
+        form_start = html.index('<form id="ca-booking-form"')
+        form_end = html.index("</form>", form_start)
+        form_html = html[form_start:form_end]
+        self.assertIn('id="ca-flight-number-form"', form_html)
+        self.assertLess(form_html.index('id="ca-date"'),
+                        form_html.index('id="ca-flight-number-form"'))
+        self.assertLess(form_html.index('id="ca-flight-number-form"'),
+                        form_html.index('id="ca-time"'))
+
+    def test_js_reads_in_form_flight_number(self):
+        self.assertIn("bk-flight-number", self._read("static/js/customer.js"))
+        self.assertIn("ca-flight-number-form",
+                      self._read("static/js/customer-app.js"))
 
     def test_skip_is_wired_and_prompt_is_gated(self):
         js = self._read("static/js/customer.js")

@@ -151,6 +151,18 @@ class PickupReminderCase(unittest.TestCase):
         when = _ny_now() + timedelta(minutes=minutes)
         return when.strftime("%Y-%m-%d"), when.strftime("%H:%M")
 
+    def move_pickup(self, booking_id, minutes):
+        """Move a booking's pickup to `minutes` from now, in the DB.
+        The API refuses past pickups (owner decision 2026-11-20), so
+        tests that need a past pickup book in the future and move it
+        back here."""
+        date, time = self.pickup_offset(minutes)
+        with app_module.app.app_context():
+            b = app_module.db.session.get(app_module.Booking, booking_id)
+            b.date = date
+            b.time = time
+            app_module.db.session.commit()
+
     def accepted_booking(self, minutes, **extra):
         """A paid + accepted booking with pickup `minutes` from now.
         Returns (booking, driver, token)."""
@@ -222,7 +234,8 @@ class PickupReminderCase(unittest.TestCase):
         self.assertEqual(resp.get_json()["reminded"], [booking["id"]])
 
     def test_does_not_fire_after_pickup_time(self):
-        booking, _d, _t = self.accepted_booking(-10)
+        booking, _d, _t = self.accepted_booking(30)
+        self.move_pickup(booking["id"], -10)  # pickup 10 minutes ago
         resp = self.run_reminders_as_owner()
         self.assertEqual(resp.get_json()["reminded"], [])
         self.assertEqual(self.reminder_outbox_for(booking["id"]), [])

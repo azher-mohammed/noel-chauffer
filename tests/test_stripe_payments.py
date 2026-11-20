@@ -28,6 +28,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 
 # --- test env BEFORE importing the app -------------------------------------
@@ -65,6 +66,10 @@ def approx(a, b):
     return a is not None and abs(float(a) - float(b)) < 0.005
 
 
+# These tests pin the legacy $9/$10 totals as fixtures (the Stripe
+# authorize/capture mechanics are engine-independent); the live
+# engine is Blacklane by default since the owner flip (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class StripeLiveCase(unittest.TestCase):
     """Live path with the fake Stripe backend installed."""
 
@@ -180,6 +185,18 @@ class StripeLiveCase(unittest.TestCase):
         except Exception:
             past = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
         return past.strftime("%Y-%m-%d"), past.strftime("%H:%M")
+
+    def move_pickup(self, booking_id, minutes_ago):
+        """Move a booking's pickup to `minutes_ago` in the past, in
+        the DB. The API refuses past pickups (owner decision
+        2026-11-20), so tests that need a past pickup book in the
+        future and move it back here."""
+        date, time = self.past_pickup(minutes_ago)
+        with app_module.app.app_context():
+            b = app_module.db.session.get(app_module.Booking, booking_id)
+            b.date = date
+            b.time = time
+            app_module.db.session.commit()
 
     # -- publishable key --------------------------------------------------
     def test_publishable_key_configured_with_fake(self):
@@ -422,11 +439,11 @@ class StripeLiveCase(unittest.TestCase):
 
     def test_no_show_captures_full_fare_live(self):
         _, token = self.register_driver_ok()
-        date, time = self.past_pickup(120)
-        booking = self.book(date=date, time=time)
+        booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.client.post(f"/api/drivers/me/offers/{booking['id']}/accept",
                          headers={"X-Driver-Token": token})
+        self.move_pickup(booking["id"], 120)  # pickup 2 hours ago
         for event in ("en_route", "arrived", "no_show"):
             resp = self.client.post(
                 f"/api/drivers/me/trip/{booking['id']}/event",

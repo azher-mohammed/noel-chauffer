@@ -234,15 +234,19 @@ class TestBlacklaneEnginePure(unittest.TestCase):
         self.assertTrue(manhattan["is_nyc5"])
 
     def test_pricing_mode_flag(self):
+        # Blacklane is the live default since the owner flip
+        # (2026-11-20); NOEL_PRICING=legacy switches back.
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop("NOEL_PRICING", None)
-            self.assertEqual(pricing_mode(), "legacy")
+            self.assertEqual(pricing_mode(), "blacklane")
         with mock.patch.dict(os.environ, {"NOEL_PRICING": "blacklane"}):
             self.assertEqual(pricing_mode(), "blacklane")
         with mock.patch.dict(os.environ, {"NOEL_PRICING": "BLACKLANE "}):
             self.assertEqual(pricing_mode(), "blacklane")
-        with mock.patch.dict(os.environ, {"NOEL_PRICING": "something-else"}):
+        with mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"}):
             self.assertEqual(pricing_mode(), "legacy")
+        with mock.patch.dict(os.environ, {"NOEL_PRICING": "something-else"}):
+            self.assertEqual(pricing_mode(), "blacklane")
 
     def test_class_totals_include_first(self):
         # 1.08 mi: Business and SUV are the owner's flat $100/$130
@@ -356,7 +360,7 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         body = resp.get_json()
         self.assertEqual(body["miles"], 17.9)
-        self.assertEqual(body["pricing_mode"], "legacy")
+        self.assertEqual(body["pricing_mode"], "blacklane")
         # Legacy: fare $161.10 + whatever map toll the stubbed route
         # carries ($0.00 with cold geocode caches).
         legacy_sedan = body["legacy"]["sedan"]
@@ -502,8 +506,10 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
 
     # -- flag gating -------------------------------------------------------
-    def test_booking_creation_legacy_default(self):
-        booking = self.book()
+    def test_booking_creation_legacy_mode(self):
+        # Legacy mode (NOEL_PRICING=legacy): the old $9/$10 totals.
+        with mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"}):
+            booking = self.book()
         self.assertEqual(booking["total"], 161.10)
         self.assertEqual(set(booking["class_totals"]), {"sedan", "suv"})
         self.assertEqual(booking["class_totals"]["sedan"], 161.10)
@@ -550,10 +556,11 @@ class BlacklaneApiCase(unittest.TestCase):
     def test_select_first_class_invalid_in_legacy_mode(self):
         # First Class exists only in Blacklane mode: the legacy
         # engine has no First Class rate to price it with.
-        booking = self.book()
-        resp = self.client.post(
-            f"/api/bookings/{booking['id']}/vehicle-class",
-            json={"vehicle_class": "first"})
+        with mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"}):
+            booking = self.book()
+            resp = self.client.post(
+                f"/api/bookings/{booking['id']}/vehicle-class",
+                json={"vehicle_class": "first"})
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Blacklane rates", resp.get_json()["error"])
 

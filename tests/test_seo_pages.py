@@ -324,8 +324,11 @@ class SeoPagesTest(unittest.TestCase):
                      "/manhattan-car-service", "/brooklyn-car-service",
                      "/guides", "/guides/jfk-vs-laguardia-vs-newark"):
             self.assertIn('href="' + path + '"', html, path)
-        self.assertIn(
+        self.assertNotIn(
             "Bookings are paused while we update our prices", html
+        )
+        self.assertIn(
+            "Enter your pickup and drop-off, date and time, choose your experience", html
         )
 
     def test_owner_still_noindexed(self):

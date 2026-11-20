@@ -23,6 +23,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from decimal import Decimal
 
 # --- test env BEFORE importing the app -------------------------------------
@@ -63,6 +64,10 @@ def read(rel):
         return fh.read()
 
 
+# These tests pin the legacy $9/$10 totals as fixtures (the free-wait
+# and extra-miles mechanics are engine-independent); the live engine
+# is Blacklane by default since the owner flip (2026-11-20).
+@mock.patch.dict(os.environ, {"NOEL_PRICING": "legacy"})
 class FreeFeaturesCase(unittest.TestCase):
     def setUp(self):
         app_module.BOOKINGS_PAUSED = False  # pause OFF for booking-flow tests (owner decision 2026-11-20)

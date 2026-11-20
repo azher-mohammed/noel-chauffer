@@ -216,14 +216,15 @@ class SupportChatWidgetCase(unittest.TestCase):
         for snippet in (
             "Cancellation is free if you cancel more than 1 hour before pickup",
             "Waiting is free for 60 minutes at airports and 15 minutes at other pickups",
-            "Bookings are paused while we update our prices. Please check back soon.",
+            "Bookings are open",
+            "you will see the total for each class before you pay",
             "Unclaimed items go to the police station after one week",
             "I will escalate this to the owner, who will look into it personally",
             "you will see their name, phone number, car, colour and plate number",
-            "Business Class and Business SUV — recent high-end cars",
+            "Business Class, Business SUV and First Class — recent high-end cars",
             "book a second one-way ride",
             "Choose the “By the hour” tab in the booking form",
-            "enter their referral code in the booking form",
+            "open their referral link",
             "The team replies within 24 hours",
         ):
             self.assertIn(snippet, js)

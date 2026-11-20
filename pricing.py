@@ -168,18 +168,19 @@ def driver_slab_pay(miles, vehicle_class="sedan") -> Decimal:
 
 
 def pricing_mode():
-    """Which fare engine is live: "legacy" (default) or "blacklane".
+    """Which fare engine is live: "blacklane" (default) or "legacy".
 
-    The Blacklane-style engine (blacklane_pricing.py) is built but
-    changes NO live price until the owner explicitly says to switch:
-    set NOEL_PRICING=blacklane in the Render environment to flip the
-    customer fare computation to it. Anything else (including an
-    empty value) means the legacy $9/$10 formula. Read from the
-    environment on every call so tests can flip it in-process.
+    The Blacklane-style engine (blacklane_pricing.py) is LIVE since
+    2026-11-20 (owner: "Live kar do", "Driver aur customer dono
+    live kar do"). Set NOEL_PRICING=legacy in the Render environment
+    to switch the customer fare computation back to the $9/$10
+    formula. Anything else (including an empty value) means the
+    Blacklane engine. Read from the environment on every call so
+    tests can flip it in-process.
     """
-    return ("blacklane"
-            if os.environ.get("NOEL_PRICING", "legacy").strip().lower() == "blacklane"
-            else "legacy")
+    return ("legacy"
+            if os.environ.get("NOEL_PRICING", "blacklane").strip().lower() == "legacy"
+            else "blacklane")
 # Referral discount (owner decision 2026-11-18, voice call): 5% off
 # the total for a NEW customer's first one-way booking made with a
 # valid referral code. The referrer gets nothing; the discount comes

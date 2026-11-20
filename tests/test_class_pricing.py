@@ -630,13 +630,9 @@ class ClassApiCase(unittest.TestCase):
         with open(os.path.join(REPO_DIR, "static", "js", "customer.js"),
                   encoding="utf-8") as fh:
             customer_js = fh.read()
-        for text in ("What's included",
-                     "Personal meet &amp; greet at pickup",
-                     "Free cancellation up to 1 hour before pickup",
-                     "Luggage assistance at pickup and drop-off",
-                     "Up to 60 minutes free waiting at airports",
-                     "Phone chargers on board",
-                     "Price breakdown", 'id="class-breakdown"'):
+        for text in ("Price breakdown", 'id="class-breakdown"',
+                     "car-business.jpg", "car-suv.jpg", "car-first.jpg",
+                     "class-option-car"):
             self.assertIn(text, index, "options page must show %r" % text)
         for text in ("classBreakdowns", "class-breakdown", "Base fare",
                      "Airport access fee", "NY State congestion surcharge",

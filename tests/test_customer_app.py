@@ -137,15 +137,29 @@ class CustomerAppPageCase(unittest.TestCase):
     def test_app_form_mirrors_website_fields(self):
         html = read("static/customer-app.html")
         for field in ("ca-pickup", "ca-dropoff", "ca-date", "ca-time",
-                      "ca-passengers", "ca-hours", "ca-name", "ca-phone",
+                      "ca-hours", "ca-name", "ca-phone",
                       "ca-email", "ca-referral", "ca-flight-number",
-                      "ca-flight-number-form",
+                      "ca-flight-number-form", "ca-class-breakdown",
                       "ca-class-option-sedan", "ca-class-option-suv",
                       "ca-pay-number", "ca-pay-exp", "ca-pay-cvc",
                       "ca-history-phone", "ca-support-input",
                       "ca-referral-phone", "ca-driver-photo",
                       "ca-chat-messages", "ca-map"):
             self.assertIn('id="%s"' % field, html)
+
+    def test_app_class_step_shows_included_and_breakdown(self):
+        # Blacklane-style options page (owner decision 2026-11-20),
+        # same as the website: what's included + the selected
+        # class's fare breakdown.
+        html = read("static/customer-app.html")
+        for text in ("What's included",
+                     "Free cancellation up to 1 hour before pickup",
+                     "Price breakdown", 'id="ca-class-breakdown"'):
+            self.assertIn(text, html, "app options page must show %r" % text)
+        js = read("static/js/customer-app.js")
+        for text in ("classBreakdowns", "ca-class-breakdown", "Base fare",
+                     "Black car fee", "Referral discount"):
+            self.assertIn(text, js, "app JS must paint %r" % text)
 
     # -- JS: same endpoints, no fare math -----------------------------------
     def test_app_js_calls_the_website_endpoints(self):

@@ -151,6 +151,13 @@ input, select, textarea { font: inherit; }
 .class-option-name { font-size: 16px; font-weight: 600; }
 .class-option-capacity { font-size: 13px; opacity: 0.75; }
 .class-option-total { font-family: Georgia, serif; font-size: 22px; }
+.class-details { margin: 6px 0 4px; }
+.class-details h3 { font-size: 15px; margin: 14px 0 6px; }
+.class-included { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6; }
+.class-included li { margin: 2px 0; }
+.class-breakdown { font-size: 14px; }
+.breakdown-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+.breakdown-total { font-weight: 700; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 7px; }
 .class-actions { margin-top: 14px; }
 .class-actions .btn-primary { margin-top: 0; }
 

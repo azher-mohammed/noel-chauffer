@@ -619,6 +619,34 @@ class ClassApiCase(unittest.TestCase):
         self.assertNotIn("Book a ride", index)
         self.assertNotIn("Book a ride", customer_js)
 
+    def test_class_step_shows_included_and_breakdown(self):
+        # Blacklane-style options page (owner decision 2026-11-20):
+        # what's included under every class, and the selected
+        # class's fare breakdown (base fare + fees + tax). No
+        # per-mile rates, no driver pay, no miles anywhere in it.
+        with open(os.path.join(REPO_DIR, "static", "index.html"),
+                  encoding="utf-8") as fh:
+            index = fh.read()
+        with open(os.path.join(REPO_DIR, "static", "js", "customer.js"),
+                  encoding="utf-8") as fh:
+            customer_js = fh.read()
+        for text in ("What's included",
+                     "Personal meet &amp; greet at pickup",
+                     "Free cancellation up to 1 hour before pickup",
+                     "Luggage assistance at pickup and drop-off",
+                     "Up to 60 minutes free waiting at airports",
+                     "Price breakdown", 'id="class-breakdown"'):
+            self.assertIn(text, index, "options page must show %r" % text)
+        for text in ("classBreakdowns", "class-breakdown", "Base fare",
+                     "Airport access fee", "NY State congestion surcharge",
+                     "MTA congestion surcharge", "Sales tax",
+                     "Black car fee", "Referral discount"):
+            self.assertIn(text, customer_js,
+                          "customer.js must paint %r" % text)
+        # The breakdown painter must never touch driver pay or profit.
+        self.assertNotIn("driver_earnings", customer_js)
+        self.assertNotIn("profit", customer_js)
+
     def test_no_rates_or_breakdown_words_in_customer_driver_files(self):
         # Customer rates and breakdown words must appear nowhere
         # customer- or driver-facing.

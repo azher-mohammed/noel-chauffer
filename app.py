@@ -97,7 +97,6 @@ from pricing import (
 )
 from blacklane_pricing import (
     blacklane_class_label,
-    blacklane_class_totals,
     compute_blacklane_one_way,
 )
 
@@ -4302,8 +4301,9 @@ def fare_preview():
 
 def _booking_create_view(booking, referral_code=None):
     """The booking shape returned on create and on class selection:
-    single total (+ both class totals for the options page on one-way
-    rides), never a breakdown, never miles or rates."""
+    single total (+ class totals and per-class fare breakdowns for
+    the options page on one-way rides), never miles, driver pay or
+    rates."""
     view = {
         "id": booking.id,
         "status": booking.status,
@@ -4321,17 +4321,38 @@ def _booking_create_view(booking, referral_code=None):
     if booking.ride_type == "one_way":
         if pricing_mode() == "blacklane":
             # Blacklane mode: three class totals (Business, Business
-            # SUV, First Class). First Class IS bookable now — the
-            # qualifying models are decided (same as Blacklane:
-            # S-Class, 7 Series, A8, Model X; owner decision
-            # 2026-11-20 ~03:00 EST); driver pay is the flat slab.
-            totals = blacklane_class_totals(
-                booking.miles or Decimal("0"), booking.pickup, booking.dropoff,
-                pickup_details=geo_module.geocode_address(booking.pickup),
-                dropoff_details=geo_module.geocode_address(booking.dropoff),
-                toll=booking.toll or Decimal("0"),
-                referral=booking_referral_discount_applies(booking))
-            view["class_totals"] = {k: num(v) for k, v in totals.items()}
+            # SUV, First Class) + the per-class fare breakdown shown
+            # on the options page (Blacklane-style, owner decision
+            # 2026-11-20): base fare + fees + tax; no miles, no
+            # driver pay, no profit — the customer never sees those.
+            # First Class IS bookable now — the qualifying models
+            # are decided (same as Blacklane: S-Class, 7 Series,
+            # A8, Model X; owner decision 2026-11-20 ~03:00 EST);
+            # driver pay is the flat slab.
+            pickup_details = geo_module.geocode_address(booking.pickup)
+            dropoff_details = geo_module.geocode_address(booking.dropoff)
+            results = {
+                cls: compute_blacklane_one_way(
+                    booking.miles or Decimal("0"), cls, booking.pickup, booking.dropoff,
+                    pickup_details=pickup_details, dropoff_details=dropoff_details,
+                    toll=booking.toll or Decimal("0"),
+                    referral=booking_referral_discount_applies(booking))
+                for cls in ("sedan", "suv", "first")
+            }
+            view["class_totals"] = {k: num(v["total"]) for k, v in results.items()}
+            view["class_breakdowns"] = {
+                k: {
+                    "base": num(v["base"]),
+                    "airport_access": num(v["fees"]["airport_access"]),
+                    "ny_congestion": num(v["fees"]["ny_congestion"]),
+                    "mta_congestion": num(v["fees"]["mta_congestion"]),
+                    "sales_tax": num(v["fees"]["sales_tax"]),
+                    "black_car_fee": num(v["fees"]["black_car_fee"]),
+                    "referral_discount": num(v["referral_discount"]),
+                    "total": num(v["total"]),
+                }
+                for k, v in results.items()
+            }
             view["first_class_bookable"] = True
         else:
             totals = compute_class_totals(

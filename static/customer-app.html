@@ -59,16 +59,12 @@
             <input id="ca-time" name="time" type="time" required>
           </div>
         </div>
-        <div class="field-row">
-          <div class="field" id="ca-field-passengers">
-            <label for="ca-passengers">Passengers</label>
-            <input id="ca-passengers" name="passengers" type="number" min="1" step="1" value="1">
-          </div>
-          <div class="field hidden" id="ca-field-hours">
-            <label for="ca-hours">Hours</label>
-            <input id="ca-hours" name="hours" type="number" min="1" step="1" value="2">
-            <div class="hint">Your chauffeur stays with you for the hours you book.</div>
-          </div>
+        <!-- Passengers field removed (owner, 2026-11-20): the class
+             cards already show each class's capacity. -->
+        <div class="field hidden" id="ca-field-hours">
+          <label for="ca-hours">Hours</label>
+          <input id="ca-hours" name="hours" type="number" min="1" step="1" value="2">
+          <div class="hint">Your chauffeur stays with you for the hours you book.</div>
         </div>
         <!-- Contact is asked on the options page for one-way rides
              (Blacklane-style); hourly rides have no options page,
@@ -132,6 +128,20 @@
           <span class="class-option-capacity">3 passengers · 2 bags</span>
           <span class="class-option-total" id="ca-class-total-first"></span>
         </button>
+      </div>
+      <!-- What's included + price breakdown (Blacklane-style, owner
+           decision 2026-11-20): the included list is the same for
+           every class; the breakdown follows the selected class. -->
+      <div class="class-details">
+        <h3>What's included</h3>
+        <ul class="class-included">
+          <li>Personal meet &amp; greet at pickup</li>
+          <li>Free cancellation up to 1 hour before pickup</li>
+          <li>Luggage assistance at pickup and drop-off</li>
+          <li>Up to 60 minutes free waiting at airports (15 minutes elsewhere)</li>
+        </ul>
+        <h3>Price breakdown</h3>
+        <div class="class-breakdown" id="ca-class-breakdown"></div>
       </div>
       <!-- Contact (Blacklane-style): name, phone and email are asked
            here, on the options page, after the customer picks a class

@@ -150,7 +150,6 @@
       state.rideType = tab.getAttribute("data-ride-type");
       if (state.rideType === "hourly") {
         hide($("ca-field-dropoff"));
-        hide($("ca-field-passengers"));
         show($("ca-field-hours"));
         state.dropoffPlace = null;
         /* Hourly rides have no options page, so name/phone/email
@@ -159,7 +158,6 @@
         show($("ca-field-contact"));
       } else {
         show($("ca-field-dropoff"));
-        show($("ca-field-passengers"));
         hide($("ca-field-hours"));
         hide($("ca-field-contact"));
       }
@@ -209,7 +207,6 @@
     ["ca-name", "ca-phone", "ca-email", "ca-pickup", "ca-dropoff",
      "ca-date", "ca-time", "ca-referral"
     ].forEach(function (id) { var el = $(id); if (el) el.value = ""; });
-    $("ca-passengers").value = "1";
     $("ca-hours").value = "2";
     $("ca-booking-error").textContent = "";
     var btn = $("ca-book-submit");
@@ -221,7 +218,6 @@
     });
     state.rideType = "one_way";
     show($("ca-field-dropoff"));
-    show($("ca-field-passengers"));
     hide($("ca-field-hours"));
     hide($("ca-field-contact"));
     clearBookingPlaces();
@@ -404,8 +400,6 @@
     }
     if (state.rideType === "one_way") {
       payload.dropoff = $("ca-dropoff").value.trim();
-      var p = parseInt($("ca-passengers").value, 10);
-      if (!isNaN(p) && p > 0) payload.passengers = p;
       var ref = $("ca-referral").value.trim();
       if (ref) payload.referral_code = ref;
     } else {
@@ -529,6 +523,30 @@
       opt.setAttribute("aria-checked", selected ? "true" : "false");
     });
     $("ca-class-continue").textContent = "Select " + (CLASS_LABELS[state.selectedClass] || "Business Class");
+    paintClassBreakdown();
+  }
+
+  /* Price breakdown for the selected class (Blacklane-style): the
+     fare composition the customer pays — base fare + fees + tax,
+     minus any referral discount. Only lines above $0 are shown;
+     the total always matches the class option's total. */
+  function paintClassBreakdown() {
+    var box = $("ca-class-breakdown");
+    if (!box) return;
+    var b = (state.classBreakdowns || {})[state.selectedClass];
+    if (!b) { box.innerHTML = ""; return; }
+    var rows = [["Base fare", money(b.base)]];
+    if (Number(b.airport_access) > 0) rows.push(["Airport access fee", money(b.airport_access)]);
+    if (Number(b.ny_congestion) > 0) rows.push(["NY State congestion surcharge", money(b.ny_congestion)]);
+    if (Number(b.mta_congestion) > 0) rows.push(["MTA congestion surcharge", money(b.mta_congestion)]);
+    if (Number(b.sales_tax) > 0) rows.push(["Sales tax", money(b.sales_tax)]);
+    if (Number(b.black_car_fee) > 0) rows.push(["Black car fee", money(b.black_car_fee)]);
+    if (Number(b.referral_discount) > 0) rows.push(["Referral discount", "−" + money(b.referral_discount)]);
+    var html = rows.map(function (r) {
+      return '<div class="breakdown-row"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>';
+    }).join("");
+    html += '<div class="breakdown-row breakdown-total"><span>Total</span><span>' + esc(money(b.total)) + '</span></div>';
+    box.innerHTML = html;
   }
 
   function showClassStep(booking, phone) {
@@ -549,6 +567,9 @@
     $("ca-class-total-sedan").textContent = totals.sedan != null ? money(totals.sedan) : "";
     $("ca-class-total-suv").textContent = totals.suv != null ? money(totals.suv) : "";
     $("ca-class-total-first").textContent = totals.first != null ? money(totals.first) : "";
+    /* Per-class fare breakdowns for the options page (Blacklane
+       mode only; legacy bookings carry none). */
+    state.classBreakdowns = booking.class_breakdowns || {};
     /* 5% first-ride referral discount (owner decision 2026-11-18):
        the note shows only when this booking actually got the
        discount. */
@@ -1448,7 +1469,6 @@
     });
     state.rideType = "one_way";
     show($("ca-field-dropoff"));
-    show($("ca-field-passengers"));
     hide($("ca-field-hours"));
     hide($("ca-field-contact"));
     $("ca-pickup").value = b.dropoff || "";

@@ -18,7 +18,7 @@ Rules pinned here (website + customer app):
   form does nothing (no duplicate booking can be created).
 - "Book another ride" (website thank-you block; app status view) is
   the separate option: it opens a FRESH EMPTY form (all fields cleared,
-  passengers back to 1, hours back to 2, one-way tab active).
+  hours back to 2, one-way tab active).
 - "Book your return trip" is unchanged: swapped pickup/drop-off, date
   and time cleared, same customer.
 - Cancelling a ride returns the fresh empty form (no ride is live).
@@ -117,9 +117,27 @@ class WebsiteFlowCase(unittest.TestCase):
                       "bk-dropoff", "bk-date", "bk-time", "bk-referral"):
             self.assertIn('"%s"' % field, form,
                           "clearBookingForm must empty %s" % field)
-        self.assertIn('$("bk-passengers").value = "1";', form)
         self.assertIn('$("bk-hours").value = "2";', form)
+        # Passengers field removed (owner, 2026-11-20): no reference
+        # to it may survive in the form JS.
+        self.assertNotIn("bk-passengers", form)
+        self.assertNotIn("field-passengers", form)
         self.assertIn('btn.textContent = "View options";', form)
+
+    def test_no_passengers_field_in_booking_forms(self):
+        # Passengers field removed (owner, 2026-11-20, from his
+        # phone screenshot): neither the website form nor the app
+        # form may carry it; the class cards still show each
+        # class's capacity ("3 passengers · 2 bags").
+        repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for rel, field in (("static/index.html", "bk-passengers"),
+                           ("static/customer-app.html", "ca-passengers")):
+            with open(os.path.join(repo, rel), encoding="utf-8") as fh:
+                html = fh.read()
+            self.assertNotIn('id="%s"' % field, html,
+                             "%s must not have a passengers field" % rel)
+            self.assertNotIn("field-passengers", html,
+                             "%s must not have a passengers wrapper" % rel)
 
     def test_return_trip_unchanged_with_swapped_addresses(self):
         body = block(self.js, '$("return-trip-btn").addEventListener', 1400)
@@ -181,7 +199,11 @@ class AppFlowCase(unittest.TestCase):
                       "ca-dropoff", "ca-date", "ca-time", "ca-referral"):
             self.assertIn('"%s"' % field, form,
                           "clearBookingForm must empty %s" % field)
-        self.assertIn('$("ca-passengers").value = "1";', form)
+        self.assertIn('$("ca-hours").value = "2";', form)
+        # Passengers field removed (owner, 2026-11-20): no reference
+        # to it may survive in the app form JS.
+        self.assertNotIn("ca-passengers", form)
+        self.assertNotIn("ca-field-passengers", form)
 
     def test_return_trip_unchanged_with_swapped_addresses(self):
         body = block(self.js, '$("ca-return-trip-btn").addEventListener', 1400)

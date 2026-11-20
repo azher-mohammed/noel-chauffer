@@ -390,6 +390,36 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertIn("slab", body["first_class_driver_pay"])
         self.assertFalse(body["snapshot_fallback"])
 
+    def test_booking_returns_class_breakdowns(self):
+        # Blacklane-style options page (owner decision 2026-11-20):
+        # the booking view carries a per-class fare breakdown
+        # (base + fees + tax) that adds up to the class total, with
+        # no miles, no driver pay and no profit in it.
+        booking = self.book()
+        breakdowns = booking.get("class_breakdowns")
+        self.assertIsNotNone(breakdowns, "booking must carry class_breakdowns")
+        self.assertEqual(set(breakdowns), {"sedan", "suv", "first"})
+        for cls, b in breakdowns.items():
+            self.assertEqual(set(b), {"base", "airport_access", "ny_congestion",
+                                     "mta_congestion", "sales_tax", "black_car_fee",
+                                     "referral_discount", "total"},
+                             "%s breakdown must carry only fare fields" % cls)
+            parts = (b["base"] + b["airport_access"] + b["ny_congestion"]
+                     + b["mta_congestion"] + b["sales_tax"] + b["black_car_fee"]
+                     - b["referral_discount"])
+            self.assertAlmostEqual(parts, b["total"], places=2,
+                                   msg="%s breakdown must sum to its total" % cls)
+            self.assertAlmostEqual(b["total"], booking["class_totals"][cls],
+                                   places=2)
+        sedan = breakdowns["sedan"]
+        self.assertEqual(sedan["base"], 167.79)
+        self.assertEqual(sedan["airport_access"], 3.50)
+        self.assertEqual(sedan["ny_congestion"], 2.75)
+        self.assertEqual(sedan["mta_congestion"], 0.75)
+        self.assertEqual(sedan["sales_tax"], 14.89)
+        self.assertEqual(sedan["black_car_fee"], 4.19)
+        self.assertEqual(sedan["total"], 193.87)
+
     def test_preview_class_filter_first(self):
         resp = self.client.get("/api/fare-preview", query_string={
             "pickup": "JFK Airport Terminal 1", "dropoff": "Times Square",

@@ -73,9 +73,11 @@ import app as app_module  # noqa: E402
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Owner decision 2026-11-20: no visible referral field in the booking
+# form — friends book through the referral link instead.
 EXPLAINER = ("Know someone who would enjoy a calm, comfortable ride? "
-             "Tell them about Noel Chauffer. When they book, they can "
-             "enter a referral code in the booking form.")
+             "Tell them about Noel Chauffer. Your friend gets 5% off "
+             "their first ride. They just need to book through your link.")
 
 
 def read(rel):

@@ -669,6 +669,19 @@ input, select, textarea { font: inherit; }
 .booking-card .btn-text { color: rgba(255, 255, 255, 0.8); }
 .booking-card .btn-primary { background: var(--blue); border-radius: 999px; box-shadow: 0 8px 20px rgba(11, 95, 255, 0.35); }
 .booking-card .btn-primary:hover { background: #004fe0; }
+
+/* Homepage header over the photo (owner decision 2026-11-20): the car
+   photo runs behind "Noel Chauffer" + Book, like Blacklane — no white
+   header band, no white headline. */
+.home .site-header { position: absolute; top: 0; left: 0; right: 0; background: transparent; border-bottom: 0; box-shadow: none; }
+.home .wordmark { color: var(--white); }
+.home .main-nav a { color: rgba(255, 255, 255, 0.92); }
+.home .main-nav a:hover { color: var(--gold); }
+
+/* Paused notice: dark, not the pale yellow box (owner decision 2026-11-20).
+   The message text stays exactly as it was. */
+.paused-notice { background: #1c1c1e; border: 1px solid #c9a227; color: #fff; border-radius: 8px; padding: 12px 14px; font-weight: 600; }
+
 @media (max-width: 760px) {
   .hero-band, .hero-band-inner { min-height: 300px; }
   .hero-band-inner { padding: 32px 16px 108px; }

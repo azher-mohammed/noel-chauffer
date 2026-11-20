@@ -353,3 +353,7 @@ input, select { font: inherit; }
 .tabbar button.active .ico { text-shadow: 0 0 12px rgba(201, 162, 39, 0.8); }
 .tabbar button:active { transform: translateY(1px); }
 .tabbar .ico { display: block; font-size: 19px; margin-bottom: 2px; }
+
+/* Paused notice: dark, not the pale yellow box (owner decision 2026-11-20).
+   The message text stays exactly as it was. */
+.paused-notice { background: #1c1c1e; border: 1px solid #c9a227; color: #fff; border-radius: 8px; padding: 12px 14px; font-weight: 600; }

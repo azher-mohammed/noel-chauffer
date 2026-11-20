@@ -295,7 +295,7 @@ class ReferralDiscountWordingCase(unittest.TestCase):
                 self.assertNotIn(phrase, text,
                                  f"{rel} must not promise the referrer {phrase!r}")
 
-    def test_options_note_and_form_hint_exist(self):
+    def test_options_note_and_hidden_referral_field_exist(self):
         self.assertIn('id="class-discount-note"',
                       read("static/index.html"))
         self.assertIn('id="ca-class-discount-note"',
@@ -304,9 +304,19 @@ class ReferralDiscountWordingCase(unittest.TestCase):
                       read("static/index.html"))
         self.assertIn("Referral discount applied — 5% off your first ride.",
                       read("static/customer-app.html"))
-        self.assertIn("First ride? Enter a friend's referral code for 5% off.",
+        # Owner decision 2026-11-20: no visible referral field in the
+        # booking form — referral links still work through a hidden input.
+        self.assertNotIn("Referral code (optional)",
+                         read("static/index.html"))
+        self.assertNotIn("Referral code (optional)",
+                         read("static/customer-app.html"))
+        self.assertNotIn("First ride? Enter a friend's referral code for 5% off.",
+                         read("static/index.html"))
+        self.assertNotIn("First ride? Enter a friend's referral code for 5% off.",
+                         read("static/customer-app.html"))
+        self.assertIn('type="hidden" id="bk-referral"',
                       read("static/index.html"))
-        self.assertIn("First ride? Enter a friend's referral code for 5% off.",
+        self.assertIn('type="hidden" id="ca-referral"',
                       read("static/customer-app.html"))
 
     def test_options_note_shown_only_when_discount_applies(self):

@@ -26,7 +26,7 @@
   <section class="screen" id="screen-book">
     <div id="ca-booking-card">
       <h2>Book your ride</h2>
-      <p class="paused-notice" role="status" style="background:#fff8e1;border:1px solid #c9a227;border-radius:8px;padding:12px 14px;font-weight:600;">Bookings are paused while we update our prices. Please check back soon.</p>
+      <p class="paused-notice" role="status">Bookings are paused while we update our prices. Please check back soon.</p>
 
       <div class="ride-tabs" role="tablist" aria-label="Ride type">
         <button type="button" class="ride-tab active" id="ca-tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true">One way</button>
@@ -79,11 +79,7 @@
             <input id="ca-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com">
           </div>
         </div>
-        <div class="field" id="ca-field-referral">
-          <label for="ca-referral">Referral code (optional)</label>
-          <input id="ca-referral" name="referral_code" type="text" autocomplete="off" placeholder="If a friend referred you, enter their code">
-          <p class="hint">First ride? Enter a friend's referral code for 5% off.</p>
-        </div>
+        <input type="hidden" id="ca-referral" name="referral_code" value="">
         <button class="btn-primary btn-gold" type="submit" id="ca-book-submit">View options</button>
         <p class="form-error" id="ca-booking-error" role="alert"></p>
         <p class="form-note">Bookings are paused while we update our prices. Please check back soon.</p>
@@ -110,7 +106,7 @@
     <!-- CHOOSE YOUR EXPERIENCE (separate options page after the booking form) -->
     <div class="hidden" id="ca-class-step" aria-live="polite">
       <h2>Choose your experience</h2>
-      <p class="paused-notice" role="status" style="background:#fff8e1;border:1px solid #c9a227;border-radius:8px;padding:12px 14px;font-weight:600;">Bookings are paused while we update our prices. Please check back soon.</p>
+      <p class="paused-notice" role="status">Bookings are paused while we update our prices. Please check back soon.</p>
       <p class="intro" id="ca-class-trip-summary"></p>
       <div class="class-options" role="radiogroup" aria-label="Choose your vehicle class">
         <button type="button" class="class-option selected" id="ca-class-option-sedan" data-vehicle-class="sedan" role="radio" aria-checked="true">
@@ -150,7 +146,7 @@
 
     <!-- LIVE RIDE STATUS (shown for the ride being followed) -->
     <div class="hidden" id="ca-status-card" aria-live="polite">
-      <p class="paused-notice hidden" id="ca-paused-note" role="status" style="background:#fff8e1;border:1px solid #c9a227;border-radius:8px;padding:12px 14px;font-weight:600;">Bookings are paused while we update our prices. Please check back soon.</p>
+      <p class="paused-notice hidden" id="ca-paused-note" role="status">Bookings are paused while we update our prices. Please check back soon.</p>
       <button type="button" class="btn-text" id="ca-status-back">← All rides</button>
       <div id="ca-status-finding">
         <h2 id="ca-status-heading">Finding your chauffeur…</h2>
@@ -241,7 +237,7 @@
         <p class="form-note hidden" id="ca-thankyou-test-note"><strong>Test mode — no real charge.</strong> This booking was paid in test mode; no real payment was taken.</p>
         <div class="referral-box">
           <h3>Refer a friend</h3>
-          <p>Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form. Your friend gets 5% off their first ride.</p>
+          <p>Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. Your friend gets 5% off their first ride. They just need to book through your link.</p>
           <p id="ca-referral-code-line" class="hidden">Your referral code: <strong id="ca-referral-code-value"></strong></p>
           <button class="btn-ghost hidden" type="button" id="ca-referral-show-btn">Refer a Friend</button>
           <p id="ca-referral-link-line" class="hidden">Your referral link: <a id="ca-referral-link-anchor" href="#"></a></p>
@@ -307,7 +303,7 @@
   <!-- ============ REFERRAL ============ -->
   <section class="screen hidden" id="screen-referral">
     <h2>Refer a friend</h2>
-    <p class="intro">Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form. Your friend gets 5% off their first ride.</p>
+    <p class="intro">Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. Your friend gets 5% off their first ride. They just need to book through your link.</p>
     <div class="referral-box">
       <p id="ca-tab-referral-line" class="hidden">Your referral code: <strong id="ca-tab-referral-value"></strong></p>
       <button class="btn-ghost hidden" type="button" id="ca-tab-referral-show-btn">Refer a Friend</button>

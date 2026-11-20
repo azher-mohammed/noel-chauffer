@@ -211,18 +211,18 @@
   <section class="hero-band">
     <div class="hero-band-inner">
       <!-- Headline removed by owner order 2026-11-20; photo band kept. -->
+      <!-- Ride-type pill sits on the photo, Blacklane layout (owner decision 2026-11-20). -->
+      <div class="ride-tabs" role="tablist" aria-label="Ride type">
+        <button type="button" class="ride-tab active" id="tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true">One way</button>
+        <button type="button" class="ride-tab" id="tab-hourly" data-ride-type="hourly" role="tab" aria-selected="false">By the hour</button>
+      </div>
     </div>
   </section>
   <section class="booking-section" id="book">
     <div class="booking-wrap">
       <div class="booking-card" id="booking-card">
-        <h2>Book your ride</h2>
+        <h2 class="sr-only">Book your ride</h2>
         <p class="paused-notice" role="status" style="background:#fff8e1;border:1px solid #c9a227;border-radius:8px;padding:12px 14px;font-weight:600;">Bookings are paused while we update our prices. Please check back soon.</p>
-
-        <div class="ride-tabs" role="tablist" aria-label="Ride type">
-          <button type="button" class="ride-tab active" id="tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true">One way</button>
-          <button type="button" class="ride-tab" id="tab-hourly" data-ride-type="hourly" role="tab" aria-selected="false">By the hour</button>
-        </div>
 
         <form id="booking-form" novalidate>
           <div class="field field-places">

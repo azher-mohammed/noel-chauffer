@@ -18,10 +18,15 @@ Settled rules under test:
   is NOT added to what the customer pays (Blacklane's own quote has
   no separate toll line); the driver still gets the map toll in his
   pay, so it comes out of Noel's profit in Blacklane mode.
-- First Class: CUSTOMER fare only. Driver pay is TBD (owner decision
-  pending) — the engine returns driver_earnings/profit None, class
-  selection refuses First Class, and a First Class booking is never
-  offered to or accepted by any driver.
+- First Class: driver rate $9/mi + toll (owner decision 2026-11-20
+  ~02:31 EST) — the engine prices driver pay and profit for it.
+  Class selection still refuses First Class, and a First Class
+  booking is never offered to or accepted by any driver: which car
+  models qualify for First Class is still undecided.
+- Fare preview falls back to the committed places snapshot when live
+  geocoding answers nothing (Render's Nominatim answers come back
+  empty): snapshot coordinates are real Nominatim data, so no
+  distance is invented; a place outside the snapshot still 400s.
 - Gating: NOEL_PRICING=blacklane switches the fare computation;
   default (unset/anything else) is the legacy $9/$10 formula. Live
   pricing is unchanged until the owner flips the flag.
@@ -29,6 +34,7 @@ Settled rules under test:
 Run:  python -m unittest discover -s tests -v
 """
 
+import importlib
 import io
 import os
 import sys
@@ -145,13 +151,15 @@ class TestBlacklaneEnginePure(unittest.TestCase):
         # Above the top rung the base extends with the last segment.
         self.assertEqual(base_fare("sedan", D("105")), D("440.56"))
 
-    def test_first_class_driver_pay_is_tbd(self):
+    def test_first_class_driver_pay_is_nine_dollars_a_mile(self):
+        # First Class driver rate $9/mi + toll (owner decision
+        # 2026-11-20 ~02:31 EST): 10 mi, no toll.
         r = compute_blacklane_one_way(D("10"), "first",
                                       "Times Square", "Rockefeller Center")
         self.assertEqual(r["total"], D("272.92"))
-        self.assertIsNone(r["driver_earnings"])
-        self.assertIsNone(r["profit"])
-        self.assertTrue(r["first_class_driver_pay_tbd"])
+        self.assertEqual(r["driver_earnings"], D("90.00"))
+        self.assertEqual(r["profit"], D("182.92"))
+        self.assertFalse(r["first_class_driver_pay_tbd"])
         for cls in ("sedan", "suv"):
             got = compute_blacklane_one_way(
                 D("10"), cls, "Times Square", "Rockefeller Center")
@@ -246,9 +254,13 @@ class BlacklaneApiCase(unittest.TestCase):
         # the flag is read from the environment once, when app.py is
         # first imported, so in the shared-process full run another
         # module may have imported it first — flip it in-process here
-        # like the other booking-flow test modules do.
-        self._saved_bookings_paused = app_module.BOOKINGS_PAUSED
-        app_module.BOOKINGS_PAUSED = False
+        # like the other booking-flow test modules do. The attribute
+        # may not exist in every branch state (the pause feature
+        # landed separately), so only flip it when present.
+        self._saved_bookings_paused = getattr(
+            app_module, "BOOKINGS_PAUSED", None)
+        if self._saved_bookings_paused is not None:
+            app_module.BOOKINGS_PAUSED = False
         # Deterministic geo: every one-way ride is 17.9 miles, JFK ->
         # Times Square (legacy sedan $168.56 with the $7.46 toll; the
         # stubbed route carries no map toll, so $161.10 + $0.00).
@@ -259,7 +271,8 @@ class BlacklaneApiCase(unittest.TestCase):
 
     def tearDown(self):
         geo_module.distance_miles = self._saved_distance_miles
-        app_module.BOOKINGS_PAUSED = self._saved_bookings_paused
+        if self._saved_bookings_paused is not None:
+            app_module.BOOKINGS_PAUSED = self._saved_bookings_paused
         if self._saved_pricing is None:
             os.environ.pop("NOEL_PRICING", None)
         else:
@@ -340,13 +353,17 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(black_sedan["fees"]["mta_congestion"], 0.75)
         self.assertEqual(black_sedan["fees"]["sales_tax"], 14.89)
         self.assertEqual(black_sedan["fees"]["black_car_fee"], 4.19)
-        # First Class: customer fare only, driver pay TBD.
+        # First Class: customer fare + driver pay at $9/mi + toll
+        # (owner decision 2026-11-20 ~02:31 EST). Stubbed route:
+        # 17.9 mi, $0.00 map toll.
         black_first = body["blacklane"]["first"]
         self.assertIsNotNone(black_first["total"])
-        self.assertIsNone(black_first["driver_earnings"])
-        self.assertIsNone(black_first["profit"])
-        self.assertTrue(black_first["first_class_driver_pay_tbd"])
-        self.assertIn("TBD", body["first_class_driver_pay"])
+        self.assertEqual(black_first["driver_earnings"], 161.10)
+        self.assertEqual(black_first["profit"],
+                         round(black_first["total"] - 161.10, 2))
+        self.assertFalse(black_first["first_class_driver_pay_tbd"])
+        self.assertIn("$9", body["first_class_driver_pay"])
+        self.assertFalse(body["snapshot_fallback"])
 
     def test_preview_class_filter_first(self):
         resp = self.client.get("/api/fare-preview", query_string={
@@ -356,12 +373,59 @@ class BlacklaneApiCase(unittest.TestCase):
         body = resp.get_json()
         self.assertEqual(body["legacy"], {})
         self.assertEqual(set(body["blacklane"]), {"first"})
+        first = body["blacklane"]["first"]
+        self.assertEqual(first["driver_earnings"], 161.10)
+        self.assertEqual(first["profit"],
+                         round(first["total"] - 161.10, 2))
+        self.assertFalse(first["first_class_driver_pay_tbd"])
 
     def test_preview_unresolvable_address_is_400(self):
         geo_module.distance_miles = lambda p, d: (None, None, None)  # noqa: E731
         resp = self.client.get("/api/fare-preview", query_string={
             "pickup": "Nowhere Street 1", "dropoff": "Times Square"})
         self.assertEqual(resp.status_code, 400)
+
+    def test_preview_uses_snapshot_when_live_geocode_fails(self):
+        # Live 2026-11-20: the preview 400d on JFK -> Times Square
+        # because Nominatim answers empty from Render. With no
+        # network at all, the snapshot fallback must still return
+        # both totals (miles from the snapshot coordinates via the
+        # haversine fallback, since OSRM is unreachable too).
+        importlib.reload(geo_module)  # real distance_miles back
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=AssertionError("no network")):
+            resp = self.client.get("/api/fare-preview", query_string={
+                "pickup": "JFK Airport Terminal 1",
+                "dropoff": "Times Square"})
+        self.assertEqual(resp.status_code, 200,
+                         resp.get_data(as_text=True)[:200])
+        body = resp.get_json()
+        self.assertTrue(body["snapshot_fallback"])
+        t1 = (40.6430714, -73.7890699)
+        ts = (40.7570095, -73.9859724)
+        expected_miles = round(
+            geo_module.haversine_miles(t1[0], t1[1], ts[0], ts[1]) * 1.3, 1)
+        self.assertEqual(body["miles"], expected_miles)
+        # No geometry without OSRM: the map toll falls back to
+        # $0.00 for a NY->NY trip, so the legacy total is $9 x miles.
+        self.assertEqual(body["toll"], 0)
+        self.assertEqual(body["legacy"]["sedan"]["total"],
+                         round(9 * expected_miles, 2))
+        # Blacklane-style total must match the engine computed from
+        # the same miles with the snapshot's own details.
+        direct = compute_blacklane_one_way(
+            D(str(expected_miles)), "sedan",
+            "JFK Airport Terminal 1", "Times Square",
+            pickup_details={"state": "New York",
+                            "county": "Queens County",
+                            "city": "New York"},
+            dropoff_details={"state": "New York",
+                             "county": "New York County",
+                             "city": "New York"},
+            toll=D("0"))
+        self.assertEqual(body["blacklane"]["sedan"]["total"],
+                         float(direct["total"]))
 
     def test_preview_bad_class_is_400(self):
         resp = self.client.get("/api/fare-preview", query_string={
@@ -408,7 +472,7 @@ class BlacklaneApiCase(unittest.TestCase):
                 f"/api/bookings/{booking['id']}/vehicle-class",
                 json={"vehicle_class": "first"})
         self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
-        self.assertIn("driver rate", resp.get_json()["error"])
+        self.assertIn("not open yet", resp.get_json()["error"])
         with app_module.app.app_context():
             row = app_module.db.session.get(app_module.Booking, booking["id"])
             self.assertEqual(row.vehicle_class, "sedan")
@@ -444,14 +508,64 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
         self.assertIn("First Class", resp.get_json()["error"])
 
-    def test_recompute_first_class_raises(self):
-        booking = self.book()
-        with app_module.app.app_context():
-            row = app_module.db.session.get(app_module.Booking, booking["id"])
-            row.vehicle_class = "first"
-            with self.assertRaises(ValueError):
+    def test_recompute_first_class_prices_at_nine_dollars_a_mile(self):
+        # A stored First Class row reprices in Blacklane mode with
+        # the $9/mi driver rate (owner decision 2026-11-20 ~02:31
+        # EST) — and, crucially, with the RAW class, not the
+        # sedan-fallback helper (which would price it as a sedan).
+        with mock.patch.dict(os.environ, {"NOEL_PRICING": "blacklane"}):
+            booking = self.book()
+            with app_module.app.app_context():
+                row = app_module.db.session.get(app_module.Booking, booking["id"])
+                row.vehicle_class = "first"
                 app_module.recompute_booking_fare(row)
-            app_module.db.session.rollback()
+                app_module.db.session.commit()
+                self.assertEqual(row.driver_earnings, D("161.10"))
+                self.assertEqual(row.vehicle_class, "first")
+                self.assertIsNotNone(row.fare_total)
+
+
+# ------------------------------------------------- snapshot geocoding ------
+class SnapshotGeocodeCase(unittest.TestCase):
+    """geo.snapshot_coords: the committed places snapshot as an offline
+    geocoder for the fare preview (live 2026-11-20: the preview 400d
+    on JFK -> Times Square because Nominatim answers empty from
+    Render). No network is allowed in these tests at all."""
+
+    def test_snapshot_resolves_jfk_terminal_1_without_network(self):
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=AssertionError("no network")):
+            coords, details = geo_module.snapshot_coords(
+                "JFK Airport Terminal 1")
+        self.assertEqual(coords, (40.6430714, -73.7890699))
+        self.assertEqual(details["state"], "New York")
+        self.assertEqual(details["county"], "Queens County")
+
+    def test_snapshot_resolves_times_square_without_network(self):
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=AssertionError("no network")):
+            coords, details = geo_module.snapshot_coords("Times Square")
+        self.assertEqual(coords, (40.7570095, -73.9859724))
+        self.assertEqual(details["state"], "New York")
+        self.assertEqual(details["county"], "New York County")
+
+    def test_snapshot_longest_match_wins(self):
+        # "JFK Airport Terminal 1" must resolve to Terminal 1, not
+        # to the airport itself (longest matching query wins).
+        coords, _ = geo_module.snapshot_coords("JFK Airport Terminal 1")
+        self.assertEqual(coords, (40.6430714, -73.7890699))
+        airport, _ = geo_module.snapshot_coords("JFK Airport")
+        self.assertEqual(airport, (40.6429479, -73.7793734))
+
+    def test_snapshot_unknown_place_returns_none(self):
+        self.assertEqual(
+            geo_module.snapshot_coords("Nowhere Street 1"), (None, None))
+        self.assertEqual(
+            geo_module.snapshot_coords(
+                "180 Green Acres Road, East Valley Stream, NY"),
+            (None, None))
 
 
 if __name__ == "__main__":

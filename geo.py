@@ -50,6 +50,12 @@ _geocode_address_cache: dict = {}
 # clearing _route_cache clears geometry too (tests rely on this).
 _route_cache: dict = {}
 _search_cache: dict = {}
+# Snapshot geocode index: snapshot query (lowercased) -> ((lat, lng),
+# address details) from the first result of that query's snapshot
+# entry. Built by load_places_snapshot() from the same committed
+# Nominatim data that seeds the autocomplete cache, so the most-typed
+# places resolve with NO network at all (see snapshot_coords).
+_SNAPSHOT_GEOCODE: dict = {}
 _CACHE_LIMIT = 500
 
 # Address-detail keys passed through to autocomplete suggestions.
@@ -642,6 +648,29 @@ _refresh_started = False
 _SNAPSHOT_LOADED = False
 
 
+def _seed_snapshot_geocode(query, results):
+    """Seed _SNAPSHOT_GEOCODE for one query from its first result.
+
+    The first result is the place itself for every seeded query
+    (the airport for "jfk", Terminal 1 for "jfk terminal 1", Times
+    Square for "times square"). No network, never raises.
+    """
+    qkey = (query or "").strip().lower()
+    if not qkey or not isinstance(results, list) or not results:
+        return
+    first = results[0] if isinstance(results[0], dict) else None
+    if first is None:
+        return
+    try:
+        lat = float(first["lat"])
+        lon = float(first["lon"])
+    except (KeyError, TypeError, ValueError):
+        return
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        return
+    _SNAPSHOT_GEOCODE[qkey] = ((lat, lon), dict(first.get("address") or {}))
+
+
 def load_places_snapshot():
     """Load the committed popular-places snapshot into _search_cache.
 
@@ -649,6 +678,8 @@ def load_places_snapshot():
     first load). Entries use the same (query, limit=5) keys as a live
     search, so a seeded query is indistinguishable from a cached live
     one. Tests clear _search_cache in setUp, so they are unaffected.
+    The same entries also seed _SNAPSHOT_GEOCODE (see
+    snapshot_coords), which tests never clear.
     """
     global _SNAPSHOT_LOADED
     if _SNAPSHOT_LOADED:
@@ -662,6 +693,7 @@ def load_places_snapshot():
             results = (entry or {}).get("results") or []
             if not isinstance(results, list) or not results:
                 continue
+            _seed_snapshot_geocode(query, results)
             key = (str(query).strip().lower(), 5)
             if key in _search_cache or len(_search_cache) >= _CACHE_LIMIT:
                 continue
@@ -672,6 +704,41 @@ def load_places_snapshot():
             ]
     except Exception as exc:  # missing/corrupt file: live search still works
         log.warning("places snapshot failed to load: %s", exc)
+
+
+def snapshot_coords(address: str):
+    """Coordinates + address details from the committed places snapshot.
+
+    Returns ((lat, lng), details) or (None, None). No network, never
+    raises. Matches a snapshot query exactly ("Times Square"), or
+    when every word of a snapshot query appears in the typed address
+    ("JFK Airport Terminal 1" matches the "jfk terminal 1" entry);
+    the longest matching query wins, so "jfk terminal 1" beats "jfk".
+    The details dict is a copy, so callers cannot mutate the index.
+    This is the offline fallback for the fare preview when live
+    geocoding answers nothing (see app.fare_preview); the booking
+    flow does NOT use it — typed booking addresses still go through
+    live geocoding, and unresolvable ones are rejected.
+    """
+    load_places_snapshot()  # no-op after the first load
+    key = (address or "").strip().lower()
+    if not key or not _SNAPSHOT_GEOCODE:
+        return None, None
+    entry = _SNAPSHOT_GEOCODE.get(key)
+    if entry is not None:
+        coords, details = entry
+        return coords, dict(details)
+    words = set(re.findall(r"[a-z0-9]+", key))
+    best = None
+    best_len = 0
+    for query, value in _SNAPSHOT_GEOCODE.items():
+        qwords = set(re.findall(r"[a-z0-9]+", query))
+        if qwords and qwords <= words and len(qwords) > best_len:
+            best, best_len = value, len(qwords)
+    if best is None:
+        return None, None
+    coords, details = best
+    return coords, dict(details)
 
 
 def refresh_popular_places(search_fn=None, sleep_fn=None):
@@ -701,6 +768,9 @@ def refresh_popular_places(search_fn=None, sleep_fn=None):
                 for item in fresh
                 if isinstance(item, dict)
             ]
+            # Keep the offline geocode index in step with the
+            # refreshed search entry (same first result).
+            _seed_snapshot_geocode(query, fresh)
         elif previous:
             _search_cache[key] = previous
         # Pace every iteration: Nominatim's usage policy asks for at

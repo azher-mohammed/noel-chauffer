@@ -45,13 +45,14 @@ Noel's profit. If the owner wants the toll added on top of the
 Blacklane total instead, that is a one-line change in
 ``compute_blacklane_one_way``.
 
-FIRST CLASS — DRIVER PAY IS TBD (owner decision pending, 2026-11-20):
-the engine computes the First Class CUSTOMER fare only. There is no
-First Class driver rate anywhere in this module (the rate is None),
-``compute_blacklane_one_way`` returns ``driver_earnings=None`` and
-``profit=None`` for First Class, and the app layer must refuse First
-Class bookings and never dispatch them (see app.py: select_vehicle_
-class, driver_offers, driver_accept). Do NOT invent a rate here.
+FIRST CLASS — DRIVER RATE SET (owner decision 2026-11-20 ~02:31 EST):
+$9/mile + map toll (sedan $4, SUV $7, First Class $9). The engine
+computes the First Class customer fare AND driver pay. First Class
+bookings are still NOT open: the app layer refuses First Class
+selection and never dispatches it (see app.py: select_vehicle_
+class, driver_offers, driver_accept) until the owner opens it —
+which car models qualify for First Class is still undecided, and
+live pricing has not flipped. Do NOT open it from here.
 
 GATING: this engine changes NO live price by itself. The app uses it
 only when ``NOEL_PRICING=blacklane`` (see pricing.pricing_mode);
@@ -83,20 +84,20 @@ CENT = Decimal("0.01")
 # Internal keys stay "sedan"/"suv" (as in pricing.py); "first" is the
 # NEW third class. NOTE: do NOT add "first" to pricing.CLASS_LABELS /
 # pricing.CLASS_RATES — tests pin those to the two legacy classes and
-# there is no First Class driver rate to put in CLASS_DRIVER_RATES.
+# the legacy engine has no First Class at all.
 BLACKLANE_CLASSES = ("sedan", "suv", "first")
 BLACKLANE_CLASS_LABELS = {
     "sedan": "Business Class",
     "suv": "Business SUV",
     "first": "First Class",
 }
-# Driver rate per class. "first" is None ON PURPOSE — the owner has
-# not decided the First Class driver rate (2026-11-20). Nothing in
-# this module or the app may substitute a number for it.
+# Driver rate per class: sedan $4/mi, SUV $7/mi (as in pricing.py),
+# First Class $9/mi — owner decision 2026-11-20 ~02:31 EST.
+DRIVER_FIRST = Decimal("9")
 BLACKLANE_DRIVER_RATES = {
     "sedan": DRIVER_SEDAN,
     "suv": DRIVER_SUV,
-    "first": None,
+    "first": DRIVER_FIRST,
 }
 
 
@@ -731,8 +732,9 @@ def compute_blacklane_one_way(miles, vehicle_class, pickup_text,
     with a valid referral code gets 5% off the total, driver pay
     unchanged (same rule as the legacy engine).
 
-    For First Class, driver_earnings and profit are None — the driver
-    rate is TBD and must never be invented (see the module docstring).
+    Driver pay is miles x driver rate + map toll for every class:
+    sedan $4/mi, SUV $7/mi, First Class $9/mi (owner decision
+    2026-11-20 ~02:31 EST).
     """
     if vehicle_class not in BLACKLANE_CLASSES:
         raise ValueError("vehicle_class must be 'sedan', 'suv' or 'first'")
@@ -748,14 +750,8 @@ def compute_blacklane_one_way(miles, vehicle_class, pickup_text,
         referral_discount = money(total * REFERRAL_DISCOUNT_RATE)
         total = money(total - referral_discount)
     driver_rate = BLACKLANE_DRIVER_RATES[vehicle_class]
-    if driver_rate is None:
-        # FIRST CLASS — driver pay TBD (owner decision pending).
-        # Never invent a rate: no driver earnings, no profit.
-        driver_earnings = None
-        profit = None
-    else:
-        driver_earnings = money(driver_rate * miles_dec + toll)
-        profit = money(total - driver_earnings)
+    driver_earnings = money(driver_rate * miles_dec + toll)
+    profit = money(total - driver_earnings)
     return {
         "miles": miles_dec,
         "fare": base,

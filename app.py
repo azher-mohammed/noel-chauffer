@@ -3884,17 +3884,16 @@ def recompute_booking_fare(booking):
         result = compute_hourly(booking.hours or Decimal("0"))
         booking.vehicle_class = None
     else:
-        # First Class has no driver rate (owner decision pending):
-        # a booking stored with that class must never be repriced
-        # with an invented rate — fail loud instead of guessing.
-        if (booking.vehicle_class or "").strip().lower() == "first":
-            raise ValueError(
-                "First Class driver pay is not set — a First Class "
-                "booking cannot be priced.")
         if pricing_mode() == "blacklane":
+            # Pass the RAW stored class: booking_vehicle_class()
+            # maps unknown classes (including "first") to "sedan",
+            # which would price a First Class booking as a sedan
+            # job. First Class driver pay is $9/mi (owner decision
+            # 2026-11-20 ~02:31 EST).
+            raw_class = (booking.vehicle_class or "").strip().lower() or "sedan"
             result = compute_blacklane_one_way(
                 booking.miles or Decimal("0"),
-                booking_vehicle_class(booking),
+                raw_class,
                 booking.pickup, booking.dropoff,
                 pickup_details=geo_module.geocode_address(booking.pickup),
                 dropoff_details=geo_module.geocode_address(booking.dropoff),
@@ -4024,10 +4023,28 @@ def fare_preview():
     if vehicle_class is not None and vehicle_class not in ("sedan", "suv", "first"):
         return err("class must be sedan, suv or first.")
     miles, pickup_coords, dropoff_coords = geo_module.distance_miles(pickup, dropoff)
+    snapshot_fallback = False
+    snap_pickup_details = None
+    snap_dropoff_details = None
     if miles is None:
-        return err("We couldn't find one of the addresses you entered. "
-                   "Please pick the pickup and drop-off from the address "
-                   "suggestions and try again.")
+        # Live geocoding failed — on Render, Nominatim answers
+        # empty for the shared egress IPs, so typed addresses
+        # resolve to nothing. Fall back to the committed places
+        # snapshot for the most-typed places (airports, terminals,
+        # Times Square, ...): it holds real Nominatim coordinates,
+        # so no distance is invented; a place outside the snapshot
+        # still returns the 400 below.
+        snap_pickup_coords, snap_pickup_details = geo_module.snapshot_coords(pickup)
+        snap_dropoff_coords, snap_dropoff_details = geo_module.snapshot_coords(dropoff)
+        if snap_pickup_coords is None or snap_dropoff_coords is None:
+            return err("We couldn't find one of the addresses you entered. "
+                       "Please pick the pickup and drop-off from the address "
+                       "suggestions and try again.")
+        miles = geo_module.route_miles(
+            snap_pickup_coords[0], snap_pickup_coords[1],
+            snap_dropoff_coords[0], snap_dropoff_coords[1])
+        pickup_coords, dropoff_coords = snap_pickup_coords, snap_dropoff_coords
+        snapshot_fallback = True
     geometry = None
     if pickup_coords and dropoff_coords:
         geometry = geo_module.route_geometry(
@@ -4040,8 +4057,8 @@ def fare_preview():
         dropoff,
         geometry,
     )
-    pickup_details = geo_module.geocode_address(pickup)
-    dropoff_details = geo_module.geocode_address(dropoff)
+    pickup_details = geo_module.geocode_address(pickup) or snap_pickup_details
+    dropoff_details = geo_module.geocode_address(dropoff) or snap_dropoff_details
     miles_dec = Decimal(str(miles))
 
     def _legacy_view(cls):
@@ -4085,10 +4102,10 @@ def fare_preview():
         "miles": num(miles_dec),
         "toll": num(toll),
         "pricing_mode": pricing_mode(),
+        "snapshot_fallback": snapshot_fallback,
         "legacy": legacy,
         "blacklane": blacklane,
-        "first_class_driver_pay": (
-            "TBD — the owner has not set the First Class driver rate yet."),
+        "first_class_driver_pay": "$9.00 per mile + toll",
     })
 
 
@@ -4116,8 +4133,9 @@ def _booking_create_view(booking, referral_code=None):
         if pricing_mode() == "blacklane":
             # Blacklane mode: three class totals (Business, Business
             # SUV, First Class). First Class shows its customer fare
-            # but is NOT bookable — its driver rate is not set (owner
-            # decision pending), so select_vehicle_class refuses it.
+            # but is NOT bookable yet — the driver rate is set
+            # ($9/mi), but which car models qualify for First Class
+            # is still undecided — so select_vehicle_class refuses it.
             totals = blacklane_class_totals(
                 booking.miles or Decimal("0"), booking.pickup, booking.dropoff,
                 pickup_details=geo_module.geocode_address(booking.pickup),
@@ -4127,8 +4145,8 @@ def _booking_create_view(booking, referral_code=None):
             view["class_totals"] = {k: num(v) for k, v in totals.items()}
             view["first_class_bookable"] = False
             view["first_class_note"] = (
-                "First Class driver pay has not been set yet, so First "
-                "Class rides cannot be booked.")
+                "First Class is not open yet — which car models "
+                "qualify for First Class has not been decided.")
         else:
             totals = compute_class_totals(
                 booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"),
@@ -4376,15 +4394,15 @@ def select_vehicle_class(booking_id):
     data = request.get_json(silent=True) or {}
     vehicle_class = data.get("vehicle_class")
     if vehicle_class == "first":
-        # First Class customer fare exists in the Blacklane engine,
-        # but the First Class DRIVER rate is not set (owner decision
-        # pending, 2026-11-20) — so a First Class booking must never
-        # be created or dispatched with an invented rate. Refuse
-        # here, before anything is stored; in legacy mode "first" is
-        # not a class at all and falls through to the error below.
+        # First Class is not bookable yet. The driver rate IS set
+        # ($9/mi, owner decision 2026-11-20 ~02:31 EST) — but which
+        # car models qualify for First Class is still undecided, and
+        # live pricing has not flipped, so no First Class booking
+        # may be created. Refuse here, before anything is stored;
+        # in legacy mode "first" is not a class at all and falls
+        # through to the error below.
         if pricing_mode() == "blacklane":
-            return err("First Class is not bookable yet — the driver rate "
-                       "for First Class has not been set. Please choose "
+            return err("First Class is not open yet — please choose "
                        "Business Class or Business SUV.", 409)
         return err("vehicle_class must be sedan or suv.")
     if vehicle_class not in ("sedan", "suv"):
@@ -6190,12 +6208,14 @@ def driver_offers():
         # appears only in that driver's offers.
         if b.assigned_driver_id is not None and b.assigned_driver_id != driver.id:
             continue
-        # First Class (Blacklane engine): no driver rate has been set
-        # (owner decision pending), so a First Class booking must
-        # never be offered to any driver. Checked on the RAW column:
-        # booking_vehicle_class() maps unknown classes to "sedan",
-        # which would otherwise let a First Class job through as a
-        # sedan job.
+        # First Class (Blacklane engine): the driver rate is set
+        # ($9/mi, owner decision 2026-11-20 ~02:31 EST), but First
+        # Class dispatch is not open yet — which car models qualify
+        # for First Class is still undecided — so a First Class
+        # booking must never be offered to any driver. Checked on
+        # the RAW column: booking_vehicle_class() maps unknown
+        # classes to "sedan", which would otherwise let a First
+        # Class job through as a sedan job.
         if b.vehicle_class == "first":
             continue
         if b.ride_type == "one_way" and booking_vehicle_class(b) != driver_class:
@@ -6246,12 +6266,13 @@ def driver_accept(booking_id):
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
-    # First Class (Blacklane engine): no driver rate has been set
-    # (owner decision pending) — a direct accept call must fail too,
-    # never let a First Class job through with an invented rate.
+    # First Class (Blacklane engine): the driver rate is set
+    # ($9/mi, owner decision 2026-11-20 ~02:31 EST), but First
+    # Class dispatch is not open yet — which car models qualify
+    # for First Class is still undecided — so a direct accept
+    # call must fail too, never let a First Class job through.
     if booking.vehicle_class == "first":
-        return err("First Class rides are not open yet — the driver rate "
-                   "for First Class has not been set.", 409)
+        return err("First Class rides are not open yet.", 409)
     if (booking.ride_type == "one_way"
             and booking_vehicle_class(booking) != driver_vehicle_class(driver)):
         return err("This ride is for a different vehicle class.", 409)

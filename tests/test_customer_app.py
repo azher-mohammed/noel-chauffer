@@ -154,6 +154,7 @@ class CustomerAppPageCase(unittest.TestCase):
         html = read("static/customer-app.html")
         for text in ("What's included",
                      "Free cancellation up to 1 hour before pickup",
+                     "Phone chargers on board",
                      "Price breakdown", 'id="ca-class-breakdown"'):
             self.assertIn(text, html, "app options page must show %r" % text)
         js = read("static/js/customer-app.js")

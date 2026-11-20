@@ -635,6 +635,7 @@ class ClassApiCase(unittest.TestCase):
                      "Free cancellation up to 1 hour before pickup",
                      "Luggage assistance at pickup and drop-off",
                      "Up to 60 minutes free waiting at airports",
+                     "Phone chargers on board",
                      "Price breakdown", 'id="class-breakdown"'):
             self.assertIn(text, index, "options page must show %r" % text)
         for text in ("classBreakdowns", "class-breakdown", "Base fare",

@@ -618,3 +618,22 @@ input, select, textarea { font: inherit; }
 .footer-nap { max-width: 1100px; margin: 0 auto; padding: 12px 20px 36px; font-size: 14px; color: #cfcfcf; }
 .footer-nap p { margin: 0 0 6px; }
 .footer-nap a { color: var(--gold-soft); }
+
+/* ---- Compact booking form, black text (owner decision 2026-11-20) ---- */
+/* Form chhota aur simple; jo text likhte hain (jaise JFK) woh kaala;
+   booking form mein neela/gulabi/laal rang nahi — seedha kaala. */
+.booking-section { background: var(--white); }
+.booking-wrap { max-width: 480px; padding: 24px 16px 36px; }
+.booking-card { padding: 20px 18px 16px; }
+.booking-card > h2 { font-size: 20px; }
+.booking-card > h2::after { margin-top: 6px; }
+.booking-card .sub { margin-bottom: 10px; }
+.ride-tabs { margin-bottom: 12px; }
+.ride-tab { padding: 9px; font-size: 14px; }
+.field { margin-bottom: 9px; }
+.field input, .field select { padding: 9px 10px; color: var(--black); }
+.places-main { color: var(--black); }
+.booking-card .field-row { gap: 10px; }
+.booking-card .btn-primary { padding: 11px; font-size: 15px; margin-top: 4px; }
+.booking-card .form-error { color: var(--black); }
+.flight-section, .class-section { max-width: 480px; padding: 24px 16px 8px; }

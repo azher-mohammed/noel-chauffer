@@ -59,10 +59,10 @@
   function $(id) { return document.getElementById(id); }
   function show(el) { if (el) el.classList.remove("hidden"); }
   function hide(el) { if (el) el.classList.add("hidden"); }
-  /* Bookings are PAUSED while prices are being updated (owner
-     decision 2026-11-20). Flip to false when the new price list
-     is live; the server still enforces the pause either way. */
-  var BOOKINGS_PAUSED = true;
+  /* Bookings are LIVE (owner decision 2026-11-20: Blacklane prices
+     + slab driver pay, "Driver aur customer dono live kar do").
+     The server still enforces the pause either way. */
+  var BOOKINGS_PAUSED = false;
   function money(n) {
     if (n === null || n === undefined || isNaN(Number(n))) return "";
     return "$" + Number(n).toFixed(2);

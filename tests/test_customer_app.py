@@ -12,12 +12,12 @@ pricing, toll, dispatch, or payment logic. These tests pin:
 - The app HTML has no duplicate IDs, no rates, no driver-owned
   wording, no app-download section, and English-only text.
 - The app JS calls exactly the website's endpoints, reads totals
-  from the API (never computes a fare), keeps the flight step
-  skippable, the class chooser breakdown-free, payment before
-  dispatch, the trip chat gated on accept, the support chat
-  scripted-only with owner reporting, and the referral display
-  states the friend-only 5% first-ride discount (owner decision
-  2026-11-18, as on the website).
+  from the API (never computes a fare), keeps the flight step wiring
+  parked (owner order 2026-11-20: the step never shows for now), the
+  class chooser breakdown-free, payment before dispatch, the trip chat
+  gated on accept, the support chat scripted-only with owner
+  reporting, and the referral display states the friend-only 5%
+  first-ride discount (owner decision 2026-11-18, as on the website).
 - The API contract the app relies on works end to end through the
   test client: create -> class totals -> class select -> pay ->
   offered; history lookup; support message storage + owner listing;
@@ -139,7 +139,7 @@ class CustomerAppPageCase(unittest.TestCase):
         for field in ("ca-pickup", "ca-dropoff", "ca-date", "ca-time",
                       "ca-hours", "ca-name", "ca-phone",
                       "ca-email", "ca-referral", "ca-flight-number",
-                      "ca-flight-number-form", "ca-class-breakdown",
+                      "ca-class-breakdown",
                       "ca-class-option-sedan", "ca-class-option-suv",
                       "ca-pay-number", "ca-pay-exp", "ca-pay-cvc",
                       "ca-history-phone", "ca-support-input",
@@ -177,8 +177,9 @@ class CustomerAppPageCase(unittest.TestCase):
                          '"/api/support-messages"',
                          '"/driver-photo"'):
             self.assertIn(endpoint, js, f"app JS must call {endpoint}")
-        self.assertIn("window.NoelFlight", js)
-        self.assertIn("airportSides", js)
+        # Owner order 2026-11-20: the flight step is parked, so the
+        # app JS no longer calls the airport detection library; the
+        # flight.js script tag stays loaded for a later re-enable.
 
     def test_app_js_never_computes_a_fare(self):
         js = read("static/js/customer-app.js")

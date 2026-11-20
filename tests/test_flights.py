@@ -1,9 +1,11 @@
 """Tests for the flight-number flow (Blacklane-style).
 
-- Flight number is a field inside the booking form, between Date and
-  Pickup time (owner order 2026-11-20); the separate step after the
-  form stays as the fallback for airport rides where the form field
-  was left empty.
+- Flight number was REMOVED from the booking form and the separate
+  step by owner order 2026-11-20 ("flight number nahi aana chahiye
+  abhi"): no flight field on the first page, and the step never
+  shows. The step panel and its wiring stay in place, parked, so the
+  field can come back on his word; the server still accepts
+  flight_number.
 - Flight-number normalization + IATA airline names (flights.py).
 - Terminal extraction from the chosen place suggestion text.
 - Storage on the booking; a missing or invalid flight number never
@@ -13,8 +15,8 @@
 - Owner ride details show the flight number.
 - Airport detection for the prompt (node harness over
   static/js/flight.js).
-- Static checks: the in-form flight field sits between Date and Time,
-  skipping is wired, and no flight-tracking claims exist.
+- Static checks: no in-form flight field, the step is never
+  triggered from submit, and no flight-tracking claims exist.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -334,48 +336,53 @@ class TestFlightStepStatic(unittest.TestCase):
         with open(os.path.join(REPO_DIR, rel), encoding="utf-8") as handle:
             return handle.read()
 
-    def test_flight_field_in_form_and_step_panel_still_exists(self):
+    def test_flight_field_removed_from_form_step_panel_parked(self):
         html = self._read("static/index.html")
+        # Owner order 2026-11-20: the flight number field is gone
+        # from the booking form ("flight number nahi aana chahiye
+        # abhi") and the separate step never shows for now. The
+        # step panel stays in the DOM, hidden and unused, so the
+        # field can come back on his word.
         self.assertIn('id="flight-step"', html)
         self.assertIn('id="flight-number"', html)
         self.assertIn("/static/js/flight.js", html)
-        # Owner order 2026-11-20: the flight number is a field inside
-        # the booking form, between Date and Pickup time.
         form_start = html.index('<form id="booking-form"')
         form_end = html.index("</form>", form_start)
         form_html = html[form_start:form_end]
-        self.assertIn('id="bk-flight-number"', form_html)
-        self.assertLess(form_html.index('id="bk-date"'),
-                        form_html.index('id="bk-flight-number"'))
-        self.assertLess(form_html.index('id="bk-flight-number"'),
-                        form_html.index('id="bk-time"'))
-        # The separate step panel stays as the fallback for airport
-        # rides where the form field was left empty.
+        self.assertNotIn('id="bk-flight-number"', form_html)
+        self.assertNotIn("Flight number (optional)", form_html)
         self.assertNotIn("flight-step", form_html)
 
-    def test_app_form_has_flight_field_between_date_and_time(self):
+    def test_app_form_has_no_flight_field(self):
         html = self._read("static/customer-app.html")
         form_start = html.index('<form id="ca-booking-form"')
         form_end = html.index("</form>", form_start)
         form_html = html[form_start:form_end]
-        self.assertIn('id="ca-flight-number-form"', form_html)
-        self.assertLess(form_html.index('id="ca-date"'),
-                        form_html.index('id="ca-flight-number-form"'))
-        self.assertLess(form_html.index('id="ca-flight-number-form"'),
-                        form_html.index('id="ca-time"'))
+        # Owner order 2026-11-20: no flight-number field in the
+        # app booking form either.
+        self.assertNotIn('id="ca-flight-number-form"', form_html)
+        self.assertNotIn("Flight number (optional)", form_html)
 
-    def test_js_reads_in_form_flight_number(self):
-        self.assertIn("bk-flight-number", self._read("static/js/customer.js"))
-        self.assertIn("ca-flight-number-form",
-                      self._read("static/js/customer-app.js"))
+    def test_js_no_longer_reads_in_form_flight_number(self):
+        # Owner order 2026-11-20: the form fields are gone, so the
+        # submit path must not read them.
+        self.assertNotIn("bk-flight-number",
+                         self._read("static/js/customer.js"))
+        self.assertNotIn("ca-flight-number-form",
+                         self._read("static/js/customer-app.js"))
 
     def test_skip_is_wired_and_prompt_is_gated(self):
         js = self._read("static/js/customer.js")
+        # The step panel and its wiring stay in place, parked, so
+        # the field can come back on the owner's word — but the
+        # submit path never triggers it now.
         self.assertIn("flight-skip", js)
         self.assertIn("flight-continue", js)
-        self.assertIn("airportSides", js)
         self.assertIn("showFlightStep", js)
         self.assertIn("flightResolved", js)
+        self.assertNotIn("showFlightStep(sides, payload);", js)
+        # The airport detection library itself stays (flight.js).
+        self.assertIn("airportSides", self._read("static/js/flight.js"))
 
     def test_no_flight_tracking_claims_in_ui(self):
         for rel in ("static/index.html", "static/driver.html", "static/owner.html",

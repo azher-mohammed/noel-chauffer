@@ -414,28 +414,11 @@
       err.textContent = "Please enter a drop-off address.";
       return;
     }
-    /* Flight number: typed in the booking form (Date, flight number,
-       pickup time) it is used as-is; otherwise airport rides ask for
-       it as a SEPARATE step after this form. Skipping never blocks the
-       booking. Detection: the chosen suggestion's airport flag, with
-       an address-text fallback (see flight.js). */
-    var formFlight = ($("bk-flight-number") || {}).value || "";
-    formFlight = formFlight.trim();
-    if (formFlight) {
-      state.flightNumber = formFlight;
-      state.flightResolved = true;
-    }
-    var sides = { any: false, pickup: false, dropoff: false };
-    if (window.NoelFlight) {
-      sides = window.NoelFlight.airportSides(
-        state.pickupPlace, state.dropoffPlace,
-        payload.pickup, payload.dropoff || "");
-    }
-    if (sides.any && !state.flightResolved) {
-      showFlightStep(sides, payload);
-      return;
-    }
-    if (state.flightNumber) payload.flight_number = state.flightNumber;
+    /* Flight number: REMOVED from the booking form and the separate
+       step by owner order 2026-11-20 ("flight number nahi aana
+       chahiye abhi"). The step code below (showFlightStep and
+       friends) stays in place, unused, so the field can come back on
+       his word; the server still accepts flight_number. */
     sendBooking(payload);
   });
 
@@ -484,7 +467,7 @@
   });
 
   /* Choose your experience: a SEPARATE options page after the booking
-     form (and the flight step). The booking already exists, unpaid;
+     form. The booking already exists, unpaid;
      the customer picks a class — each option shows its total —
      and then continues to the card payment. Sedan (Business Class)
      is pre-selected. Back cancels the unpaid booking and returns

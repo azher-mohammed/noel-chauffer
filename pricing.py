@@ -78,7 +78,8 @@ DRIVER_SEDAN = Decimal("4")
 DRIVER_SUV = Decimal("7")
 CLASS_RATES = {"sedan": SEDAN_RATE, "suv": SUV_RATE}
 CLASS_DRIVER_RATES = {"sedan": DRIVER_SEDAN, "suv": DRIVER_SUV}
-CLASS_LABELS = {"sedan": "Business Class", "suv": "Business SUV"}
+CLASS_LABELS = {"sedan": "Business Class", "suv": "Business SUV",
+                "first": "First Class"}
 # No tax rate, no gratuity rate: both were removed by owner orders
 # 2026-11-17. "tax"/"gratuity" breakdown keys stay at $0.00.
 BOOKING_FEE = Decimal("0")

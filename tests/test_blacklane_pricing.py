@@ -507,40 +507,51 @@ class BlacklaneApiCase(unittest.TestCase):
                          {"sedan", "suv", "first"})
         self.assertEqual(booking["class_totals"]["sedan"], 193.87)
         self.assertIsNotNone(booking["class_totals"]["first"])
-        self.assertFalse(booking["first_class_bookable"])
+        self.assertTrue(booking["first_class_bookable"])
         with app_module.app.app_context():
             row = app_module.db.session.get(app_module.Booking, booking["id"])
             self.assertEqual(row.fare, D("167.79"))
             self.assertEqual(row.tax, D("14.89"))
             self.assertEqual(row.driver_earnings, D("71.60") + row.toll)
 
-    def test_select_first_class_refused_in_blacklane_mode(self):
+    def test_select_first_class_allowed_in_blacklane_mode(self):
+        # First Class is OPEN since owner decision 2026-11-20 ~03:00 EST
+        # (same models as Blacklane): selecting it stores "first" and
+        # reprices the booking with the Blacklane First Class total.
         with mock.patch.dict(os.environ, {"NOEL_PRICING": "blacklane"}):
             booking = self.book()
+            first_total = booking["class_totals"]["first"]
             resp = self.client.post(
                 f"/api/bookings/{booking['id']}/vehicle-class",
                 json={"vehicle_class": "first"})
-        self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
-        self.assertIn("not open yet", resp.get_json()["error"])
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        body = resp.get_json()["booking"]
+        self.assertEqual(body["vehicle_class"], "first")
+        self.assertEqual(body["vehicle_class_label"], "First Class")
+        self.assertEqual(body["total"], first_total)
         with app_module.app.app_context():
             row = app_module.db.session.get(app_module.Booking, booking["id"])
-            self.assertEqual(row.vehicle_class, "sedan")
+            self.assertEqual(row.vehicle_class, "first")
 
     def test_select_first_class_invalid_in_legacy_mode(self):
+        # First Class exists only in Blacklane mode: the legacy
+        # engine has no First Class rate to price it with.
         booking = self.book()
         resp = self.client.post(
             f"/api/bookings/{booking['id']}/vehicle-class",
             json={"vehicle_class": "first"})
         self.assertEqual(resp.status_code, 400)
-        self.assertIn("must be sedan or suv", resp.get_json()["error"])
+        self.assertIn("Blacklane rates", resp.get_json()["error"])
 
-    def test_first_class_booking_never_dispatched(self):
+    def test_first_class_booking_reaches_no_non_qualifying_driver(self):
         _, token = self.register_driver("Cadillac Escalade")
         booking = self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
-        # A First Class row must never reach drivers, even if one
-        # somehow exists in the database (defense in depth: the raw
-        # column is checked, not the sedan-fallback helper).
+        # A First Class row reaches ONLY drivers with a First Class
+        # model (owner decision 2026-11-20 ~03:00 EST) — an Escalade
+        # driver never sees it and cannot accept it even by direct
+        # call (defense in depth: the raw column is checked, not
+        # the sedan-fallback helper).
         with app_module.app.app_context():
             row = app_module.db.session.get(app_module.Booking, booking["id"])
             self.assertEqual(row.status, "offered")

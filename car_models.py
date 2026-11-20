@@ -33,6 +33,10 @@ Owner decisions (voice call 2026-11-16):
   SUVs; sedans, coupes, hatchbacks and wagons are sedans. The 23
   Black SUV models from UBER_BLACK_LIST.md are all SUVs. Judgment
   calls are documented in static/NOTES.md.
+- First Class: exactly four models qualify — Mercedes-Benz S-Class,
+  BMW 7 Series, Audi A8, Tesla Model X (same as Blacklane First
+  Class; owner decision 2026-11-20) — see FIRST_CLASS_MODELS below.
+  Qualification is by model, not by sedan/suv class.
 """
 
 from datetime import date
@@ -151,6 +155,35 @@ VEHICLE_CLASS_BY_MAKE = {
               "XC60": "suv", "XC60 Hybrid": "suv", "XC90": "suv",
               "XC90 Hybrid": "suv"},
 }
+
+# FIRST CLASS qualifying models — owner decision 2026-11-20 ~03:00 EST
+# (voice call): "wahi daal dena na same" — use the SAME cars as
+# Blacklane First Class. Blacklane First Class (blacklane.com, checked
+# 2026-11-20): Mercedes-Benz S-Class, BMW 7 Series, Audi A8, and
+# Tesla Model X in some cities — always "or similar": the customer
+# picks a CLASS, the exact model is never guaranteed. Exactly these
+# four qualify for Noel First Class dispatch. No other flagship
+# equivalents are added (Maybach S-Class, Alpina B7, i7, S8, Ghost,
+# Phantom, Flying Spur, LS, G90 and the rest stay in their Business
+# Class / Business SUV classes) — the owner can add more later if
+# he wants. All four are already on the Uber Black dropdown list,
+# so nothing is added to CAR_MODELS_BY_MAKE for this. Note the body
+# split: S-Class / 7 Series / A8 are sedans, Model X is an SUV —
+# First Class qualification is by MODEL, not by sedan/suv class, so
+# a Model X driver also keeps his Business SUV dispatch and an
+# S-Class driver keeps his Business Class dispatch.
+FIRST_CLASS_MODELS = frozenset({
+    "Mercedes-Benz S-Class",
+    "BMW 7 Series",
+    "Audi A8",
+    "Tesla Model X",
+})
+
+
+def is_first_class_model(value):
+    """True when this car model qualifies for First Class dispatch."""
+    return normalize_car_model(value) in FIRST_CLASS_MODELS
+
 
 # TEMPORARY owner-trial exception (see module docstring). NOT on
 # Uber's Black list. Remove when the owner says so.

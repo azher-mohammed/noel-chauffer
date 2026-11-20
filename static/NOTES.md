@@ -188,10 +188,15 @@ frontend never works out a price. The customer sees ONE single total
 per class — never a breakdown, never rates, never miles. The owner
 dashboard holds the full breakdown. The driver sees only earnings.
 
-- TWO classes only: sedan ("Business Class") and SUV ("Business SUV").
-  No S-Class / First Class. Internal keys stay `sedan`/`suv` everywhere;
-  display names are `Business Class` / `Business SUV` on the options
-  page, in trip summaries, and in owner/driver views.
+- THREE classes now: sedan ("Business Class"), SUV ("Business SUV")
+  and First Class ("first"). First Class OPEN since owner decision
+  2026-11-20 ("same as Blacklane"): Mercedes-Benz S-Class, BMW
+  7 Series, Audi A8, Tesla Model X — see car_models.FIRST_CLASS_
+  MODELS. First Class exists ONLY in Blacklane mode (the legacy
+  engine has no First Class rate); the options page shows the First
+  Class button only when the booking's class totals include it.
+  Display names are `Business Class` / `Business SUV` / `First Class`
+  on the options page, in trip summaries, and in owner/driver views.
 - One-way: fare = miles × class rate (sedan $9/mile, SUV $10/mile);
   NO tax, NO gratuity (both removed by owner orders 2026-11-17 —
   the 8.875% NYC sales tax and the 10% gratuity no longer apply to

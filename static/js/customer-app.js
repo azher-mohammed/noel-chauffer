@@ -49,7 +49,7 @@
   };
 
   /* Customer-facing class names. Internal keys stay "sedan"/"suv". */
-  var CLASS_LABELS = { sedan: "Business Class", suv: "Business SUV" };
+  var CLASS_LABELS = { sedan: "Business Class", suv: "Business SUV", first: "First Class" };
   function classLabelFor(b) {
     if (!b || b.ride_type !== "one_way") return "";
     return b.vehicle_class_label || CLASS_LABELS[b.vehicle_class] || "";
@@ -469,7 +469,7 @@
      the card payment. Sedan (Business Class) is pre-selected. Back
      cancels the unpaid booking and returns to the form to edit. */
   function paintClassSelection() {
-    ["sedan", "suv"].forEach(function (cls) {
+    ["sedan", "suv", "first"].forEach(function (cls) {
       var opt = $("ca-class-option-" + cls);
       var selected = state.selectedClass === cls;
       opt.classList.toggle("selected", selected);
@@ -483,6 +483,12 @@
     state.classPhone = phone;
     state.selectedClass = booking.vehicle_class || "sedan";
     $("ca-class-trip-summary").textContent = summaryText(booking);
+    /* First Class is offered only when the booking's class totals
+       include it (Blacklane mode — the legacy engine has no First
+       Class rate, so the option stays hidden there). */
+    var firstAvailable = !!(booking.class_totals && booking.class_totals.first != null);
+    if (!firstAvailable && state.selectedClass === "first") state.selectedClass = "sedan";
+    if (firstAvailable) { show($("ca-class-option-first")); } else { hide($("ca-class-option-first")); }
     /* PAUSED (owner decision 2026-11-20): no class totals are shown. */
     /* 5% first-ride referral discount (owner decision 2026-11-18):
        the note shows only when this booking actually got the
@@ -499,7 +505,7 @@
     $("screen-book").scrollTop = 0;
   }
 
-  ["sedan", "suv"].forEach(function (cls) {
+  ["sedan", "suv", "first"].forEach(function (cls) {
     $("ca-class-option-" + cls).addEventListener("click", function () {
       state.selectedClass = cls;
       paintClassSelection();

@@ -48,11 +48,12 @@ Blacklane total instead, that is a one-line change in
 FIRST CLASS — DRIVER RATE SET (owner decision 2026-11-20 ~02:31 EST):
 $9/mile + map toll (sedan $4, SUV $7, First Class $9). The engine
 computes the First Class customer fare AND driver pay. First Class
-bookings are still NOT open: the app layer refuses First Class
-selection and never dispatches it (see app.py: select_vehicle_
-class, driver_offers, driver_accept) until the owner opens it —
-which car models qualify for First Class is still undecided, and
-live pricing has not flipped. Do NOT open it from here.
+is OPEN since owner decision 2026-11-20 ~03:00 EST ("wahi daal dena
+na same" — same models as Blacklane): Mercedes-Benz S-Class, BMW
+7 Series, Audi A8, Tesla Model X (see car_models.FIRST_CLASS_MODELS;
+app.py: driver_matches_booking_class). It exists only in Blacklane
+mode — the legacy engine has no First Class rate, so selection
+refuses "first" while NOEL_PRICING is legacy.
 
 GATING: this engine changes NO live price by itself. The app uses it
 only when ``NOEL_PRICING=blacklane`` (see pricing.pricing_mode);

@@ -189,9 +189,12 @@ class TestClassPricingPure(unittest.TestCase):
         self.assertEqual(totals, {"sedan": D("172.00"), "suv": D("190.00")})
 
     def test_class_display_names(self):
-        self.assertEqual(CLASS_LABELS, {"sedan": "Business Class", "suv": "Business SUV"})
+        self.assertEqual(CLASS_LABELS, {"sedan": "Business Class",
+                                        "suv": "Business SUV",
+                                        "first": "First Class"})
         self.assertEqual(class_label("sedan"), "Business Class")
         self.assertEqual(class_label("suv"), "Business SUV")
+        self.assertEqual(class_label("first"), "First Class")
         self.assertIsNone(class_label(None))
 
 

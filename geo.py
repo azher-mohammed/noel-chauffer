@@ -639,6 +639,14 @@ _POPULAR_SEARCH_QUERIES = (
     "Grand Central", "Empire State Building", "Central Park",
     "Wall Street", "Brooklyn Bridge", "Grand Central Terminal",
     "Port Authority Bus Terminal",
+    # The owner's home address (Valley Stream) and town, so the fare
+    # preview resolves Valley Stream <-> JFK with no live geocoding
+    # (Render's Nominatim answers come back empty): the snapshot
+    # subset matcher pairs the typed "180 Green Acres Road, East
+    # Valley Stream, NY" with the "180 green acres road, valley
+    # stream, ny" entry — "East" matches nothing in Nominatim, so
+    # the entry is keyed without it.
+    "180 Green Acres Road, Valley Stream, NY", "Valley Stream",
 )
 _SNAPSHOT_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "geo_places_snapshot.json"

@@ -434,6 +434,48 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(body["blacklane"]["sedan"]["total"],
                          float(direct["total"]))
 
+    def test_preview_valley_stream_to_jfk_uses_snapshot_offline(self):
+        # Same as the JFK -> Times Square offline test, for the
+        # owner's home address: typed "East Valley Stream" matches
+        # nothing in Nominatim, so only the snapshot resolves it.
+        importlib.reload(geo_module)  # real distance_miles back
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=AssertionError("no network")):
+            resp = self.client.get("/api/fare-preview", query_string={
+                "pickup": "180 Green Acres Road, East Valley Stream, NY",
+                "dropoff": "JFK Airport Terminal 1"})
+        self.assertEqual(resp.status_code, 200,
+                         resp.get_data(as_text=True)[:200])
+        body = resp.get_json()
+        self.assertTrue(body["snapshot_fallback"])
+        house = (40.6600991, -73.7160402)
+        t1 = (40.6430714, -73.7890699)
+        expected_miles = round(
+            geo_module.haversine_miles(house[0], house[1], t1[0], t1[1]) * 1.3, 1)
+        self.assertEqual(body["miles"], expected_miles)
+        # No geometry without OSRM: the map toll falls back to
+        # $0.00 for a NY->NY trip, so the legacy total is $9 x miles.
+        self.assertEqual(body["toll"], 0)
+        self.assertEqual(body["legacy"]["sedan"]["total"],
+                         round(9 * expected_miles, 2))
+        # Blacklane-style total must match the engine computed from
+        # the same miles with the snapshot's own details (pickup in
+        # Nassau County, so the sales-tax rate is Nassau's 8.625%).
+        _, pickup_details = geo_module.snapshot_coords(
+            "180 Green Acres Road, East Valley Stream, NY")
+        _, dropoff_details = geo_module.snapshot_coords(
+            "JFK Airport Terminal 1")
+        direct = compute_blacklane_one_way(
+            D(str(expected_miles)), "sedan",
+            "180 Green Acres Road, East Valley Stream, NY",
+            "JFK Airport Terminal 1",
+            pickup_details=pickup_details,
+            dropoff_details=dropoff_details,
+            toll=D("0"))
+        self.assertEqual(body["blacklane"]["sedan"]["total"],
+                         float(direct["total"]))
+
     def test_preview_bad_class_is_400(self):
         resp = self.client.get("/api/fare-preview", query_string={
             "pickup": "JFK Airport", "dropoff": "Times Square",
@@ -617,10 +659,29 @@ class SnapshotGeocodeCase(unittest.TestCase):
     def test_snapshot_unknown_place_returns_none(self):
         self.assertEqual(
             geo_module.snapshot_coords("Nowhere Street 1"), (None, None))
-        self.assertEqual(
-            geo_module.snapshot_coords(
-                "180 Green Acres Road, East Valley Stream, NY"),
-            (None, None))
+
+    def test_snapshot_resolves_owner_home_address_without_network(self):
+        # The owner's typed phrasing ("East Valley Stream") matches
+        # nothing in Nominatim, so the snapshot entry is keyed
+        # without "East" and the subset matcher pairs them.
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=AssertionError("no network")):
+            coords, details = geo_module.snapshot_coords(
+                "180 Green Acres Road, East Valley Stream, NY")
+        self.assertEqual(coords, (40.6600991, -73.7160402))
+        self.assertEqual(details["state"], "New York")
+        self.assertEqual(details["county"], "Nassau County")
+        self.assertEqual(details["postcode"], "11581")
+
+    def test_snapshot_resolves_valley_stream_town_without_network(self):
+        with mock.patch.object(
+                geo_module, "_http_get_json",
+                side_effect=AssertionError("no network")):
+            coords, details = geo_module.snapshot_coords("Valley Stream")
+        self.assertEqual(coords, (40.6631362, -73.7056955))
+        self.assertEqual(details["state"], "New York")
+        self.assertEqual(details["county"], "Nassau County")
 
 
 if __name__ == "__main__":

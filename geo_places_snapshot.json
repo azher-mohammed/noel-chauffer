@@ -1570,6 +1570,71 @@
           "airport": false
         }
       ]
+    },
+    "180 green acres road, valley stream, ny": {
+      "results": [
+        {
+          "display_name": "180, Green Acres Road, Green Acres Mall, Green Acres, Village of Valley Stream, Town of Hempstead, Nassau County, New York, 11581, United States",
+          "lat": 40.6600991,
+          "lon": -73.7160402,
+          "address": {
+            "house_number": "180",
+            "road": "Green Acres Road",
+            "town": "Village of Valley Stream",
+            "county": "Nassau County",
+            "state": "New York",
+            "postcode": "11581",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
+    },
+    "valley stream": {
+      "results": [
+        {
+          "display_name": "Village of Valley Stream, Town of Hempstead, Nassau County, New York, 11580, United States",
+          "lat": 40.6631362,
+          "lon": -73.7056955,
+          "address": {
+            "town": "Village of Valley Stream",
+            "county": "Nassau County",
+            "state": "New York",
+            "postcode": "11580",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Valley Stream, Village of Valley Stream, Town of Hempstead, Nassau County, New York, United States",
+          "lat": 40.6715969,
+          "lon": -73.6982991,
+          "address": {
+            "town": "Village of Valley Stream",
+            "county": "Nassau County",
+            "state": "New York",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        },
+        {
+          "display_name": "Valley Stream, Statesville, Iredell County, North Carolina, 28687, United States",
+          "lat": 35.7837477,
+          "lon": -80.8728511,
+          "address": {
+            "city": "Statesville",
+            "county": "Iredell County",
+            "state": "North Carolina",
+            "postcode": "28687",
+            "country": "United States",
+            "country_code": "us"
+          },
+          "airport": false
+        }
+      ]
     }
   }
 }

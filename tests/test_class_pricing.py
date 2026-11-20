@@ -606,13 +606,12 @@ class ClassApiCase(unittest.TestCase):
         # customer- or driver-facing.
         banned_everywhere = [r"\$9", r"\$10", r"\$11", r"\$12", r"\$20", r"\$90", r"\$50",
                              "booking fee", "gratuity", "dispatch"]
-        # Driver pay ($4/$7 per mile) is banned from the customer
-        # files and the driver APP screens — but NOT from driver.html:
-        # the driver recruitment page deliberately states driver pay
-        # there (owner decision 2026-11-18, SEO for driver jobs),
-        # and whether to remove it is an open owner question, not a
-        # test failure. See MEMORY.md.
-        banned_except_driver_page = [r"\$7", r"\$4", "per mile"]
+        # Driver pay ($4/$7 per mile) is banned everywhere too:
+        # owner decision 2026-11-20 removed the displayed driver
+        # per-mile rates from the driver page (they were stated
+        # there before, owner decision 2026-11-18); new prices
+        # will be added later. Backend pricing logic is untouched.
+        banned_everywhere += [r"\$7", r"\$4", "per mile"]
         files = ["static/index.html", "static/driver.html",
                  "static/css/customer.css", "static/css/driver.css",
                  "static/js/customer.js", "static/js/driver.js"]
@@ -621,9 +620,6 @@ class ClassApiCase(unittest.TestCase):
                 text = fh.read()
             for pat in banned_everywhere:
                 self.assertIsNone(re.search(pat, text), f"{rel}: banned {pat!r}")
-            if rel != "static/driver.html":
-                for pat in banned_except_driver_page:
-                    self.assertIsNone(re.search(pat, text), f"{rel}: banned {pat!r}")
 
 
 if __name__ == "__main__":

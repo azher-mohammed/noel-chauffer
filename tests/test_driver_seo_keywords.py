@@ -14,10 +14,11 @@ top 3 cities — Los Angeles, Chicago, Miami — with driver keywords
 three cities are in the registration picker (app.py state/city lists),
 so naming them is honest. Added as a visible FAQ section with
 matching FAQPage JSON-LD, using only the real offer (own car, pick
-the jobs you want, earn per mile, register in minutes).
+the jobs you want, register in minutes). Owner decision 2026-11-20:
+the displayed driver per-mile rates ($4/$7) were removed from this
+page; new prices will be added later.
 
-Hard rules (owner): the $4/mi sedan / $7/mi SUV pay wording stays
-exactly as-is (open question about removing it — do not touch); no
+Hard rules (owner): no per-mile pay figures on this page; no
 benefits invented (no sign-up bonus, no guaranteed earnings, no hourly
 pay claim); no customer keywords on this page (no JFK / LaGuardia /
 Newark airport-transfer wording — this page recruits drivers).
@@ -84,14 +85,13 @@ class DriverSeoKeywordsTest(unittest.TestCase):
         for keyword in NEW_KEYWORDS:
             self.assertIn(keyword, lowered, keyword)
 
-    def test_pay_wording_unchanged(self):
-        # Owner has an open question about removing the per-mile figures;
-        # this test guards against anyone changing them in the meantime.
-        self.assertIn(
-            "$4 per mile on Business Class (sedan) trips and "
-            "$7 per mile on Business SUV trips, plus tolls where they apply.",
-            self.html,
-        )
+    def test_no_per_mile_rates_on_driver_page(self):
+        # Owner decision 2026-11-20: remove the displayed driver
+        # per-mile rates now; new prices will be added later.
+        # No $4/$7 rate or "per mile" wording may appear anywhere
+        # on the driver page (meta/OG/Twitter/JSON-LD/visible copy).
+        for banned in ["$4", "$7", "per mile"]:
+            self.assertNotIn(banned, self.html, banned)
 
     def test_no_customer_airport_keywords(self):
         # This page recruits drivers; it must not sell rides.

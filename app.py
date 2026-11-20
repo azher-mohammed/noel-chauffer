@@ -4016,6 +4016,21 @@ def privacy_page():
     return _serve_page("privacy.html", "privacy policy")
 
 
+@app.route("/jfk-airport-transfers")
+def jfk_airport_transfers_page():
+    return _serve_page("jfk-airport-transfers.html", "JFK airport transfers")
+
+
+@app.route("/laguardia-airport-transfers")
+def laguardia_airport_transfers_page():
+    return _serve_page("laguardia-airport-transfers.html", "LaGuardia airport transfers")
+
+
+@app.route("/newark-airport-transfers")
+def newark_airport_transfers_page():
+    return _serve_page("newark-airport-transfers.html", "Newark airport transfers")
+
+
 # ------------------------------------------------------- place search ------
 
 @app.route("/api/places/search", methods=["GET"])

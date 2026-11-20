@@ -20,12 +20,14 @@ These tests pin:
 - The live rules: 60 minutes free airport waiting, flight number
   as a separate skippable step, free cancellation more than 1 hour
   before pickup.
-- NO fare or rate figures anywhere on the pages: the only $ figure
-  allowed is the $1-per-minute waiting rule (live rule, per the
-  build brief); no per-mile rates, no class totals, no booking fee.
+- NO fare or rate figures anywhere on the pages: NO $ figure at all
+  (owner order 2026-11-20 — all prices removed, bookings paused);
+  waiting after the free 60 minutes is described without a figure;
+  no per-mile rates, no class totals, no booking fee.
 - Internal links: each page links to booking (/) and to the other
   two airport pages.
-- sitemap.xml lists all three airport URLs (6 URLs total).
+- sitemap.xml lists all three airport URLs (31 URLs total after the
+  full SEO page set).
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -189,7 +191,7 @@ class AirportPagesTest(unittest.TestCase):
         for path, spec in PAGES.items():
             html = read(spec["file"])
             self.assertIn("60 minutes of free waiting", html, path)
-            self.assertIn("$1 per minute", html, path)
+            self.assertIn("waiting charges apply", html, path)
             self.assertIn("flight number is asked as a separate step", html, path)
             self.assertIn("You can skip it", html, path)
             self.assertIn(
@@ -201,8 +203,9 @@ class AirportPagesTest(unittest.TestCase):
         for path, spec in PAGES.items():
             html = read(spec["file"])
             figures = sorted(set(re.findall(r"\$\d[\d,]*", html)))
-            # The only $ figure allowed is the $1-per-minute waiting rule.
-            self.assertEqual(figures, ["$1"], path)
+            # No $ figure at all (owner order 2026-11-20).
+            self.assertEqual(figures, [], path)
+            self.assertNotIn("$", html, path)
             for banned in ("per mile", "per-mile", "$/mi", "per hour",
                            "booking fee", "$9", "$10", "$4", "$6"):
                 self.assertNotIn(banned, html, path)
@@ -222,7 +225,7 @@ class AirportPagesTest(unittest.TestCase):
         root = ET.fromstring(resp.get_data(as_text=True))
         ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
         locs = [el.text for el in root.findall("s:url/s:loc", ns)]
-        self.assertEqual(len(locs), 6)
+        self.assertEqual(len(locs), 31)
         for path in PAGES:
             self.assertIn("https://noelchauffer.com" + path, locs, path)
         for old in ("https://noelchauffer.com/",

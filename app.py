@@ -4030,6 +4030,125 @@ def laguardia_airport_transfers_page():
 def newark_airport_transfers_page():
     return _serve_page("newark-airport-transfers.html", "Newark airport transfers")
 
+@app.route("/teterboro-airport-transfers")
+def teterboro_airport_transfers_page():
+    return _serve_page("teterboro-airport-transfers.html", "Teterboro airport transfers")
+
+
+@app.route("/manhattan-car-service")
+def manhattan_car_service_page():
+    return _serve_page("manhattan-car-service.html", "Manhattan car service")
+
+
+@app.route("/brooklyn-car-service")
+def brooklyn_car_service_page():
+    return _serve_page("brooklyn-car-service.html", "Brooklyn car service")
+
+
+@app.route("/queens-car-service")
+def queens_car_service_page():
+    return _serve_page("queens-car-service.html", "Queens car service")
+
+
+@app.route("/long-island-car-service")
+def long_island_car_service_page():
+    return _serve_page("long-island-car-service.html", "Long Island car service")
+
+
+@app.route("/westchester-car-service")
+def westchester_car_service_page():
+    return _serve_page("westchester-car-service.html", "Westchester car service")
+
+
+@app.route("/new-jersey-car-service")
+def new_jersey_car_service_page():
+    return _serve_page("new-jersey-car-service.html", "New Jersey car service")
+
+
+@app.route("/connecticut-car-service")
+def connecticut_car_service_page():
+    return _serve_page("connecticut-car-service.html", "Connecticut car service")
+
+
+@app.route("/hamptons-car-service")
+def hamptons_car_service_page():
+    return _serve_page("hamptons-car-service.html", "Hamptons car service")
+
+
+@app.route("/jfk-to-times-square")
+def jfk_to_times_square_page():
+    return _serve_page("jfk-to-times-square.html", "JFK to Times Square")
+
+
+@app.route("/jfk-to-manhattan")
+def jfk_to_manhattan_page():
+    return _serve_page("jfk-to-manhattan.html", "JFK to Manhattan")
+
+
+@app.route("/laguardia-to-manhattan")
+def laguardia_to_manhattan_page():
+    return _serve_page("laguardia-to-manhattan.html", "LaGuardia to Manhattan")
+
+
+@app.route("/newark-to-manhattan")
+def newark_to_manhattan_page():
+    return _serve_page("newark-to-manhattan.html", "Newark to Manhattan")
+
+
+@app.route("/valley-stream-to-jfk")
+def valley_stream_to_jfk_page():
+    return _serve_page("valley-stream-to-jfk.html", "Valley Stream to JFK")
+
+
+@app.route("/jfk-to-brooklyn")
+def jfk_to_brooklyn_page():
+    return _serve_page("jfk-to-brooklyn.html", "JFK to Brooklyn")
+
+
+@app.route("/hourly-chauffeur-service")
+def hourly_chauffeur_service_page():
+    return _serve_page("hourly-chauffeur-service.html", "hourly chauffeur service")
+
+
+@app.route("/corporate-car-service")
+def corporate_car_service_page():
+    return _serve_page("corporate-car-service.html", "corporate car service")
+
+
+@app.route("/wedding-car-service")
+def wedding_car_service_page():
+    return _serve_page("wedding-car-service.html", "wedding car service")
+
+
+@app.route("/point-to-point-car-service")
+def point_to_point_car_service_page():
+    return _serve_page("point-to-point-car-service.html", "point to point car service")
+
+
+@app.route("/guides")
+def guides_page():
+    return _serve_page("guides.html", "guides hub")
+
+
+@app.route("/guides/jfk-vs-laguardia-vs-newark")
+def guide_jfk_vs_laguardia_vs_newark_page():
+    return _serve_page("guides/jfk-vs-laguardia-vs-newark.html", "JFK vs LaGuardia vs Newark guide")
+
+
+@app.route("/guides/black-car-vs-uber-black")
+def guide_black_car_vs_uber_black_page():
+    return _serve_page("guides/black-car-vs-uber-black.html", "black car vs Uber Black guide")
+
+
+@app.route("/guides/jfk-terminal-pickup-guide")
+def guide_jfk_terminal_pickup_page():
+    return _serve_page("guides/jfk-terminal-pickup-guide.html", "JFK terminal pickup guide")
+
+
+@app.route("/guides/how-much-is-a-black-car-in-nyc")
+def guide_how_much_is_a_black_car_page():
+    return _serve_page("guides/how-much-is-a-black-car-in-nyc.html", "how much is a black car in NYC guide")
+
 
 # ------------------------------------------------------- place search ------
 

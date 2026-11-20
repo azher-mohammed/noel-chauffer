@@ -35,7 +35,19 @@
     lastChatSig: "",
     chatLanguage: "en",
     chatLangInitFor: null,
-    historyPhone: ""
+    historyPhone: "",
+    /* Stripe.js payment state. payMode: null = not decided yet,
+       false = card payments unavailable, "test" = test mode (old
+       raw-card form, server fakes the authorization), "stripe" =
+       configured (Stripe.js Card Element; raw card details are
+       NEVER read — Stripe's iframe holds them and only a
+       PaymentMethod id (pm_...) ever leaves the browser). */
+    stripe: null,
+    cardElement: null,
+    payMode: null,
+    testModePaid: false,
+    payInitForBooking: null,
+    savedCards: []
   };
 
   /* Customer-facing class names. Internal keys stay "sedan"/"suv". */
@@ -588,6 +600,8 @@
     state.bookingPhone = phone;
     state.booking = booking;
     state.paid = false;
+    state.testModePaid = false;
+    state.payInitForBooking = null;
     state.flightNumber = null;
     state.flightResolved = false;
     state.pendingPayload = null;
@@ -699,6 +713,7 @@
     }
     if (st === "awaiting_payment") {
       show($("ca-pay-panel"));
+      initPayment();
     } else {
       hide($("ca-pay-panel"));
     }
@@ -862,6 +877,12 @@
     show($("ca-thankyou-block"));
     $("ca-thankyou-summary").textContent =
       "Ride confirmed: " + summaryText(b) + ".";
+    /* Test-mode payments say so on the booked view — never presented
+       as a real charge. */
+    var testNote = $("ca-thankyou-test-note");
+    if (testNote) {
+      if (state.testModePaid) show(testNote); else hide(testNote);
+    }
     /* The API returns the issued code as `referral_code` on the booking. */
     var code = b.referral_code || b.customer_referral_code || b.share_code || b.own_referral_code || null;
     if (code) {
@@ -878,11 +899,295 @@
     if (b.ride_type === "one_way") { show($("ca-return-trip-btn")); } else { hide($("ca-return-trip-btn")); }
   }
 
-  /* ---------- Payment (test mode) ---------- */
-  $("ca-pay-form").addEventListener("submit", function (e) {
-    e.preventDefault();
+  /* ---------- Payment: test mode or Stripe.js, decided by the server ---------- */
+  /* The owner's merchant Stripe account is DISABLED (charges and
+     payouts off, rejected.fraud), so live card payments CANNOT
+     activate until he resolves that with Stripe. Until then the
+     site keeps working in TEST MODE: GET /api/stripe/publishable-key
+     returns configured=false + test_mode=true, and the OLD raw-card
+     form is shown with its TEST MODE label; the server fakes the
+     authorization exactly as before and the booking proceeds to
+     drivers. When configured=true (keys added — test keys work,
+     live keys are blocked by the disabled account), the Stripe.js
+     flow below is used instead and raw card fields are NEVER sent.
+     If the server reports neither (configured=false, no test_mode),
+     card payment is unavailable: the not-set-up message shows and
+     Pay stays disabled. No fake success is ever claimed as real. */
+  var STRIPE_NOT_CONFIGURED = "Card payments are not set up yet. Please try again later.";
+  var stripeJsPromise = null;
+  function loadStripeJs() {
+    if (window.Stripe) return Promise.resolve();
+    if (stripeJsPromise) return stripeJsPromise;
+    stripeJsPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = "https://js.stripe.com/v3";
+      s.async = true;
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error("Stripe.js failed to load")); };
+      document.head.appendChild(s);
+    });
+    return stripeJsPromise;
+  }
+
+  /* Fetch the publishable key, then show the right payment form.
+     Runs at most once per booking; renderBooking calls it on every
+     poll, so the guard below is what keeps it cheap. */
+  function initPayment() {
+    if (!state.bookingId || state.payInitForBooking === state.bookingId) return;
+    state.payInitForBooking = state.bookingId;
     var err = $("ca-pay-error");
+    var unavailable = $("ca-pay-unavailable");
+    var loading = $("ca-pay-loading");
+    var submit = $("ca-pay-submit");
     err.textContent = "";
+    hide(unavailable);
+    hide($("ca-pay-test-mode"));
+    hide($("ca-pay-stripe-mode"));
+    $("ca-pay-saved-list").innerHTML = "";
+    show(loading);
+    submit.disabled = true;
+    fetch("/api/stripe/publishable-key")
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+      })
+      .then(function (res) {
+        if (!res.ok) throw new Error("publishable key request failed");
+        if (res.j && res.j.configured === true && res.j.publishable_key) {
+          state.payMode = "stripe";
+          return loadStripeJs().then(function () { return res.j.publishable_key; });
+        }
+        if (res.j && res.j.configured === false && res.j.test_mode === true) {
+          /* Test mode: the old raw-card form, with its TEST MODE
+             label. The server fakes the authorization. */
+          state.payMode = "test";
+          hide(loading);
+          show($("ca-pay-test-mode"));
+          submit.disabled = false;
+          return null;
+        }
+        state.payMode = false;
+        hide(loading);
+        show(unavailable);
+        unavailable.textContent = STRIPE_NOT_CONFIGURED;
+        submit.disabled = true;
+        return null;
+      })
+      .then(function (pk) {
+        if (!pk) return;
+        if (!state.stripe) {
+          try { state.stripe = window.Stripe(pk); } catch (e) { state.stripe = null; }
+        }
+        if (!state.stripe) {
+          hide(loading);
+          err.textContent = "Could not start the secure payment form. Please try again.";
+          return;
+        }
+        if (!state.cardElement) {
+          var elements = state.stripe.elements();
+          state.cardElement = elements.create("card", {
+            style: {
+              base: {
+                color: "#ffffff",
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                fontSize: "16px",
+                "::placeholder": { color: "#8e8e93" }
+              },
+              invalid: { color: "#ff9d9d" }
+            }
+          });
+          state.cardElement.mount("#ca-pay-card-element");
+          state.cardElement.on("change", function (ev) {
+            if (ev.error) err.textContent = ev.error.message;
+          });
+        } else {
+          state.cardElement.clear();
+        }
+        hide(loading);
+        show($("ca-pay-stripe-mode"));
+        show($("ca-pay-save-card-row"));
+        submit.disabled = false;
+        loadSavedCards();
+      })
+      .catch(function () {
+        if (state.payMode === false) return; /* not-set-up message already shown */
+        hide(loading);
+        err.textContent = "Could not reach the payment service. Please try again.";
+        submit.disabled = true;
+      });
+  }
+
+  function savedCardLabel(c) {
+    var brand = c.brand ? String(c.brand).charAt(0).toUpperCase() + String(c.brand).slice(1) : "Card";
+    var exp = (c.exp_month && c.exp_year) ? " · Expires " + c.exp_month + "/" + c.exp_year : "";
+    return brand + " •••• " + (c.last4 || "••••") + exp;
+  }
+  /* Which saved card (if any) the customer picked; null = a new card. */
+  function selectedSavedCardId() {
+    var checked = document.querySelector('input[name="ca-pay-saved-card"]:checked');
+    if (!checked || checked.value === "new") return null;
+    return checked.value;
+  }
+  function updatePayMethodVisibility() {
+    if (selectedSavedCardId()) {
+      hide($("ca-pay-new-card-field"));
+      hide($("ca-pay-save-card-row"));
+    } else {
+      show($("ca-pay-new-card-field"));
+      show($("ca-pay-save-card-row"));
+    }
+  }
+  /* Saved cards for this booking's phone, listed ABOVE the Card
+     Element. "Use a different card" is the default, so a saved card
+     is only ever charged when the customer picks it. Only brand /
+     last4 / expiry are ever shown — no full card details exist here. */
+  function loadSavedCards() {
+    var box = $("ca-pay-saved-cards");
+    var list = $("ca-pay-saved-list");
+    if (!state.bookingPhone) { hide(box); return; }
+    fetch("/api/customers/cards?phone=" + encodeURIComponent(state.bookingPhone))
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (j) {
+        var cards = (j && Array.isArray(j.cards)) ? j.cards : [];
+        state.savedCards = cards;
+        list.innerHTML = "";
+        if (!cards.length) { hide(box); return; }
+        show(box);
+        cards.forEach(function (c) {
+          var label = document.createElement("label");
+          label.className = "saved-card-option";
+          var radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = "ca-pay-saved-card";
+          radio.value = String(c.id);
+          radio.addEventListener("change", updatePayMethodVisibility);
+          label.appendChild(radio);
+          label.appendChild(document.createTextNode(savedCardLabel(c)));
+          var remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "remove-saved-card";
+          remove.textContent = "Remove";
+          remove.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!window.confirm("Remove this saved card?")) return;
+            fetch("/api/customers/cards/" + encodeURIComponent(c.id) + "?phone=" +
+                  encodeURIComponent(state.bookingPhone), { method: "DELETE" })
+              .then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (jj) { return { ok: r.ok, j: jj }; });
+              })
+              .then(function (res) {
+                if (!res.ok) {
+                  $("ca-pay-error").textContent = (res.j && (res.j.error || res.j.message)) || "That card could not be removed.";
+                  return;
+                }
+                loadSavedCards();
+              })
+              .catch(function () {
+                $("ca-pay-error").textContent = "Could not reach the payment service. Please try again.";
+              });
+          });
+          label.appendChild(remove);
+          list.appendChild(label);
+        });
+        var fresh = document.createElement("label");
+        fresh.className = "saved-card-option";
+        var freshRadio = document.createElement("input");
+        freshRadio.type = "radio";
+        freshRadio.name = "ca-pay-saved-card";
+        freshRadio.value = "new";
+        freshRadio.checked = true;
+        freshRadio.addEventListener("change", updatePayMethodVisibility);
+        fresh.appendChild(freshRadio);
+        fresh.appendChild(document.createTextNode("Use a different card"));
+        list.appendChild(fresh);
+        updatePayMethodVisibility();
+      })
+      .catch(function () { hide(box); });
+  }
+
+  /* One pay attempt against the server. `alreadyConfirmed` stops a
+     second needs_action round-trip from looping forever. */
+  function handlePayResponse(res, alreadyConfirmed) {
+    var btn = $("ca-pay-submit");
+    var err = $("ca-pay-error");
+    if (res.j && res.j.needs_action && res.j.client_secret && !alreadyConfirmed) {
+      if (!res.j.payment_intent_id) {
+        btn.disabled = false;
+        btn.textContent = "Pay";
+        err.textContent = "Payment needs confirmation, but no confirmation was provided. Please try again.";
+        return Promise.resolve();
+      }
+      btn.textContent = "Confirming…";
+      return state.stripe.confirmCardPayment(res.j.client_secret)
+        .then(function (result) {
+          if (result.error) {
+            btn.disabled = false;
+            btn.textContent = "Pay";
+            err.textContent = result.error.message || "Your card could not be confirmed. Please try again.";
+            return;
+          }
+          btn.textContent = "Processing…";
+          return fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/pay/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ payment_intent_id: res.j.payment_intent_id })
+          })
+            .then(function (r) {
+              return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+            })
+            .then(function (res2) { return handlePayResponse(res2, true); })
+            .catch(function () {
+              btn.disabled = false;
+              btn.textContent = "Pay";
+              err.textContent = "Could not reach the payment service. Please try again.";
+            });
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.textContent = "Pay";
+          err.textContent = "Could not reach the payment service. Please try again.";
+        });
+    }
+    btn.disabled = false;
+    btn.textContent = "Pay";
+    if (!res.ok || !res.j || !res.j.payment) {
+      /* Decline / Stripe error: the server's message, verbatim. The
+         booking stays awaiting_payment and is never sent to drivers. */
+      err.textContent = (res.j && (res.j.error || res.j.message)) || "Payment could not be completed. Please try again.";
+      return Promise.resolve();
+    }
+    state.paid = true;
+    /* The /pay response carries test_mode:true in test mode (or
+       payment.test) — the booked view then says so, never passing
+       a faked authorization off as a real charge. */
+    state.testModePaid = !!(res.j.test_mode || (res.j.payment && res.j.payment.test));
+    hide($("ca-pay-panel"));
+    if (res.j.booking && res.j.booking.status) {
+      state.booking = Object.assign({}, state.booking, res.j.booking);
+    }
+    showThankYou(state.booking || {});
+    $("screen-rides").scrollTop = 0;
+    pollOnce();
+    return Promise.resolve();
+  }
+
+  function postPay(body) {
+    return fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/pay", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+      });
+  }
+
+  /* Test mode: the old raw-card submit, exactly as before. Only used
+     while the server reports test_mode=true (no Stripe keys
+     configured). The server fakes the authorization; the booked view
+     says "Test mode — no real charge". */
+  function submitTestPayment() {
+    var err = $("ca-pay-error");
     var payload = {
       card_number: $("ca-pay-number").value.replace(/[\s-]/g, ""),
       card_exp: $("ca-pay-exp").value.trim(),
@@ -896,27 +1201,77 @@
     var btn = $("ca-pay-submit");
     btn.disabled = true;
     btn.textContent = "Processing (test mode)…";
-    fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/pay", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
+    postPay(payload)
+      .then(function (res) { return handlePayResponse(res, false); })
+      .catch(function () {
         btn.disabled = false;
         btn.textContent = "Pay";
-        if (!res.ok || !res.j.payment) {
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "Payment could not be completed. Please try again.";
+        err.textContent = "Could not reach the payment service. Please try again.";
+      });
+  }
+
+  $("ca-pay-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!state.bookingId) return;
+    var err = $("ca-pay-error");
+    err.textContent = "";
+    if (state.payMode === false) {
+      show($("ca-pay-unavailable"));
+      return;
+    }
+    if (state.payMode === "test") {
+      submitTestPayment();
+      return;
+    }
+    if (state.payMode !== "stripe") {
+      err.textContent = "The secure payment form is still loading. Please wait a moment and try again.";
+      return;
+    }
+    if (!state.stripe || !state.cardElement) {
+      err.textContent = "The secure payment form is still loading. Please wait a moment and try again.";
+      return;
+    }
+    var btn = $("ca-pay-submit");
+    btn.disabled = true;
+    btn.textContent = "Processing…";
+    var savedId = selectedSavedCardId();
+    if (savedId) {
+      /* A saved card: only its server-side id is sent — never any
+         card details. */
+      postPay({ saved_card_id: parseInt(savedId, 10) })
+        .then(function (res) { return handlePayResponse(res, false); })
+        .catch(function () {
+          btn.disabled = false;
+          btn.textContent = "Pay";
+          err.textContent = "Could not reach the payment service. Please try again.";
+        });
+      return;
+    }
+    /* A new card: Stripe.js turns the Card Element into a
+       PaymentMethod id in the browser. Only that id (pm_...) is
+       sent to the server — never the card number, expiry or CVC. */
+    state.stripe.createPaymentMethod({
+      type: "card",
+      card: state.cardElement,
+      billing_details: { name: (state.booking && state.booking.customer_name) || undefined }
+    })
+      .then(function (result) {
+        if (result.error) {
+          btn.disabled = false;
+          btn.textContent = "Pay";
+          err.textContent = result.error.message || "Please check your card details and try again.";
           return;
         }
-        state.paid = true;
-        hide($("ca-pay-panel"));
-        if (res.j.booking && res.j.booking.status) {
-          state.booking = Object.assign({}, state.booking, res.j.booking);
-        }
-        showThankYou(state.booking || {});
-        $("screen-rides").scrollTop = 0;
-        pollOnce();
+        return postPay({
+          payment_method_id: result.paymentMethod.id,
+          save_card: $("ca-pay-save-card").checked
+        })
+          .then(function (res) { return handlePayResponse(res, false); })
+          .catch(function () {
+            btn.disabled = false;
+            btn.textContent = "Pay";
+            err.textContent = "Could not reach the payment service. Please try again.";
+          });
       })
       .catch(function () {
         btn.disabled = false;

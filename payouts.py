@@ -1,19 +1,20 @@
 """Driver payout weeks for Noel Chauffer — pure date math.
 
-Settled by the owner (2026-11-16, clarified the same day): every
-fourteen days the driver gets seven days' money. Each week's
-accounting is separate, and the money comes after two weeks.
+Settled by the owner (2026-11-16, clarified the same day; due-date
+rule CHANGED by the owner 2026-11-20, voice call): a week's earnings
+are paid in the FOLLOWING week. Each week's accounting is separate,
+and the money comes one week after the week starts.
 
 Trips are tallied in 7-day weeks anchored at 2026-11-16, and each
-week's payout comes due 14 days after that week starts:
+week's payout comes due 7 days after that week starts:
 
-  week 0 = Nov 16-22, 2026, due Nov 30, 2026
-  week 1 = Nov 23-29, 2026, due Dec 7, 2026
-  week 2 = Nov 30-Dec 6, 2026, due Dec 14, 2026
+  week 0 = Nov 16-22, 2026, due Nov 23, 2026
+  week 1 = Nov 23-29, 2026, due Nov 30, 2026
+  week 2 = Nov 30-Dec 6, 2026, due Dec 7, 2026
   ...
 
-So the due date for a week is its start + 14 days: due dates fall
-7 days apart (weekly), and every trip is paid 8-14 days after it
+So the due date for a week is its start + 7 days: due dates fall
+7 days apart (weekly), and every trip is paid 1-7 days after it
 happens — the lag never grows.
 
 A completed, non-refunded trip belongs to the week containing its
@@ -33,7 +34,9 @@ except ImportError:  # pragma: no cover
 
 ANCHOR = date(2026, 11, 16)
 WEEK_DAYS = 7
-PAYOUT_INTERVAL_DAYS = 14
+# Owner decision 2026-11-20 (CHANGED from 14): a week's payout is due
+# 7 days after the week starts — paid in the following week.
+PAYOUT_INTERVAL_DAYS = 7
 
 
 def _business_timezone():
@@ -50,8 +53,8 @@ def week_for(d: date) -> dict:
 
     Result: {"index": int, "start": date, "end": date, "due_date": date}
     where the week runs 7 days from `start`, and `due_date` is the
-    week start + 14 days, so due dates fall 7 days apart and every
-    trip is paid 8-14 days after it happens. Dates before the anchor
+    week start + 7 days, so due dates fall 7 days apart and every
+    trip is paid 1-7 days after it happens. Dates before the anchor
     fall in negative-index weeks on the same 7-day grid.
     """
     delta = (d - ANCHOR).days

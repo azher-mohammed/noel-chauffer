@@ -751,7 +751,13 @@
        sent with the registration submit and then cleared. Kept in
        memory only — never stored — so it cannot leak into a later
        session on a shared device. */
-    pendingReferralCode: null
+    pendingReferralCode: null,
+    /* Stripe payout setup (GET /api/drivers/me/payout-setup) and the
+       unpaid-earnings total available for instant cash-out (summed
+       from the unpaid pay weeks — the driver's own earnings only). */
+    payoutSetup: null,
+    unpaidCashout: null,
+    payoutFeeRate: 0.015
   };
 
   function $(id) { return document.getElementById(id); }
@@ -817,7 +823,7 @@
     }
     window.scrollTo(0, 0);
     if (name === "home") { refreshOffers(); }
-    if (name === "earnings") { loadEarnings(); }
+    if (name === "earnings") { loadEarnings(); loadPayoutSetup(); }
     if (name === "tax") { loadTaxInfo(); }
     if (name === "documents") { renderDocuments(); }
     if (name === "profile") { renderProfile(); loadDriverReferral(); }
@@ -1253,6 +1259,21 @@
       return;
     }
     plate = normalizePlate(plate);
+    /* Bank details are COMPULSORY for payout setup (owner decision
+       2026-11-20): routing number must be 9 digits with a valid ABA
+       checksum, account number 4-17 digits. The server enforces the
+       same rules; this pre-check gives the fast, clear message. */
+    if (!/^\d{9}$/.test(routing) ||
+        [3, 7, 1, 3, 7, 1, 3, 7, 1].reduce(function (sum, w, i) {
+          return sum + w * parseInt(routing[i], 10);
+        }, 0) % 10 !== 0) {
+      err.textContent = "Routing number is not valid. Please check it and try again.";
+      return;
+    }
+    if (!/^\d{4,17}$/.test(acct)) {
+      err.textContent = "Bank account number must be 4 to 17 digits.";
+      return;
+    }
     /* Which documents are compulsory depends on the state and the
        city (New York keeps its 7; other states have their own list
        or the generic base list; a city with a verified
@@ -2617,7 +2638,21 @@
     fetch("/api/drivers/me/earnings", { headers: authHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        renderPayoutWeeks(j.weeks || j.pay_periods || j.payouts || []);
+        var weeks = j.weeks || j.pay_periods || j.payouts || [];
+        renderPayoutWeeks(weeks);
+        /* Unpaid earnings available for instant cash-out: the sum of
+           the unpaid pay weeks. The driver sees only his own
+           earnings — never miles, customer price or total fare. */
+        var unpaid = 0;
+        (weeks || []).forEach(function (w) {
+          var paid = w.paid === true || w.status === "paid";
+          if (!paid) {
+            var v = pickNumber(w, ["total_earnings", "total", "amount"]);
+            if (v !== null) unpaid += v;
+          }
+        });
+        state.unpaidCashout = unpaid;
+        renderPayoutSetup();
         var list = Array.isArray(j) ? j : (j.earnings || j.rides || j.completed || []);
         var box = $("earnings-list");
         box.innerHTML = "";
@@ -2657,6 +2692,181 @@
       })
       .catch(function () { /* keep the previous view on a failed check */ });
   }
+
+  /* ---------- Payout setup (Stripe Connect) ---------- */
+  /* Weekly payout (free, due 7 days after the week starts) needs a
+     bank account on file; instant cash-out (1.5% fee, on the
+     driver's side) needs a linked debit card. Bank details are
+     entered in Stripe's hosted onboarding only — never in this app
+     and never sent to Noel. The driver sees only his own earnings
+     here: the cash-out gross, fee and net, and the unpaid total. */
+  function renderPayoutSetup() {
+    var statusEl = $("payout-setup-status");
+    if (!statusEl) return;
+    var s = state.payoutSetup;
+    var bankEl = $("payout-bank-line");
+    var weeklyNote = $("payout-weekly-note");
+    var debitEl = $("payout-debit-line");
+    var cashoutAmount = $("payout-cashout-amount");
+    var cashoutBtn = $("payout-cashout-btn");
+    var setupBtn = $("payout-setup-btn");
+    if (!s) {
+      statusEl.textContent = "Loading payout setup…";
+      if (cashoutBtn) cashoutBtn.disabled = true;
+      return;
+    }
+    if (s.bank_on_file && s.bank_masked) {
+      bankEl.textContent = "Bank on file: " + s.bank_masked;
+    } else {
+      bankEl.textContent = "No bank account on file — weekly payouts need one";
+    }
+    if (s.payouts_enabled) {
+      statusEl.textContent = "Weekly payouts are set up.";
+      weeklyNote.textContent = "Your weekly payout is free and comes due 7 days after the week starts.";
+    } else if (s.bank_on_file) {
+      statusEl.textContent = "Bank on file. Finish setup to turn payouts on.";
+      weeklyNote.textContent = "Weekly payout (free, due 7 days after the week starts) needs a bank account on file.";
+    } else {
+      statusEl.textContent = "Payouts are not set up yet.";
+      weeklyNote.textContent = "Weekly payout (free, due 7 days after the week starts) needs a bank account on file.";
+    }
+    if (setupBtn) setupBtn.textContent = s.connect_account ? "Update payout setup" : "Set up payouts";
+    var card = (s.debit_cards && s.debit_cards.length) ? s.debit_cards[0] : null;
+    if (s.debit_card_linked && card) {
+      var brand = card.brand ? String(card.brand).charAt(0).toUpperCase() + String(card.brand).slice(1) : "Debit card";
+      debitEl.textContent = "Linked: " + brand + " •••• " + (card.last4 || "••••") +
+        ((card.exp_month && card.exp_year) ? " (expires " + card.exp_month + "/" + card.exp_year + ")" : "");
+    } else if (s.debit_card_linked) {
+      debitEl.textContent = "Debit card linked.";
+    } else {
+      debitEl.textContent = "No debit card linked — link one to cash out instantly";
+    }
+    cashoutAmount.textContent = (state.unpaidCashout === null || state.unpaidCashout === undefined)
+      ? "—" : money(state.unpaidCashout);
+    /* Cash out is only offered when there is something to cash out
+       and a debit card is linked; without a linked card, only the
+       free weekly payout is available. The server still enforces
+       this (409) — the button state is only the visible hint. */
+    if (cashoutBtn) {
+      cashoutBtn.disabled = !(s.debit_card_linked && state.unpaidCashout !== null && state.unpaidCashout > 0);
+    }
+  }
+
+  function loadPayoutSetup() {
+    if (!$("payout-setup")) return;
+    fetch("/api/drivers/me/payout-setup", { headers: authHeaders() })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.j) {
+          $("payout-setup-status").textContent = (res.j && (res.j.error || res.j.message)) || "Payout setup could not be loaded.";
+          return;
+        }
+        state.payoutSetup = res.j;
+        if (res.j.instant_payout_fee_rate !== null && res.j.instant_payout_fee_rate !== undefined &&
+            !isNaN(Number(res.j.instant_payout_fee_rate))) {
+          state.payoutFeeRate = Number(res.j.instant_payout_fee_rate);
+        }
+        renderPayoutSetup();
+      })
+      .catch(function () {
+        $("payout-setup-status").textContent = "Payout setup could not be loaded. Please try again.";
+      });
+  }
+
+  /* "Set up payouts" and "Link debit card" both open Stripe's hosted
+     onboarding, where the driver enters bank routing + account number
+     (compulsory there) and links a debit card. A blank tab is opened
+     in the tap itself so the pop-up blocker allows it; Stripe's URL
+     goes in once the server returns it. */
+  function startStripeOnboarding(endpoint, doneNote) {
+    var err = $("payout-setup-error");
+    var result = $("payout-cashout-result");
+    err.textContent = "";
+    result.textContent = "";
+    var win = null;
+    try { win = window.open("", "_blank"); } catch (e) { win = null; }
+    fetch(endpoint, { method: "POST", headers: authHeaders() })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.onboarding_url) {
+          if (win) { try { win.close(); } catch (e) { /* ignore */ } }
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "Payout setup could not be started. Please try again.";
+          return;
+        }
+        var url = res.j.onboarding_url;
+        if (win) {
+          win.location = url;
+        } else {
+          var opened = null;
+          try { opened = window.open(url, "_blank"); } catch (e) { opened = null; }
+          if (!opened) {
+            err.textContent = "Please allow pop-ups for this site, then try again.";
+            return;
+          }
+        }
+        result.textContent = doneNote;
+      })
+      .catch(function () {
+        if (win) { try { win.close(); } catch (e) { /* ignore */ } }
+        err.textContent = "Could not reach the payment service. Please try again.";
+      });
+  }
+
+  $("payout-setup-btn").addEventListener("click", function () {
+    startStripeOnboarding("/api/drivers/me/payout-setup",
+      "Stripe onboarding opened in a new tab. Your bank details go to Stripe only — never to Noel. Come back here and reopen Earnings to see your updated setup.");
+  });
+  $("payout-link-card-btn").addEventListener("click", function () {
+    startStripeOnboarding("/api/drivers/me/payout-setup/link-card",
+      "Stripe opened in a new tab to link your debit card. Come back here and reopen Earnings to see it.");
+  });
+
+  /* Instant cash-out: confirms gross, 1.5% fee and net first, then
+     POSTs. 409s (no unpaid earnings / no debit card linked /
+     payouts not enabled yet) show the server's message verbatim. */
+  $("payout-cashout-btn").addEventListener("click", function () {
+    var err = $("payout-setup-error");
+    var result = $("payout-cashout-result");
+    err.textContent = "";
+    result.textContent = "";
+    var gross = state.unpaidCashout;
+    if (!gross || gross <= 0) {
+      err.textContent = "There are no unpaid earnings to cash out.";
+      return;
+    }
+    if (!state.payoutSetup || !state.payoutSetup.debit_card_linked) {
+      err.textContent = "Link a debit card first — without one, only the free weekly payout is available.";
+      return;
+    }
+    var fee = Math.round(gross * state.payoutFeeRate * 100) / 100;
+    var net = Math.round((gross - fee) * 100) / 100;
+    var pct = (state.payoutFeeRate * 100).toFixed(1).replace(/\.0$/, "");
+    if (!window.confirm("Cash out " + money(gross) + " now?\nFee (" + pct + "%): " + money(fee) + "\nYou receive: " + money(net))) return;
+    var btn = $("payout-cashout-btn");
+    btn.disabled = true;
+    fetch("/api/drivers/me/instant-payout", { method: "POST", headers: authHeaders() })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok || !res.j || !res.j.instant_payout) {
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "Instant payout could not be completed. Please try again.";
+          renderPayoutSetup();
+          return;
+        }
+        var p = res.j.instant_payout;
+        var received = (res.j.driver_receives !== null && res.j.driver_receives !== undefined) ? res.j.driver_receives : p.net;
+        result.textContent = "Cashed out " + money(p.amount !== undefined ? p.amount : gross) +
+          ". Fee: " + money(p.fee !== undefined ? p.fee : fee) +
+          ". You receive: " + money(received) + ".";
+        loadEarnings();
+        loadPayoutSetup();
+      })
+      .catch(function () {
+        btn.disabled = false;
+        err.textContent = "Could not reach the payment service. Please try again.";
+        renderPayoutSetup();
+      });
+  });
 
   /* ---------- Tax info (display only — no form to fill in) ---------- */
   function loadTaxInfo() {

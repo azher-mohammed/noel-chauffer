@@ -1,8 +1,17 @@
 """Noel Chauffer — real booking system backend (Flask + SQLAlchemy).
 
-TEST MODE ONLY for payments: no Stripe API call is ever made. Customer
-messages are written to the owner-dashboard outbox only — this app never
-sends SMS or email (no SMTP, no Twilio/SendGrid anywhere).
+LIVE Stripe payments (owner decision 2026-11-20, voice call: "Uber
+jaisa bana do"): cards are collected by Stripe.js in the browser and
+authorized at booking (a hold for the estimated fare), then the final
+fare is captured automatically when the ride ends. Saved cards live
+with Stripe only. Keys come ONLY from the Render environment
+(STRIPE_SECRET_KEY / STRIPE_PUBLISHABLE_KEY) — until the owner adds
+them, payments refuse outright; there is no fake-success fallback.
+See stripe_payments.py.
+
+Customer messages are written to the owner-dashboard outbox only —
+this app never sends SMS or email (no SMTP, no Twilio/SendGrid
+anywhere).
 
 Run:  python app.py   (dev server on $PORT, default 5000)
 Prod: gunicorn app:app
@@ -49,6 +58,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import geo as geo_module
+import stripe_payments
 from car_models import (
     MIN_CAR_YEAR,
     allowed_models,
@@ -2229,6 +2239,13 @@ class Driver(db.Model):
     referred_by_driver_id = db.Column(db.Integer, nullable=True)
     bank_encrypted = db.Column(db.LargeBinary, nullable=True)
     bank_last4 = db.Column(db.String(4), nullable=True)
+    # Stripe Connect Express account for driver payouts (owner
+    # decision 2026-11-20, Uber-like instant payouts). NULL until
+    # the driver finishes Stripe's hosted onboarding; the debit card
+    # lives with Stripe, never here. Nullable: added by the startup
+    # ALTER below, and drivers registered before it existed read as
+    # not onboarded.
+    stripe_connect_account_id = db.Column(db.String(60), nullable=True)
     token = db.Column(db.String(64), unique=True, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
@@ -2428,10 +2445,77 @@ class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=False)
     amount = db.Column(Numeric(10, 2), nullable=False)
-    status = db.Column(db.String(20), nullable=False)  # succeeded | refunded
-    test = db.Column(db.Boolean, nullable=False, default=True)
+    # Live Stripe flow (owner decision 2026-11-20, "Uber jaisa bana
+    # do"): authorized = hold placed at booking, captured = final
+    # fare charged at ride end (or on a late cancel / no-show),
+    # refunded = free cancel (hold released, or a captured charge
+    # refunded), refund_pending = the Stripe cancel/refund failed and
+    # the owner must retry it, capture_shortfall = the final fare was
+    # higher than the hold and the top-up charge failed.
+    # "succeeded" is the legacy test-mode status (rows from before
+    # live Stripe): the money was never really charged.
+    status = db.Column(db.String(20), nullable=False)  # authorized | captured | refunded | refund_pending | capture_shortfall | succeeded
+    test = db.Column(db.Boolean, nullable=False, default=False)
     last4 = db.Column(db.String(4), nullable=True)
+    brand = db.Column(db.String(20), nullable=True)
+    # Live Stripe ids. stripe_test_id is the legacy test-mode id
+    # ("pi_test_..."); live rows store "" there (the column stays NOT
+    # NULL so no migration is needed) and the real id here.
+    stripe_payment_intent_id = db.Column(db.String(80), nullable=True)
+    stripe_customer_id = db.Column(db.String(60), nullable=True)
+    # The PaymentMethod charged (saved card or the one-off card from
+    # Stripe.js). Needed at ride end when the final fare is higher
+    # than the hold: the difference is charged off-session to this
+    # card. Brand/last4 only — the card itself lives with Stripe.
+    stripe_payment_method_id = db.Column(db.String(60), nullable=True)
+    # What was actually captured (NULL until captured). `amount` is
+    # the authorized (held) amount; the captured amount can be lower
+    # (final fare under the estimate) or equal.
+    captured_amount = db.Column(Numeric(10, 2), nullable=True)
     stripe_test_id = db.Column(db.String(60), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class CustomerCard(db.Model):
+    """A customer's saved card (owner decision 2026-11-20, Uber-like
+    payments). Customers have no accounts, so cards are keyed by
+    phone. Only brand / last 4 / expiry are stored here — the card
+    itself lives with Stripe (Stripe Customer + PaymentMethod) and
+    is never stored by Noel. A new table, so create_all() creates it
+    on the live database too."""
+    __tablename__ = "customer_cards"
+    id = db.Column(db.Integer, primary_key=True)
+    phone = db.Column(db.String(40), nullable=False, index=True)
+    stripe_customer_id = db.Column(db.String(60), nullable=False)
+    stripe_payment_method_id = db.Column(db.String(60), nullable=False, unique=True)
+    brand = db.Column(db.String(20), nullable=True)
+    last4 = db.Column(db.String(4), nullable=True)
+    exp_month = db.Column(db.Integer, nullable=True)
+    exp_year = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+    __table_args__ = (db.UniqueConstraint("phone", "stripe_payment_method_id"),)
+
+
+class InstantPayout(db.Model):
+    """A driver's instant cash-out (owner decision 2026-11-20):
+    completed-ride earnings paid out at once to his eligible debit
+    card via Stripe Instant Payouts (1.5% fee). The standard 7-day
+    weekly payout stays the free default. The cashed-out bookings
+    are marked payout_paid so the weekly cycle never pays them
+    twice. A new table, so create_all() creates it on the live
+    database too."""
+    __tablename__ = "instant_payouts"
+    id = db.Column(db.Integer, primary_key=True)
+    driver_id = db.Column(db.Integer, db.ForeignKey("drivers.id"), nullable=False)
+    amount = db.Column(Numeric(10, 2), nullable=False)  # gross cashed out
+    fee = db.Column(Numeric(10, 2), nullable=False)  # Stripe 1.5% instant fee
+    net = db.Column(Numeric(10, 2), nullable=False)  # what the driver receives
+    stripe_transfer_id = db.Column(db.String(80), nullable=True)
+    stripe_payout_id = db.Column(db.String(80), nullable=True)
+    status = db.Column(db.String(20), nullable=False)  # succeeded | failed
+    # Comma-separated booking ids cashed out in this payout.
+    booking_ids = db.Column(db.Text, nullable=False, default="")
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
@@ -2798,6 +2882,34 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("referral discount column check failed: %s", exc)
+    # Same pattern for the live-Stripe payment columns (added with
+    # Uber-like payments, owner decision 2026-11-20). All nullable,
+    # so existing payment rows keep working; legacy test-mode rows
+    # keep their pi_test_ id and "succeeded" status.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _pcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("payments")]
+        _padds = {
+            "brand": "ALTER TABLE payments ADD COLUMN brand VARCHAR(20)",
+            "stripe_payment_intent_id": "ALTER TABLE payments ADD COLUMN stripe_payment_intent_id VARCHAR(80)",
+            "stripe_customer_id": "ALTER TABLE payments ADD COLUMN stripe_customer_id VARCHAR(60)",
+            "stripe_payment_method_id": "ALTER TABLE payments ADD COLUMN stripe_payment_method_id VARCHAR(60)",
+            "captured_amount": "ALTER TABLE payments ADD COLUMN captured_amount NUMERIC(10, 2)",
+        }
+        for _name, _ddl in _padds.items():
+            if _name not in _pcols:
+                with db.engine.begin() as _conn:
+                    _conn.execute(_sa_text(_ddl))
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "stripe_connect_account_id" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE drivers ADD COLUMN stripe_connect_account_id VARCHAR(60)")
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("live-Stripe column check failed: %s", exc)
     # Same pattern for the driver document verification columns
     # (added with the duplicate/expiry checks, owner decision
     # 2026-11-19). Nullable, so documents stored before this existed
@@ -3302,6 +3414,30 @@ def bank_masked(driver):
 def encrypt_bank(account_number, routing_number):
     payload = f"{account_number}|{routing_number}".encode()
     return _fernet.encrypt(payload)
+
+
+def validate_routing_number(routing):
+    """US bank routing number (owner decision 2026-11-20): a driver
+    cannot complete payout setup without a VALID routing number —
+    exactly 9 digits with a valid ABA checksum (3/7/1 weights).
+    Returns an error string, or None when valid."""
+    digits = (routing or "").strip()
+    if not digits.isdigit() or len(digits) != 9:
+        return "Routing number must be 9 digits."
+    weights = (3, 7, 1, 3, 7, 1, 3, 7, 1)
+    if sum(w * int(d) for w, d in zip(weights, digits)) % 10 != 0:
+        return "Routing number is not valid. Please check it and try again."
+    return None
+
+
+def validate_bank_account_number(account):
+    """US bank account number (owner decision 2026-11-20): compulsory
+    for payout setup — digits only, 4 to 17 digits. Returns an error
+    string, or None when valid."""
+    digits = (account or "").strip()
+    if not digits.isdigit() or not (4 <= len(digits) <= 17):
+        return "Bank account number must be 4 to 17 digits."
+    return None
 
 
 def require_driver():
@@ -4148,47 +4284,430 @@ def get_booking(booking_id):
     return jsonify({"booking": view})
 
 
+# ------------------------------------------------------- live Stripe -----
+# Live Stripe payments (owner decision 2026-11-20, "Uber jaisa bana
+# do"). Authorize the estimated fare at booking (a hold), capture
+# the final fare automatically at ride end from the saved card.
+# Free cancel (>1h before pickup) releases the hold with NO charge;
+# late cancel / no-show captures the full fare. Bookings whose hold
+# fails never reach drivers. When NO Stripe keys are configured the
+# /pay endpoint keeps the pre-existing test-mode fake authorization
+# (no real charge) so bookings keep working — live activation is
+# currently BLOCKED because the merchant Stripe account is disabled
+# (see the build report). With keys configured there is no fake
+# fallback: every payment call goes to Stripe or refuses.
+
+def _payment_view(payment):
+    return {
+        "id": payment.id,
+        "amount": num(payment.amount),
+        "status": payment.status,
+        "test": bool(payment.test),
+        "last4": payment.last4,
+        "brand": payment.brand,
+        "stripe_payment_intent_id": payment.stripe_payment_intent_id,
+        "captured_amount": num(payment.captured_amount),
+    }
+
+
+def _saved_card_view(card):
+    return {
+        "id": card.id,
+        "brand": card.brand,
+        "last4": card.last4,
+        "exp_month": card.exp_month,
+        "exp_year": card.exp_year,
+    }
+
+
+def _latest_payment(booking_id):
+    return (Payment.query.filter_by(booking_id=booking_id)
+            .order_by(Payment.id.desc()).first())
+
+
+def _stripe_customer_for_phone(phone, name, email):
+    """The Stripe Customer id for a phone-keyed customer: reuse the
+    one on their newest saved card, else create one. The card itself
+    always lives with Stripe — Noel keeps only brand / last 4 /
+    expiry."""
+    existing = (CustomerCard.query.filter_by(phone=str(phone))
+                .order_by(CustomerCard.id.desc()).first())
+    if existing and existing.stripe_customer_id:
+        return existing.stripe_customer_id
+    return stripe_payments.create_customer(email, name, phone)["id"]
+
+
+def _authorize_booking(booking, intent, customer_id, payment_method_id, save_card):
+    """Record an authorized hold (PaymentIntent status
+    requires_capture) as an "authorized" Payment row, optionally
+    save the card, and send the booking to drivers. Returns the
+    response payload. The caller commits."""
+    card = intent.get("card") or {}
+    if not card.get("last4") and payment_method_id:
+        try:
+            card = stripe_payments.get_payment_method(payment_method_id)
+        except stripe_payments.StripePaymentsError:
+            card = {}
+    payment = Payment(
+        booking_id=booking.id,
+        amount=booking.fare_total,
+        status="authorized",
+        test=False,
+        last4=card.get("last4"),
+        brand=card.get("brand"),
+        stripe_payment_intent_id=intent["id"],
+        stripe_customer_id=customer_id,
+        stripe_payment_method_id=payment_method_id,
+        stripe_test_id="",
+    )
+    db.session.add(payment)
+    saved_card = None
+    if save_card and payment_method_id and customer_id:
+        # setup_future_usage="off_session" on the PaymentIntent
+        # already attaches the card to the customer at Stripe; the
+        # row here only remembers brand / last 4 / expiry. A card
+        # saved on an earlier ride is reused, never re-inserted
+        # (phone + payment method is unique).
+        saved_card = CustomerCard.query.filter_by(
+            phone=str(booking.phone),
+            stripe_payment_method_id=payment_method_id).first()
+        if saved_card is None:
+            saved_card = CustomerCard(
+                phone=str(booking.phone),
+                stripe_customer_id=customer_id,
+                stripe_payment_method_id=payment_method_id,
+                brand=card.get("brand"), last4=card.get("last4"),
+                exp_month=card.get("exp_month"), exp_year=card.get("exp_year"))
+            db.session.add(saved_card)
+    booking.status = "offered"
+    add_event(booking.id, "payment_received",
+              f"Payment of ${booking.fare_total} authorized for booking #{booking.id} "
+              f"(card ending {card.get('last4')}). Booking sent to drivers.")
+    return {"payment": _payment_view(payment),
+            "booking": {"status": booking.status},
+            "saved_card": _saved_card_view(saved_card) if saved_card else None}
+
+
+def _settle_booking_payment(booking, final_total):
+    """Capture the authorized hold: at ride end `final_total` is the
+    invoice total (fare + waiting); for a no-show / late cancel it
+    is the full authorized fare. When the final fare is HIGHER than
+    the hold, the hold is captured in full and the difference is
+    charged off-session to the saved card. Returns (ok, note).
+    Never raises: a Stripe failure marks the payment
+    capture_shortfall for the owner to follow up — the ride itself
+    is never blocked by a payment error."""
+    payment = _latest_payment(booking.id)
+    if payment is None or payment.status in ("captured", "refunded"):
+        return True, "no authorized payment"
+    if payment.test or payment.status == "succeeded":
+        # Legacy test-mode rows: no real money ever moved.
+        return True, "test payment"
+    if not payment.stripe_payment_intent_id:
+        return True, "no payment intent"
+    if not stripe_payments.stripe_configured():
+        payment.status = "capture_shortfall"
+        add_event(booking.id, "payment_capture_failed",
+                  f"Booking #{booking.id}: ${final_total} could not be captured — "
+                  "card payments are not set up. Owner follow-up needed.")
+        return False, "Card payments are not set up yet."
+    final_cents = stripe_payments.to_cents(final_total)
+    authorized_cents = stripe_payments.to_cents(payment.amount)
+    try:
+        if final_cents <= authorized_cents:
+            captured = stripe_payments.capture_payment_intent(
+                payment.stripe_payment_intent_id,
+                amount_cents=(final_cents if final_cents != authorized_cents else None))
+            payment.status = "captured"
+            payment.captured_amount = stripe_payments.to_dollars(
+                captured["amount_captured_cents"])
+        else:
+            captured = stripe_payments.capture_payment_intent(
+                payment.stripe_payment_intent_id)
+            payment.captured_amount = stripe_payments.to_dollars(
+                captured["amount_captured_cents"])
+            extra_cents = final_cents - authorized_cents
+            try:
+                stripe_payments.create_off_session_payment_intent(
+                    extra_cents, payment.stripe_customer_id,
+                    payment.stripe_payment_method_id, booking.id)
+            except stripe_payments.StripePaymentsError as exc:
+                payment.status = "capture_shortfall"
+                add_event(booking.id, "payment_capture_shortfall",
+                          f"Booking #{booking.id}: final fare ${final_total} was higher "
+                          f"than the ${payment.amount} hold; the extra "
+                          f"${stripe_payments.to_dollars(extra_cents)} could not be "
+                          f"charged ({exc.user_message}). Owner follow-up needed.")
+                return False, exc.user_message
+            payment.status = "captured"
+            payment.captured_amount = money(final_total)
+        add_event(booking.id, "payment_captured",
+                  f"Booking #{booking.id}: ${payment.captured_amount} captured "
+                  f"(final fare ${final_total}).")
+        return True, "captured"
+    except stripe_payments.StripePaymentsError as exc:
+        payment.status = "capture_shortfall"
+        add_event(booking.id, "payment_capture_failed",
+                  f"Booking #{booking.id}: ${final_total} could not be captured "
+                  f"({exc.user_message}). Owner follow-up needed.")
+        return False, exc.user_message
+
+
+def _release_booking_payment(booking):
+    """Free cancellation (>1h before pickup): release the hold, or
+    refund a captured charge. Returns (refunded, pending): pending
+    means the Stripe cancel/refund failed and the payment is marked
+    refund_pending for the owner to retry. Never raises."""
+    payment = _latest_payment(booking.id)
+    if payment is None or payment.status == "refunded":
+        return False, False
+    if payment.test or payment.status == "succeeded":
+        payment.status = "refunded"
+        return True, False
+    if payment.status not in ("authorized", "captured"):
+        return False, False
+    if not stripe_payments.stripe_configured():
+        payment.status = "refund_pending"
+        return False, True
+    try:
+        if payment.status == "authorized":
+            stripe_payments.cancel_payment_intent(payment.stripe_payment_intent_id)
+        else:
+            stripe_payments.refund_payment_intent(payment.stripe_payment_intent_id)
+    except stripe_payments.StripePaymentsError:
+        payment.status = "refund_pending"
+        return False, True
+    payment.status = "refunded"
+    return True, False
+
+
+@app.route("/api/stripe/publishable-key", methods=["GET"])
+def stripe_publishable_key():
+    """The Stripe.js publishable key for the customer frontends.
+    The secret key is never exposed. configured=false means no keys
+    are in Render yet — the frontend uses the test-mode card form
+    and the server fakes the authorization (no real charge, exactly
+    as before this build). Live payments stay blocked until the owner
+    adds keys AND fixes the disabled merchant Stripe account (see
+    the build report)."""
+    configured = stripe_payments.stripe_configured()
+    return jsonify({"configured": configured,
+                    "test_mode": not configured,
+                    "publishable_key": stripe_payments.get_publishable_key()})
+
+
 @app.route("/api/bookings/<int:booking_id>/pay", methods=["POST"])
 def pay_booking(booking_id):
     """Card payment BEFORE dispatch: the customer picks a class on the
     options page, sees the single total for that class, and pays; only
     then is the booking sent to drivers (status awaiting_payment ->
-    offered)."""
+    offered). Live Stripe (owner decision 2026-11-20): the card is
+    collected by Stripe.js in the browser, which hands us a
+    PaymentMethod id — raw card numbers are rejected here. The call
+    places a HOLD for the estimated fare (manual capture); the final
+    fare is captured automatically at ride end."""
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
     if booking.status != "awaiting_payment":
         return err("Payment is taken before the booking is sent to drivers.", 409)
     data = request.get_json(silent=True) or {}
-    for field in ("card_number", "card_exp", "card_cvc", "card_name"):
-        if not data.get(field):
-            return err(f"Missing required field: {field}.")
-    digits = "".join(ch for ch in str(data["card_number"]) if ch.isdigit())
-    if not (12 <= len(digits) <= 19):
-        return err("Invalid card number.")
-    # TEST MODE ONLY: no Stripe API call is ever made. Only the last 4
-    # digits are stored; the card number itself is never persisted.
-    payment = Payment(
-        booking_id=booking.id,
-        amount=booking.fare_total,
-        status="succeeded",
-        test=True,
-        last4=digits[-4:],
-        stripe_test_id="pi_test_" + secrets.token_hex(8),
-    )
-    db.session.add(payment)
-    booking.status = "offered"
-    add_event(booking.id, "payment_received",
-              f"Test payment of ${booking.fare_total} received for booking #{booking.id} "
-              f"(card ending {digits[-4:]}). Booking sent to drivers.")
+    if not stripe_payments.stripe_configured():
+        # TEST MODE (no Stripe keys in Render). Live activation is
+        # currently BLOCKED — the merchant Stripe account is
+        # disabled (charges/payouts off) — so bookings must keep
+        # working exactly as before this build: the pre-existing
+        # fake authorization. Only the last 4 digits are stored;
+        # the card number itself is never persisted; no Stripe API
+        # call is ever made and no real charge happens. As soon as
+        # keys ARE configured (test keys work; live keys need the
+        # account fixed first) this branch is skipped and the live
+        # path below runs.
+        for field in ("card_number", "card_exp", "card_cvc", "card_name"):
+            if not data.get(field):
+                return err(f"Missing required field: {field}.")
+        digits = "".join(ch for ch in str(data["card_number"]) if ch.isdigit())
+        if not (12 <= len(digits) <= 19):
+            return err("Invalid card number.")
+        payment = Payment(
+            booking_id=booking.id,
+            amount=booking.fare_total,
+            status="succeeded",
+            test=True,
+            last4=digits[-4:],
+            stripe_test_id="pi_test_" + secrets.token_hex(8),
+        )
+        db.session.add(payment)
+        booking.status = "offered"
+        add_event(booking.id, "payment_received",
+                  f"Test payment of ${booking.fare_total} received for booking #{booking.id} "
+                  f"(card ending {digits[-4:]}). Booking sent to drivers.")
+        db.session.commit()
+        return jsonify({"payment": _payment_view(payment),
+                        "booking": {"status": booking.status},
+                        "test_mode": True})
+    # Live path (keys configured): raw card numbers never touch
+    # this server — Stripe.js collects the card in the browser and
+    # hands us a PaymentMethod id.
+    if any(k in data for k in ("card_number", "card_exp", "card_cvc", "card_name")):
+        return err("Card details must be entered in the secure card form. "
+                   "Please reload the page and try again.")
+    saved_card_id = data.get("saved_card_id")
+    payment_method_id = (data.get("payment_method_id") or "").strip() or None
+    customer_id = None
+    if saved_card_id is not None:
+        try:
+            saved = db.session.get(CustomerCard, int(saved_card_id))
+        except (TypeError, ValueError):
+            saved = None
+        if not saved or saved.phone != str(booking.phone):
+            return err("Saved card not found.", 404)
+        payment_method_id = saved.stripe_payment_method_id
+        customer_id = saved.stripe_customer_id
+    elif not payment_method_id:
+        return err("payment_method_id is required.")
+    if not payment_method_id.startswith("pm_"):
+        return err("Invalid payment method. Please re-enter your card.")
+    if customer_id is None:
+        try:
+            customer_id = _stripe_customer_for_phone(
+                booking.phone, booking.customer_name, booking.email)
+        except stripe_payments.StripePaymentsError as exc:
+            return err(exc.user_message, 502)
+    try:
+        intent = stripe_payments.create_payment_intent(
+            stripe_payments.to_cents(booking.fare_total),
+            customer_id, payment_method_id, booking.id)
+    except stripe_payments.StripePaymentsError as exc:
+        return err(exc.user_message, 502)
+    if intent["status"] == "requires_action":
+        # 3-D Secure: the hold is NOT in place yet. No Payment row
+        # and the booking stays awaiting_payment; the frontend
+        # completes the check and calls /pay/confirm.
+        card = intent.get("card") or {}
+        return jsonify({
+            "needs_action": True,
+            "client_secret": intent.get("client_secret"),
+            "payment_intent_id": intent["id"],
+            "payment": {"status": "requires_action",
+                        "amount": num(booking.fare_total),
+                        "test": False, "last4": card.get("last4"),
+                        "brand": card.get("brand")},
+            "booking": {"status": booking.status},
+        })
+    if intent["status"] != "requires_capture":
+        return err("Your card could not be authorized. Please try another card.", 502)
+    payload = _authorize_booking(
+        booking, intent, customer_id, payment_method_id,
+        bool(data.get("save_card", True)))
     db.session.commit()
-    return jsonify({"payment": {
-        "id": payment.id,
-        "amount": num(payment.amount),
-        "status": payment.status,
-        "test": True,
-        "last4": payment.last4,
-    }, "booking": {"status": booking.status}})
+    return jsonify(payload)
+
+
+@app.route("/api/bookings/<int:booking_id>/pay/confirm", methods=["POST"])
+def confirm_booking_payment(booking_id):
+    """After a 3-D Secure check: re-read the PaymentIntent. When the
+    bank has approved it (requires_capture) the hold is recorded and
+    the booking is sent to drivers, exactly as a direct /pay success."""
+    booking = db.session.get(Booking, booking_id)
+    if not booking:
+        return err("Booking not found.", 404)
+    if booking.status != "awaiting_payment":
+        return err("Payment is taken before the booking is sent to drivers.", 409)
+    data = request.get_json(silent=True) or {}
+    pi_id = (data.get("payment_intent_id") or "").strip()
+    if not pi_id:
+        return err("payment_intent_id is required.")
+    if not stripe_payments.stripe_configured():
+        return err("Card payments are not set up yet. Please try again later.", 503)
+    try:
+        intent = stripe_payments.retrieve_payment_intent(pi_id)
+    except stripe_payments.StripePaymentsError as exc:
+        return err(exc.user_message, 502)
+    intent_booking = intent.get("booking_id")
+    if intent_booking not in (None, "", str(booking.id), booking.id):
+        return err("This payment does not belong to this booking.", 409)
+    if intent["status"] == "requires_action":
+        return jsonify({
+            "needs_action": True,
+            "client_secret": intent.get("client_secret"),
+            "payment_intent_id": pi_id,
+            "payment": {"status": "requires_action",
+                        "amount": num(booking.fare_total), "test": False},
+            "booking": {"status": booking.status},
+        })
+    if intent["status"] != "requires_capture":
+        return err("Your card could not be authorized. Please try another card.", 502)
+    payload = _authorize_booking(
+        booking, intent, intent.get("customer_id"),
+        intent.get("payment_method_id"),
+        bool(data.get("save_card", True)))
+    db.session.commit()
+    return jsonify(payload)
+
+
+@app.route("/api/customers/cards", methods=["GET"])
+def list_customer_cards():
+    """A customer's saved cards (phone-keyed; customers have no
+    accounts). Brand / last 4 / expiry only — the card itself lives
+    with Stripe."""
+    phone = (request.args.get("phone") or "").strip()
+    if not phone:
+        return err("phone query parameter is required.")
+    cards = (CustomerCard.query.filter_by(phone=phone)
+             .order_by(CustomerCard.id.desc()).all())
+    return jsonify({"cards": [_saved_card_view(c) for c in cards]})
+
+
+@app.route("/api/customers/cards", methods=["POST"])
+def save_customer_card():
+    """Save a card from Stripe.js (PaymentMethod id) for future
+    rides. The card is attached to the customer's Stripe Customer —
+    Noel never sees the card number."""
+    data = request.get_json(silent=True) or {}
+    phone = (data.get("phone") or "").strip()
+    pm_id = (data.get("payment_method_id") or "").strip()
+    if not phone:
+        return err("phone is required.")
+    if not pm_id.startswith("pm_"):
+        return err("Invalid payment method. Please re-enter your card.")
+    if not stripe_payments.stripe_configured():
+        return err("Card payments are not set up yet. Please try again later.", 503)
+    existing = CustomerCard.query.filter_by(
+        phone=phone, stripe_payment_method_id=pm_id).first()
+    if existing:
+        return jsonify({"card": _saved_card_view(existing)})
+    try:
+        customer_id = _stripe_customer_for_phone(
+            phone, data.get("name"), data.get("email"))
+        attached = stripe_payments.attach_payment_method(pm_id, customer_id)
+    except stripe_payments.StripePaymentsError as exc:
+        return err(exc.user_message, 502)
+    card = CustomerCard(
+        phone=phone, stripe_customer_id=customer_id,
+        stripe_payment_method_id=pm_id,
+        brand=attached.get("brand"), last4=attached.get("last4"),
+        exp_month=attached.get("exp_month"), exp_year=attached.get("exp_year"))
+    db.session.add(card)
+    db.session.commit()
+    return jsonify({"card": _saved_card_view(card)}), 201
+
+
+@app.route("/api/customers/cards/<int:card_id>", methods=["DELETE"])
+def delete_customer_card(card_id):
+    """Remove a saved card (detached at Stripe too)."""
+    phone = (request.args.get("phone") or "").strip()
+    card = db.session.get(CustomerCard, card_id)
+    if not card or card.phone != phone:
+        return err("Saved card not found.", 404)
+    if stripe_payments.stripe_configured():
+        try:
+            stripe_payments.detach_payment_method(card.stripe_payment_method_id)
+        except stripe_payments.StripePaymentsError:
+            pass  # the local row is still removed
+    db.session.delete(card)
+    db.session.commit()
+    return jsonify({"deleted": True})
 
 
 @app.route("/api/bookings/<int:booking_id>/cancel", methods=["POST"])
@@ -4202,21 +4721,43 @@ def cancel_booking(booking_id):
     if booking.status in ("cancelled", "completed", "no_show"):
         return err(f"Booking is already {booking.status}.", 409)
     refundable = cancellation_refundable(booking.date, booking.time)
-    payment = Payment.query.filter_by(booking_id=booking.id, status="succeeded").order_by(Payment.id.desc()).first()
+    payment = _latest_payment(booking.id)
     refund = False
     charge_kept = False
+    refund_pending = False
+    payment_status = payment.status if payment else None
     if payment is not None:
         if refundable:
-            payment.status = "refunded"
-            refund = True
+            # Free cancel: release the hold (or refund a captured
+            # charge). A failed release/refund marks the payment
+            # refund_pending for the owner to retry — the booking is
+            # still cancelled.
+            refund, refund_pending = _release_booking_payment(booking)
         else:
-            charge_kept = True
+            # Late cancel: full price is kept — capture the
+            # authorized hold in full (legacy test rows: no real
+            # money ever moved).
+            charge_kept, _note = _settle_booking_payment(booking, booking.fare_total)
+        payment_status = payment.status
     booking.status = "cancelled"
+    if payment is None:
+        cancel_note = "No payment had been taken."
+    elif refund:
+        cancel_note = "Payment refunded."
+    elif refund_pending:
+        cancel_note = ("Refund failed — payment marked refund_pending "
+                       "for owner follow-up.")
+    elif charge_kept:
+        cancel_note = "Full price kept."
+    else:
+        cancel_note = ("Full price kept (capture failed — payment marked "
+                       "capture_shortfall for owner follow-up).")
     add_event(booking.id, "customer_cancelled",
-              f"Booking #{booking.id} cancelled by customer. "
-              f"{'Payment refunded (test mode).' if refund else 'Full price kept.' if charge_kept else 'No payment had been taken.'}")
+              f"Booking #{booking.id} cancelled by customer. {cancel_note}")
     db.session.commit()
-    return jsonify({"booking": {"status": "cancelled"}, "refund": refund, "charge_kept": charge_kept})
+    return jsonify({"booking": {"status": "cancelled"}, "refund": refund,
+                    "charge_kept": charge_kept, "refund_pending": refund_pending,
+                    "payment_status": payment_status})
 
 
 @app.route("/api/bookings", methods=["GET"])
@@ -4772,6 +5313,15 @@ def register_driver():
                   "bank_account_number", "bank_routing_number", "state"):
         if not (form.get(field) or "").strip():
             return err(f"Missing required field: {field}.")
+    # Routing + account numbers are COMPULSORY and must be valid
+    # (owner decision 2026-11-20): no driver can complete payout
+    # setup — or receive weekly payouts — without them.
+    routing_error = validate_routing_number(form.get("bank_routing_number"))
+    if routing_error:
+        return err(routing_error)
+    account_error = validate_bank_account_number(form.get("bank_account_number"))
+    if account_error:
+        return err(account_error)
     phone = form["phone"].strip()
     if Driver.query.filter_by(phone=phone).first():
         return err("A driver with this phone number is already registered.", 409)
@@ -5752,6 +6302,12 @@ def driver_trip_event(booking_id):
                   f"(fare ${booking.fare_total} + waiting ${booking.waiting_charge})"
                   + (f", extra distance {extra_dec} miles (${booking.extra_distance_charge})" if extra_dec > 0 else "")
                   + ".")
+        # Uber-like capture: the final fare (fare + waiting) is
+        # charged automatically from the saved card — the customer
+        # does nothing. A failed capture never blocks the completed
+        # ride; the payment is marked capture_shortfall for the
+        # owner to follow up. Test-mode bookings have no real hold.
+        _ok, _note = _settle_booking_payment(booking, total)
         response_extra["invoice"] = {"total": num(total), "waiting_charge": num(booking.waiting_charge)}
     elif event == "cancel":
         if booking.status not in ("accepted", "en_route", "arrived"):
@@ -5834,6 +6390,10 @@ def driver_trip_event(booking_id):
         booking.status = "no_show"
         add_event(booking.id, "no_show",
                   f"Customer no-show for booking #{booking.id}. Full price kept.")
+        # No-show keeps the full price: capture the authorized hold
+        # in full. A failed capture marks the payment
+        # capture_shortfall for the owner to follow up.
+        _settle_booking_payment(booking, booking.fare_total)
     db.session.commit()
     payload = {"booking": {"id": booking.id, "status": booking.status}}
     payload.update(response_extra)
@@ -5896,6 +6456,194 @@ def driver_earnings():
         "weeks": weeks,
         "rides": ride_rows,
     })
+
+
+# ------------------------------------------------- driver payout setup ---
+# Driver payout setup for Uber-like payments (owner decisions
+# 2026-11-20, voice calls). Two separate pieces:
+# - WEEKLY payout (free default, due 7 days after the week starts):
+#   needs a valid BANK account — routing number + account number are
+#   COMPULSORY. The driver enters them in Stripe's hosted Connect
+#   onboarding flow, so the details go to Stripe only and are never
+#   stored by Noel. (Drivers registered before this also have an
+#   encrypted bank account on file from registration; that counts
+#   as bank-on-file too.)
+# - INSTANT cash-out (driver's choice, 1.5% Stripe fee): needs a
+#   linked DEBIT card on the Connect account. Debit card alone
+#   enables instant, but weekly payout needs the bank account.
+# Without a linked card, only the free weekly payout is available.
+
+def _driver_payout_setup(driver):
+    """Current payout-setup state for a driver. Bank details are
+    never returned beyond the masked last 4; debit cards are brand
+    / last 4 / expiry only. Stripe is consulted live when a Connect
+    account exists and keys are configured; otherwise the stored
+    registration bank is what counts."""
+    account_id = driver.stripe_connect_account_id
+    payouts_enabled = False
+    details_submitted = False
+    debit_cards = []
+    if account_id and stripe_payments.stripe_configured():
+        try:
+            account = stripe_payments.retrieve_account(account_id)
+            payouts_enabled = bool(account.get("payouts_enabled"))
+            details_submitted = bool(account.get("details_submitted"))
+        except stripe_payments.StripePaymentsError:
+            pass
+        try:
+            debit_cards = stripe_payments.list_payout_cards(account_id)
+        except stripe_payments.StripePaymentsError:
+            debit_cards = []
+    bank_on_file = bool(driver.bank_last4)
+    return {
+        "connect_account": bool(account_id),
+        "payouts_enabled": payouts_enabled,
+        "details_submitted": details_submitted,
+        "bank_on_file": bank_on_file,
+        "bank_masked": bank_masked(driver),
+        "debit_cards": debit_cards,
+        "debit_card_linked": bool(debit_cards),
+        "weekly_payout_available": bool(payouts_enabled or bank_on_file),
+        "instant_payout_available": bool(payouts_enabled and debit_cards),
+        "instant_payout_fee_rate": float(stripe_payments.INSTANT_PAYOUT_FEE_RATE),
+    }
+
+
+def _driver_payout_ready(driver):
+    """A driver can receive weekly payouts only when payout setup is
+    complete: a valid bank account on file (registration bank, or a
+    Stripe Connect account with payouts enabled)."""
+    return _driver_payout_setup(driver)["weekly_payout_available"]
+
+
+def _driver_connect_onboarding(driver):
+    """Create the driver's Stripe Connect account if needed and
+    return a fresh hosted onboarding link. This is where the driver
+    enters his bank routing + account numbers (compulsory there) and
+    links a debit card — Stripe's hosted flow, so the details go to
+    Stripe only and are never stored by Noel."""
+    if not stripe_payments.stripe_configured():
+        return None, err("Payouts are not set up yet. Please try again later.", 503)
+    try:
+        if not driver.stripe_connect_account_id:
+            account = stripe_payments.create_connect_account(driver.email)
+            driver.stripe_connect_account_id = account["id"]
+            db.session.commit()
+        link = stripe_payments.create_account_link(
+            driver.stripe_connect_account_id,
+            return_url="https://noelchauffer.com/driver#payout-setup-done",
+            refresh_url="https://noelchauffer.com/driver#payout-setup",
+        )
+    except stripe_payments.StripePaymentsError as exc:
+        return None, err(exc.user_message, 502)
+    status = _driver_payout_setup(driver)
+    status["onboarding_url"] = link["url"]
+    return status, None
+
+
+@app.route("/api/drivers/me/payout-setup", methods=["GET"])
+def driver_payout_setup_status():
+    driver, error = require_driver()
+    if error:
+        return error
+    return jsonify(_driver_payout_setup(driver))
+
+
+@app.route("/api/drivers/me/payout-setup", methods=["POST"])
+def driver_payout_setup_start():
+    """Start (or resume) payout setup: returns Stripe's hosted
+    onboarding link where the driver enters his bank routing +
+    account numbers and links a debit card."""
+    driver, error = require_driver()
+    if error:
+        return error
+    status, error = _driver_connect_onboarding(driver)
+    if error:
+        return error
+    return jsonify(status)
+
+
+@app.route("/api/drivers/me/payout-setup/link-card", methods=["POST"])
+def driver_payout_link_card():
+    """Link a debit card as the instant-payout destination. The card
+    is added in Stripe's hosted onboarding flow (same link as payout
+    setup) — Noel never sees the card details. Without a linked
+    card, only the free weekly payout is available."""
+    driver, error = require_driver()
+    if error:
+        return error
+    status, error = _driver_connect_onboarding(driver)
+    if error:
+        return error
+    return jsonify(status)
+
+
+@app.route("/api/drivers/me/instant-payout", methods=["POST"])
+def driver_instant_payout():
+    """Cash out all unpaid completed-ride earnings at once to the
+    driver's linked debit card via Stripe Instant Payouts (1.5% fee
+    on the driver's side). The money first moves from the platform
+    to the driver's Connect account, then out instantly. Cashed-out
+    rides are marked payout_paid so the weekly cycle never pays them
+    twice. A failed payout records a failed row and marks nothing
+    paid, so the driver can retry."""
+    driver, error = require_driver()
+    if error:
+        return error
+    if not stripe_payments.stripe_configured():
+        return err("Payouts are not set up yet. Please try again later.", 503)
+    if not driver.stripe_connect_account_id:
+        return err("Set up payouts first — link your bank account and debit card.", 409)
+    try:
+        account = stripe_payments.retrieve_account(driver.stripe_connect_account_id)
+    except stripe_payments.StripePaymentsError as exc:
+        return err(exc.user_message, 502)
+    if not account.get("payouts_enabled"):
+        return err("Payouts are not enabled yet. Please finish payout setup first.", 409)
+    try:
+        cards = stripe_payments.list_payout_cards(driver.stripe_connect_account_id)
+    except stripe_payments.StripePaymentsError as exc:
+        return err(exc.user_message, 502)
+    if not cards:
+        return err("Link an eligible debit card first — without one, only the "
+                   "free weekly payout is available.", 409)
+    rides = (Booking.query.filter_by(accepted_driver_id=driver.id, status="completed").all())
+    eligible = [b for b in _payout_eligible(rides) if not b.payout_paid]
+    gross = sum((money(b.driver_earnings) for b in eligible), Decimal("0.00"))
+    if gross <= 0:
+        return err("No unpaid earnings to cash out.", 409)
+    gross_cents = stripe_payments.to_cents(gross)
+    fee = stripe_payments.to_dollars(stripe_payments.instant_payout_fee_cents(gross_cents))
+    net = stripe_payments.to_dollars(stripe_payments.instant_payout_net_cents(gross_cents))
+    transfer_id = None
+    try:
+        transfer = stripe_payments.create_transfer(
+            gross_cents, driver.stripe_connect_account_id)
+        transfer_id = transfer["id"]
+        payout = stripe_payments.create_instant_payout(
+            driver.stripe_connect_account_id, gross_cents)
+    except stripe_payments.StripePaymentsError as exc:
+        record = InstantPayout(
+            driver_id=driver.id, amount=gross, fee=fee, net=net,
+            stripe_transfer_id=transfer_id, status="failed",
+            booking_ids=",".join(str(b.id) for b in eligible))
+        db.session.add(record)
+        db.session.commit()
+        return err(exc.user_message, 502)
+    for b in eligible:
+        b.payout_paid = True
+    record = InstantPayout(
+        driver_id=driver.id, amount=gross, fee=fee, net=net,
+        stripe_transfer_id=transfer_id,
+        stripe_payout_id=payout["id"], status="succeeded",
+        booking_ids=",".join(str(b.id) for b in eligible))
+    db.session.add(record)
+    db.session.commit()
+    return jsonify({"instant_payout": {
+        "id": record.id, "amount": num(gross), "fee": num(fee),
+        "net": num(net), "status": "succeeded",
+        "booking_ids": [b.id for b in eligible]},
+        "driver_receives": num(net)})
 
 
 # ------------------------------------------------------- driver tax info ---
@@ -6137,7 +6885,10 @@ def owner_booking_detail(booking_id):
         },
         "payments": [{
             "id": p.id, "amount": num(p.amount), "status": p.status,
-            "test": p.test, "last4": p.last4, "stripe_test_id": p.stripe_test_id,
+            "test": p.test, "last4": p.last4, "brand": p.brand,
+            "stripe_test_id": p.stripe_test_id,
+            "stripe_payment_intent_id": p.stripe_payment_intent_id,
+            "captured_amount": num(p.captured_amount),
             "created_at": iso(p.created_at),
         } for p in booking.payments],
         "events": [{
@@ -6250,8 +7001,8 @@ def owner_payouts():
     """Per-driver, per-week payout totals. Owner PIN session required.
 
     Only completed, non-refunded trips appear. Each week's payout
-    comes due 14 days after the week starts (week 0 due Nov 30,
-    week 1 due Dec 7, week 2 due Dec 14, ...); a week is paid when
+    comes due 7 days after the week starts (week 0 due Nov 23,
+    week 1 due Nov 30, week 2 due Dec 7, ...); a week is paid when
     every trip in it has been marked paid. Tracking only — no money
     moves here.
     """
@@ -6275,6 +7026,7 @@ def owner_payouts():
             "driver_id": driver_id,
             "driver_name": driver.name if driver else None,
             "driver_phone": driver.phone if driver else None,
+            "payout_ready": _driver_payout_ready(driver) if driver else False,
             "rides": [{
                 "id": b.id,
                 "date": b.date,
@@ -6312,6 +7064,14 @@ def owner_mark_payout_paid():
     driver = db.session.get(Driver, driver_id)
     if not driver:
         return err("Driver not found.", 404)
+    # Weekly payouts need a valid bank account (owner decision
+    # 2026-11-20): a driver who has not completed payout setup —
+    # no bank routing + account number on file — cannot receive a
+    # weekly payout, so the week cannot be marked paid.
+    if not _driver_payout_ready(driver):
+        return err("This driver has not completed payout setup yet — a valid "
+                   "bank routing number and account number are required before "
+                   "a weekly payout can be marked paid.", 409)
     bookings = (Booking.query.filter_by(status="completed", accepted_driver_id=driver_id).all())
     members = [b for b in _payout_eligible(bookings)
                if _booking_week(b)["index"] == week_index]

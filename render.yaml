@@ -44,6 +44,18 @@ services:
         sync: false
       - key: ENCRYPTION_KEY
         sync: false
+      # Live Stripe payments (owner decision 2026-11-20, Uber-like):
+      # the owner copies these from his Stripe dashboard into the
+      # Render dashboard himself — they are never in code, never in
+      # chat. Until they are set, the site runs in test mode (fake
+      # authorization, no real charge). NOTE: live activation is
+      # currently BLOCKED — the merchant Stripe account Siahsolutions
+      # Inc is disabled (charges/payouts off); test keys work, live
+      # keys need the account fixed with Stripe first.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
 
 databases:
   - name: noel-chauffer-db

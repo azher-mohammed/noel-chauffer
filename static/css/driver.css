@@ -678,6 +678,20 @@ input, select { font: inherit; }
   box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
+/* Payout setup (Stripe Connect): dark cards matching the pay weeks. */
+.payout-setup { border: 1px solid var(--line); border-radius: 8px; padding: 13px 15px; margin-bottom: 10px; background: var(--white); }
+.payout-line { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; padding: 6px 0; }
+.payout-line .payout-key { font-weight: 600; }
+.payout-setup .btn-ghost, .payout-setup .btn-primary { margin-top: 8px; }
+#screen-earnings .payout-setup {
+  background: #1d1d1f;
+  border: 1px solid #2e2e30;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+#screen-earnings .payout-setup .payout-key { color: var(--white); }
+#screen-earnings .payout-setup .payout-line span:last-child { color: #f2f0ea; }
+
 /* Earnings: gold-framed summary, dark week cards, gold amounts. */
 #screen-earnings .earn-sum {
   background: linear-gradient(180deg, #1a1a1c, #0b0b0c);

@@ -221,6 +221,27 @@ input, select, textarea { font: inherit; }
 
 /* Payment */
 .pay-panel { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 18px; }
+.field-label { display: block; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--grey); margin-bottom: 5px; }
+/* Stripe Card Element: styled like the site's own inputs (black-and-gold).
+   Card details live inside Stripe's iframe — this site never sees them. */
+.stripe-card-element {
+  width: 100%; padding: 11px 12px; border: 1px solid #cfccc2; border-radius: 3px;
+  background: var(--white);
+}
+.stripe-card-element.StripeElement--focus { outline: 2px solid var(--gold); outline-offset: 0; border-color: var(--gold); }
+.stripe-card-element.StripeElement--invalid { border-color: var(--bad); }
+.saved-card-option {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid #cfccc2; border-radius: 3px; background: var(--white);
+  padding: 11px 12px; margin-bottom: 8px; font-size: 15px; cursor: pointer;
+}
+.saved-card-option input { accent-color: var(--gold); }
+.saved-card-option .remove-saved-card {
+  margin-left: auto; background: none; border: 0; color: var(--grey);
+  font-size: 13.5px; text-decoration: underline; padding: 4px 0; cursor: pointer;
+}
+.save-card { display: flex; align-items: center; gap: 8px; font-size: 14.5px; margin: 4px 0 10px; cursor: pointer; }
+.save-card input { accent-color: var(--gold); }
 .test-banner {
   background: #fff4d6; border: 1px solid var(--gold); color: #6b5510;
   border-radius: 4px; padding: 11px 14px; font-size: 14.5px; margin-bottom: 16px;

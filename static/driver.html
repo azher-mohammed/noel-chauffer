@@ -382,8 +382,22 @@
       <div class="label">Your earnings so far</div>
       <div class="amount" id="earnings-sum">—</div>
     </div>
+    <div class="section-title">Payout setup</div>
+    <div class="payout-setup" id="payout-setup">
+      <p class="form-note" id="payout-setup-status">Loading payout setup…</p>
+      <div class="payout-line"><span class="payout-key">Weekly payout (free)</span><span id="payout-bank-line">—</span></div>
+      <p class="form-note" id="payout-weekly-note"></p>
+      <button class="btn-ghost" type="button" id="payout-setup-btn">Set up payouts</button>
+      <div class="payout-line"><span class="payout-key">Instant payout</span><span id="payout-debit-line">—</span></div>
+      <p class="form-note">Instant cash-out costs 1.5% of the amount. Without a linked debit card, only the free weekly payout is available.</p>
+      <button class="btn-ghost" type="button" id="payout-link-card-btn">Link debit card</button>
+      <div class="payout-line"><span class="payout-key">Available to cash out now</span><span id="payout-cashout-amount">—</span></div>
+      <button class="btn-primary btn-gold" type="button" id="payout-cashout-btn" disabled>Cash out now</button>
+      <p class="form-error" id="payout-setup-error" role="alert"></p>
+      <p class="form-note" id="payout-cashout-result" role="status"></p>
+    </div>
     <div class="section-title">Pay weeks</div>
-    <p class="intro">Earnings are grouped by week (7 days each). Each week's pay comes due 14 days after the week starts — the first week is due Nov 30, 2026.</p>
+    <p class="intro">Earnings are grouped by week (7 days each). Each week's pay comes due 7 days after the week starts — the first week is due Nov 23, 2026.</p>
     <div id="payout-weeks"></div>
     <div class="section-title">Rides</div>
     <div id="earnings-list"></div>

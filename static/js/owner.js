@@ -502,7 +502,7 @@
       .catch(function () { /* ignore */ });
   }
 
-  /* ---------- Driver payouts (weekly tallies, each due 14 days after its week starts) ---------- */
+  /* ---------- Driver payouts (weekly tallies, each due 7 days after its week starts) ---------- */
   function loadPayouts() {
     fetch("/api/owner/payouts", { credentials: "same-origin" })
       .then(function (r) { return r.json(); })

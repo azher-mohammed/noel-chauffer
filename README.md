@@ -81,9 +81,41 @@ never a breakdown, never rates, never miles.
 
 ## Test-mode limits (read this first)
 
-- **Payments are simulated.** No Stripe API call is ever made. The card
-  form stores only the last 4 digits and a `pi_test_` id. No real
-  charging happens. Connecting a real Stripe account is a later step.
+## Payments (live Stripe build + test mode)
+
+- **Live Stripe payments (owner decision 2026-11-20, "Uber jaisa bana
+  do"):** Stripe SDK + Stripe.js (`stripe_payments.py`). Keys come ONLY
+  from the Render environment (`STRIPE_SECRET_KEY` /
+  `STRIPE_PUBLISHABLE_KEY`); the owner adds them himself. Booking
+  places a HOLD for the estimated fare (manual capture); the final
+  fare (miles + toll + waiting) is captured automatically at ride
+  end from the saved card, with an off-session top-up when the final
+  fare is higher than the hold. Free cancel (>1h) releases the hold
+  (or refunds a captured charge); late cancel / no-show captures the
+  full fare. Cards are saved at Stripe only (Customer + PaymentMethod;
+  Noel keeps brand / last 4 / expiry). Statement descriptor
+  "NOEL CHAUFFER". No webhooks in v1.
+- **Driver payouts:** the standard weekly payout stays the free
+  default (7-day weeks anchored 2026-11-16, due 7 days after the week
+  starts). Drivers can also cash out instantly to a linked debit card
+  via Stripe Instant Payouts (1.5% fee on the driver's side); the
+  debit card is linked in Stripe's hosted Connect onboarding flow and
+  the card details never touch Noel. A valid bank routing + account
+  number is COMPULSORY for payout setup (routing must pass the ABA
+  checksum; the server validates it at registration and the weekly
+  payout cannot be marked paid without it). Bank details entered in
+  the Connect flow go to Stripe only.
+- **BLOCKED — live activation (2026-11-20):** the merchant Stripe
+  account Siahsolutions Inc (acct_1OMxYbCIwsRLJ405) is DISABLED
+  (charges_enabled=false, payouts_enabled=false,
+  disabled_reason="rejected.fraud", past-due business inquiry). It
+  CANNOT take live card payments or payouts until the owner resolves
+  it with Stripe (or uses a new account / different processor).
+- **Test mode (current reality, no keys in Render):** payments keep
+  working exactly as before this build — the card form stores only
+  the last 4 digits and a `pi_test_` id, no Stripe call is made, no
+  real charging happens. With Stripe TEST keys configured, the same
+  code runs against Stripe's test mode instead.
 - **No SMS or email is ever sent.** Customer messages are written to the
   owner-dashboard outbox only, so the owner can see exactly what would
   have been sent. Connecting a messaging service is a later step.
@@ -103,12 +135,12 @@ never a breakdown, never rates, never miles.
   distance × 1.3 for that route.
 - **Prices are settled business rules** in `pricing.py`. Do not change
   them without the owner's say-so.
-- **Driver payouts are tracking only.** Every 14 days the driver gets
+- **Driver payouts are tracking only.** Every week the driver gets
   seven days' money: trips tally in 7-day weeks anchored at
   2026-11-16 (see `payouts.py`), and each week's payout comes due
-  14 days after the week starts (week 0, Nov 16–22, due Nov 30;
-  week 1, Nov 23–29, due Dec 7; week 2, Nov 30–Dec 6, due Dec 14),
-  so every trip is paid 8–14 days after it happens. The owner marks
+  7 days after the week starts (week 0, Nov 16–22, due Nov 23;
+  week 1, Nov 23–29, due Nov 30; week 2, Nov 30–Dec 6, due Dec 7),
+  so every trip is paid 1–7 days after it happens. The owner marks
   a week paid in the dashboard. No money moves in this app.
 
 ## Run locally

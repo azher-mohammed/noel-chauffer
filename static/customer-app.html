@@ -188,25 +188,52 @@
 
       <div class="pay-panel hidden" id="ca-pay-panel">
         <h3>Pay by card</h3>
-        <div class="test-banner"><strong>TEST MODE — no real charge.</strong> This payment form is in test mode. No real payment will be taken from your card.</div>
         <form id="ca-pay-form" novalidate>
-          <div class="field">
-            <label for="ca-pay-name">Name on card</label>
-            <input id="ca-pay-name" type="text" required autocomplete="cc-name">
-          </div>
-          <div class="field">
-            <label for="ca-pay-number">Card number</label>
-            <input id="ca-pay-number" type="text" inputmode="numeric" required autocomplete="cc-number" placeholder="4242 4242 4242 4242">
-          </div>
-          <div class="field-row">
+          <p class="form-error hidden" id="ca-pay-unavailable" role="alert">Card payments are not set up yet. Please try again later.</p>
+          <p class="form-note hidden" id="ca-pay-loading">Loading secure payment…</p>
+          <!-- TEST MODE (used while no Stripe keys are configured — the
+               owner's Stripe account is disabled, so live payments
+               cannot activate yet): the old raw-card form, posting
+               exactly as before. The server fakes the authorization
+               and no real charge is taken. -->
+          <div id="ca-pay-test-mode" class="hidden">
+            <div class="test-banner"><strong>TEST MODE — no real charge.</strong> This payment form is in test mode. No real payment will be taken from your card.</div>
             <div class="field">
-              <label for="ca-pay-exp">Expiry (MM/YY)</label>
-              <input id="ca-pay-exp" type="text" inputmode="numeric" required autocomplete="cc-exp" placeholder="MM/YY">
+              <label for="ca-pay-name">Name on card</label>
+              <input id="ca-pay-name" type="text" required autocomplete="cc-name">
             </div>
             <div class="field">
-              <label for="ca-pay-cvc">CVC</label>
-              <input id="ca-pay-cvc" type="text" inputmode="numeric" required autocomplete="cc-csc" placeholder="123">
+              <label for="ca-pay-number">Card number</label>
+              <input id="ca-pay-number" type="text" inputmode="numeric" required autocomplete="cc-number" placeholder="4242 4242 4242 4242">
             </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="ca-pay-exp">Expiry (MM/YY)</label>
+                <input id="ca-pay-exp" type="text" inputmode="numeric" required autocomplete="cc-exp" placeholder="MM/YY">
+              </div>
+              <div class="field">
+                <label for="ca-pay-cvc">CVC</label>
+                <input id="ca-pay-cvc" type="text" inputmode="numeric" required autocomplete="cc-csc" placeholder="123">
+              </div>
+            </div>
+          </div>
+          <!-- LIVE / CONFIGURED MODE (Stripe.js): card details go
+               directly to Stripe inside its own iframe — this app
+               never sees them. Shown only when the server reports
+               configured=true. -->
+          <div id="ca-pay-stripe-mode" class="hidden">
+            <p class="form-note">Your card is charged as a hold when you book. Your card details go directly to Stripe — they are never typed into, or stored on, this site.</p>
+            <div id="ca-pay-saved-cards" class="hidden">
+              <div class="field">
+                <span class="field-label">Your saved cards</span>
+                <div id="ca-pay-saved-list"></div>
+              </div>
+            </div>
+            <div class="field" id="ca-pay-new-card-field">
+              <span class="field-label">Card details</span>
+              <div id="ca-pay-card-element" class="stripe-card-element"></div>
+            </div>
+            <label class="save-card hidden" id="ca-pay-save-card-row"><input type="checkbox" id="ca-pay-save-card" checked> Save this card for future rides</label>
           </div>
           <button class="btn-primary btn-gold" type="submit" id="ca-pay-submit">Pay <span id="ca-pay-amount-label"></span></button>
           <p class="form-error" id="ca-pay-error" role="alert"></p>
@@ -216,6 +243,7 @@
       <div class="thankyou hidden" id="ca-thankyou-block">
         <h2>Thank you — your ride is booked.</h2>
         <p class="status-line" id="ca-thankyou-summary"></p>
+        <p class="form-note hidden" id="ca-thankyou-test-note"><strong>Test mode — no real charge.</strong> This booking was paid in test mode; no real payment was taken.</p>
         <div class="referral-box">
           <h3>Refer a friend</h3>
           <p>Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. When they book, they can enter a referral code in the booking form. Your friend gets 5% off their first ride.</p>

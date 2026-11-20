@@ -843,7 +843,7 @@ print(f"  INFO summary: gross ${summary['gross']} profit ${summary['profit']} "
 
 # --------------------------------------------------- payout weeks ----------
 
-section("payout weeks: 7-day weeks, due 14 days after week start, mark paid, owed drops")
+section("payout weeks: 7-day weeks, due 7 days after week start, mark paid, owed drops")
 detail_b1 = s.get(BASE + f"/api/owner/bookings/{b1['id']}", timeout=TIMEOUT).json()
 check("owner detail records completed_at + payout_paid false",
       detail_b1.get("completed_at") and detail_b1.get("payout_paid") is False,
@@ -1615,6 +1615,41 @@ check("served owner.js carries the new state document labels",
       and "Taxi-LPMV-PMV Operator's License" in r.text
       and "For-Hire Operators (Face ID) License" in r.text
       and "Form E (Insurance Filing)" in r.text, str(r.status_code))
+
+section("live Stripe payments: test mode while unconfigured (live blocked)")
+r = anon.get(BASE + "/api/stripe/publishable-key", timeout=TIMEOUT)
+check("publishable-key reports test mode when no keys configured",
+      r.status_code == 200 and r.json()["configured"] is False
+      and r.json()["test_mode"] is True
+      and r.json()["publishable_key"] is None, r.text[:200])
+# Drivers were cleared above, so register a fresh one for the
+# payout-setup checks (same docs + valid bank pair as driver 1).
+resp = anon.post(BASE + "/api/drivers/register", data={
+    "name": "Verify Driver Stripe", "phone": "+15550009999", "email": "ds@test.com",
+    "car_model": "Cadillac CT6", "car_year": "2023", "car_colour": "Black", "plate": "T99999",
+    "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
+}, files=all_docs, timeout=TIMEOUT)
+check("stripe-section driver register 201", resp.status_code == 201, resp.text[:200])
+token_s = resp.json()["token"]
+r = anon.get(BASE + "/api/drivers/me/payout-setup",
+             headers={"X-Driver-Token": token_s}, timeout=TIMEOUT)
+check("driver payout-setup status: bank on file, weekly available, no card",
+      r.status_code == 200 and r.json()["bank_on_file"] is True
+      and r.json()["weekly_payout_available"] is True
+      and r.json()["instant_payout_available"] is False
+      and r.json()["debit_card_linked"] is False, r.text[:200])
+r = anon.post(BASE + "/api/drivers/me/payout-setup",
+              headers={"X-Driver-Token": token_s}, timeout=TIMEOUT)
+check("payout-setup without Stripe keys -> 503, no fake link",
+      r.status_code == 503 and "not set up" in r.json()["error"], r.text[:200])
+r = anon.post(BASE + "/api/drivers/me/instant-payout",
+              headers={"X-Driver-Token": token_s}, timeout=TIMEOUT)
+check("instant payout without Stripe keys -> 503",
+      r.status_code == 503, r.text[:200])
+r = anon.get(BASE + "/api/customers/cards",
+             params={"phone": "+15550004545"}, timeout=TIMEOUT)
+check("saved cards list works (empty in test mode)",
+      r.status_code == 200 and r.json()["cards"] == [], r.text[:200])
 
 print(f"\n{CHECKS['passed']} passed, {CHECKS['failed']} failed")
 if FAILURES:

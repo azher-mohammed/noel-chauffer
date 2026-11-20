@@ -96,7 +96,7 @@ class CustomerAppPageCase(unittest.TestCase):
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, 200)
         home = resp.get_data(as_text=True)
-        self.assertIn("Leave the driving to us.", home)
+        self.assertIn("Luxury rides, chauffeur-driven.", home)
         self.assertIn("Book your ride", home)
         self.assertIn("Three ways to ride", home)
         resp = self.client.get("/driver")

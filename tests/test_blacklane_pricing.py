@@ -84,12 +84,16 @@ class TestBlacklaneEnginePure(unittest.TestCase):
     def test_ladder_rungs_match_sheet_totals(self):
         # (miles, dropoff, class) -> sheet total. The engine
         # interpolates the ladder, so a rung's own miles hit its
-        # point exactly and the fee rules rebuild the sheet total.
+        # point exactly and the fee rules rebuild the sheet total —
+        # EXCEPT at miles <= 10, where the owner overrode the
+        # Blacklane total with his flat customer charge (Business
+        # $100, SUV $130; owner decision 2026-11-20 ~06:38 EST).
+        # First Class keeps the engine total at every distance.
         cases = [
-            (1.08, "Rockefeller Center", "sedan", "129.32"),
-            (1.08, "Rockefeller Center", "suv", "198.81"),
+            (1.08, "Rockefeller Center", "sedan", "100.00"),
+            (1.08, "Rockefeller Center", "suv", "130.00"),
             (1.08, "Rockefeller Center", "first", "212.81"),
-            (8.90, "Rego Park", "sedan", "150.44"),
+            (8.90, "Rego Park", "sedan", "100.00"),
             (46.95, "Lincolndale", "sedan", "318.22"),
             (100.24, "Sag Harbor Post Office", "sedan", "485.82"),
             (100.24, "Sag Harbor Post Office", "suv", "649.67"),
@@ -141,14 +145,17 @@ class TestBlacklaneEnginePure(unittest.TestCase):
 
     def test_minimum_floor(self):
         # Rungs 1-3 all price at the Business floor; SUV/First floors
-        # are their rung-1 bases.
+        # are their rung-1 bases. The base floor still exists, but
+        # the CUSTOMER total at miles <= 10 is now the owner's flat
+        # $100 (Business) / $130 (SUV) — owner decision 2026-11-20
+        # ~06:38 EST.
         self.assertEqual(base_fare("sedan", D("0.5")), D("112.97"))
         self.assertEqual(base_fare("sedan", D("0")), D("112.97"))
         self.assertEqual(base_fare("suv", D("0.5")), D("175.37"))
         self.assertEqual(base_fare("first", D("0.5")), D("187.93"))
         r = compute_blacklane_one_way(D("0.5"), "sedan",
                                       "Times Square", "Rockefeller Center")
-        self.assertEqual(r["total"], D("129.32"))
+        self.assertEqual(r["total"], D("100.00"))
 
     def test_interpolation_between_rungs(self):
         # 25.5 mi sits between the 24.97-mi and 25.94-mi rungs.
@@ -158,43 +165,47 @@ class TestBlacklaneEnginePure(unittest.TestCase):
         # Above the top rung the base extends with the last segment.
         self.assertEqual(money(base_fare("sedan", D("105"))), D("440.56"))
 
-    def test_first_class_driver_pay_is_nine_dollars_a_mile(self):
-        # First Class driver rate $9/mi + toll (owner decision
-        # 2026-11-20 ~02:31 EST): 10 mi, no toll.
+    def test_first_class_driver_pay_is_the_slab(self):
+        # First Class driver pay is the FLAT slab + toll (owner
+        # decision 2026-11-20 ~06:25 EST): 10 mi -> 5-10 slab $110.
         r = compute_blacklane_one_way(D("10"), "first",
                                       "Times Square", "Rockefeller Center")
         self.assertEqual(r["total"], D("272.92"))
-        self.assertEqual(r["driver_earnings"], D("90.00"))
-        self.assertEqual(r["profit"], D("182.92"))
+        self.assertEqual(r["driver_earnings"], D("110.00"))
+        self.assertEqual(r["profit"], D("162.92"))
         self.assertFalse(r["first_class_driver_pay_tbd"])
-        for cls in ("sedan", "suv"):
+        for cls, slab in (("sedan", "80.00"), ("suv", "90.00")):
             got = compute_blacklane_one_way(
                 D("10"), cls, "Times Square", "Rockefeller Center")
-            self.assertIsNotNone(got["driver_earnings"], cls)
+            self.assertEqual(got["driver_earnings"], D(slab), cls)
             self.assertIsNotNone(got["profit"], cls)
             self.assertFalse(got["first_class_driver_pay_tbd"], cls)
 
-    def test_driver_pay_keeps_legacy_rates_plus_toll(self):
-        # Sedan $4/mi, SUV $6/mi + the map toll (toll is NOT in the
-        # customer total, but the driver still gets it).
+    def test_driver_pay_is_the_slab_plus_toll(self):
+        # The flat slab + the map toll (toll is NOT in the customer
+        # total, but the driver still gets it). 17.9 mi -> 10-20
+        # slab: sedan $95, SUV $130.
         r = compute_blacklane_one_way(D("17.9"), "sedan",
                                       "JFK Airport", "Times Square",
                                       toll=D("7.46"))
-        self.assertEqual(r["driver_earnings"], D("79.06"))
+        self.assertEqual(r["driver_earnings"], D("102.46"))
         self.assertEqual(r["total"], D("193.87"))
-        self.assertEqual(r["profit"], D("114.81"))
+        self.assertEqual(r["profit"], D("91.41"))
         s = compute_blacklane_one_way(D("17.9"), "suv",
                                       "JFK Airport", "Times Square",
                                       toll=D("7.46"))
-        self.assertEqual(s["driver_earnings"], D("114.86"))
+        self.assertEqual(s["driver_earnings"], D("137.46"))
 
     def test_referral_discount_comes_off_the_total_only(self):
+        # 1.08 mi sedan: flat customer total $100, so the 5%
+        # referral discount is $5.00 and the total $95.00; the
+        # driver keeps his slab ($80 at 1-5 mi) in full.
         r = compute_blacklane_one_way(D("1.08"), "sedan",
                                       "Times Square", "Rockefeller Center",
                                       referral=True)
-        self.assertEqual(r["referral_discount"], D("6.47"))
-        self.assertEqual(r["total"], D("122.85"))
-        self.assertEqual(r["driver_earnings"], D("4.32"))
+        self.assertEqual(r["referral_discount"], D("5.00"))
+        self.assertEqual(r["total"], D("95.00"))
+        self.assertEqual(r["driver_earnings"], D("80.00"))
 
     def test_classify_endpoint_geocoder_details(self):
         ny_nassau = classify_endpoint(
@@ -234,10 +245,13 @@ class TestBlacklaneEnginePure(unittest.TestCase):
             self.assertEqual(pricing_mode(), "legacy")
 
     def test_class_totals_include_first(self):
+        # 1.08 mi: Business and SUV are the owner's flat $100/$130
+        # (owner decision 2026-11-20 ~06:38 EST); First keeps the
+        # engine total.
         totals = blacklane_class_totals(
             D("1.08"), "Times Square", "Rockefeller Center")
-        self.assertEqual(totals, {"sedan": D("129.32"),
-                                  "suv": D("198.81"),
+        self.assertEqual(totals, {"sedan": D("100.00"),
+                                  "suv": D("130.00"),
                                   "first": D("212.81")})
 
     def test_unknown_class_rejected(self):
@@ -360,16 +374,16 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(black_sedan["fees"]["mta_congestion"], 0.75)
         self.assertEqual(black_sedan["fees"]["sales_tax"], 14.89)
         self.assertEqual(black_sedan["fees"]["black_car_fee"], 4.19)
-        # First Class: customer fare + driver pay at $9/mi + toll
-        # (owner decision 2026-11-20 ~02:31 EST). Stubbed route:
-        # 17.9 mi, $0.00 map toll.
+        # First Class: customer fare + driver pay at the FLAT slab
+        # (owner decision 2026-11-20 ~06:25 EST). Stubbed route:
+        # 17.9 mi -> 10-20 slab $150, $0.00 map toll.
         black_first = body["blacklane"]["first"]
         self.assertIsNotNone(black_first["total"])
-        self.assertEqual(black_first["driver_earnings"], 161.10)
+        self.assertEqual(black_first["driver_earnings"], 150.00)
         self.assertEqual(black_first["profit"],
-                         round(black_first["total"] - 161.10, 2))
+                         round(black_first["total"] - 150.00, 2))
         self.assertFalse(black_first["first_class_driver_pay_tbd"])
-        self.assertIn("$9", body["first_class_driver_pay"])
+        self.assertIn("slab", body["first_class_driver_pay"])
         self.assertFalse(body["snapshot_fallback"])
 
     def test_preview_class_filter_first(self):
@@ -381,9 +395,9 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(body["legacy"], {})
         self.assertEqual(set(body["blacklane"]), {"first"})
         first = body["blacklane"]["first"]
-        self.assertEqual(first["driver_earnings"], 161.10)
+        self.assertEqual(first["driver_earnings"], 150.00)
         self.assertEqual(first["profit"],
-                         round(first["total"] - 161.10, 2))
+                         round(first["total"] - 150.00, 2))
         self.assertFalse(first["first_class_driver_pay_tbd"])
 
     def test_preview_unresolvable_address_is_400(self):
@@ -512,7 +526,7 @@ class BlacklaneApiCase(unittest.TestCase):
             row = app_module.db.session.get(app_module.Booking, booking["id"])
             self.assertEqual(row.fare, D("167.79"))
             self.assertEqual(row.tax, D("14.89"))
-            self.assertEqual(row.driver_earnings, D("71.60") + row.toll)
+            self.assertEqual(row.driver_earnings, D("95.00") + row.toll)
 
     def test_select_first_class_allowed_in_blacklane_mode(self):
         # First Class is OPEN since owner decision 2026-11-20 ~03:00 EST
@@ -568,11 +582,12 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
         self.assertIn("First Class", resp.get_json()["error"])
 
-    def test_recompute_first_class_prices_at_nine_dollars_a_mile(self):
+    def test_recompute_first_class_prices_at_the_slab(self):
         # A stored First Class row reprices in Blacklane mode with
-        # the $9/mi driver rate (owner decision 2026-11-20 ~02:31
-        # EST) — and, crucially, with the RAW class, not the
-        # sedan-fallback helper (which would price it as a sedan).
+        # the FLAT slab driver pay (owner decision 2026-11-20
+        # ~06:25 EST) — 17.9 mi -> 10-20 slab $150 — and, crucially,
+        # with the RAW class, not the sedan-fallback helper (which
+        # would price it as a sedan).
         with mock.patch.dict(os.environ, {"NOEL_PRICING": "blacklane"}):
             booking = self.book()
             with app_module.app.app_context():
@@ -580,7 +595,7 @@ class BlacklaneApiCase(unittest.TestCase):
                 row.vehicle_class = "first"
                 app_module.recompute_booking_fare(row)
                 app_module.db.session.commit()
-                self.assertEqual(row.driver_earnings, D("161.10"))
+                self.assertEqual(row.driver_earnings, D("150.00"))
                 self.assertEqual(row.vehicle_class, "first")
                 self.assertIsNotNone(row.fare_total)
 
@@ -589,7 +604,10 @@ class BlacklaneApiCase(unittest.TestCase):
 class LadderExactCase(unittest.TestCase):
     """Owner hard rule 2026-11-20 ~02:32 EST: 'Dono mein ek rupay ka
     fark nahi aana' — ZERO difference to the cent between Blacklane's
-    total and Noel's, on all 100 ladder rungs x 3 classes. Expected
+    total and Noel's, on all 100 ladder rungs x 3 classes — with ONE
+    later owner override (2026-11-20 ~06:38 EST): at miles <= 10 the
+    customer pays his flat $100 (Business) / $130 (SUV) instead of
+    the Blacklane total; First Class keeps the engine total. Expected
     totals come from the sheet (frozen in the fixture); the engine
     prices Times Square -> each rung's place at the rung's miles.
     The dropoff state comes from the place string (the same data
@@ -627,6 +645,14 @@ class LadderExactCase(unittest.TestCase):
                     dropoff_details=dropoff_details,
                     toll=D("0"))
                 want = D(str(rung["totals"][cls]))
+                if D(str(rung["miles"])) <= D("10"):
+                    # Owner flat override (2026-11-20 ~06:38 EST):
+                    # Business $100, SUV $130 at miles <= 10; First
+                    # keeps the sheet total.
+                    if cls == "sedan":
+                        want = D("100.00")
+                    elif cls == "suv":
+                        want = D("130.00")
                 if got["total"] != want:
                     mismatches.append(
                         (rung["n"], cls, str(want), str(got["total"])))

@@ -821,6 +821,16 @@
         b.classList.toggle("active", b.getAttribute("data-screen") === name);
       });
     }
+    /* Owner decision 2026-11-20 ~06:45 EST: the "Drive with Noel
+       Chauffer" marketing section (Why drive / How to start / FAQs)
+       is recruitment content for SIGNED-OUT visitors only. A
+       signed-in driver opening the app must see none of it — only
+       his jobs. So it shows on the login/register screens and is
+       hidden on every signed-in screen (home, trip, earnings, tax,
+       documents, profile). The section stays in the page HTML (and
+       its FAQ schema) so Google still indexes the driver page. */
+    var seo = document.querySelector(".seo-drive");
+    if (seo) { if (name === "login" || name === "register") show(seo); else hide(seo); }
     window.scrollTo(0, 0);
     if (name === "home") { refreshOffers(); }
     if (name === "earnings") { loadEarnings(); loadPayoutSetup(); }

@@ -39,15 +39,19 @@ route-toll line — its total is base + the fees above. So the
 Blacklane-style customer total here is base + fees ONLY; the map toll
 (the E-ZPass crossings from tolls.py, kept on the booking as before)
 is NOT added to what the customer pays. The driver still gets the
-map toll in his pay (driver earnings = miles x driver rate + map
-toll, unchanged), so in Blacklane mode the map toll comes out of
-Noel's profit. If the owner wants the toll added on top of the
-Blacklane total instead, that is a one-line change in
-``compute_blacklane_one_way``.
+map toll in his pay (driver earnings = flat slab + map toll), so
+in Blacklane mode the map toll comes out of Noel's profit. If the
+owner wants the toll added on top of the Blacklane total instead,
+that is a one-line change in ``compute_blacklane_one_way``.
 
-FIRST CLASS — DRIVER RATE SET (owner decision 2026-11-20 ~02:31 EST):
-$9/mile + map toll (sedan $4, SUV $6, First Class $9). The engine
-computes the First Class customer fare AND driver pay. First Class
+DRIVER PAY — FLAT SLAB (owner decision 2026-11-20 ~06:25 EST,
+"Slap wala"): the driver gets pricing.driver_slab_pay(miles,
+class) + map toll — NOT per mile. The old per-mile rates (sedan
+$4/mi, SUV $6/mi, First Class $9/mi) are gone from this engine.
+CUSTOMER FLAT (owner decision 2026-11-20 ~06:38 EST): at miles
+<= 10, Business Class is a flat $100 and Business SUV a flat
+$130, charged exactly; First Class keeps the engine total.
+The engine computes the First Class customer fare AND driver pay. First Class
 is OPEN since owner decision 2026-11-20 ~03:00 EST ("wahi daal dena
 na same" — same models as Blacklane): Mercedes-Benz S-Class, BMW
 7 Series, Audi A8, Tesla Model X (see car_models.FIRST_CLASS_MODELS;
@@ -90,7 +94,7 @@ from __future__ import annotations
 import re
 from decimal import Decimal, ROUND_HALF_UP
 
-from pricing import DRIVER_SEDAN, DRIVER_SUV, REFERRAL_DISCOUNT_RATE, money
+from pricing import REFERRAL_DISCOUNT_RATE, driver_slab_pay, money
 
 CENT = Decimal("0.01")
 
@@ -106,13 +110,20 @@ BLACKLANE_CLASS_LABELS = {
     "suv": "Business SUV",
     "first": "First Class",
 }
-# Driver rate per class: sedan $4/mi, SUV $6/mi (as in pricing.py),
-# First Class $9/mi — owner decision 2026-11-20 ~02:31 EST.
-DRIVER_FIRST = Decimal("9")
-BLACKLANE_DRIVER_RATES = {
-    "sedan": DRIVER_SEDAN,
-    "suv": DRIVER_SUV,
-    "first": DRIVER_FIRST,
+# Driver pay is NOT per mile here any more: the owner's FLAT slab
+# system (pricing.driver_slab_pay) applies in Blacklane mode too —
+# owner decision 2026-11-20 ~06:25 EST, voice call ("Slap wala").
+# The old per-mile rates (sedan $4/mi, SUV $6/mi, First $9/mi)
+# are gone from this engine; the slab table lives in pricing.py.
+# Customer FLAT total for short rides (owner decision 2026-11-20
+# ~06:38 EST, voice call): 1-10 miles, Business Class $100,
+# Business SUV $130 — the customer is charged exactly that, no
+# Blacklane base/fees on top. First Class is NOT flat: it keeps
+# the Blacklane engine total ("rehne do jaisa hai waisa").
+# The flat applies at miles <= 10 (a 0.5-mile ride is in the band).
+CUSTOMER_FLAT_1_TO_10 = {
+    "sedan": Decimal("100"),
+    "suv": Decimal("130"),
 }
 
 
@@ -760,9 +771,12 @@ def compute_blacklane_one_way(miles, vehicle_class, pickup_text,
     with a valid referral code gets 5% off the total, driver pay
     unchanged (same rule as the legacy engine).
 
-    Driver pay is miles x driver rate + map toll for every class:
-    sedan $4/mi, SUV $6/mi, First Class $9/mi (owner decision
-    2026-11-20 ~02:31 EST).
+    Driver pay is the owner's FLAT slab (pricing.driver_slab_pay)
+    + map toll for every class — NOT per mile (owner decision
+    2026-11-20 ~06:25 EST). Customer total: the Blacklane
+    base + fees, EXCEPT at miles <= 10 where Business Class is a
+    flat $100 and Business SUV a flat $130 (owner decision
+    2026-11-20 ~06:38 EST); First Class keeps the engine total.
     """
     if vehicle_class not in BLACKLANE_CLASSES:
         raise ValueError("vehicle_class must be 'sedan', 'suv' or 'first'")
@@ -772,13 +786,18 @@ def compute_blacklane_one_way(miles, vehicle_class, pickup_text,
     pickup = classify_endpoint(pickup_text, pickup_details)
     dropoff = classify_endpoint(dropoff_text, dropoff_details)
     fees = blacklane_fees(pickup, dropoff, base)
+    flat_total = CUSTOMER_FLAT_1_TO_10.get(vehicle_class)
+    if flat_total is not None and miles_dec <= Decimal("10"):
+        # Short ride: the customer is charged exactly the flat
+        # $100/$130 — no Blacklane base/fees on top of it.
+        base = flat_total
+        fees = {k: Decimal("0.00") for k in fees}
     total = money(base + fees["fees_total"])
     referral_discount = Decimal("0.00")
     if referral:
         referral_discount = money(total * REFERRAL_DISCOUNT_RATE)
         total = money(total - referral_discount)
-    driver_rate = BLACKLANE_DRIVER_RATES[vehicle_class]
-    driver_earnings = money(driver_rate * miles_dec + toll)
+    driver_earnings = money(driver_slab_pay(miles_dec, vehicle_class) + toll)
     profit = money(total - driver_earnings)
     return {
         "miles": miles_dec,
@@ -795,7 +814,7 @@ def compute_blacklane_one_way(miles, vehicle_class, pickup_text,
         "profit": profit,
         "vehicle_class": vehicle_class,
         "vehicle_class_label": BLACKLANE_CLASS_LABELS[vehicle_class],
-        "first_class_driver_pay_tbd": driver_rate is None,
+        "first_class_driver_pay_tbd": False,
         "tax_rate_estimated": pickup["tax_rate_estimated"],
         "meet_and_greet_unknown": (pickup["meet_and_greet_unknown"]
                                    or dropoff["meet_and_greet_unknown"]),

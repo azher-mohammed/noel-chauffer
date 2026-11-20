@@ -105,11 +105,16 @@ BOOKING_FEE = Decimal("0")
 # Hourly rides stay $50/hour (compute_hourly) — slabs are one-way
 # distance rides only. NO slab exists above 400 miles: those rides
 # are refused (driver_slab_pay raises) until the owner gives numbers.
-# The first 4 slabs are the owner's dictated numbers (note: SUV is
+# The first 5 slabs are the owner's dictated numbers (note: SUV is
 # $160 at BOTH 20-30 and 30-40 — his own numbers, equal is fine, do
-# NOT "fix" it). From 40-50 on, every slab is +$20 per class over
+# NOT "fix" it). 1-5 miles: Business $80, SUV $80, First $100
+# (owner decisions 2026-11-20 ~06:36-06:37 EST, voice call —
+# Business $80, SUV $80, First Class $100; the SUV was briefly
+# $100 at ~06:36 EST before he corrected it to $80).
+# From 40-50 on, every slab is +$20 per class over
 # the previous one.
 _DRIVER_PAY_SLAB_ANCHORS = (
+    (5, 80, 80, 100),
     (10, 80, 90, 110),
     (20, 95, 130, 150),
     (30, 125, 160, 190),

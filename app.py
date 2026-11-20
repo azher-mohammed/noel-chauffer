@@ -3927,8 +3927,8 @@ def recompute_booking_fare(booking):
             # Pass the RAW stored class (booking_vehicle_class()
             # returns "first" for First Class now, but the raw
             # column is the source of truth here). First Class
-            # driver pay is $9/mi (owner decision 2026-11-20
-            # ~02:31 EST).
+            # driver pay is the flat slab (owner decision 2026-11-20
+            # ~06:25 EST).
             raw_class = (booking.vehicle_class or "").strip().lower() or "sedan"
             result = compute_blacklane_one_way(
                 booking.miles or Decimal("0"),
@@ -4181,7 +4181,7 @@ def place_search():
 # [&class=sedan|suv|first]. The legacy total is fare + map toll; the
 # Blacklane-style total is base fare + Blacklane fees (no map toll in
 # the customer total — see blacklane_pricing.py). First Class driver
-# pay is $9/mi (owner decision 2026-11-20 ~02:31 EST) and the
+# pay is the flat slab (owner decision 2026-11-20 ~06:25 EST) and the
 # qualifying models are the same as Blacklane's (S-Class, 7 Series,
 # A8, Model X — owner decision 2026-11-20 ~03:00 EST).
 # An address that cannot be resolved is a 400 — no distance is ever
@@ -4286,7 +4286,7 @@ def fare_preview():
         "snapshot_fallback": snapshot_fallback,
         "legacy": legacy,
         "blacklane": blacklane,
-        "first_class_driver_pay": "$9.00 per mile + toll",
+        "first_class_driver_pay": "Flat slab by distance + toll",
     })
 
 
@@ -4316,7 +4316,7 @@ def _booking_create_view(booking, referral_code=None):
             # SUV, First Class). First Class IS bookable now — the
             # qualifying models are decided (same as Blacklane:
             # S-Class, 7 Series, A8, Model X; owner decision
-            # 2026-11-20 ~03:00 EST) and the driver rate is $9/mi.
+            # 2026-11-20 ~03:00 EST); driver pay is the flat slab.
             totals = blacklane_class_totals(
                 booking.miles or Decimal("0"), booking.pickup, booking.dropoff,
                 pickup_details=geo_module.geocode_address(booking.pickup),
@@ -4580,7 +4580,7 @@ def select_vehicle_class(booking_id):
     if vehicle_class == "first":
         # First Class is OPEN (owner decision 2026-11-20 ~03:00 EST):
         # same models as Blacklane (S-Class, 7 Series, A8, Model X),
-        # driver $9/mi. But it exists ONLY in Blacklane mode — the
+        # driver pay is the flat slab. But it exists ONLY in Blacklane mode — the
         # legacy engine has no First Class rate at all, so in legacy
         # mode there is nothing to price it with; refuse there.
         if pricing_mode() != "blacklane":
@@ -6656,7 +6656,7 @@ def driver_trip_event(booking_id):
             # extra-distance formula only knows sedan/suv rates and
             # the Blacklane engine has no extra-miles step. Refuse
             # cleanly (400) instead of crashing on completion; the
-            # driver is still paid $9/mi for the booked miles.
+            # driver is still paid the flat slab for the booked miles.
             return err("Extra miles cannot be added to a First Class ride yet.", 400)
         if extra_dec > 0:
             extra = compute_extra_distance(extra_dec, booking_vehicle_class(booking))

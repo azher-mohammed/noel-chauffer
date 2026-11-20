@@ -1,19 +1,23 @@
 """Tests for flat driver pay by distance slab (owner decision
 2026-11-20, voice call ~04:25 EST: "abhi ye kar do live"; FINAL RULE
 ~04:32 EST: the 30-40 slab is the base and every slab after it is
-+$20 per class, to 400 miles).
++$20 per class, to 400 miles; 1-5 slab added ~06:35-06:37 EST the
+same day: Business $80, SUV $80, First $100).
 
 Settled rules under test:
 - Driver pay is FLAT per ride by distance band, per class — NOT per
-  mile. Slab picked by miles: <= 10 -> 0-10, <= 20 -> 10-20, and so
-  on to <= 400 -> 390-400. Values are the owner's dictated numbers
-  (draft sheet driver-pay-slabs-draft.xlsx, verified 2026-11-20).
+  mile. Slab picked by miles: <= 5 -> 1-5, <= 10 -> 5-10, <= 20 ->
+  10-20, and so on to <= 400 -> 390-400. Values are the owner's
+  dictated numbers (draft sheet driver-pay-slabs-draft.xlsx,
+  verified 2026-11-20, plus the 1-5 slab he dictated later).
 - Toll is added on top of the slab amount, same as before.
 - Hourly rides stay $50/hour — slabs apply only to distance rides.
 - Rides OVER 400 miles have no slab: booking creation and the fare
   preview refuse them with HTTP 400; nothing is invented.
-- Customer pricing is untouched: legacy $9/$10 per mile, Blacklane
-  engine gated and not flipped, bookings stay paused.
+- Customer pricing: legacy $9/$10 per mile untouched; the Blacklane
+  engine now has the owner's flat $100 (Business) / $130 (SUV) at
+  1-10 miles and slab driver pay — still gated, not flipped;
+  bookings stay paused.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -50,10 +54,12 @@ from pricing import (  # noqa: E402
 D = Decimal
 
 # The full verified table from the draft sheet (upper bound miles,
-# Business, SUV, First). 0-10 through 30-40 are the owner's dictated
-# numbers; from 40-50 on, every slab is +$20 per class over the
-# previous one (30-40 is the base).
+# Business, SUV, First). 1-5 through 30-40 are the owner's dictated
+# numbers (the 1-5 slab: Business $80, SUV $80, First $100, owner
+# decision 2026-11-20 ~06:35-06:37 EST); from 40-50 on, every slab
+# is +$20 per class over the previous one (30-40 is the base).
 FULL_TABLE = [
+    (5, 80, 80, 100),
     (10, 80, 90, 110), (20, 95, 130, 150), (30, 125, 160, 190),
     (40, 140, 160, 200), (50, 160, 180, 220), (60, 180, 200, 240),
     (70, 200, 220, 260), (80, 220, 240, 280), (90, 240, 260, 300),
@@ -72,8 +78,8 @@ FULL_TABLE = [
 
 
 class TestSlabTable(unittest.TestCase):
-    def test_table_has_40_slabs_to_400_miles(self):
-        self.assertEqual(len(DRIVER_PAY_SLABS), 40)
+    def test_table_has_41_slabs_to_400_miles(self):
+        self.assertEqual(len(DRIVER_PAY_SLABS), 41)
         self.assertEqual(DRIVER_PAY_MAX_MILES, D("400"))
         self.assertEqual(DRIVER_PAY_SLABS[-1][0], D("400"))
 
@@ -86,6 +92,12 @@ class TestSlabTable(unittest.TestCase):
 
     def test_boundaries_are_inclusive_on_the_upper_end(self):
         # miles <= bound belongs to that slab; just past it moves up.
+        # The 1-5 / 5-10 split (owner decision 2026-11-20 ~06:35 EST):
+        # at 5.0 SUV is $80 and First $100; at 5.1 they are $90/$110.
+        self.assertEqual(driver_slab_pay(D("5.0"), "suv"), D("80"))
+        self.assertEqual(driver_slab_pay(D("5.1"), "suv"), D("90"))
+        self.assertEqual(driver_slab_pay(D("5.0"), "first"), D("100"))
+        self.assertEqual(driver_slab_pay(D("5.1"), "first"), D("110"))
         self.assertEqual(driver_slab_pay(D("10.0"), "sedan"), D("80"))
         self.assertEqual(driver_slab_pay(D("10.1"), "sedan"), D("95"))
         self.assertEqual(driver_slab_pay(D("20.0"), "suv"), D("130"))
@@ -99,9 +111,13 @@ class TestSlabTable(unittest.TestCase):
         self.assertEqual(driver_slab_pay(D("400.0"), "sedan"), D("860"))
 
     def test_mid_slab_rides_pay_the_flat_slab_amount(self):
-        # 7.3 mi (home -> JFK): 0-10 slab, same pay whatever the
-        # exact miles inside the slab.
-        for miles in ("2.0", "7.3", "10.0"):
+        # 2.0 mi: 1-5 slab (Business $80, SUV $80, First $100).
+        self.assertEqual(driver_slab_pay(D("2.0"), "sedan"), D("80"))
+        self.assertEqual(driver_slab_pay(D("2.0"), "suv"), D("80"))
+        self.assertEqual(driver_slab_pay(D("2.0"), "first"), D("100"))
+        # 7.3 mi (home -> JFK) and 10.0 mi: 5-10 slab, same pay
+        # whatever the exact miles inside the slab.
+        for miles in ("7.3", "10.0"):
             self.assertEqual(driver_slab_pay(D(miles), "sedan"), D("80"), miles)
             self.assertEqual(driver_slab_pay(D(miles), "suv"), D("90"), miles)
             self.assertEqual(driver_slab_pay(D(miles), "first"), D("110"), miles)

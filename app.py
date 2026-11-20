@@ -5898,6 +5898,55 @@ def driver_earnings():
     })
 
 
+# ------------------------------------------------------- driver tax info ---
+# Display-only tax information page for drivers (owner decision
+# 2026-11-20, voice call: "dikhane wala" — an info page, NOT a fillable
+# form). No fields, no SSN/TIN collection, no uploads, no IRS filing.
+# The page shows the facts and the driver's own earnings for the year;
+# the actual 1099 is issued by Noel Chauffer (Siahsolutions Inc).
+TAX_YEAR = 2026
+TAX_FORMS_AVAILABLE_BY = date(2027, 1, 31)
+TAX_STATE_FILING_DEADLINE = date(2027, 4, 15)
+TAX_NEC_THRESHOLD = Decimal("2000.00")
+
+
+@app.route("/api/drivers/me/tax-info", methods=["GET"])
+def driver_tax_info():
+    driver, error = require_driver()
+    if error:
+        return error
+    rides = (Booking.query.filter_by(accepted_driver_id=driver.id, status="completed").all())
+    # Only completed, non-refunded trips count, and only those completed
+    # in the tax year (America/New_York completion date).
+    eligible = _payout_eligible(rides)
+    year_rides = [b for b in eligible
+                  if completion_date(b.completed_at, b.created_at).year == TAX_YEAR]
+    total = sum((money(b.driver_earnings) for b in year_rides), Decimal("0.00"))
+    return jsonify({
+        "tax_year": TAX_YEAR,
+        "forms_available_by": TAX_FORMS_AVAILABLE_BY.isoformat(),
+        "state_filing_deadline": TAX_STATE_FILING_DEADLINE.isoformat(),
+        "nec_threshold": num(TAX_NEC_THRESHOLD),
+        "forms": [
+            {
+                "code": "1099-NEC",
+                "title": "1099-NEC — Nonemployee Compensation",
+                "description": "Reports what you earned as an independent contractor driving with Noel Chauffer. You receive one if your 2026 earnings are $2,000 or more.",
+            },
+            {
+                "code": "1099-K",
+                "title": "1099-K — Payment Card and Third-Party Network Transactions",
+                "description": "Reports payments made to you through a card or payment network, if any apply to you.",
+            },
+        ],
+        "issuer": "Noel Chauffer (Siahsolutions Inc)",
+        "filing_note": "Noel Chauffer issues your 1099. This app does not file taxes for you — file your return yourself, or with an accountant or a tax-filing service.",
+        # Earnings amounts only — never miles, fares, or totals.
+        "earnings_year": num(total),
+        "completed_rides_year": len(year_rides),
+    })
+
+
 # ------------------------------------------------------------------ owner ---
 
 @app.route("/api/owner/login", methods=["POST"])

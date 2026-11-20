@@ -393,6 +393,27 @@
     </div>
   </section>
 
+  <!-- ============ TAX INFO (display only — no form to fill in) ============ -->
+  <section class="screen hidden" id="screen-tax">
+    <h2>Tax info</h2>
+    <p class="intro">Your tax documents for 2026. This page only shows information — there is nothing to fill in.</p>
+    <div class="earn-sum">
+      <div class="label">Your earnings in 2026</div>
+      <div class="amount" id="tax-earnings-2026">—</div>
+      <div class="label" id="tax-rides-2026"></div>
+    </div>
+    <div class="section-title">Your 1099 forms</div>
+    <p class="intro">Your 1099 tax forms for 2026 will be available by <b>January 31, 2027</b>.</p>
+    <p class="intro">You may receive a 1099-K and/or a 1099-NEC:</p>
+    <p class="intro"><b>1099-NEC</b> — reports what you earned as an independent contractor driving with Noel Chauffer. You receive one if your 2026 earnings are $2,000 or more.</p>
+    <p class="intro"><b>1099-K</b> — reports payments made to you through a card or payment network, if any apply to you.</p>
+    <div class="section-title">Filing deadlines</div>
+    <p class="intro">State filing deadline: <b>April 15, 2027</b>.</p>
+    <p class="intro">For tax year 2026, the IRS 1099-NEC threshold is <b>$2,000</b> (raised from $600).</p>
+    <div class="section-title">Who issues your 1099</div>
+    <p class="intro">Your 1099 is issued by Noel Chauffer (Siahsolutions Inc). This app does not file taxes for you — file your return yourself, or with an accountant or a tax-filing service.</p>
+  </section>
+
   <!-- ============ DOCUMENTS ============ -->
   <section class="screen hidden" id="screen-documents">
     <h2>Documents</h2>
@@ -424,6 +445,7 @@
   <nav class="tabbar hidden" id="tabbar" aria-label="Driver app">
     <button type="button" data-screen="home" class="active"><span class="ico">◆</span>Home</button>
     <button type="button" data-screen="earnings"><span class="ico">$</span>Earnings</button>
+    <button type="button" data-screen="tax"><span class="ico">§</span>Tax info</button>
     <button type="button" data-screen="documents"><span class="ico">▤</span>Documents</button>
     <button type="button" data-screen="profile"><span class="ico">●</span>Profile</button>
   </nav>

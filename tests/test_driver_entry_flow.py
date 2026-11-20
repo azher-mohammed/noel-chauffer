@@ -133,7 +133,7 @@ class DriverEntryFlowCase(unittest.TestCase):
         js = read("static/js/driver.js")
         self.assertIn(
             'var SCREENS = ["login", "register", "home", "trip", '
-            '"earnings", "documents", "profile"];', js)
+            '"earnings", "tax", "documents", "profile"];', js)
         self.assertIn(
             'if (name === "login" || name === "register" || name === "trip") {',
             js)

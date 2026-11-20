@@ -472,11 +472,13 @@ input, select { font: inherit; }
 #screen-home .intro,
 #screen-trip .intro,
 #screen-earnings .intro,
+#screen-tax .intro,
 #screen-documents .intro,
 #screen-profile .intro,
 #screen-home .form-note,
 #screen-trip .form-note,
 #screen-earnings .form-note,
+#screen-tax .form-note,
 #screen-documents .form-note,
 #screen-profile .form-note,
 #screen-trip .loc-note,
@@ -487,6 +489,7 @@ input, select { font: inherit; }
 #screen-home .form-error,
 #screen-trip .form-error,
 #screen-earnings .form-error,
+#screen-tax .form-error,
 #screen-documents .form-error,
 #screen-profile .form-error { color: #ff9d9d; }
 
@@ -494,6 +497,7 @@ input, select { font: inherit; }
 #screen-home .section-title,
 #screen-trip .section-title,
 #screen-earnings .section-title,
+#screen-tax .section-title,
 #screen-documents .section-title,
 #screen-profile .section-title {
   color: var(--gold-soft);
@@ -682,6 +686,14 @@ input, select { font: inherit; }
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 #screen-earnings .earn-sum .amount { color: var(--white); }
+/* Tax info: same gold-framed summary as Earnings. */
+#screen-tax .earn-sum {
+  background: linear-gradient(180deg, #1a1a1c, #0b0b0c);
+  border: 1px solid rgba(201, 162, 39, 0.55);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+#screen-tax .earn-sum .amount { color: var(--white); }
 #screen-earnings .pay-week {
   background: #1d1d1f;
   border: 1px solid #2e2e30;

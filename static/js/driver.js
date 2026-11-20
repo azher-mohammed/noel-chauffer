@@ -801,7 +801,7 @@
   }
 
   /* ---------- Screens ---------- */
-  var SCREENS = ["login", "register", "home", "trip", "earnings", "documents", "profile"];
+  var SCREENS = ["login", "register", "home", "trip", "earnings", "tax", "documents", "profile"];
   function showScreen(name) {
     SCREENS.forEach(function (s) {
       var el = $("screen-" + s);
@@ -818,6 +818,7 @@
     window.scrollTo(0, 0);
     if (name === "home") { refreshOffers(); }
     if (name === "earnings") { loadEarnings(); }
+    if (name === "tax") { loadTaxInfo(); }
     if (name === "documents") { renderDocuments(); }
     if (name === "profile") { renderProfile(); loadDriverReferral(); }
   }
@@ -2653,6 +2654,21 @@
           var summary = pickNumber(j, ["total_earnings", "earnings_sum", "sum", "earned", "amount", "total_earned"]);
           $("earnings-sum").textContent = money(summary !== null ? summary : (haveRows ? sum : 0));
         }
+      })
+      .catch(function () { /* keep the previous view on a failed check */ });
+  }
+
+  /* ---------- Tax info (display only — no form to fill in) ---------- */
+  function loadTaxInfo() {
+    fetch("/api/drivers/me/tax-info", { headers: authHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var total = pickNumber(j, ["earnings_year", "total_earnings"]);
+        $("tax-earnings-2026").textContent = money(total !== null ? total : 0);
+        var rides = pickNumber(j, ["completed_rides_year", "ride_count"]);
+        $("tax-rides-2026").textContent = rides !== null
+          ? rides + (rides === 1 ? " completed ride" : " completed rides") + " in 2026"
+          : "";
       })
       .catch(function () { /* keep the previous view on a failed check */ });
   }

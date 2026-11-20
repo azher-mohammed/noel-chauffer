@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles (same as the other
-# API test modules): sedan total $162.00, driver $72.00 before toll.
+# API test modules): sedan total $162.00, driver $95.00 (10-20 slab) before toll.
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -179,10 +179,10 @@ class OfferTollToneCase(unittest.TestCase):
         self.assertTrue(approx(detail["toll"], "16.00"), detail)
 
     def test_pricing_split_matches_card(self):
-        # The example card: 20-mile SUV, $120 driving pay + $16 toll.
+        # The example card: 20-mile SUV, $130 slab pay + $16 toll.
         result = pricing.compute_one_way(20, toll=16, vehicle_class="suv")
-        self.assertEqual(float(result["driver_earnings"]), 136.00)
-        self.assertEqual(float(result["driver_earnings"] - result["toll"]), 120.00)
+        self.assertEqual(float(result["driver_earnings"]), 146.00)
+        self.assertEqual(float(result["driver_earnings"] - result["toll"]), 130.00)
 
     # -- the job stays until the driver accepts -----------------------------
     def test_old_offer_still_listed_until_accepted(self):

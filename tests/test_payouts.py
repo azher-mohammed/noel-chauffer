@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import geo as geo_module  # noqa: E402
 
-# Deterministic geo: every one-way ride is 18.0 miles -> driver $72.00.
+# Deterministic geo: every one-way ride is 18.0 miles -> driver $95.00 (10-20 slab).
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -245,16 +245,16 @@ class PayoutApiCase(unittest.TestCase):
         self.assertEqual(rides[b2]["week_start"], "2026-11-30")
         self.assertEqual(rides[b2]["due_date"], "2026-12-07")
         self.assertNotIn("earnings", rides[b1])
-        # The same money is still visible to the owner: $72 in each week.
+        # The same money is still visible to the owner: $95 in each week.
         self.owner_login()
         payouts = self.client.get("/api/owner/payouts").get_json()
         by_week = {p["index"]: p for p in payouts}
-        self.assertEqual(D(str(by_week[0]["total_earnings"])), D("72.00"))
-        self.assertEqual(D(str(by_week[2]["total_earnings"])), D("72.00"))
+        self.assertEqual(D(str(by_week[0]["total_earnings"])), D("95.00"))
+        self.assertEqual(D(str(by_week[2]["total_earnings"])), D("95.00"))
 
     def test_multiple_rides_sum_in_one_week(self):
         _driver, token = self.register_driver()
-        b1 = self.complete_ride(token)                    # one-way: $72.00
+        b1 = self.complete_ride(token)                    # one-way: $95.00
         b2 = self.complete_ride(token, ride_type="hourly", hours=3)  # $150.00
         self.backdate_completion(b1, _utc(2026, 11, 17))
         self.backdate_completion(b2, _utc(2026, 11, 20))
@@ -265,7 +265,7 @@ class PayoutApiCase(unittest.TestCase):
         self.assertNotIn("total_earnings", body["weeks"][0])
         self.owner_login()
         payouts = self.client.get("/api/owner/payouts").get_json()
-        self.assertEqual(D(str(payouts[0]["total_earnings"])), D("222.00"))
+        self.assertEqual(D(str(payouts[0]["total_earnings"])), D("245.00"))
 
     def test_boundary_completion_dates_split_weeks(self):
         _driver, token = self.register_driver()
@@ -356,7 +356,7 @@ class PayoutApiCase(unittest.TestCase):
         self.assertEqual(week0["status"], "unpaid")
         self.assertEqual(week0["ride_count"], 2)
         self.assertNotIn("total_earnings", week0)
-        self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("72.00"))
+        self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("95.00"))
 
     # -- owed math ---------------------------------------------------------
     def test_owed_counts_only_unpaid_completed_trips(self):
@@ -367,15 +367,15 @@ class PayoutApiCase(unittest.TestCase):
         self.backdate_completion(b2, _utc(2026, 12, 1))    # week 2
         self.owner_login()
         summary = self.owner_summary()
-        self.assertEqual(D(str(summary["driver_owed"])), D("144.00"))
+        self.assertEqual(D(str(summary["driver_owed"])), D("190.00"))
         self.assertEqual(D(str(summary["profit"])),
                          D(str(summary["gross"])) - D(str(summary["driver_owed"])))
         self.client.post("/api/owner/payouts/mark-paid",
                          json={"driver_id": driver["id"], "week_index": 0})
         summary = self.owner_summary()
-        self.assertEqual(D(str(summary["driver_owed"])), D("72.00"))
+        self.assertEqual(D(str(summary["driver_owed"])), D("95.00"))
         self.assertEqual(D(str(summary["profit"])),
-                         D(str(summary["gross"])) - D("72.00"))
+                         D(str(summary["gross"])) - D("95.00"))
         self.client.post("/api/owner/payouts/mark-paid",
                          json={"driver_id": driver["id"], "week_index": 2})
         self.assertEqual(D(str(self.owner_summary()["driver_owed"])), D("0.00"))
@@ -466,14 +466,14 @@ class PayoutApiCase(unittest.TestCase):
         w0_d1 = by_key[(d1["id"], 0)]
         self.assertEqual(w0_d1["driver_name"], d1["name"])
         self.assertEqual(w0_d1["due_date"], "2026-11-23")
-        self.assertEqual(D(str(w0_d1["total_earnings"])), D("72.00"))
+        self.assertEqual(D(str(w0_d1["total_earnings"])), D("95.00"))
         self.assertEqual(w0_d1["status"], "unpaid")
         self.assertEqual([r["id"] for r in w0_d1["rides"]], [b1])
         w2_d1 = by_key[(d1["id"], 2)]
         self.assertEqual(w2_d1["due_date"], "2026-12-07")
         w0_d2 = by_key[(d2["id"], 0)]
         self.assertEqual(w0_d2["driver_name"], d2["name"])
-        self.assertEqual(D(str(w0_d2["total_earnings"])), D("72.00"))
+        self.assertEqual(D(str(w0_d2["total_earnings"])), D("95.00"))
 
 
 if __name__ == "__main__":

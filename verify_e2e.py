@@ -18,7 +18,7 @@ Pricing assertions use the live geo result: miles are read back from the
 owner booking detail and the expected totals are computed with the same
 pricing module the server uses. When live geo returns 18.0 miles for
 JFK Airport -> Times Square (as verified before), the exact figures
-$162.00 / $72.00 / $162.00 / $180.50 / $90.50 / $177.00 are asserted too
+$162.00 / $95.00 / $162.00 / $180.50 / $113.50 / $177.00 are asserted too
 for bookings WITHOUT a referral code; the referral booking asserts the
 5% discounted figures ($153.90 total, $8.10 discount).
 """
@@ -297,8 +297,8 @@ if miles1 == Decimal("18.0"):
           approx(detail["customer_total"], Decimal("162.00") + toll1))
     check("18.0 mi fare/tax/gratuity", approx(detail["fare"], "162.00")
           and approx(detail["tax"], "0.00") and approx(detail["gratuity"], "0.00"), str(detail))
-    check("18.0 mi driver is $72.00 + stored toll",
-          approx(detail["driver_earnings"], Decimal("72.00") + toll1))
+    check("18.0 mi driver is $95.00 + stored toll",
+          approx(detail["driver_earnings"], Decimal("95.00") + toll1))
 
 resp = anon.get(BASE + f"/api/bookings/{b1['id']}", timeout=TIMEOUT)
 got = resp.json()["booking"]
@@ -390,7 +390,7 @@ check("toll $18.50 recomputes driver per formula",
       approx(detail_t["driver_earnings"], expected_t["driver_earnings"]))
 if Decimal(str(detail_t["miles"])) == Decimal("18.0"):
     check("18.0 mi + toll total is exactly $180.50", approx(detail_t["customer_total"], "180.50"))
-    check("18.0 mi + toll driver is exactly $90.50", approx(detail_t["driver_earnings"], "90.50"))
+    check("18.0 mi + toll driver is exactly $113.50", approx(detail_t["driver_earnings"], "113.50"))
 
 # Up-front NJ return toll: NY -> NJ trips carry the $16.79 estimate
 # from creation (live geo resolves the states); NJ -> NJ trips $0.

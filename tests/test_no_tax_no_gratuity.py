@@ -156,8 +156,8 @@ class NoTaxNoGratuityCase(unittest.TestCase):
     # -- quote -> charge -> stored record -> owner breakdown ----------------
     def test_full_booking_flow_sedan_and_suv(self):
         for vehicle_class, total, fare, driver, profit in (
-                ("sedan", "162.00", "162.00", "72.00", "90.00"),
-                ("suv", "180.00", "180.00", "108.00", "72.00")):
+                ("sedan", "162.00", "162.00", "95.00", "67.00"),
+                ("suv", "180.00", "180.00", "130.00", "50.00")):
             booking = self.book()
             # Quote: both class totals are fare-only totals.
             self.assertTrue(approx(booking["class_totals"]["sedan"], "162.00"), booking)
@@ -199,8 +199,8 @@ class NoTaxNoGratuityCase(unittest.TestCase):
         summary = self.client.get("/api/owner/summary").get_json()
         self.assertTrue(approx(summary["gross"], "342.00"), summary)
         self.assertTrue(approx(summary["tax_collected"], "0.00"), summary)
-        self.assertTrue(approx(summary["driver_owed"], "180.00"), summary)
-        self.assertTrue(approx(summary["profit"], "162.00"), summary)
+        self.assertTrue(approx(summary["driver_owed"], "225.00"), summary)
+        self.assertTrue(approx(summary["profit"], "117.00"), summary)
 
     # -- invoice + extra distance -------------------------------------------
     def test_invoice_and_extra_distance_have_no_tax_no_gratuity(self):
@@ -212,7 +212,7 @@ class NoTaxNoGratuityCase(unittest.TestCase):
         # Customer view: no invoice while prices are paused.
         self.assertIsNone(got["invoice"])
         # Owner row: extra miles raised fare/driver only; tax/gratuity
-        # stayed $0.00; profit $207 - $92 = $115. The owner invoice still
+        # stayed $0.00; profit $207 - $115 = $92. The owner invoice still
         # carries the single total: fare $162 + extra fare $45 = $207.
         self.owner_login()
         row = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
@@ -225,8 +225,8 @@ class NoTaxNoGratuityCase(unittest.TestCase):
         self.assertTrue(approx(row["fare"], "207.00"), row)
         self.assertTrue(approx(row["tax"], "0.00"), row)
         self.assertTrue(approx(row["gratuity"], "0.00"), row)
-        self.assertTrue(approx(row["driver_earnings"], "92.00"), row)
-        self.assertTrue(approx(row["profit"], "115.00"), row)
+        self.assertTrue(approx(row["driver_earnings"], "115.00"), row)
+        self.assertTrue(approx(row["profit"], "92.00"), row)
 
     # -- static files --------------------------------------------------------
     def test_no_tax_or_gratuity_copy_in_customer_and_owner_files(self):

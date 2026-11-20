@@ -5,8 +5,11 @@ Rates are settled by the owner. Do not change them here.
 ONE-WAY (decided 2026-11-16; rates revised 2026-11-17; SUPERSEDES
 the old $20 booking fee + $7/mile formula entirely): TWO vehicle
 classes, each with its own per-mile rate and driver rate. NO booking fee.
-- Business Class (sedan): customer $9/mile, driver $4/mile.
-- Business SUV (SUV): customer $10/mile, driver $6/mile.
+- Business Class (sedan): customer $9/mile, driver FLAT by distance
+  slab (see DRIVER_PAY_SLABS below — owner decision 2026-11-20).
+- Business SUV (SUV): customer $10/mile, driver FLAT by distance slab.
+- First Class: customer rate lives in the Blacklane engine only
+  (gated, not flipped); driver FLAT by distance slab (First column).
 - fare = miles x class rate.
 - NO TAX, NO GRATUITY (owner orders 2026-11-17: "Tax nikal doh
   mere ismein se" and "10 percent gratuity bhi nikal doh mere").
@@ -16,7 +19,7 @@ classes, each with its own per-mile rate and driver rate. NO booking fee.
   owner API keep their shape; rides booked before the removal keep
   their stored tax/gratuity values (history is not rewritten).
 - customer total = fare + toll.
-- driver earnings = miles x driver rate + toll.
+- driver earnings = slab pay for the ride's miles + toll.
 - owner profit = total - driver earnings.
 - UP-FRONT TOLL (owner decision 2026-11-16, extended 2026-11-17):
   the toll estimate at booking creation comes from the MAP: every
@@ -74,6 +77,11 @@ TENTH = Decimal("0.1")
 # customer-facing display names are in CLASS_LABELS.
 SEDAN_RATE = Decimal("9")
 SUV_RATE = Decimal("10")
+# SUPERSEDED per-mile driver rates (owner decision 2026-11-20: flat
+# slab pay replaced them for the base one-way fare — see
+# DRIVER_PAY_SLABS below). Kept because compute_extra_distance still
+# pays EXTRA miles at these rates, and the gated Blacklane engine
+# (blacklane_pricing.py) still imports them. Do NOT delete.
 DRIVER_SEDAN = Decimal("4")
 DRIVER_SUV = Decimal("6")
 CLASS_RATES = {"sedan": SEDAN_RATE, "suv": SUV_RATE}
@@ -83,6 +91,75 @@ CLASS_LABELS = {"sedan": "Business Class", "suv": "Business SUV",
 # No tax rate, no gratuity rate: both were removed by owner orders
 # 2026-11-17. "tax"/"gratuity" breakdown keys stay at $0.00.
 BOOKING_FEE = Decimal("0")
+
+# Driver pay SLABS (owner decision 2026-11-20, voice call ~04:25 EST:
+# "abhi ye kar do live"; FINAL RULE ~04:32 EST): FLAT per-ride
+# driver pay by distance band, per class — NOT per mile. The 30-40
+# slab is the BASE (Business $140, SUV $160, First $200); from there
+# every next 10-mile slab is +$20 per class, up to 390-400
+# ($860/$880/$920). Values verified against the draft sheet
+# driver-pay-slabs-draft.xlsx. Each entry is (upper miles bound,
+# {class: flat pay}); a ride belongs to the first slab whose bound
+# its miles do not exceed (miles <= 10 -> 0-10, <= 20 -> 10-20, ...).
+# Toll is NOT in the slab: the driver gets slab pay + the map toll.
+# Hourly rides stay $50/hour (compute_hourly) — slabs are one-way
+# distance rides only. NO slab exists above 400 miles: those rides
+# are refused (driver_slab_pay raises) until the owner gives numbers.
+# The first 4 slabs are the owner's dictated numbers (note: SUV is
+# $160 at BOTH 20-30 and 30-40 — his own numbers, equal is fine, do
+# NOT "fix" it). From 40-50 on, every slab is +$20 per class over
+# the previous one.
+_DRIVER_PAY_SLAB_ANCHORS = (
+    (10, 80, 90, 110),
+    (20, 95, 130, 150),
+    (30, 125, 160, 190),
+    (40, 140, 160, 200),
+)
+
+
+def _build_driver_pay_slabs():
+    slabs = [
+        (Decimal(str(upper)),
+         {"sedan": Decimal(str(business)),
+          "suv": Decimal(str(suv)),
+          "first": Decimal(str(first))})
+        for upper, business, suv, first in _DRIVER_PAY_SLAB_ANCHORS
+    ]
+    business, suv, first = 140, 160, 200  # 30-40 slab (the base)
+    for upper in range(50, 401, 10):
+        business, suv, first = business + 20, suv + 20, first + 20
+        slabs.append((Decimal(str(upper)),
+                      {"sedan": Decimal(str(business)),
+                       "suv": Decimal(str(suv)),
+                       "first": Decimal(str(first))}))
+    return tuple(slabs)
+
+
+DRIVER_PAY_SLABS = _build_driver_pay_slabs()
+DRIVER_PAY_MAX_MILES = Decimal("400")
+NO_DRIVER_SLAB_ABOVE_400 = ("No driver pay rate exists for rides over "
+                            "400 miles yet.")
+
+
+def driver_slab_pay(miles, vehicle_class="sedan") -> Decimal:
+    """Flat driver pay for a one-way ride, by distance slab. Decimal.
+
+    vehicle_class: "sedan" (Business Class), "suv" (Business SUV)
+    or "first" (First Class). Toll is NOT included — the caller adds
+    it on top, same as before. Raises ValueError for an unknown class
+    and for rides over 400 miles (no slab exists there; the owner
+    has not given numbers — do NOT invent a rate).
+    """
+    miles = miles_1dp(miles)
+    vehicle_class = vehicle_class or "sedan"
+    if vehicle_class not in ("sedan", "suv", "first"):
+        raise ValueError("vehicle_class must be 'sedan', 'suv' or 'first'")
+    if miles < 0:
+        raise ValueError("miles cannot be negative")
+    for upper, pay in DRIVER_PAY_SLABS:
+        if miles <= upper:
+            return money(pay[vehicle_class])
+    raise ValueError(NO_DRIVER_SLAB_ABOVE_400)
 
 
 def pricing_mode():
@@ -222,6 +299,10 @@ def compute_one_way(miles, toll=Decimal("0"), vehicle_class="sedan", referral: b
     """Return fare breakdown for a one-way ride. All values Decimal.
 
     vehicle_class: "sedan" (Business Class) or "suv" (Business SUV).
+    Driver pay is the FLAT slab amount for the ride's miles (see
+    DRIVER_PAY_SLABS) + toll — NOT per mile (owner decision
+    2026-11-20). Rides over 400 miles raise ValueError: no slab
+    exists there yet.
     referral: a NEW customer's first booking with a valid referral
     code gets 5% off the total (fare + toll). Driver earnings are
     unchanged — the discount comes out of Noel's profit only.
@@ -239,7 +320,7 @@ def compute_one_way(miles, toll=Decimal("0"), vehicle_class="sedan", referral: b
     if referral:
         referral_discount = money(total * REFERRAL_DISCOUNT_RATE)
         total = money(total - referral_discount)
-    driver_earnings = money(CLASS_DRIVER_RATES[vehicle_class] * miles + toll)
+    driver_earnings = money(driver_slab_pay(miles, vehicle_class) + toll)
     profit = money(total - driver_earnings)
     return {
         "miles": miles,

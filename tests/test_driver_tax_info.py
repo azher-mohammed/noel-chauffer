@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import geo as geo_module  # noqa: E402
 
-# Deterministic geo: every one-way ride is 18.0 miles -> driver $72.00.
+# Deterministic geo: every one-way ride is 18.0 miles -> driver $95.00 (10-20 slab).
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -174,9 +174,9 @@ class TaxInfoApiCase(unittest.TestCase):
     # -- year earnings -------------------------------------------------------
     def test_tax_info_counts_only_2026_completed_rides(self):
         _driver, token = self.register_driver()
-        b1 = self.complete_ride(token)   # one-way: driver $72.00
-        b2 = self.complete_ride(token)   # one-way: driver $72.00
-        b3 = self.complete_ride(token)   # one-way: driver $72.00
+        b1 = self.complete_ride(token)   # one-way: driver $95.00 (10-20 slab)
+        b2 = self.complete_ride(token)   # one-way: driver $95.00 (10-20 slab)
+        b3 = self.complete_ride(token)   # one-way: driver $95.00 (10-20 slab)
         self.backdate_completion(b1, _utc(2026, 11, 20))
         self.backdate_completion(b2, _utc(2026, 12, 31))
         self.backdate_completion(b3, _utc(2025, 12, 20))  # previous year: excluded

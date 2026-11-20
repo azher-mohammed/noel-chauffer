@@ -24,7 +24,7 @@ Rules pinned here:
 Concrete fare used throughout: JFK Airport -> Times Square, mocked
 at 18.0 miles, toll $0.00. Sedan total $162.00, discounted $153.90
 (discount $8.10); SUV total $180.00, discounted $171.00 (discount
-$9.00); driver sedan $72.00, SUV $108.00, unchanged.
+$9.00); driver sedan $95.00, SUV $130.00 (slabs), unchanged.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -75,22 +75,22 @@ class ReferralDiscountPricingCase(unittest.TestCase):
         self.assertEqual(r["referral_discount"], D("8.10"))
         self.assertEqual(r["total"], D("153.90"))
         # Driver pay unchanged; the discount comes out of profit only.
-        self.assertEqual(r["driver_earnings"], D("72.00"))
-        self.assertEqual(r["profit"], D("81.90"))
+        self.assertEqual(r["driver_earnings"], D("95.00"))
+        self.assertEqual(r["profit"], D("58.90"))
 
     def test_five_percent_off_suv_total(self):
         r = compute_one_way(D("18.0"), vehicle_class="suv", referral=True)
         self.assertEqual(r["referral_discount"], D("9.00"))
         self.assertEqual(r["total"], D("171.00"))
-        self.assertEqual(r["driver_earnings"], D("108.00"))
-        self.assertEqual(r["profit"], D("63.00"))
+        self.assertEqual(r["driver_earnings"], D("130.00"))
+        self.assertEqual(r["profit"], D("41.00"))
 
     def test_five_percent_off_total_including_toll(self):
         # JFK -> Times Square with the $7.46 toll: (162.00 + 7.46) * 5%.
         r = compute_one_way(D("18.0"), toll=D("7.46"), referral=True)
         self.assertEqual(r["referral_discount"], D("8.47"))
         self.assertEqual(r["total"], D("160.99"))
-        self.assertEqual(r["driver_earnings"], D("79.46"))
+        self.assertEqual(r["driver_earnings"], D("102.46"))
 
     def test_no_referral_means_no_discount(self):
         r = compute_one_way(D("18.0"))
@@ -152,7 +152,7 @@ class ReferralDiscountApiCase(unittest.TestCase):
         with app_module.app.app_context():
             row = app_module.db.session.get(app_module.Booking, referred["id"])
             self.assertEqual(row.referral_discount, D("8.10"))
-            self.assertEqual(row.driver_earnings, D("72.00"))
+            self.assertEqual(row.driver_earnings, D("95.00"))
             self.assertEqual(row.referral_code_used, code)
             used = app_module.ReferralCode.query.filter_by(code=code).first()
             self.assertEqual(used.used_count, 1)
@@ -236,7 +236,7 @@ class ReferralDiscountApiCase(unittest.TestCase):
         row = resp.get_json()["booking"]
         # (162.00 + 18.50) = 180.50; 5% = 9.03; total 171.47.
         self.assertTrue(approx(row["customer_total"], "171.47"), row)
-        self.assertTrue(approx(row["driver_earnings"], "90.50"), row)
+        self.assertTrue(approx(row["driver_earnings"], "113.50"), row)
         self.assertTrue(approx(row["referral_discount"], "9.03"), row)
         self.assertEqual(row["referral_code_used"], code)
 
@@ -249,8 +249,8 @@ class ReferralDiscountApiCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         detail = resp.get_json()
         self.assertTrue(approx(detail["customer_total"], "153.90"), detail)
-        self.assertTrue(approx(detail["driver_earnings"], "72.00"), detail)
-        self.assertTrue(approx(detail["profit"], "81.90"), detail)
+        self.assertTrue(approx(detail["driver_earnings"], "95.00"), detail)
+        self.assertTrue(approx(detail["profit"], "58.90"), detail)
         self.assertTrue(approx(detail["referral_discount"], "8.10"), detail)
         self.assertEqual(detail["referral_code_used"], code)
 

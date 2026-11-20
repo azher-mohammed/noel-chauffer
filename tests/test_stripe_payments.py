@@ -47,7 +47,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles: total $162.00,
-# driver $72.00.
+# driver $95.00 (10-20 slab).
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -533,11 +533,11 @@ class StripeLiveCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:300])
         body = resp.get_json()
         payout = body["instant_payout"]
-        # Driver earnings $72.00; 1.5% fee $1.08; driver receives $70.92.
-        self.assertTrue(approx(payout["amount"], "72.00"), payout)
-        self.assertTrue(approx(payout["fee"], "1.08"), payout)
-        self.assertTrue(approx(payout["net"], "70.92"), payout)
-        self.assertTrue(approx(body["driver_receives"], "70.92"))
+        # Driver earnings $95.00 (10-20 slab); 1.5% fee $1.43; driver receives $93.57.
+        self.assertTrue(approx(payout["amount"], "95.00"), payout)
+        self.assertTrue(approx(payout["fee"], "1.43"), payout)
+        self.assertTrue(approx(payout["net"], "93.57"), payout)
+        self.assertTrue(approx(body["driver_receives"], "93.57"))
         self.assertEqual(payout["booking_ids"], [booking["id"]])
         # The ride is marked paid, so the weekly cycle never pays twice.
         earnings = self.client.get("/api/drivers/me/earnings",

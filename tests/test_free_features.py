@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import geo as geo_module  # noqa: E402
 
 # Deterministic geo: every one-way ride is 18.0 miles (same as the other
-# API test modules): sedan total $162.00, driver $72.00 before toll.
+# API test modules): sedan total $162.00, driver $95.00 (10-20 slab) before toll.
 geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -73.9855))  # noqa: E731
 
 import app as app_module  # noqa: E402
@@ -341,10 +341,10 @@ class FreeFeaturesCase(unittest.TestCase):
         self.assertTrue(approx(row["fare"], "207.00"))
         self.assertTrue(approx(row["gratuity"], "0.00"))
         self.assertTrue(approx(row["tax"], "0.00"))
-        self.assertTrue(approx(row["driver_earnings"], "92.00"))
+        self.assertTrue(approx(row["driver_earnings"], "115.00"))
         self.assertTrue(approx(row["extra_distance_charge"], "45.00"))
         self.assertTrue(approx(row["extra_miles"], "5.0"))
-        self.assertTrue(approx(row["profit"], "115.00"))
+        self.assertTrue(approx(row["profit"], "92.00"))
         self.assertTrue(approx(row["invoice"]["extra_distance_charge"], "45.00"))
 
     def test_complete_without_extra_miles_unchanged(self):
@@ -359,7 +359,7 @@ class FreeFeaturesCase(unittest.TestCase):
         row = self.client.get(f"/api/owner/bookings/{booking['id']}").get_json()
         self.assertTrue(approx(row["extra_distance_charge"], "0"))
         self.assertTrue(approx(row["extra_miles"], "0"))
-        self.assertTrue(approx(row["driver_earnings"], "72.00"))
+        self.assertTrue(approx(row["driver_earnings"], "95.00"))
 
     def test_extra_miles_rejected_for_hourly_and_bad_values(self):
         _, token = self.register_driver()

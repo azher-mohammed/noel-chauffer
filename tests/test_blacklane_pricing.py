@@ -350,7 +350,7 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(legacy_sedan["total"],
                          161.10 + legacy_sedan["toll"])
         self.assertEqual(legacy_sedan["driver_earnings"],
-                         71.60 + legacy_sedan["toll"])
+                         95.00 + legacy_sedan["toll"])
         # Blacklane-style: interpolated base $167.79 + fees $26.08.
         black_sedan = body["blacklane"]["sedan"]
         self.assertEqual(black_sedan["base"], 167.79)

@@ -35,8 +35,8 @@ class TestOneWay(unittest.TestCase):
         self.assertEqual(r["tax"], D("0.00"))
         self.assertEqual(r["booking_fee"], D("0"))
         self.assertEqual(r["total"], D("162.00"))
-        self.assertEqual(r["driver_earnings"], D("72.00"))
-        self.assertEqual(r["profit"], D("90.00"))
+        self.assertEqual(r["driver_earnings"], D("95.00"))
+        self.assertEqual(r["profit"], D("67.00"))
 
     def test_18_miles_suv(self):
         # fare $180.00, no gratuity, no tax: total = fare = $180.00.
@@ -46,8 +46,8 @@ class TestOneWay(unittest.TestCase):
         self.assertEqual(r["gratuity"], D("0.00"))
         self.assertEqual(r["tax"], D("0.00"))
         self.assertEqual(r["total"], D("180.00"))
-        self.assertEqual(r["driver_earnings"], D("108.00"))
-        self.assertEqual(r["profit"], D("72.00"))
+        self.assertEqual(r["driver_earnings"], D("130.00"))
+        self.assertEqual(r["profit"], D("50.00"))
 
     def test_18_miles_with_referral_is_five_percent_off(self):
         # Referral: a new customer's first booking with a valid code
@@ -57,8 +57,8 @@ class TestOneWay(unittest.TestCase):
         self.assertEqual(r["referral_discount"], D("8.10"))
         self.assertEqual(r["total"], D("153.90"))
         self.assertEqual(r["gratuity"], D("0.00"))
-        self.assertEqual(r["driver_earnings"], D("72.00"))
-        self.assertEqual(r["profit"], D("81.90"))
+        self.assertEqual(r["driver_earnings"], D("95.00"))
+        self.assertEqual(r["profit"], D("58.90"))
 
     def test_18_miles_with_toll(self):
         # Toll passes through to the driver: total and driver
@@ -66,11 +66,12 @@ class TestOneWay(unittest.TestCase):
         # stay $0.00.
         r = compute_one_way(D("18.0"), toll=D("18.50"))
         self.assertEqual(r["total"], D("180.50"))
-        self.assertEqual(r["driver_earnings"], D("90.50"))
+        self.assertEqual(r["driver_earnings"], D("113.50"))
         self.assertEqual(r["tax"], D("0.00"))
 
     def test_35_mile_sedan(self):
         # fare $315.00, no gratuity, no tax: total = fare = $315.00.
+        # Driver $140.00 is the 30-40 mile slab (owner decision 2026-11-20).
         r = compute_one_way(D("35.0"))
         self.assertEqual(r["total"], D("315.00"))
         self.assertEqual(r["driver_earnings"], D("140.00"))

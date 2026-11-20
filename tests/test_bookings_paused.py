@@ -323,12 +323,14 @@ class PausedCase(unittest.TestCase):
         self.assertGreater(body["gross"], 0)
 
     def test_internal_rates_unchanged(self):
+        # Customer totals unchanged; driver pay is the 0-10 slab
+        # ($80/$90, owner decision 2026-11-20), not per mile.
         sedan = compute_one_way(D("10"), toll=D("0"), vehicle_class="sedan")
         self.assertEqual(sedan["total"], D("90.00"))
-        self.assertEqual(sedan["driver_earnings"], D("40.00"))
+        self.assertEqual(sedan["driver_earnings"], D("80.00"))
         suv = compute_one_way(D("10"), toll=D("0"), vehicle_class="suv")
         self.assertEqual(suv["total"], D("100.00"))
-        self.assertEqual(suv["driver_earnings"], D("60.00"))
+        self.assertEqual(suv["driver_earnings"], D("90.00"))
 
     # -- static customer/driver surfaces --------------------------------------
     def test_static_pages_show_paused_notice_and_no_price_figures(self):

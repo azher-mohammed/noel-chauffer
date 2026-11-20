@@ -77,6 +77,7 @@ from translation import (
     translate_chat_text,
 )
 from pricing import (
+    DRIVER_PAY_MAX_MILES,
     cancellation_refundable,
     class_label,
     compute_class_totals,
@@ -4133,7 +4134,14 @@ def fare_preview():
         }
 
     classes = [vehicle_class] if vehicle_class else ["sedan", "suv", "first"]
-    legacy = {cls: _legacy_view(cls) for cls in classes if cls != "first"}
+    try:
+        legacy = {cls: _legacy_view(cls) for cls in classes if cls != "first"}
+    except ValueError as exc:
+        # No driver pay slab above 400 miles (owner decision
+        # 2026-11-20): refuse the preview instead of showing an
+        # invented driver figure. (class=first previews skip the
+        # legacy view, so they still work past 400 miles.)
+        return err(str(exc))
     blacklane = {cls: _blacklane_view(cls) for cls in classes}
     return jsonify({
         "pickup": pickup,
@@ -4317,6 +4325,12 @@ def create_booking():
                        "Please pick the pickup and drop-off from the address "
                        "suggestions and try again.")
         booking.miles = Decimal(str(miles))
+        if miles_1dp(booking.miles) > DRIVER_PAY_MAX_MILES:
+            # No driver pay slab exists above 400 miles (owner
+            # decision 2026-11-20): refuse instead of pricing with
+            # an invented rate. Nothing is stored.
+            return err("Rides over 400 miles cannot be booked yet — "
+                       "no driver pay rate exists for that distance.")
         if pickup_coords:
             booking.pickup_lat, booking.pickup_lng = pickup_coords
         if dropoff_coords:
@@ -4442,7 +4456,12 @@ def select_vehicle_class(booking_id):
     if vehicle_class not in ("sedan", "suv", "first"):
         return err("vehicle_class must be sedan, suv or first.")
     booking.vehicle_class = vehicle_class
-    recompute_booking_fare(booking)
+    try:
+        recompute_booking_fare(booking)
+    except ValueError as exc:
+        # A ride booked before the slab change, over 400 miles, has
+        # no slab to reprice with (owner decision 2026-11-20).
+        return err(str(exc))
     add_event(booking.id, "class_selected",
               f"Customer selected {class_label(vehicle_class)} for booking "
               f"#{booking.id} (total ${booking.fare_total}).")
@@ -7169,7 +7188,12 @@ def owner_set_toll(booking_id):
     if toll < 0:
         return err("toll cannot be negative.")
     booking.toll = toll
-    recompute_booking_fare(booking)
+    try:
+        recompute_booking_fare(booking)
+    except ValueError as exc:
+        # A ride booked before the slab change, over 400 miles, has
+        # no slab to reprice with (owner decision 2026-11-20).
+        return err(str(exc))
     add_event(booking.id, "toll_updated",
               f"Toll set to ${toll} for booking #{booking.id}; totals recomputed "
               f"(customer ${booking.fare_total}, driver ${booking.driver_earnings}).")

@@ -61,7 +61,7 @@ never a breakdown, never rates, never miles.
   $10/mile); NO tax, NO gratuity (both removed by owner orders
   2026-11-17); toll added, passed to the driver. Customer total =
   fare + toll. Driver earnings = miles × driver rate (sedan $4/mile,
-  SUV $7/mile) + toll. Owner profit = total − driver. **No booking
+  SUV $6/mile) + toll. Owner profit = total − driver. **No booking
   fee ($0).** This supersedes the old $20 fee + $7/mile formula
   entirely, and the fare + gratuity + tax + toll formula that ran
   until 2026-11-17. Rides booked before the removal keep their

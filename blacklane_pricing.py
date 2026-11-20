@@ -46,7 +46,7 @@ Blacklane total instead, that is a one-line change in
 ``compute_blacklane_one_way``.
 
 FIRST CLASS — DRIVER RATE SET (owner decision 2026-11-20 ~02:31 EST):
-$9/mile + map toll (sedan $4, SUV $7, First Class $9). The engine
+$9/mile + map toll (sedan $4, SUV $6, First Class $9). The engine
 computes the First Class customer fare AND driver pay. First Class
 is OPEN since owner decision 2026-11-20 ~03:00 EST ("wahi daal dena
 na same" — same models as Blacklane): Mercedes-Benz S-Class, BMW
@@ -106,7 +106,7 @@ BLACKLANE_CLASS_LABELS = {
     "suv": "Business SUV",
     "first": "First Class",
 }
-# Driver rate per class: sedan $4/mi, SUV $7/mi (as in pricing.py),
+# Driver rate per class: sedan $4/mi, SUV $6/mi (as in pricing.py),
 # First Class $9/mi — owner decision 2026-11-20 ~02:31 EST.
 DRIVER_FIRST = Decimal("9")
 BLACKLANE_DRIVER_RATES = {
@@ -761,7 +761,7 @@ def compute_blacklane_one_way(miles, vehicle_class, pickup_text,
     unchanged (same rule as the legacy engine).
 
     Driver pay is miles x driver rate + map toll for every class:
-    sedan $4/mi, SUV $7/mi, First Class $9/mi (owner decision
+    sedan $4/mi, SUV $6/mi, First Class $9/mi (owner decision
     2026-11-20 ~02:31 EST).
     """
     if vehicle_class not in BLACKLANE_CLASSES:

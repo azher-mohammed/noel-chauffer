@@ -24,7 +24,7 @@ Rules pinned here:
 Concrete fare used throughout: JFK Airport -> Times Square, mocked
 at 18.0 miles, toll $0.00. Sedan total $162.00, discounted $153.90
 (discount $8.10); SUV total $180.00, discounted $171.00 (discount
-$9.00); driver sedan $72.00, SUV $126.00, unchanged.
+$9.00); driver sedan $72.00, SUV $108.00, unchanged.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -82,8 +82,8 @@ class ReferralDiscountPricingCase(unittest.TestCase):
         r = compute_one_way(D("18.0"), vehicle_class="suv", referral=True)
         self.assertEqual(r["referral_discount"], D("9.00"))
         self.assertEqual(r["total"], D("171.00"))
-        self.assertEqual(r["driver_earnings"], D("126.00"))
-        self.assertEqual(r["profit"], D("45.00"))
+        self.assertEqual(r["driver_earnings"], D("108.00"))
+        self.assertEqual(r["profit"], D("63.00"))
 
     def test_five_percent_off_total_including_toll(self):
         # JFK -> Times Square with the $7.46 toll: (162.00 + 7.46) * 5%.

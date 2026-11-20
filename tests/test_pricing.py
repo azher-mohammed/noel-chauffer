@@ -46,8 +46,8 @@ class TestOneWay(unittest.TestCase):
         self.assertEqual(r["gratuity"], D("0.00"))
         self.assertEqual(r["tax"], D("0.00"))
         self.assertEqual(r["total"], D("180.00"))
-        self.assertEqual(r["driver_earnings"], D("126.00"))
-        self.assertEqual(r["profit"], D("54.00"))
+        self.assertEqual(r["driver_earnings"], D("108.00"))
+        self.assertEqual(r["profit"], D("72.00"))
 
     def test_18_miles_with_referral_is_five_percent_off(self):
         # Referral: a new customer's first booking with a valid code

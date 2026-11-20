@@ -202,7 +202,7 @@ dashboard holds the full breakdown. The driver sees only earnings.
   the 8.875% NYC sales tax and the 10% gratuity no longer apply to
   any new booking); toll is added and passed to the driver.
   Customer total = fare + toll. Driver earnings = miles × driver
-  rate (sedan $4/mile, SUV $7/mile) + toll. Owner profit = total
+  rate (sedan $4/mile, SUV $6/mile) + toll. Owner profit = total
   − driver (+ waiting, which goes to owner profit). NO booking fee
   ($0). This supersedes the old $20 fee + $7/mile formula entirely,
   and the fare + gratuity + tax + toll formula that ran until

@@ -60,8 +60,8 @@ check("18mi sedan profit 90.00", r["profit"] == Decimal("90.00"))
 check("18mi booking fee 0", r["booking_fee"] == Decimal("0"))
 r = compute_one_way(Decimal("18.0"), vehicle_class="suv")
 check("18mi SUV total 180.00", r["total"] == Decimal("180.00"), str(r["total"]))
-check("18mi SUV driver 126.00", r["driver_earnings"] == Decimal("126.00"))
-check("18mi SUV profit 54.00", r["profit"] == Decimal("54.00"))
+check("18mi SUV driver 108.00", r["driver_earnings"] == Decimal("108.00"))
+check("18mi SUV profit 72.00", r["profit"] == Decimal("72.00"))
 r = compute_one_way(Decimal("18.0"), referral=True)
 check("18mi referral total 153.90 (5% off)", r["total"] == Decimal("153.90"), str(r["total"]))
 check("18mi referral discount 8.10", r["referral_discount"] == Decimal("8.10"), str(r))
@@ -513,8 +513,8 @@ r = compute_extra_distance(Decimal("5"), "sedan")
 check("extra distance 5mi sedan 45.00 / driver 20.00",
       r["total"] == Decimal("45.00") and r["driver_addition"] == Decimal("20.00"), str(r))
 r = compute_extra_distance(Decimal("2.5"), "suv")
-check("extra distance 2.5mi SUV 25.00 / driver 17.50",
-      r["total"] == Decimal("25.00") and r["driver_addition"] == Decimal("17.50"), str(r))
+check("extra distance 2.5mi SUV 25.00 / driver 15.00",
+      r["total"] == Decimal("25.00") and r["driver_addition"] == Decimal("15.00"), str(r))
 # Fresh booking for the assign + chat + extra-distance flow.
 client.post("/api/drivers/me/availability", json={"available": True},
             headers={"X-Driver-Token": token1})

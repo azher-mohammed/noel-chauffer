@@ -6,7 +6,7 @@ ONE-WAY (decided 2026-11-16; rates revised 2026-11-17; SUPERSEDES
 the old $20 booking fee + $7/mile formula entirely): TWO vehicle
 classes, each with its own per-mile rate and driver rate. NO booking fee.
 - Business Class (sedan): customer $9/mile, driver $4/mile.
-- Business SUV (SUV): customer $10/mile, driver $7/mile.
+- Business SUV (SUV): customer $10/mile, driver $6/mile.
 - fare = miles x class rate.
 - NO TAX, NO GRATUITY (owner orders 2026-11-17: "Tax nikal doh
   mere ismein se" and "10 percent gratuity bhi nikal doh mere").
@@ -75,7 +75,7 @@ TENTH = Decimal("0.1")
 SEDAN_RATE = Decimal("9")
 SUV_RATE = Decimal("10")
 DRIVER_SEDAN = Decimal("4")
-DRIVER_SUV = Decimal("7")
+DRIVER_SUV = Decimal("6")
 CLASS_RATES = {"sedan": SEDAN_RATE, "suv": SUV_RATE}
 CLASS_DRIVER_RATES = {"sedan": DRIVER_SEDAN, "suv": DRIVER_SUV}
 CLASS_LABELS = {"sedan": "Business Class", "suv": "Business SUV",

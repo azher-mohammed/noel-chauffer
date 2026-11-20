@@ -157,7 +157,7 @@ class NoTaxNoGratuityCase(unittest.TestCase):
     def test_full_booking_flow_sedan_and_suv(self):
         for vehicle_class, total, fare, driver, profit in (
                 ("sedan", "162.00", "162.00", "72.00", "90.00"),
-                ("suv", "180.00", "180.00", "126.00", "54.00")):
+                ("suv", "180.00", "180.00", "108.00", "72.00")):
             booking = self.book()
             # Quote: both class totals are fare-only totals.
             self.assertTrue(approx(booking["class_totals"]["sedan"], "162.00"), booking)
@@ -199,8 +199,8 @@ class NoTaxNoGratuityCase(unittest.TestCase):
         summary = self.client.get("/api/owner/summary").get_json()
         self.assertTrue(approx(summary["gross"], "342.00"), summary)
         self.assertTrue(approx(summary["tax_collected"], "0.00"), summary)
-        self.assertTrue(approx(summary["driver_owed"], "198.00"), summary)
-        self.assertTrue(approx(summary["profit"], "144.00"), summary)
+        self.assertTrue(approx(summary["driver_owed"], "180.00"), summary)
+        self.assertTrue(approx(summary["profit"], "162.00"), summary)
 
     # -- invoice + extra distance -------------------------------------------
     def test_invoice_and_extra_distance_have_no_tax_no_gratuity(self):

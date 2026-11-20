@@ -175,7 +175,7 @@ class TestBlacklaneEnginePure(unittest.TestCase):
             self.assertFalse(got["first_class_driver_pay_tbd"], cls)
 
     def test_driver_pay_keeps_legacy_rates_plus_toll(self):
-        # Sedan $4/mi, SUV $7/mi + the map toll (toll is NOT in the
+        # Sedan $4/mi, SUV $6/mi + the map toll (toll is NOT in the
         # customer total, but the driver still gets it).
         r = compute_blacklane_one_way(D("17.9"), "sedan",
                                       "JFK Airport", "Times Square",
@@ -186,7 +186,7 @@ class TestBlacklaneEnginePure(unittest.TestCase):
         s = compute_blacklane_one_way(D("17.9"), "suv",
                                       "JFK Airport", "Times Square",
                                       toll=D("7.46"))
-        self.assertEqual(s["driver_earnings"], D("132.76"))
+        self.assertEqual(s["driver_earnings"], D("114.86"))
 
     def test_referral_discount_comes_off_the_total_only(self):
         r = compute_blacklane_one_way(D("1.08"), "sedan",

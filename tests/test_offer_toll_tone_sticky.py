@@ -179,10 +179,10 @@ class OfferTollToneCase(unittest.TestCase):
         self.assertTrue(approx(detail["toll"], "16.00"), detail)
 
     def test_pricing_split_matches_card(self):
-        # The example card: 20-mile SUV, $140 driving pay + $16 toll.
+        # The example card: 20-mile SUV, $120 driving pay + $16 toll.
         result = pricing.compute_one_way(20, toll=16, vehicle_class="suv")
-        self.assertEqual(float(result["driver_earnings"]), 156.00)
-        self.assertEqual(float(result["driver_earnings"] - result["toll"]), 140.00)
+        self.assertEqual(float(result["driver_earnings"]), 136.00)
+        self.assertEqual(float(result["driver_earnings"] - result["toll"]), 120.00)
 
     # -- the job stays until the driver accepts -----------------------------
     def test_old_offer_still_listed_until_accepted(self):

@@ -15,7 +15,7 @@ three cities are in the registration picker (app.py state/city lists),
 so naming them is honest. Added as a visible FAQ section with
 matching FAQPage JSON-LD, using only the real offer (own car, pick
 the jobs you want, register in minutes). Owner decision 2026-11-20:
-the displayed driver per-mile rates ($4/$7) were removed from this
+the displayed driver per-mile rates ($4/$6) were removed from this
 page; new prices will be added later.
 
 Hard rules (owner): no per-mile pay figures on this page; no
@@ -88,7 +88,7 @@ class DriverSeoKeywordsTest(unittest.TestCase):
     def test_no_per_mile_rates_on_driver_page(self):
         # Owner decision 2026-11-20: remove the displayed driver
         # per-mile rates now; new prices will be added later.
-        # No $4/$7 rate or "per mile" wording may appear anywhere
+        # No $4/$6 rate or "per mile" wording may appear anywhere
         # on the driver page (meta/OG/Twitter/JSON-LD/visible copy).
         for banned in ["$4", "$7", "per mile"]:
             self.assertNotIn(banned, self.html, banned)

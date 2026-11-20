@@ -164,7 +164,7 @@ class FreeFeaturesCase(unittest.TestCase):
         self.assertEqual(r["gratuity"], Decimal("0.00"))
         self.assertEqual(r["tax"], Decimal("0.00"))
         self.assertEqual(r["total"], Decimal("50.00"))
-        self.assertEqual(r["driver_addition"], Decimal("35.00"))
+        self.assertEqual(r["driver_addition"], Decimal("30.00"))
 
     def test_extra_distance_zero_and_negative(self):
         r = pricing.compute_extra_distance(Decimal("0"), "sedan")

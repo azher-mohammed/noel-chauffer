@@ -328,7 +328,7 @@ class PausedCase(unittest.TestCase):
         self.assertEqual(sedan["driver_earnings"], D("40.00"))
         suv = compute_one_way(D("10"), toll=D("0"), vehicle_class="suv")
         self.assertEqual(suv["total"], D("100.00"))
-        self.assertEqual(suv["driver_earnings"], D("70.00"))
+        self.assertEqual(suv["driver_earnings"], D("60.00"))
 
     # -- static customer/driver surfaces --------------------------------------
     def test_static_pages_show_paused_notice_and_no_price_figures(self):

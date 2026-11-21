@@ -1628,7 +1628,15 @@
     hide(fallback);
     mapEl.classList.remove("hidden");
     if (!state.mapReady) {
-      state.map = window.L.map("ca-map").setView([lat, lng], 14);
+      /* USA-only map (owner order 2026-11-21): maxBounds keeps the
+         view inside the USA (continental US + Alaska + Hawaii), so
+         the user cannot pan away to France or anywhere else abroad.
+         The initial view is still the chauffeur's position at
+         zoom 14; tiles, markers and behaviour are unchanged. */
+      state.map = window.L.map("ca-map", {
+        maxBounds: [[18.9, -171.8], [71.4, -66.9]],
+        maxBoundsViscosity: 1.0
+      }).setView([lat, lng], 14);
       /* CARTO dark basemap (free, no key): a proper CDN, so tiles load
          without the OSM tile server's rate limits, and the dark tiles
          match the site's black-and-gold luxury look. Markers, popups

@@ -191,16 +191,30 @@ def _http_get_json(url: str):
 
 _PHOTON_URL = "https://photon.komoot.io/api/"
 
+# USA-only bounding box for the Photon fallback (minlon,minlat,
+# maxlon,maxlat): continental US + Alaska + Hawaii in one box. Photon
+# has no countrycodes parameter like Nominatim, so the box is the
+# request-side restriction — the countrycode filter below is the real
+# gate, since the box also covers slivers of Canada, Mexico and the
+# Caribbean. Noel Chauffer operates in the USA only (owner order
+# 2026-11-21): no non-US result may ever reach the caller.
+_USA_BBOX = "-171.79,18.91,-66.95,71.36"
+
 
 def _photon_items(query: str, limit: int = 5):
     """Photon search results as Nominatim-shaped items, or [].
 
-    Raises on any request failure. Never invents data: only live
-    Photon features, with the airport (aeroway/aerodrome) first.
+    USA-only: the request carries the USA bbox and every feature
+    whose countrycode is not "us" (or is missing) is dropped, so a
+    worldwide Photon answer can never leak a France/Germany/etc.
+    result into autocomplete or geocoding. Raises on any request
+    failure. Never invents data: only live Photon features, with the
+    airport (aeroway/aerodrome) first.
     """
     url = (
         _PHOTON_URL + "?q=" + urllib.parse.quote(query)
         + "&limit=" + str(max(1, min(10, int(limit))))
+        + "&bbox=" + _USA_BBOX
     )
     data = _http_get_json(url)
     features = data.get("features") if isinstance(data, dict) else None
@@ -215,6 +229,13 @@ def _photon_items(query: str, limit: int = 5):
             continue
         name = props.get("name")
         if not name:
+            continue
+        # USA-only gate: Photon answers worldwide, and in production
+        # (Render) Nominatim is blocked so this fallback is the live
+        # path — without this, "Paris" would suggest Paris, France.
+        # countrycode is the ISO 3166-1 alpha-2 code, lowercased
+        # below when the address dict is built.
+        if str(props.get("countrycode") or "").lower() != "us":
             continue
         address = {}
         if props.get("housenumber"):
@@ -291,6 +312,13 @@ def _geocode_query(address: str):
         if not items:
             return None, None, False
         item = items[0]
+        # Defense in depth: _photon_items already drops non-US
+        # features, but never let a non-US address resolve even if
+        # that filter is ever bypassed — a France address must be a
+        # miss, never a geocoded point.
+        item_address = item.get("address") or {}
+        if item_address.get("country_code") not in (None, "us"):
+            return None, None, False
         try:
             coords = (float(item["lat"]), float(item["lon"]))
         except (KeyError, TypeError, ValueError):
@@ -418,6 +446,12 @@ def _parse_place(item):
         for k in _ADDRESS_KEYS:
             if raw_address.get(k):
                 address[k] = raw_address[k]
+    # USA-only choke point: search_places and the terminal lookup both
+    # flow through here. Nominatim is already asked with
+    # countrycodes=us, but a non-US item must never survive even if an
+    # upstream ever returns one (e.g. via the Photon fallback).
+    if address.get("country_code") not in (None, "us"):
+        return None
     return (
         {
             "display_name": display_name,

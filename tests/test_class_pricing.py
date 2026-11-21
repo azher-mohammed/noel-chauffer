@@ -734,57 +734,50 @@ class ClassApiCase(unittest.TestCase):
                 self.assertIsNone(re.search(pat, text), f"{rel}: banned {pat!r}")
 
 
-    def test_class_car_photos_show_noel_chauffer_plates(self):
-        # Owner order 2026-11-21: the number plates visible on the
-        # three class-card photos must read "Noel Chauffer" (branded
-        # show plate), not the stock photos' real numbers
-        # ("S-Class" show plate, German "M AG 350", Finnish
-        # "BM-762"). The plate shape stays; only the text changed.
-        # The files must differ from the original Wikimedia
-        # downloads, each plate region must still carry visible
-        # markings (the branded text — not blanked or blurred out),
-        # and no blue EU-strip pixel may remain in a plate area.
+    def test_class_car_photos_have_no_plates(self):
+        # Owner order 2026-11-21 (supersedes the branded-plate order
+        # from earlier the same day): NO plate on ANY class-card car
+        # photo — "Bhai plate math rakho". Business and First Class
+        # use the owner's own photos with the plate removed entirely;
+        # the SUV photo is deferred to tomorrow and stays exactly as
+        # it was. Pin the exact files, and for the two new photos
+        # check the bumper-centre plate band carries no white plate
+        # (a white show plate would be thousands of near-white
+        # pixels there; measured 0 for Business, 93 for First Class
+        # from chrome reflections). Stddev is deliberately NOT used:
+        # bumper chrome has natural variance (27-39) even with no
+        # plate at all, so it cannot tell a blank band from text.
         try:
-            from PIL import Image, ImageStat
+            from PIL import Image
         except ImportError:
             self.skipTest("Pillow not installed")
-        original_sha256 = {
+        expected_sha256 = {
             "car-business.jpg":
-                "813567c000ca11146d2e232c114f5147f72993740f59c8a307d8f8641d4862ba",
+                "2c8ff28fd1af698c6d0af66e9ade28446288d9933466ec38b55ffcd7575fbb53",
             "car-suv.jpg":
-                "478074f3d2dabad00b9d0e68605b6e40c847bc3df9a0f38d8cd9690994899c0a",
+                "4c63550628a9f0abac41113f19523ffbe472a7f304e71494b5cf77a0a0be8ce0",
             "car-first.jpg":
-                "1601c67dc357a7408494b966c8adbcd2754fffcbf803283b93975607094db17f",
+                "a605fab9cb5b22c5acae34ef5e28f9cf771f8b85bf45ea787d613107baeb4789",
         }
-        # Bounding boxes of the (tilted) plate polygons.
+        # Bumper-centre band where a number plate would sit (480x480).
         plate_boxes = {
-            "car-business.jpg": (64, 176, 142, 202),
-            "car-suv.jpg": (324, 400, 452, 440),
-            "car-first.jpg": (76, 292, 224, 336),
+            "car-business.jpg": (180, 380, 300, 430),
+            "car-first.jpg": (150, 360, 330, 410),
         }
-        for name, original_hash in original_sha256.items():
+        for name, expected_hash in expected_sha256.items():
             path = os.path.join(REPO_DIR, "static", "img", name)
             with open(path, "rb") as fh:
                 digest = hashlib.sha256(fh.read()).hexdigest()
-            self.assertNotEqual(
-                digest, original_hash,
-                "%s must differ from the original stock photo" % name)
-            img = Image.open(path).convert("RGB")
-            box = plate_boxes[name]
-            plate = img.crop(box).convert("L")
-            stddev = ImageStat.Stat(plate).stddev[0]
-            self.assertGreater(
-                stddev, 20,
-                "%s plate region must carry visible text, not a blank" % name)
-            blue_left = 0
-            for y in range(box[1], box[3]):
-                for x in range(box[0], box[2]):
-                    r, g, b = img.getpixel((x, y))
-                    if b > 100 and b - r > 50 and b - g > 30:
-                        blue_left += 1
             self.assertEqual(
-                blue_left, 0,
-                "%s plate area must not keep any EU-strip blue" % name)
+                digest, expected_hash,
+                "%s must be the approved photo" % name)
+        for name, box in plate_boxes.items():
+            path = os.path.join(REPO_DIR, "static", "img", name)
+            band = Image.open(path).convert("L").crop(box)
+            near_white = sum(1 for v in band.getdata() if v > 200)
+            self.assertLess(
+                near_white, 500,
+                "%s plate band must not carry a white plate" % name)
 
 
 if __name__ == "__main__":

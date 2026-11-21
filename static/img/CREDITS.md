@@ -1,23 +1,26 @@
 # Class-card car photos — sources
 
-Front-view photos on the Choose-your-experience page, downloaded from
-Wikimedia Commons and cropped square (480x480) into the repo so the site
-never depends on an external image URL.
+Front-view photos on the Choose-your-experience page, cropped square
+(480x480) into the repo so the site never depends on an external
+image URL.
 
-- `car-business.jpg` — silver Mercedes-Benz S-Class (W222), front 3/4 view.
-  Source: "Mercedes-Benz S 500 (W222) front view.jpg", Wikimedia Commons.
+- `car-business.jpg` — BLACK Mercedes-Benz sedan (owner-supplied
+  reference photo, sent by the owner 2026-11-21 ~05:48 EST),
+  front 3/4 view, golden-brown background. No number plate.
 - `car-suv.jpg` — black Cadillac Escalade Hybrid, front 3/4 view.
-  Source: "Cadillac Escalade Hybrid Front View.jpg", Wikimedia Commons.
-- `car-first.jpg` — white BMW 7 Series (G11), front 3/4 view.
-  Source: "2016 BMW 7-Series (G11) sedan, front view.jpg", Wikimedia Commons.
+  Source: "Cadillac Escalade Hybrid Front View.jpg", Wikimedia
+  Commons. UNCHANGED — the SUV photo swap is deferred to tomorrow
+  (owner, 2026-11-21); it still carries the branded "Noel Chauffer"
+  show plate until he sends his own straight front-on photo.
+- `car-first.jpg` — BLACK Mercedes-Benz S-Class (owner-supplied
+  reference photo, sent by the owner 2026-11-21 ~05:43 EST),
+  Maybach-style grille, front view, golden glow background, dark
+  floor. The "LIMOUSINE" plate from the reference photo was removed
+  entirely — no number plate.
 
-All three are freely licensed (CC BY-SA) on Commons. The exact model shown
-is illustrative — the customer picks a class, never a guaranteed model
+Number plates: the owner ordered on 2026-11-21 ("Bhai plate math
+rakho") that NO car photo carries a plate at all. The branded "Noel
+Chauffer" show plates used earlier the same day are gone from the
+Business and First Class photos. The exact model shown is
+illustrative — the customer picks a class, never a guaranteed model
 ("or similar", per the owner's First Class decision).
-
-Number plates: the plates visible in the stock photos were replaced with a
-branded "Noel Chauffer" show plate (owner order, 2026-11-21) — the plate
-shape stays, only the text reads "Noel Chauffer". Business: gold text on
-the black show plate. SUV and First Class: dark text on a white plate.
-The original plate numbers ("S-Class" show plate, German "M AG 350",
-Finnish "BM-762") are not Noel cars and no longer appear.

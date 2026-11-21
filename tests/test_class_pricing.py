@@ -220,8 +220,12 @@ class TestModelClassMapping(unittest.TestCase):
 
     def test_mapping_counts(self):
         values = list(car_models_module.VEHICLE_CLASS_BY_MODEL.values())
-        self.assertEqual(values.count("suv"), 85)
-        self.assertEqual(values.count("sedan"), 48)
+        # Owner decision 2026-11-21: only the 23 Uber Black SUV
+        # models are SUVs; the other 62 SUV-body models are Business
+        # Class ("sedan") and stay in the dropdown. 109 sedans of the
+        # 132 Uber Black models + the Model 3 exception = 110.
+        self.assertEqual(values.count("suv"), 23)
+        self.assertEqual(values.count("sedan"), 110)
 
     def test_all_23_black_suv_models_are_suvs(self):
         black_suv = [
@@ -243,27 +247,35 @@ class TestModelClassMapping(unittest.TestCase):
         # Model 3 is the temporary owner-trial exception: a sedan.
         self.assertEqual(car_models_module.class_for_model("Tesla Model 3"), "sedan")
         self.assertEqual(car_models_module.class_for_model("Tesla Model S"), "sedan")
-        self.assertEqual(car_models_module.class_for_model("Tesla Model X"), "suv")
+        # Owner decision 2026-11-21: Model X is Business Class now —
+        # only the 23 Uber Black SUV models are SUVs. It stays
+        # First-eligible by model (see test_first_class_models.py).
+        self.assertEqual(car_models_module.class_for_model("Tesla Model X"), "sedan")
 
     def test_judgment_call_spot_checks(self):
+        # Owner decision 2026-11-21: the SUV class is EXACTLY the 23
+        # Uber Black SUV models; every other SUV-body model is
+        # Business Class ("sedan") and stays in the dropdown.
         cases = {
             # Wagons / hatchback sedans -> sedan.
             "Audi A6 Avant": "sedan", "Audi RS 6": "sedan", "Audi A7": "sedan",
             "Porsche Panamera": "sedan", "Porsche Taycan": "sedan",
-            # Coupe-roof SUVs -> SUV.
-            "BMW X6": "suv", "Mercedes-Benz GLC Coupe": "suv",
-            "Mercedes-Benz GLE Coupe": "suv", "Porsche Cayenne Coupe": "suv",
-            # Ambiguous names.
-            "Audi e-tron": "suv", "Jeep Wagoneer S": "suv", "Lincoln MKT": "suv",
-            # Compact crossovers -> SUV.
-            "Audi Q4 e-tron": "suv", "BMW X3": "suv", "Cadillac Optiq": "suv",
-            "Genesis GV60": "suv", "Lincoln Corsair": "suv",
-            "Mercedes-Benz EQB": "suv", "Volvo XC60": "suv",
-            # Plain sedans and SUVs.
+            # Coupe-roof SUVs -> sedan now.
+            "BMW X6": "sedan", "Mercedes-Benz GLC Coupe": "sedan",
+            "Mercedes-Benz GLE Coupe": "sedan", "Porsche Cayenne Coupe": "sedan",
+            # Ambiguous names -> sedan now (MKT is one of the 23).
+            "Audi e-tron": "sedan", "Jeep Wagoneer S": "sedan", "Lincoln MKT": "suv",
+            # Compact crossovers -> sedan now.
+            "Audi Q4 e-tron": "sedan", "BMW X3": "sedan", "Cadillac Optiq": "sedan",
+            "Genesis GV60": "sedan", "Lincoln Corsair": "sedan",
+            "Mercedes-Benz EQB": "sedan", "Volvo XC60": "sedan",
+            # Big SUV bodies that are NOT Uber Black SUV -> sedan now.
+            "Rolls-Royce Cullinan": "sedan", "Lamborghini Urus": "sedan",
+            "Tesla Model X": "sedan", "Land Rover Range Rover": "sedan",
+            # Plain sedans stay sedan; the 23 stay SUV.
             "Cadillac CT6": "sedan", "Lincoln Continental": "sedan",
             "Mercedes-Benz S-Class": "sedan", "Lucid Air": "sedan",
             "Cadillac Escalade": "suv", "Lincoln Navigator": "suv",
-            "Rolls-Royce Cullinan": "suv", "Lamborghini Urus": "suv",
         }
         for model, expected in cases.items():
             self.assertEqual(car_models_module.class_for_model(model), expected, model)
@@ -465,6 +477,28 @@ class ClassApiCase(unittest.TestCase):
         by_phone = {r["phone"]: r for r in rows}
         self.assertEqual(by_phone[sedan_driver["phone"]]["vehicle_class_label"], "Business Class")
         self.assertEqual(by_phone[suv_driver["phone"]]["vehicle_class_label"], "Business SUV")
+
+    def test_existing_driver_reclasses_when_mapping_changes(self):
+        # Owner decision 2026-11-21: a BMW X5 is Business Class now.
+        # A driver registered before the change has "suv" stored for
+        # it; the stored value must not keep him an SUV — the class
+        # is derived from the car model on read.
+        driver, token = self.register_driver("BMW X5")
+        self.assertEqual(driver["vehicle_class"], "sedan")
+        with app_module.app.app_context():
+            row = app_module.Driver.query.filter_by(phone=driver["phone"]).first()
+            row.vehicle_class = "suv"  # as stored before the change
+            app_module.db.session.commit()
+        me = self.client.get("/api/drivers/me",
+                             headers={"X-Driver-Token": token}).get_json()["driver"]
+        self.assertEqual(me["vehicle_class"], "sedan")
+        self.assertEqual(me["vehicle_class_label"], "Business Class")
+        # And he no longer gets SUV offers, only Business Class ones.
+        booking = self.book()
+        self.assertEqual(self.pay(booking["id"]).status_code, 200)
+        offers = self.client.get("/api/drivers/me/offers",
+                                 headers={"X-Driver-Token": token}).get_json()
+        self.assertEqual([o["booking_id"] for o in offers], [booking["id"]])
 
     # -- dispatch filtering -------------------------------------------------
     def test_dispatch_filtering_both_ways(self):

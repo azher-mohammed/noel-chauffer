@@ -72,8 +72,10 @@ never a breakdown, never rates, never miles.
 - **Hourly rides are unchanged:** $90/hour customer, $50/hour driver,
   no fee, no gratuity, no tax.
 - **Driver vehicle class** is derived from the registered car model
-  via the explicit 133-model mapping in `car_models.py` (85 SUVs, 48
-  sedans; judgment calls documented in `static/NOTES.md`). Dispatch
+  via the explicit 133-model mapping in `car_models.py` (23 SUVs, 110
+  sedans; owner decision 2026-11-21 — only the 23 Uber Black SUV
+  models are SUVs, every other model is Business Class and stays in
+  the dropdown; judgment calls documented in `static/NOTES.md`). Dispatch
   is class-filtered: sedan bookings only to sedan drivers, SUV
   bookings only to SUV drivers; hourly rides reach every driver.
 - **Verified examples:** 20-mile SUV = $200.00 total, driver $140,

@@ -276,11 +276,15 @@ class BookingApiStillWorksCase(unittest.TestCase):
         resp = self.client.post("/api/bookings", json=past)
         self.assertEqual(resp.status_code, 400, resp.get_data(as_text=True)[:200])
         self.assertIn("in the past", resp.get_json().get("error", ""))
-        # Today at a time two hours ago is past too.
+        # Today at a time two hours ago is past too. (Take the date
+        # from the shifted time itself: just after midnight, two
+        # hours ago is yesterday, and "today at 22:43" would be in
+        # the future — that is a test bug, not a booking bug.)
         now_ny = datetime.now(ZoneInfo("America/New_York"))
+        past_dt = now_ny - timedelta(hours=2)
         past_today = dict(past)
-        past_today["date"] = now_ny.strftime("%Y-%m-%d")
-        past_today["time"] = (now_ny - timedelta(hours=2)).strftime("%H:%M")
+        past_today["date"] = past_dt.strftime("%Y-%m-%d")
+        past_today["time"] = past_dt.strftime("%H:%M")
         resp = self.client.post("/api/bookings", json=past_today)
         self.assertEqual(resp.status_code, 400, resp.get_data(as_text=True)[:200])
         self.assertIn("in the past", resp.get_json().get("error", ""))

@@ -6,8 +6,10 @@ Audi A8, Tesla Model X ("or similar": the customer picks a CLASS,
 the exact model is never guaranteed). A First Class booking reaches
 ONLY drivers whose registered car is one of the four; every other
 driver never sees it and cannot accept it even by direct API call.
-The Model X is an SUV and the other three are sedans, so a Model X
-driver keeps his Business SUV dispatch and an S-Class driver keeps
+The Model X is an SUV by body but classed Business Class since the
+2026-11-21 Professional SUV change (only the 23 Uber Black SUV
+models are SUVs), and the other three are sedans, so a Model X
+driver keeps his Business Class dispatch and an S-Class driver keeps
 his Business Class dispatch — First Class is an extra qualification
 by model, not a replacement class.
 
@@ -193,14 +195,28 @@ class FirstClassModelsCase(unittest.TestCase):
 
     def test_first_class_drivers_keep_their_business_dispatch(self):
         # S-Class (a sedan) still gets Business Class jobs; Model X
-        # (an SUV) still gets Business SUV jobs — First Class is an
-        # extra qualification, not a replacement class.
+        # (Business Class since the 2026-11-21 Professional SUV
+        # change — only the 23 Uber Black SUV models are SUVs) now
+        # gets Business Class jobs too and no longer gets Business
+        # SUV jobs — First Class is an extra qualification, not a
+        # replacement class.
         _, s_token = self.register_driver("Mercedes-Benz S-Class")
         _, x_token = self.register_driver("Tesla Model X")
+        _, sub_token = self.register_driver("Chevrolet Suburban")
         sedan = self.book()
         self.pay(sedan["id"])
         self.assertIn(sedan["id"], self.offer_ids(s_token))
-        self.assertNotIn(sedan["id"], self.offer_ids(x_token))
+        self.assertIn(sedan["id"], self.offer_ids(x_token))
+        self.assertNotIn(sedan["id"], self.offer_ids(sub_token))
+        suv = self.book()
+        resp = self.client.post(
+            f"/api/bookings/{suv['id']}/vehicle-class",
+            json={"vehicle_class": "suv"})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        self.pay(suv["id"])
+        self.assertNotIn(suv["id"], self.offer_ids(s_token))
+        self.assertNotIn(suv["id"], self.offer_ids(x_token))
+        self.assertIn(suv["id"], self.offer_ids(sub_token))
 
     def pay(self, booking_id):
         resp = self.client.post(f"/api/bookings/{booking_id}/pay", json=dict(CARD))

@@ -197,6 +197,13 @@ dashboard holds the full breakdown. The driver sees only earnings.
   Class button only when the booking's class totals include it.
   Display names are `Business Class` / `Business SUV` / `First Class`
   on the options page, in trip summaries, and in owner/driver views.
+- Business SUV is EXACTLY the 23 Uber Black SUV models (owner
+  decision 2026-11-21, "Professional SUV" in the owner's words);
+  every other model — including SUV-body models like BMW X5, Audi Q7
+  and Tesla Model X — is Business Class and stays in the driver
+  dropdown. Model X stays First-eligible by model. The class is
+  derived from the car model on read, so existing drivers reclass
+  automatically when the mapping changes.
 - One-way: fare = miles × class rate (sedan $9/mile, SUV $10/mile);
   NO tax, NO gratuity (both removed by owner orders 2026-11-17 —
   the 8.875% NYC sales tax and the 10% gratuity no longer apply to

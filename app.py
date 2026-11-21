@@ -3482,13 +3482,19 @@ def require_owner_pin():
 
 
 def driver_vehicle_class(driver):
-    """A driver's vehicle class: stored at registration, or derived
-    from the car model for drivers registered before the class system
-    existed. Always "sedan" or "suv" for a validated car model."""
+    """A driver's vehicle class: derived from the car model via the
+    current mapping in car_models.py, so a mapping change (owner
+    decision 2026-11-21: only the 23 Uber Black SUV models are
+    "suv", every other model is "sedan") reclasses existing drivers
+    automatically — no data migration, no re-registration. The stored
+    value is only a fallback for a car model the mapping no longer
+    knows. Always "sedan" or "suv" for a validated car model."""
+    derived = class_for_model(driver.car_model)
+    if derived is not None:
+        return derived
     if driver.vehicle_class in ("sedan", "suv"):
         return driver.vehicle_class
-    derived = class_for_model(driver.car_model)
-    return derived or "sedan"
+    return "sedan"
 
 
 def booking_vehicle_class(booking):
@@ -3516,9 +3522,11 @@ def driver_matches_booking_class(driver, booking):
     registered car model is a First Class model (Mercedes-Benz
     S-Class, BMW 7 Series, Audi A8, Tesla Model X — same as
     Blacklane; owner decision 2026-11-20). A Model X driver keeps
-    his Business SUV dispatch and an S-Class driver keeps his
+    his Business Class dispatch and an S-Class driver keeps his
     Business Class dispatch — First Class is an extra qualification
-    by model, not a replacement class. Hourly rides with a class
+    by model, not a replacement class. (Owner decision 2026-11-21:
+    Model X is Business Class, not Business SUV — only the 23 Uber
+    Black SUV models are SUVs.) Hourly rides with a class
     (Blacklane-style hourly, owner decision 2026-11-20) are filtered
     the same way; hourly rows from before the class system (no class
     stored) reach every driver, as before.

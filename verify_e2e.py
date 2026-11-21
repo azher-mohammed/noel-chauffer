@@ -1033,13 +1033,13 @@ check("served driver.js has Pick up / Drop off route labels",
       and "routeHtml(o.pickup, o.dropoff)" in r.text
       and "routeHtml(t.pickup, t.dropoff)" in r.text,
       "labels or route render calls missing from served driver.js")
-check("served driver.js stages trip navigation (pickup until picked up)",
+check("served driver.js stages nav-chooser destination (pickup until picked up)",
       "function tripNavDestination(stageIndex, pickup, dropoff)" in r.text
       and "if (stageIndex < 3) return pickup || null;" in r.text
       and "return dropoff || null;" in r.text
-      and "tripNavLinksHtml(state.stageIndex, t.pickup, t.dropoff)" in r.text
-      and "renderTripNavLinks();" in r.text,
-      "staged navigation helpers or wiring missing from served driver.js")
+      and "tripNavLinksHtml" not in r.text
+      and "renderTripNavLinks" not in r.text,
+      "staged navigation helpers missing, or removed trip-screen links still served")
 check("served driver.js keeps offer-card links, trip screen drops payload URLs",
       "esc(o.route_url)" in r.text
       and "esc(o.route_waze_url)" in r.text

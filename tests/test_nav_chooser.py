@@ -9,8 +9,9 @@ navigation to the PICKUP on the first and to the DROP-OFF on the
 second, reusing the staged destination helper. "Arrived" and
 completion never trigger it, dismissing it changes nothing (the
 stage has already advanced), and hourly rides never get a drop-off
-chooser because they have no drop-off. The trip-screen links stay
-as a manual fallback, and the embedded map stays removed.
+chooser because they have no drop-off. The trip-screen top links
+were removed (owner 2026-11-20), so this chooser is now the
+driver's only navigation route; the embedded map stays removed.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -54,7 +55,7 @@ class NavChooserCase(unittest.TestCase):
         helper = extract_function(driver_js, "function navChooserUrls(dest)")
         # Destination with no origin: the app routes from the
         # driver's current location, exactly like the staged
-        # trip-screen links. An origin would route pickup->drop-off.
+        # navigation destination. An origin would route pickup->drop-off.
         self.assertIn(
             '"https://www.google.com/maps/dir/?api=1&destination="'
             " + encodeURIComponent(dest)", helper)
@@ -141,11 +142,12 @@ class NavChooserCase(unittest.TestCase):
         css = read("static/css/driver.css")
         self.assertIn(".nav-chooser-overlay", css)
         self.assertIn(".nav-chooser-card", css)
-        # The manual fallback links are untouched: the trip screen
-        # still renders the staged links into trip-route-link.
-        self.assertIn('id="trip-route-link"', html)
+        # The trip-screen top links are gone (owner 2026-11-20):
+        # no container element in the page, no renderer in the JS.
+        self.assertNotIn('id="trip-route-link"', html)
         driver_js = read("static/js/driver.js")
-        self.assertIn("function renderTripNavLinks()", driver_js)
+        self.assertNotIn("function renderTripNavLinks()", driver_js)
+        self.assertNotIn("tripNavLinksHtml", driver_js)
 
     def test_trip_end_hides_chooser(self):
         driver_js = read("static/js/driver.js")

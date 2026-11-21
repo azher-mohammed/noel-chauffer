@@ -1903,36 +1903,25 @@
     if (chat) chat.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  /* Staged navigation on the trip screen (Uber-driver-style): until
-     the customer is picked up, the route links navigate the driver
-     TO THE PICKUP from his current location; only after pickup do
-     they navigate to the drop-off. stageIndex counts completed
-     stages, so the customer is picked up once it reaches 3 (the
-     "complete" stage is current, server status in_progress). Hourly
-     rides have no drop-off: after pickup there is nowhere to
-     navigate, so the links are hidden rather than pointing at an
-     empty destination. The offer card is untouched: its links keep
-     previewing the whole trip (pickup -> drop-off) while the driver
-     decides. Google Maps gets a destination with no origin, so it
-     routes from the driver's current location; Waze navigates to
-     the single destination from the current location. */
+  /* Staged navigation destination (Uber-driver-style): until the
+     customer is picked up, navigation goes TO THE PICKUP from the
+     driver's current location; only after pickup does it go to the
+     drop-off. stageIndex counts completed stages, so the customer
+     is picked up once it reaches 3 (the "complete" stage is
+     current, server status in_progress). Hourly rides have no
+     drop-off: after pickup there is nowhere to navigate, so no
+     destination is returned. This helper feeds ONLY the navigation
+     chooser that pops on "Head to pickup" / "Start trip" — the
+     trip screen itself shows no Google Maps / Waze links (owner
+     decision 2026-11-20: removed from the top of the trip screen).
+     The offer card is untouched: its links keep previewing the
+     whole trip (pickup -> drop-off) while the driver decides.
+     Google Maps gets a destination with no origin, so it routes
+     from the driver's current location; Waze navigates to the
+     single destination from the current location. */
   function tripNavDestination(stageIndex, pickup, dropoff) {
     if (stageIndex < 3) return pickup || null;
     return dropoff || null;
-  }
-  function tripNavLinksHtml(stageIndex, pickup, dropoff) {
-    var dest = tripNavDestination(stageIndex, pickup, dropoff);
-    if (!dest) return "";
-    var google = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest);
-    var waze = "https://waze.com/ul?q=" + encodeURIComponent(dest) + "&navigate=yes";
-    return '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(google) + '" target="_blank" rel="noopener">Google Maps ↗</a>' +
-      '<a class="route-link" style="display:inline-block;margin-top:10px;font-weight:600;" href="' + esc(waze) + '" target="_blank" rel="noopener">Waze ↗</a>';
-  }
-  function renderTripNavLinks() {
-    var el = $("trip-route-link");
-    if (!el) return;
-    var t = state.trip;
-    el.innerHTML = t ? tripNavLinksHtml(state.stageIndex, t.pickup, t.dropoff) : "";
   }
 
   /* Navigation chooser (owner request 2026-11-17): tapping "Head
@@ -1945,7 +1934,7 @@
      so hourly rides (no drop-off) never get a drop-off chooser.
      The external URL opens from the chooser button's own tap
      handler, a direct user gesture, so mobile browsers do not
-     block it. The trip-screen links stay as a manual fallback. */
+     block it. */
   function navChooserUrls(dest) {
     return {
       google: "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest),
@@ -1989,6 +1978,7 @@
     var cls = classLabelFor(t);
     if (cls) when += (when ? " · " : "") + cls;
     if (t.ride_type === "hourly") when += (when ? " · " : "") + "By the hour" + (t.hours ? " · " + t.hours + " hour(s)" : "");
+    else if (t.is_return) when += (when ? " · " : "") + "Return trip";
     $("trip-when").textContent = when;
     var cust = "";
     if (t.customer_name) cust += esc(t.customer_name);
@@ -2018,10 +2008,6 @@
     /* PAUSED (owner decision 2026-11-20): no earnings shown on the
        trip screen. */
     $("trip-earnings").innerHTML = "";
-    /* Navigation links are staged (pickup until picked up, then
-       drop-off) and re-render with the stages — see
-       renderTripNavLinks. */
-    renderTripNavLinks();
     /* Digital name sign: airport pickups only. The driver holds the
        phone up at arrivals so the customer can spot their name. */
     var signBtn = $("trip-namesign-btn");
@@ -2162,10 +2148,6 @@
       hide($("waiting-field"));
       hide($("extra-miles-field"));
     }
-    /* The navigation destination follows the stage: a stage advance
-       (e.g. "Start trip" after pickup) must switch the links from
-       the pickup to the drop-off at once, without a full re-render. */
-    renderTripNavLinks();
     refreshNoShowButton();
     refreshCancelButton();
     refreshGateNote();

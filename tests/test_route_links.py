@@ -1,10 +1,13 @@
 """Tests for driver route options: Google Maps AND Waze.
 
 Owner decision 2026-11-16 (voice call): the driver gets two route
-options on the offer card and the trip screen — "Google Maps" and
-"Waze" — instead of the single "View route map" link. The Google URL
-(route_url) is unchanged; the Waze URL (route_waze_url) navigates to
-the dropoff (or the pickup when there is no dropoff).
+options on the offer card — "Google Maps" and "Waze" — instead of
+the single "View route map" link. The Google URL (route_url) is
+unchanged; the Waze URL (route_waze_url) navigates to the dropoff
+(or the pickup when there is no dropoff). The trip-screen top
+links were removed separately (owner 2026-11-20); only the offer
+card keeps both links, plus the navigation chooser on stage
+advance.
 
 Run:  python -m unittest discover -s tests -v
 """

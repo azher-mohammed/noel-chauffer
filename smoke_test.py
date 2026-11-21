@@ -675,14 +675,16 @@ check("served driver.js has Pick up / Drop off route labels",
       and b"routeHtml(o.pickup, o.dropoff)" in resp.data
       and b"routeHtml(t.pickup, t.dropoff)" in resp.data,
       str(resp.status_code))
-# --- staged trip navigation (served driver JS) -----------------------------
-check("served driver.js stages trip navigation (pickup until picked up)",
+# --- staged nav-chooser destination (served driver JS) -------------------
+# Owner 2026-11-20: the trip-screen top links are gone; the staged
+# destination helper now feeds only the navigation chooser.
+check("served driver.js stages nav-chooser destination (pickup until picked up)",
       resp.status_code == 200
       and b"function tripNavDestination(stageIndex, pickup, dropoff)" in resp.data
       and b"if (stageIndex < 3) return pickup || null;" in resp.data
       and b"return dropoff || null;" in resp.data
-      and b"tripNavLinksHtml(state.stageIndex, t.pickup, t.dropoff)" in resp.data
-      and b"renderTripNavLinks();" in resp.data,
+      and b"tripNavLinksHtml" not in resp.data
+      and b"renderTripNavLinks" not in resp.data,
       str(resp.status_code))
 check("served driver.js keeps offer-card links, trip screen drops payload URLs",
       b"esc(o.route_url)" in resp.data

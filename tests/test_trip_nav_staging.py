@@ -1,18 +1,13 @@
-"""Tests for staged driver navigation on the trip screen.
+"""Tests that the driver trip screen shows NO Google Maps / Waze links.
 
-Owner report 2026-11-17 (voice call): after accepting a job (JFK
-Terminal 1 -> Stamford), while heading to the pickup, the app's
-navigation took him straight to the DROP-OFF (Stamford) instead of
-the PICKUP first. Required (Uber-driver-style): from accept until
-the customer is picked up, the Google Maps and Waze links navigate
-TO THE PICKUP from the driver's current location; only after pickup
-do they navigate to the drop-off. Hourly rides have no drop-off, so
-after pickup the links are hidden rather than pointing anywhere.
-
-The staging keys off the trip screen's existing stage state:
-stageIndex counts completed stages (0 accepted, 1 heading to pickup,
-2 arrived, 3 picked up / in progress). The offer card is untouched:
-its links keep previewing the whole trip (pickup -> drop-off).
+Owner decision 2026-11-20 (voice call: "mere ko achha nahi dikh
+raha, nikal do" — the links at the top of the driver trip screen):
+the Google Maps ↗ / Waze ↗ links at the top of the trip screen
+("Current trip", above the stage buttons) are REMOVED. Only the
+screen is touched — the offer-card links stay, and the navigation
+chooser that pops on "Head to pickup" / "Start trip" stays and
+still navigates to the staged destination (pickup until picked up,
+then drop-off), via tripNavDestination.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -52,6 +47,8 @@ def extract_function(source, signature):
 
 class TripNavStagingCase(unittest.TestCase):
     def test_destination_helper_keys_off_stage_index(self):
+        # tripNavDestination still exists: the navigation chooser
+        # reuses it to pick pickup vs drop-off.
         driver_js = read("static/js/driver.js")
         self.assertIn(
             "function tripNavDestination(stageIndex, pickup, dropoff)", driver_js)
@@ -64,49 +61,25 @@ class TripNavStagingCase(unittest.TestCase):
         self.assertLess(helper.index("stageIndex < 3"),
                         helper.index("return dropoff"))
 
-    def test_google_nav_url_has_destination_only_no_origin(self):
+    def test_trip_screen_has_no_top_route_links(self):
+        # Owner 2026-11-20: no Google Maps / Waze links at the top
+        # of the trip screen. The helper that built them, the
+        # renderer that wrote them into the page, and the container
+        # element are all gone.
         driver_js = read("static/js/driver.js")
-        helper = extract_function(
-            driver_js, "function tripNavLinksHtml(stageIndex, pickup, dropoff)")
-        # Destination with no origin: Google routes from the driver's
-        # current location. An origin=<pickup> would show the
-        # pickup->drop-off route instead — the reported bug.
-        self.assertIn(
-            '"https://www.google.com/maps/dir/?api=1&destination="'
-            " + encodeURIComponent(dest)", helper)
-        self.assertNotIn("origin=", helper)
-
-    def test_waze_nav_url_points_at_destination(self):
-        driver_js = read("static/js/driver.js")
-        helper = extract_function(
-            driver_js, "function tripNavLinksHtml(stageIndex, pickup, dropoff)")
-        self.assertIn(
-            '"https://waze.com/ul?q=" + encodeURIComponent(dest)'
-            ' + "&navigate=yes"', helper)
-
-    def test_no_links_when_no_destination(self):
-        # Hourly after pickup: no drop-off, so nothing to navigate to.
-        driver_js = read("static/js/driver.js")
-        helper = extract_function(
-            driver_js, "function tripNavLinksHtml(stageIndex, pickup, dropoff)")
-        self.assertIn('if (!dest) return "";', helper)
-
-    def test_trip_screen_uses_staged_links_and_restages_on_advance(self):
-        driver_js = read("static/js/driver.js")
-        # The trip screen renders the staged links...
-        self.assertIn("function renderTripNavLinks()", driver_js)
-        self.assertIn("tripNavLinksHtml(state.stageIndex, t.pickup, t.dropoff)",
-                      driver_js)
-        # ...on every trip render AND on every stage advance (the
-        # stage button calls renderStages, not renderTrip, so the
-        # links must re-stage there or "Start trip" would leave them
-        # pointing at the pickup).
+        self.assertNotIn("tripNavLinksHtml", driver_js)
+        self.assertNotIn("renderTripNavLinks", driver_js)
+        self.assertNotIn("trip-route-link", driver_js)
+        html = read("static/driver.html")
+        self.assertNotIn('id="trip-route-link"', html)
+        # Neither the trip render nor the stage render may call the
+        # removed renderer.
+        render_trip = driver_js[driver_js.index("function renderTrip()"):]
+        render_trip = render_trip[:render_trip.index("/* ---------- Arrival")]
+        self.assertNotIn("renderTripNavLinks", render_trip)
         stages = driver_js[driver_js.index("function renderStages()"):]
         stages = stages[:stages.index("function refreshNoShowButton()")]
-        self.assertIn("renderTripNavLinks();", stages)
-        # The trip screen no longer uses the un-staged payload URLs.
-        self.assertNotIn("esc(t.route_url)", driver_js)
-        self.assertNotIn("esc(t.route_waze_url)", driver_js)
+        self.assertNotIn("renderTripNavLinks", stages)
 
     def test_offer_card_links_unchanged(self):
         driver_js = read("static/js/driver.js")
@@ -115,17 +88,22 @@ class TripNavStagingCase(unittest.TestCase):
         self.assertIn('esc(o.route_url)', offers)
         self.assertIn('esc(o.route_waze_url)', offers)
 
-    @unittest.skipUnless(shutil.which("node"), "node required to execute the JS helpers")
-    def test_staged_urls_execute_correctly(self):
-        """Run the REAL helpers from driver.js under node: every
-        stage, one-way and hourly, asserting the exact URLs."""
+    def test_chooser_still_uses_staged_destination(self):
+        # The chooser is now the driver's only navigation route, so
+        # it must still stage pickup vs drop-off.
         driver_js = read("static/js/driver.js")
-        esc = extract_function(driver_js, "function esc(s)")
+        helper = extract_function(driver_js, "function maybeShowNavChooser(advancedStage)")
+        self.assertIn(
+            "tripNavDestination(state.stageIndex, t.pickup, t.dropoff)", helper)
+
+    @unittest.skipUnless(shutil.which("node"), "node required to execute the JS helpers")
+    def test_staged_destination_executes_correctly(self):
+        """Run the REAL tripNavDestination from driver.js under node:
+        every stage, one-way and hourly."""
+        driver_js = read("static/js/driver.js")
         dest_fn = extract_function(
             driver_js, "function tripNavDestination(stageIndex, pickup, dropoff)")
-        html_fn = extract_function(
-            driver_js, "function tripNavLinksHtml(stageIndex, pickup, dropoff)")
-        harness = "\n".join([esc, dest_fn, html_fn, _NODE_DRIVER])
+        harness = "\n".join([dest_fn, _NODE_DRIVER])
         with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
             fh.write(harness)
             path = fh.name
@@ -137,7 +115,7 @@ class TripNavStagingCase(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         result = json.loads(proc.stdout.strip().splitlines()[-1])
         self.assertEqual(result["failed"], [], str(result))
-        self.assertEqual(result["passed"], 12)
+        self.assertEqual(result["passed"], 6)
 
 
 _NODE_DRIVER = """
@@ -147,40 +125,23 @@ function check(name, cond, detail) {
   if (cond) { passed++; }
   else { failures.push(name + (detail ? ": " + detail : "")); }
 }
-function hrefs(html) {
-  var out = [], m, re = /href="([^"]*)"/g;
-  while ((m = re.exec(html))) out.push(m[1].replace(/&amp;/g, "&"));
-  return out;
-}
-function expectDest(stage, pickup, dropoff, want) {
-  var html = tripNavLinksHtml(stage, pickup, dropoff);
-  var hs = hrefs(html);
-  var google = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(want);
-  var waze = "https://waze.com/ul?q=" + encodeURIComponent(want) + "&navigate=yes";
-  check("stage " + stage + " links to " + want,
-    hs.length === 2 && hs[0] === google && hs[1] === waze && html.indexOf("origin=") === -1,
-    JSON.stringify(hs));
-  check("stage " + stage + " keeps both link labels",
-    html.indexOf("Google Maps") !== -1 && html.indexOf("Waze") !== -1, html);
-}
 var PICKUP = "Terminal 1 Arrivals, Queens, NY 11430";
 var DROPOFF = "Stamford, CT";
-expectDest(0, PICKUP, DROPOFF, PICKUP);
-expectDest(1, PICKUP, DROPOFF, PICKUP);
-expectDest(2, PICKUP, DROPOFF, PICKUP);
-expectDest(3, PICKUP, DROPOFF, DROPOFF);
-// Hourly: no drop-off. Before pickup the links go to the pickup;
-// after pickup there is nothing to navigate to, so no links at all.
-expectDest(0, "Central Park, New York", "", "Central Park, New York");
-check("hourly after pickup hides links",
-  tripNavLinksHtml(3, "Central Park, New York", "") === "" &&
-  tripNavLinksHtml(3, "Central Park, New York", null) === "", "links rendered");
-// Addresses with special characters are URL-encoded, and the & in
-// the query string is HTML-escaped in the href attribute.
-var tricky = tripNavLinksHtml(0, "A & B Street", "C");
-check("ampersand escaped in link HTML and address encoded",
-  tricky.indexOf("api=1&amp;destination=") !== -1 &&
-  tricky.indexOf("A%20%26%20B%20Street") !== -1, tricky);
+check("stage 0 destination is the pickup",
+  tripNavDestination(0, PICKUP, DROPOFF) === PICKUP);
+check("stage 1 destination is the pickup",
+  tripNavDestination(1, PICKUP, DROPOFF) === PICKUP);
+check("stage 2 destination is the pickup",
+  tripNavDestination(2, PICKUP, DROPOFF) === PICKUP);
+check("stage 3 destination is the drop-off",
+  tripNavDestination(3, PICKUP, DROPOFF) === DROPOFF);
+// Hourly: no drop-off. Before pickup the destination is the
+// pickup; after pickup there is nothing to navigate to.
+check("hourly before pickup goes to the pickup",
+  tripNavDestination(0, "Central Park, New York", "") === "Central Park, New York");
+check("hourly after pickup has no destination",
+  tripNavDestination(3, "Central Park, New York", "") === null &&
+  tripNavDestination(3, "Central Park, New York", null) === null);
 console.log(JSON.stringify({passed: passed, failed: failures}));
 """
 

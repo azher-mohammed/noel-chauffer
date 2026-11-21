@@ -1,18 +1,22 @@
-"""Tests for the black Pay / Chat-with-us buttons (normal business look).
+"""Tests for the BLUE buttons with a full business look.
 
-Owner decision, voice call 2026-11-21 ~08:45-08:46 EST: the gold "Pay $X"
-button and the gold "Chat with us" pill become BLACK with plain WHITE
-text — normal font and weight, no gold, no gradient, no fancy styling.
-Applies on the website booking flow AND the customer app (/app).
+Owner standing rule, main chat 2026-11-21 ~09:55-09:57 EST ("I dont
+like black" / "Blue kar do" / "Aab se best color use karo" / "Not black
+buttons" / "Ek dum business wala button"): from now on the BEST colour
+is used — ALL buttons are BLUE (#0b5fff, the bright royal blue the
+"View options" button had), with white normal text, clean professional
+business styling (no gradient, no glow, normal weight). NEVER black
+buttons. This supersedes the all-black buttons order of ~08:54 EST
+("Black hai to poora"), which itself superseded the gold buttons.
 
-Final colour decision, voice call 2026-11-21 ~08:54 EST ("Black hai to
-poora"): ALL buttons fully black — including "View options" (its blue is
-out) and the ghost / danger / decline variants. No layout or position
-changes — colour only.
+Gold stays OUT everywhere EXCEPT the brand name: only the word
+"Chauffeur" in "Noel Chauffer" is golden — a VERY LIGHT gold
+(#e8cf8f, owner tweak 2026-11-21 ~10:02 EST, "Ek dum light golden
+kare toh"); see test_no_gold.py. Applies on the website, the customer
+app (/app) AND the driver app (/driver).
 
-These are static pins on static/css/customer.css and
-static/css/customer-app.css only: the change is CSS-only, so the shipped
-stylesheets are the whole change.
+These are static pins on the three stylesheets only: the change is
+CSS-only, so the shipped stylesheets are the whole change.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -43,12 +47,12 @@ def _last_rule(css, selector):
     return matches[-1]
 
 
-class PayChatButtonsBlackCase(unittest.TestCase):
+class BlueButtonsCase(unittest.TestCase):
     # -- website: Pay $X submit --------------------------------------
-    def test_website_pay_submit_black_white_normal(self):
+    def test_website_pay_submit_blue_white_normal(self):
         body = _rule(_read("static/css/customer.css"),
                      ".pay-panel .btn-primary")
-        self.assertIn("background: var(--black);", body)
+        self.assertIn("background: var(--blue);", body)
         self.assertIn("color: var(--white);", body)
         self.assertIn("font-weight: 400;", body)
         self.assertNotIn("linear-gradient", body)
@@ -57,22 +61,22 @@ class PayChatButtonsBlackCase(unittest.TestCase):
     def test_website_pay_submit_hover_plain(self):
         body = _rule(_read("static/css/customer.css"),
                      ".pay-panel .btn-primary:hover")
-        self.assertIn("background: #222;", body)
+        self.assertIn("background: #004fe0;", body)
         self.assertNotIn("linear-gradient", body)
 
-    def test_website_pay_by_card_opener_black_white_normal(self):
+    def test_website_pay_by_card_opener_blue_white_normal(self):
         body = _rule(_read("static/css/customer.css"), "#pay-open-btn")
-        self.assertIn("background: var(--black);", body)
+        self.assertIn("background: var(--blue);", body)
         self.assertIn("color: var(--white);", body)
         self.assertIn("font-weight: 400;", body)
         self.assertNotIn("linear-gradient", body)
         self.assertNotIn("gold", body)
 
     # -- website: Chat with us pill ----------------------------------
-    def test_website_chat_fab_black_white_normal(self):
+    def test_website_chat_fab_blue_white_normal(self):
         # Two .chat-fab rules exist; the later one wins.
         body = _last_rule(_read("static/css/customer.css"), ".chat-fab")
-        self.assertIn("background: var(--black);", body)
+        self.assertIn("background: var(--blue);", body)
         self.assertIn("color: var(--white);", body)
         self.assertIn("font-weight: 400;", body)
         self.assertNotIn("linear-gradient", body)
@@ -81,52 +85,61 @@ class PayChatButtonsBlackCase(unittest.TestCase):
     def test_website_chat_fab_hover_plain(self):
         body = _last_rule(_read("static/css/customer.css"),
                           ".chat-fab:hover")
-        self.assertIn("background: #222;", body)
+        self.assertIn("background: #004fe0;", body)
         self.assertNotIn("linear-gradient", body)
 
     # -- customer app: Pay + Chat send -------------------------------
-    def test_app_pay_submit_black_white_normal(self):
+    def test_app_pay_submit_blue_white_normal(self):
         css = _read("static/css/customer-app.css")
         m = re.search(r"#ca-pay-submit,\s*#ca-chat-send\s*\{([^}]*)\}", css)
         self.assertIsNotNone(m, "missing #ca-pay-submit/#ca-chat-send rule")
         body = m.group(1)
-        self.assertIn("background: var(--black);", body)
+        self.assertIn("background: var(--blue);", body)
         self.assertIn("color: var(--white);", body)
         self.assertIn("font-weight: 400;", body)
         self.assertNotIn("linear-gradient", body)
         self.assertNotIn("gold", body)
 
-    # -- guards: View options is black too, buttons still present -----
-    def test_view_options_is_black_not_blue(self):
+    # -- guards: View options is blue, never black --------------------
+    def test_view_options_is_blue_not_black(self):
         css = _read("static/css/customer.css")
         # Two .booking-card .btn-primary rules exist; the later one
         # (dark booking card) sets the background.
         matches = re.findall(
             r"\.booking-card \.btn-primary\s*\{([^}]*)\}", css)
         self.assertTrue(matches, "missing .booking-card .btn-primary")
-        self.assertIn("background: var(--black);", matches[-1])
+        self.assertIn("background: var(--blue);", matches[-1])
+        self.assertNotIn("background: var(--black);", matches[-1])
         m = re.search(
             r"\.ride-tab\.active\s*\{([^}]*)\}",
             css[css.index("/* ---- Blacklane-style"):] if
             "/* ---- Blacklane-style" in css else css)
         self.assertIsNotNone(m, "missing .ride-tab.active")
-        self.assertIn("background: var(--black);", m.group(1))
-        self.assertNotIn("var(--blue)", css)
-        self.assertNotIn("#0b5fff", css)
+        self.assertIn("background: var(--blue);", m.group(1))
+        self.assertIn("var(--blue)", css)
+        self.assertIn("#0b5fff", css)
 
-    def test_ghost_danger_decline_are_black_too(self):
+    def test_ghost_danger_decline_are_blue_too(self):
         for rel in ("static/css/customer.css",
                     "static/css/customer-app.css",
                     "static/css/driver.css"):
             css = _read(rel)
             for selector in (".btn-ghost", ".btn-danger"):
                 body = _rule(css, selector)
-                self.assertIn("background: var(--black);", body,
+                self.assertIn("background: var(--blue);", body,
                               "%s %s" % (rel, selector))
                 self.assertIn("color: var(--white);", body,
                               "%s %s" % (rel, selector))
         body = _rule(_read("static/css/driver.css"), ".btn-decline")
-        self.assertIn("background: var(--black);", body)
+        self.assertIn("background: var(--blue);", body)
+        self.assertIn("color: var(--white);", body)
+
+    def test_header_cta_and_home_menu_are_blue(self):
+        body = _rule(_read("static/css/customer.css"), ".header-cta")
+        self.assertIn("background: var(--blue);", body)
+        self.assertIn("color: var(--white);", body)
+        body = _rule(_read("static/css/driver.css"), ".home-menu-btn")
+        self.assertIn("background: var(--blue);", body)
         self.assertIn("color: var(--white);", body)
 
     def test_buttons_still_present(self):

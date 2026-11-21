@@ -298,10 +298,11 @@ class DriverEntryFlowCase(unittest.TestCase):
             self.assertNotIn("#1e7a4c", body)
             self.assertNotIn("#35a86f", body)
             self.assertNotIn("#4cc38a", body)
-        # And since 2026-11-21 ~08:54 EST ("Black hai to poora") the
-        # Accept button is fully black with white text — no gold.
+        # And since 2026-11-21 ~09:55 EST ("Blue kar do" / "Not black
+        # buttons" / standing rule) the Accept button is fully BLUE with
+        # white text — no black, no gold.
         accept = css[css.index(".btn-accept"):]
-        self.assertIn("background: var(--black);", accept[:200])
+        self.assertIn("background: var(--blue);", accept[:200])
         self.assertIn("color: var(--white);", accept[:200])
 
     def test_reset_endpoints_still_wired(self):

@@ -1,8 +1,9 @@
 /* Noel Chauffer — customer app. Phone-frame, black and grey, plain
    business look: dark canvas, serif headings, dark cards with soft
-   depth, flat black primary buttons. */
+   depth, flat blue primary buttons. */
 :root {
   --black: #0b0b0c;
+  --blue: #0b5fff;
   --ink: #161617;
   --gold: #9a9a9a;
   --gold-soft: #d8d8d8;
@@ -53,7 +54,7 @@ input, select { font: inherit; }
   border-bottom: 3px solid var(--gold);
 }
 .app-head .brand { font-family: Georgia, "Times New Roman", serif; font-size: 24px; letter-spacing: 0.03em; }
-.app-head .brand span { color: var(--gold); }
+.app-head .brand span { color: #e8cf8f; }
 .app-head .tag { font-size: 13px; color: #cfcfcf; margin-top: 2px; }
 
 /* Screens: dark luxury canvas, room for the tab bar. */
@@ -127,43 +128,43 @@ input, select { font: inherit; }
   background: transparent; color: var(--soft); border: 1px solid rgba(255, 255, 255, 0.35);
 }
 .ride-tab.active {
-  background: var(--black);
+  background: var(--blue);
   color: var(--white); border: 1px solid rgba(255, 255, 255, 0.35);
   box-shadow: none;
 }
 
 /* Buttons */
 .btn-primary {
-  width: 100%; background: var(--black); color: var(--white); border: 0;
+  width: 100%; background: var(--blue); color: var(--white); border: 0;
   padding: 15px; border-radius: 10px; font-size: 16px; margin-top: 8px;
 }
 .btn-primary:disabled { opacity: 0.6; }
 .btn-gold {
   border: 0; font-weight: 400; letter-spacing: 0.02em;
-  background: var(--black);
+  background: var(--blue);
   color: var(--white);
   box-shadow: none;
 }
 .btn-primary:active { transform: translateY(1px); }
 
-/* Pay and Chat-with-us buttons: plain black with white text, normal
+/* Pay and Chat-with-us buttons: plain blue with white text, normal
    business look (owner 2026-11-21) — no gold, no gradient. .btn-gold
-   itself is now the same plain black, so this only pins the IDs. */
+   itself is now the same plain blue, so this only pins the IDs. */
 #ca-pay-submit,
 #ca-chat-send {
-  background: var(--black);
+  background: var(--blue);
   color: var(--white);
   border: 0;
   font-weight: 400;
   box-shadow: none;
 }
 .btn-ghost {
-  background: var(--black); border: 1px solid var(--black); color: var(--white);
+  background: var(--blue); border: 1px solid var(--blue); color: var(--white);
   padding: 13px 16px; border-radius: 10px; width: 100%; font-weight: 400;
 }
 .btn-ghost:active { transform: translateY(1px); }
 .btn-danger {
-  background: var(--black); border: 1px solid var(--black); color: var(--white);
+  background: var(--blue); border: 1px solid var(--blue); color: var(--white);
   padding: 13px 16px; border-radius: 10px; width: 100%; font-weight: 400;
 }
 .btn-danger:active { transform: translateY(1px); }
@@ -196,7 +197,7 @@ input, select { font: inherit; }
 .class-option-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; align-items: flex-start; }
 .class-option:hover { border-color: var(--gold); }
 .class-option.selected {
-  border: 2px solid var(--gold);
+  border: 2px solid var(--blue);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.22);
 }
 .class-option-name { font-size: 16px; font-weight: 600; color: var(--white); }

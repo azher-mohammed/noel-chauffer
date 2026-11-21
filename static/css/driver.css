@@ -1,9 +1,10 @@
-/* Noel Chauffer — driver app. Phone-frame, black and grey, plain business look, Uber Driver style.
+/* Noel Chauffer — driver app. Phone-frame, white pages with black text, plain business look, Uber Driver style.
    Classic typography restyle (owner decision 2026-11-21): larger, more
    readable type and airier spacing throughout; palette, layout, wording
    and behaviour unchanged. */
 :root {
   --black: #0b0b0c;
+  --blue: #0b5fff;
   --ink: #161617;
   --gold: #9a9a9a;
   --gold-soft: #d8d8d8;
@@ -19,7 +20,7 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #1a1a1a;
+  background: var(--white);
   color: var(--ink);
   line-height: 1.55;
 }
@@ -44,25 +45,25 @@ input, select { font: inherit; }
 }
 
 .app-head {
-  background: var(--black);
-  color: var(--white);
+  background: var(--white);
+  color: var(--ink);
   padding: 20px 20px 16px;
-  border-bottom: 3px solid var(--gold);
+  border-bottom: 1px solid var(--line);
 }
 .app-head .brand { font-family: Georgia, "Times New Roman", serif; font-size: 26px; letter-spacing: 0.04em; }
-.app-head .brand span { color: var(--gold); }
-.app-head .tag { font-size: 14px; color: #cfcfcf; margin-top: 2px; }
-.app-head .hello { font-size: 16px; margin-top: 10px; color: var(--gold-soft); }
+.app-head .brand span { color: #8a6d14; }
+.app-head .tag { font-size: 14px; color: var(--grey); margin-top: 2px; }
+.app-head .hello { font-size: 16px; margin-top: 10px; color: var(--grey); }
 /* Home menu button, top-left of the header (owner 2026-11-21):
    tapping it opens a menu with Earnings, Tax info, Documents and
-   Profile. Black and grey, like the rest of the driver app. */
+   Profile. Blue, like the other buttons in the driver app. */
 .app-head-row { display: flex; align-items: center; gap: 12px; }
-.home-menu-btn { background: var(--black); color: var(--white); border: 1px solid #888888; border-radius: 6px; padding: 5px 12px; font-size: 15px; font-weight: 400; }
+.home-menu-btn { background: var(--blue); color: var(--white); border: 1px solid var(--blue); border-radius: 6px; padding: 5px 12px; font-size: 15px; font-weight: 400; }
 .home-menu-btn:active { transform: translateY(1px); }
 .home-menu { margin-top: 12px; border: 1px solid var(--gold); border-radius: 8px; overflow: hidden; }
-.home-menu button { display: block; width: 100%; text-align: left; background: var(--black); color: var(--white); border: 0; border-bottom: 1px solid #333; padding: 13px 14px; font-size: 16px; }
+.home-menu button { display: block; width: 100%; text-align: left; background: var(--blue); color: var(--white); border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.35); padding: 13px 14px; font-size: 16px; }
 .home-menu button:last-child { border-bottom: 0; }
-.home-menu button:active { background: #262626; }
+.home-menu button:active { background: #004fe0; }
 
 .screen { flex: 1; padding: 20px 20px 96px; overflow-y: auto; }
 .screen h2 { font-family: Georgia, serif; font-weight: 400; font-size: 26px; letter-spacing: 0.01em; margin: 6px 0 8px; }
@@ -73,16 +74,16 @@ input, select { font: inherit; }
 .field input, .field select {
   width: 100%; padding: 13px 14px; border: 1px solid #cfccc2; border-radius: 6px; background: var(--white); font-size: 16px;
 }
-.field input:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
+.field input:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
 /* Show/hide password (eye) toggle, inside the password field. */
 .password-wrap { position: relative; }
 .password-wrap input { padding-right: 62px; }
 .password-eye {
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
-  background: none; border: 0; color: var(--gold); font-size: 14px; font-weight: 600;
+  background: none; border: 0; color: var(--blue); font-size: 14px; font-weight: 600;
   padding: 8px 10px; cursor: pointer;
 }
-.password-eye:focus { outline: 2px solid var(--gold); outline-offset: -2px; border-radius: 4px; }
+.password-eye:focus { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 4px; }
 .field .hint { font-size: 13.5px; color: var(--grey); margin-top: 5px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
@@ -105,7 +106,7 @@ input, select { font: inherit; }
 .car-model-list li button:hover, .car-model-list li button.active,
 .state-list li button:hover, .state-list li button.active,
 .city-list li button:hover, .city-list li button.active { background: var(--paper); }
-.car-model-list li button:focus, .state-list li button:focus, .city-list li button:focus { outline: 2px solid var(--gold); outline-offset: -2px; }
+.car-model-list li button:focus, .state-list li button:focus, .city-list li button:focus { outline: 2px solid var(--blue); outline-offset: -2px; }
 
 .section-title {
   font-size: 13.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey);
@@ -114,15 +115,15 @@ input, select { font: inherit; }
 .section-title:first-of-type { border-top: 0; padding-top: 0; }
 
 .btn-primary {
-  width: 100%; background: var(--black); color: var(--white); border: 0;
+  width: 100%; background: var(--blue); color: var(--white); border: 0;
   padding: 16px; border-radius: 6px; font-size: 17px; margin-top: 8px;
 }
 .btn-primary:disabled { opacity: 0.6; }
-.btn-gold { background: var(--black); color: var(--white); font-weight: 400; }
-.btn-ghost { background: var(--black); border: 1px solid var(--black); color: var(--white); padding: 12px 16px; border-radius: 6px; width: 100%; }
-.btn-danger { background: var(--black); border: 1px solid var(--black); color: var(--white); padding: 12px 16px; border-radius: 6px; width: 100%; }
-.btn-accept { background: var(--black); color: var(--white); border: 1px solid var(--black); padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
-.btn-decline { background: var(--black); color: var(--white); border: 1px solid var(--black); padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
+.btn-gold { background: var(--blue); color: var(--white); font-weight: 400; }
+.btn-ghost { background: var(--blue); border: 1px solid var(--blue); color: var(--white); padding: 12px 16px; border-radius: 6px; width: 100%; }
+.btn-danger { background: var(--blue); border: 1px solid var(--blue); color: var(--white); padding: 12px 16px; border-radius: 6px; width: 100%; }
+.btn-accept { background: var(--blue); color: var(--white); border: 1px solid var(--blue); padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
+.btn-decline { background: var(--blue); color: var(--white); border: 1px solid var(--blue); padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
 .form-error { color: var(--bad); font-size: 14.5px; min-height: 1.2em; margin-top: 10px; }
 .form-note { color: var(--grey); font-size: 14px; }
 .divider { display: flex; align-items: center; gap: 10px; color: var(--grey); font-size: 14px; margin: 22px 0 14px; }
@@ -159,13 +160,13 @@ input, select { font: inherit; }
 /* Availability toggle: bare button only, no card (owner 2026-11-21). */
 .toggle-btn {
   border: 0; border-radius: 999px; padding: 14px 32px; font-size: 17px; font-weight: 600;
-  background: var(--black); color: var(--white);
+  background: var(--blue); color: var(--white);
 }
-/* Online state is black with white text and a grey border, never
+/* Online state is blue with white text and a grey border, never
    green (owner 2026-11-21: "I don't like green colors"). Offline is
-   the plain black button; online adds the grey border so the two
+   the plain blue button; online adds the grey border so the two
    states still read apart. */
-.toggle-btn.on { background: var(--black); color: var(--white); border: 1px solid #888888; }
+.toggle-btn.on { background: var(--blue); color: var(--white); border: 1px solid #888888; }
 
 /* Offers */
 .offer {
@@ -225,9 +226,9 @@ input, select { font: inherit; }
 
 /* Earnings */
 .earn-sum {
-  background: var(--black); color: var(--white); border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 16px;
+  background: var(--white); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 16px;
 }
-.earn-sum .label { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-soft); }
+.earn-sum .label { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grey); }
 .earn-sum .amount { font-family: Georgia, serif; font-size: 42px; margin-top: 4px; }
 .earn-item { border-bottom: 1px solid var(--line); padding: 13px 2px; display: flex; justify-content: space-between; gap: 12px; }
 .earn-item .r { font-weight: 600; font-size: 15.5px; }
@@ -256,13 +257,13 @@ input, select { font: inherit; }
 /* Bottom tab bar */
 .tabbar {
   position: absolute; left: 0; right: 0; bottom: 0;
-  background: var(--black); border-top: 3px solid var(--gold);
+  background: var(--white); border-top: 1px solid var(--line);
   display: flex; z-index: 10;
 }
 .tabbar button {
-  flex: 1; background: transparent; border: 0; color: #cfcfcf; padding: 13px 4px 15px; font-size: 13px;
+  flex: 1; background: transparent; border: 0; color: var(--grey); padding: 13px 4px 15px; font-size: 13px;
 }
-.tabbar button.active { color: var(--white); font-weight: 700; }
+.tabbar button.active { color: var(--blue); font-weight: 700; }
 .tabbar .ico { display: block; font-size: 20px; margin-bottom: 2px; }
 
 /* Digital name sign — full-screen customer name at airport arrivals */
@@ -310,26 +311,24 @@ input, select { font: inherit; }
 .chat-input-row input { flex: 1; padding: 11px 12px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 16px; min-width: 0; }
 .chat-input-row .btn-primary { width: auto; margin-top: 0; padding: 11px 18px; }
 
-/* ============ SIGN-IN SCREEN — premium black/grey redesign ============
+/* ============ SIGN-IN SCREEN — clean white redesign ============
    Visual-only (owner decision 2026-11-18: the login page must look
    premium). Every rule below is scoped to #screen-login, so no
    other screen changes. No markup, IDs, wording, or behaviour is
    touched: the same email + password form, Forgot password flow,
    reset flow, and "New driver registration" link — restyled in
-   the Blacklane black/grey language of the rest of the app.
+   the clean white business look of the rest of the app.
    The tab bar is hidden on this screen (see showScreen in
    driver.js), so the extra bottom padding for it is dropped. */
 #screen-login {
-  color-scheme: dark;
-  background:
-    radial-gradient(120% 42% at 50% -8%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 62%),
-    linear-gradient(180deg, #101012 0%, #0b0b0c 46%, #141311 100%);
-  color: #f2f0ea;
+  color-scheme: light;
+  background: var(--white);
+  color: var(--ink);
   padding: 34px 22px 40px;
 }
 #screen-login h2 {
   font-size: 34px;
-  color: var(--white);
+  color: var(--ink);
   letter-spacing: 0.01em;
   margin: 6px 0 4px;
 }
@@ -346,43 +345,42 @@ input, select { font: inherit; }
 #screen-login #signin-form { margin-top: 24px; }
 #screen-login .field { margin-bottom: 16px; }
 #screen-login .field label {
-  color: var(--gold-soft);
+  color: var(--grey);
   font-size: 12px;
   letter-spacing: 0.09em;
 }
 #screen-login .field input {
-  background: #1d1d1f;
-  border: 1px solid #3a3a3e;
-  color: var(--white);
+  background: var(--white);
+  border: 1px solid #cfccc2;
+  color: var(--ink);
   border-radius: 10px;
   padding: 14px;
   font-size: 16px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 #screen-login .field input::placeholder { color: #8e8e93; }
 #screen-login .field input:focus {
   outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(11, 95, 255, 0.25);
 }
-/* Keep autofilled credentials readable on the dark fields (iOS
+/* Keep autofilled credentials readable on the white fields (iOS
    Safari otherwise paints its own pale background). */
 #screen-login .field input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 60px #1d1d1f inset;
-  -webkit-text-fill-color: var(--white);
-  caret-color: var(--white);
+  -webkit-box-shadow: 0 0 0 60px #ffffff inset;
+  -webkit-text-fill-color: var(--ink);
+  caret-color: var(--ink);
 }
-/* Big tappable black button — sign-in, set-new-password, and the
+/* Big tappable blue button — sign-in, set-new-password, and the
    back-to-sign-in button all share these classes. */
 #screen-login .btn-primary.btn-gold {
   margin-top: 10px;
   padding: 16px;
-  border: 1px solid #555555;
+  border: 1px solid var(--blue);
   border-radius: 10px;
   font-size: 17px;
   font-weight: 400;
   letter-spacing: 0.02em;
-  background: var(--black);
+  background: var(--blue);
   color: var(--white);
   box-shadow: none;
 }
@@ -390,10 +388,10 @@ input, select { font: inherit; }
   transform: translateY(1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
-#screen-login .form-error { color: #ff9d9d; font-size: 14.5px; }
-#screen-login .form-note { color: #b9b7ae; }
+#screen-login .form-error { color: var(--bad); font-size: 14.5px; }
+#screen-login .form-note { color: var(--grey); }
 #screen-login .link-btn {
-  color: var(--gold-soft);
+  color: var(--blue);
   text-decoration: none;
   font-weight: 600;
 }
@@ -408,9 +406,9 @@ input, select { font: inherit; }
 }
 #screen-login #forgot-form { margin-top: 18px; }
 #screen-login .btn-ghost {
-  color: var(--white);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: transparent;
+  color: var(--blue);
+  border: 1px solid var(--blue);
+  background: var(--white);
   border-radius: 10px;
   padding: 14px 16px;
   font-size: 16px;
@@ -418,53 +416,51 @@ input, select { font: inherit; }
 }
 #screen-login #reset-block { margin-top: 8px; }
 #screen-login .section-title {
-  color: var(--gold-soft);
-  border-top-color: rgba(255, 255, 255, 0.35);
+  color: var(--grey);
+  border-top-color: var(--line);
   font-size: 14px;
 }
 /* "New driver registration" stays the bottom action, now a clear
-   secondary button: grey outline on the dark screen. */
+   secondary button: blue outline on the white screen. */
 #screen-login #show-register-link {
   display: block;
   width: 100%;
   margin-top: 30px;
   padding: 15px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--blue);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--gold-soft);
+  background: var(--white);
+  color: var(--blue);
   font-size: 15.5px;
   font-weight: 600;
   text-align: center;
   text-decoration: none;
 }
-#screen-login #show-register-link:active { background: rgba(255, 255, 255, 0.14); }
+#screen-login #show-register-link:active { background: #eef4ff; }
 
-/* ============ SIGNED-IN DASHBOARD — luxury dark theme ============
+/* ============ SIGNED-IN DASHBOARD — clean white theme ============
    Visual-only (owner decision 2026-11-18: the dashboard must look
    as premium as the redesigned sign-in screen). Every rule below
    is scoped to the five signed-in screens, so the sign-in and
    registration screens keep their own styling untouched. Same
-   black/grey language as the sign-in screen: dark gradient
-   canvas with a grey glow, serif headings with a grey rule,
-   dark cards with soft depth, black primary buttons.
+   clean white business look as the sign-in screen: white
+   canvas, serif headings with a grey rule, white cards with
+   soft depth, blue primary buttons.
    No markup, IDs, wording, JS, or behaviour changed. The
    pale-grey earnings and toll boxes keep their light background
-   so the driver's own earnings stay readable at a glance on
-   the dark cards, and the grey reminder banner keeps its
-   light background so it still stands out. */
+   so the driver's own earnings stay readable at a glance, and the
+   grey reminder banner keeps its light background so it still
+   stands out. */
 
-/* Dark canvas, shared by the five signed-in screens. */
+/* White canvas, shared by the five signed-in screens. */
 #screen-home,
 #screen-trip,
 #screen-earnings,
 #screen-documents,
 #screen-profile {
-  color-scheme: dark;
-  background:
-    radial-gradient(120% 30% at 50% -6%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 60%),
-    linear-gradient(180deg, #101012 0%, #0b0b0c 46%, #141311 100%);
-  color: #f2f0ea;
+  color-scheme: light;
+  background: var(--white);
+  color: var(--ink);
 }
 
 /* Serif headings with a short grey rule, as on the sign-in screen. */
@@ -472,7 +468,7 @@ input, select { font: inherit; }
 #screen-earnings h2,
 #screen-documents h2,
 #screen-profile h2 {
-  color: var(--white);
+  color: var(--ink);
   font-size: 30px;
   letter-spacing: 0.01em;
 }
@@ -489,7 +485,7 @@ input, select { font: inherit; }
   margin-top: 12px;
 }
 
-/* Quiet text stays readable on the dark canvas. */
+/* Quiet text stays readable on the white canvas. */
 #screen-home .intro,
 #screen-trip .intro,
 #screen-earnings .intro,
@@ -505,14 +501,14 @@ input, select { font: inherit; }
 #screen-trip .loc-note,
 #screen-home .empty-state,
 #screen-earnings .empty-state {
-  color: #b9b7ae;
+  color: var(--grey);
 }
 #screen-home .form-error,
 #screen-trip .form-error,
 #screen-earnings .form-error,
 #screen-tax .form-error,
 #screen-documents .form-error,
-#screen-profile .form-error { color: #ff9d9d; }
+#screen-profile .form-error { color: var(--bad); }
 
 /* Section titles in soft grey with a faint grey rule. */
 #screen-home .section-title,
@@ -521,41 +517,40 @@ input, select { font: inherit; }
 #screen-tax .section-title,
 #screen-documents .section-title,
 #screen-profile .section-title {
-  color: var(--gold-soft);
-  border-top-color: rgba(255, 255, 255, 0.35);
+  color: var(--grey);
+  border-top-color: var(--line);
 }
 
-/* Dark inputs with dark focus rings (waiting minutes, extra miles). */
+/* White inputs with blue focus rings (waiting minutes, extra miles). */
 #screen-trip .field label {
-  color: var(--gold-soft);
+  color: var(--grey);
   font-size: 12px;
   letter-spacing: 0.09em;
 }
 #screen-trip .field input {
-  background: #1d1d1f;
-  border: 1px solid #3a3a3e;
-  color: var(--white);
+  background: var(--white);
+  border: 1px solid #cfccc2;
+  color: var(--ink);
   border-radius: 10px;
   padding: 13px 14px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 #screen-trip .field input:focus {
   outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(11, 95, 255, 0.25);
 }
 
-/* Flat black primary buttons, as on the sign-in screen. */
+/* Flat blue primary buttons, as on the sign-in screen. */
 #screen-home .btn-primary.btn-gold,
 #screen-trip .btn-primary.btn-gold,
 #screen-earnings .btn-primary.btn-gold,
 #screen-documents .btn-primary.btn-gold,
 #screen-profile .btn-primary.btn-gold {
-  border: 1px solid #555555;
+  border: 1px solid var(--blue);
   border-radius: 10px;
   font-weight: 400;
   letter-spacing: 0.02em;
-  background: var(--black);
+  background: var(--blue);
   color: var(--white);
   box-shadow: none;
 }
@@ -567,19 +562,19 @@ input, select { font: inherit; }
   transform: translateY(1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
-/* Secondary and danger buttons stay legible on dark. */
+/* Secondary and danger buttons stay legible on white. */
 #screen-home .btn-ghost,
 #screen-trip .btn-ghost,
 #screen-earnings .btn-ghost,
 #screen-documents .btn-ghost,
 #screen-profile .btn-ghost {
-  color: #f2f0ea;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: var(--white);
+  border: 1px solid var(--blue);
   border-radius: 10px;
 }
 #screen-trip .btn-danger {
-  color: #ff9d9d;
-  border-color: rgba(255, 157, 157, 0.55);
+  color: var(--white);
+  border-color: var(--blue);
   border-radius: 10px;
 }
 #screen-home .btn-ghost:active,
@@ -593,208 +588,206 @@ input, select { font: inherit; }
   margin: 16px auto 0;
 }
 #screen-home .toggle-btn {
-  background: var(--black);
+  background: var(--blue);
   color: var(--white);
-  border: 1px solid var(--black);
+  border: 1px solid var(--blue);
   box-shadow: none;
 }
 #screen-home .toggle-btn.on {
-  background: var(--black);
+  background: var(--blue);
   border-color: #888888;
   color: var(--white);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 #screen-home .toggle-btn:active { transform: translateY(1px); }
 
-/* Job offer cards: dark with depth, grey spine, pale-grey earnings. */
+/* Job offer cards: white with depth, blue spine, pale-grey earnings. */
 #screen-home .offer {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
-  border-left: 4px solid var(--gold);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
   border-radius: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-#screen-home .offer .route { color: var(--white); }
-#screen-home .offer .route .route-label { color: #a8a6a0; }
-#screen-home .offer .when { color: #b9b7ae; }
+#screen-home .offer .route { color: var(--ink); }
+#screen-home .offer .route .route-label { color: var(--grey); }
+#screen-home .offer .when { color: var(--grey); }
 #screen-home .offer .earnings,
-#screen-home .offer .toll-line { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
-#screen-home .offer .route-link { color: var(--gold-soft); }
+#screen-home .offer .toll-line { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+#screen-home .offer .route-link { color: var(--blue); }
 #screen-home .btn-accept,
-#screen-home .btn-decline { border-radius: 10px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); }
+#screen-home .btn-decline { border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
 #screen-home .btn-accept:active,
 #screen-home .btn-decline:active { transform: translateY(1px); }
 
-/* Trip card: dark with depth; links in soft grey. */
+/* Trip card: white with depth; links in blue. */
 #screen-trip .trip-card {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-#screen-trip .trip-card .route { color: var(--white); }
-#screen-trip .trip-card .route .route-label { color: #a8a6a0; }
-#screen-trip .trip-card .meta { color: #b9b7ae; }
-#screen-trip .trip-card .cust { color: #f2f0ea; }
-#screen-trip .trip-card .cust a { color: var(--gold-soft); }
-#screen-trip .route-link { color: var(--gold-soft); }
-#screen-trip #trip-flight .flight-track-link { color: var(--gold-soft); }
+#screen-trip .trip-card .route { color: var(--ink); }
+#screen-trip .trip-card .route .route-label { color: var(--grey); }
+#screen-trip .trip-card .meta { color: var(--grey); }
+#screen-trip .trip-card .cust { color: var(--ink); }
+#screen-trip .trip-card .cust a { color: var(--blue); }
+#screen-trip .route-link { color: var(--blue); }
+#screen-trip #trip-flight .flight-track-link { color: var(--blue); }
 
-/* Stage list: dark rows, grey for the current stage. */
+/* Stage list: white rows, blue for the current stage. */
 #screen-trip .stage-list li {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  color: #f2f0ea;
+  color: var(--ink);
 }
-#screen-trip .stage-list li.done { border-color: #2e9e66; color: #4cc38a; }
+#screen-trip .stage-list li.done { border-color: var(--ok); color: var(--ok); }
 #screen-trip .stage-list li.current {
-  border-color: #888888;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--white);
+  border-color: var(--blue);
+  background: #eef4ff;
+  color: var(--ink);
   box-shadow: none;
 }
 
-/* Grey reminder banner: same light background, now with a soft glow. */
+/* Grey reminder banner: same light background, now with a soft shadow. */
 #screen-trip .reminder-banner {
   border-radius: 12px;
-  box-shadow: 0 8px 22px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
-/* Trip chat: dark card, pale-grey own messages, dark replies. */
+/* Trip chat: white card, pale-grey own messages, white replies. */
 #screen-trip .chat-box {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-#screen-trip .chat-box .chat-lang { color: #b9b7ae; }
+#screen-trip .chat-box .chat-lang { color: var(--grey); }
 #screen-trip .chat-box .chat-lang select {
-  background: #262628;
-  border: 1px solid #3a3a3e;
-  color: var(--white);
+  background: var(--white);
+  border: 1px solid #cfccc2;
+  color: var(--ink);
   border-radius: 8px;
 }
-#screen-trip .chat-box .chat-empty { color: #b9b7ae; }
-#screen-trip .chat-box .chat-msg .who { color: #a8a6a0; }
+#screen-trip .chat-box .chat-empty { color: var(--grey); }
+#screen-trip .chat-box .chat-msg .who { color: var(--grey); }
 #screen-trip .chat-box .chat-msg.theirs {
-  background: #2a2a2c;
-  border: 1px solid #3a3a3e;
-  color: #f2f0ea;
+  background: var(--paper);
+  border: 1px solid #cfccc2;
+  color: var(--ink);
 }
 #screen-trip .chat-box .chat-input-row input {
-  background: #262628;
-  border: 1px solid #3a3a3e;
-  color: var(--white);
+  background: var(--white);
+  border: 1px solid #cfccc2;
+  color: var(--ink);
   border-radius: 10px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 #screen-trip .chat-box .chat-input-row input:focus {
   outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(11, 95, 255, 0.25);
 }
 
-/* Payout setup (Stripe Connect): dark cards matching the pay weeks. */
+/* Payout setup (Stripe Connect): white cards matching the pay weeks. */
 .payout-setup { border: 1px solid var(--line); border-radius: 8px; padding: 13px 15px; margin-bottom: 10px; background: var(--white); }
 .payout-line { display: flex; justify-content: space-between; gap: 12px; font-size: 15.5px; padding: 6px 0; }
 .payout-line .payout-key { font-weight: 600; }
 .payout-setup .btn-ghost, .payout-setup .btn-primary { margin-top: 8px; }
 #screen-earnings .payout-setup {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-#screen-earnings .payout-setup .payout-key { color: var(--white); }
-#screen-earnings .payout-setup .payout-line span:last-child { color: #f2f0ea; }
+#screen-earnings .payout-setup .payout-key { color: var(--ink); }
+#screen-earnings .payout-setup .payout-line span:last-child { color: var(--ink); }
 
-/* Earnings: grey-framed summary, dark week cards, grey amounts. */
+/* Earnings: white summary, white week cards, dark amounts. */
 #screen-earnings .earn-sum {
-  background: linear-gradient(180deg, #1a1a1c, #0b0b0c);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-#screen-earnings .earn-sum .amount { color: var(--white); }
+#screen-earnings .earn-sum .amount { color: var(--ink); }
 /* Tax info: same grey-framed summary as Earnings. */
 #screen-tax .earn-sum {
-  background: linear-gradient(180deg, #1a1a1c, #0b0b0c);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-#screen-tax .earn-sum .amount { color: var(--white); }
+#screen-tax .earn-sum .amount { color: var(--ink); }
 #screen-earnings .pay-week {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-#screen-earnings .pay-week .pw-range { color: var(--white); }
-#screen-earnings .pay-week .pw-meta { color: #b9b7ae; }
-#screen-earnings .pay-week .pw-amount { color: var(--gold-soft); }
-#screen-earnings .earn-item { border-bottom-color: rgba(255, 255, 255, 0.09); }
-#screen-earnings .earn-item .r { color: #f2f0ea; }
-#screen-earnings .earn-item .m { color: #b9b7ae; }
-#screen-earnings .earn-item .a { color: var(--gold-soft); }
+#screen-earnings .pay-week .pw-range { color: var(--ink); }
+#screen-earnings .pay-week .pw-meta { color: var(--grey); }
+#screen-earnings .pay-week .pw-amount { color: var(--ink); }
+#screen-earnings .earn-item { border-bottom-color: var(--line); }
+#screen-earnings .earn-item .r { color: var(--ink); }
+#screen-earnings .earn-item .m { color: var(--grey); }
+#screen-earnings .earn-item .a { color: var(--ink); }
 
-/* Documents list: dark rows. */
+/* Documents list: white rows. */
 #screen-documents .doc-status {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-#screen-documents .doc-status .name { color: #f2f0ea; }
+#screen-documents .doc-status .name { color: var(--ink); }
 
-/* Profile: dark card, grey-framed photo. */
+/* Profile: white card, grey-framed photo. */
 #screen-profile .profile-card {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-#screen-profile .profile-row { border-bottom-color: rgba(255, 255, 255, 0.09); color: #f2f0ea; }
-#screen-profile .profile-row .k { color: #b9b7ae; }
+#screen-profile .profile-row { border-bottom-color: var(--line); color: var(--ink); }
+#screen-profile .profile-row .k { color: var(--grey); }
 
-/* Bottom tab bar: grey glow on the active tab, home-indicator room. */
+/* Bottom tab bar: blue active tab, home-indicator room. */
 .tabbar button { padding: 13px 4px max(15px, env(safe-area-inset-bottom)); }
-.tabbar button.active { color: var(--gold-soft); }
-.tabbar button.active .ico { text-shadow: 0 0 12px rgba(255, 255, 255, 0.8); }
+.tabbar button.active { color: var(--blue); }
 .tabbar button:active { transform: translateY(1px); }
 
-/* Navigation chooser: dark luxury card over the trip screen. */
+/* Navigation chooser: white card over the trip screen. */
 .nav-chooser-overlay { background: rgba(0, 0, 0, 0.62); }
 .nav-chooser-card {
-  background: #1d1d1f;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 16px;
-  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
 }
-.nav-chooser-title { color: var(--white); }
-.nav-chooser-dest { color: #b9b7ae; }
+.nav-chooser-title { color: var(--ink); }
+.nav-chooser-dest { color: var(--grey); }
 .nav-chooser-card .btn-primary.btn-gold {
-  border: 1px solid #555555;
+  border: 1px solid var(--blue);
   border-radius: 10px;
   font-weight: 400;
-  background: var(--black);
+  background: var(--blue);
   color: var(--white);
   box-shadow: none;
 }
 .nav-chooser-card .btn-primary.btn-gold:active { transform: translateY(1px); }
 .nav-chooser-card .btn-ghost {
-  color: #f2f0ea;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: var(--white);
+  border: 1px solid var(--blue);
   border-radius: 10px;
 }
 
-/* Earnings-amount legibility fix (owner report 2026-11-18): the dark
-   screens set near-white text (#f2f0ea), which the pale boxes inherit
-   — their spans have no color of their own, so the amounts were
-   invisible on the pale backgrounds. Every pale box on the dark
-   screens now pins its text to dark ink. No other styling changes;
-   the white name-sign overlay is untouched. */
+/* Earnings-amount legibility pins (owner report 2026-11-18): the old
+   dark screens set near-white text, which the pale boxes inherited
+   — their spans had no color of their own, so the amounts were
+   invisible on the pale backgrounds. Every pale box still pins its
+   text to dark ink. No other styling changes; the white name-sign
+   overlay is untouched. */
 #screen-home .offer .earnings .label,
 #screen-home .offer .earnings .amount,
 #screen-home .offer .toll-line .label,
@@ -812,17 +805,17 @@ input, select { font: inherit; }
 #screen-trip .chat-box .chat-msg.mine .who { color: var(--grey); }
 
 /* Emergency-cancel reason step + suspension notice (owner decision
-   2026-11-18). The reason panel is a dark card in the same luxury
+   2026-11-18). The reason panel is a white card in the same clean
    language as the trip screen; the suspension banner keeps a light
-   background with dark ink pinned, so it stays readable on the dark
+   background with dark ink pinned, so it stays readable on the
    home screen (same lesson as the earnings-amount fix above). */
 #screen-trip .cancel-reason-panel {
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: #1a1a1c;
+  background: var(--white);
   padding: 16px;
   margin-top: 12px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 #screen-trip .cancel-reason-panel .section-title { margin-top: 0; }
 #cancel-reason-options { margin: 12px 0 14px; }
@@ -832,10 +825,10 @@ input, select { font: inherit; }
   gap: 10px;
   padding: 10px 12px;
   margin-bottom: 8px;
-  border: 1px solid #3a3a3e;
+  border: 1px solid #cfccc2;
   border-radius: 10px;
-  background: #232326;
-  color: #f2f0ea;
+  background: var(--white);
+  color: var(--ink);
   font-size: 16px;
   cursor: pointer;
 }
@@ -844,23 +837,22 @@ input, select { font: inherit; }
   height: 18px;
   margin: 0;
   flex: 0 0 auto;
-  accent-color: var(--gold);
+  accent-color: var(--blue);
 }
 #screen-trip .field textarea {
   width: 100%;
-  background: #1d1d1f;
-  border: 1px solid #3a3a3e;
-  color: var(--white);
+  background: var(--white);
+  border: 1px solid #cfccc2;
+  color: var(--ink);
   border-radius: 10px;
   padding: 13px 14px;
   font: inherit;
   resize: vertical;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 #screen-trip .field textarea:focus {
   outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(11, 95, 255, 0.25);
 }
 #screen-home .suspension-banner {
   border: 1px solid #d8a7a7;
@@ -896,10 +888,10 @@ input, select { font: inherit; }
 
 /* Document expiry line + re-upload box on the Documents screen
    (owner decision 2026-11-19): the renewal path that lifts the
-   registration pause automatically. Dark card to match the list. */
+   registration pause automatically. White card to match the list. */
 #screen-documents .doc-expiry {
   font-size: 14px;
-  color: #b9b7ae;
+  color: var(--grey);
   margin: -4px 0 10px;
 }
 #screen-documents .doc-expiry.soon {
@@ -907,14 +899,14 @@ input, select { font: inherit; }
   font-weight: 600;
 }
 #screen-documents .doc-expiry.expired {
-  color: #ff9d97;
+  color: var(--bad);
   font-weight: 600;
 }
 #screen-documents .doc-reupload {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   padding: 13px 15px;
   margin-bottom: 14px;
   display: flex;
@@ -923,20 +915,20 @@ input, select { font: inherit; }
 }
 #screen-documents .doc-reupload-label {
   font-size: 13.5px;
-  color: #b9b7ae;
+  color: var(--grey);
 }
 #screen-documents .doc-reupload-file,
 #screen-documents .doc-reupload-expiry {
   width: 100%;
   font-size: 15px;
   padding: 8px 10px;
-  border: 1px solid #3a3a3c;
+  border: 1px solid #cfccc2;
   border-radius: 8px;
-  background: #262628;
-  color: #f2f0ea;
+  background: var(--white);
+  color: var(--ink);
 }
 #screen-documents .doc-reupload-error {
-  color: #ff9d97;
+  color: var(--bad);
   font-size: 14px;
 }
 #screen-documents .doc-reupload-error:empty {
@@ -944,44 +936,43 @@ input, select { font: inherit; }
 }
 
 /* Driver referral (owner decision 2026-11-18): the referral section
-   on the Profile screen. Dark card matching the profile card, with
-   every text colour pinned light — the dark canvas sets near-white
-   text, and unpinned spans on pale boxes went invisible before (see
-   the legibility fix above), so nothing here relies on inheritance
-   for its colour. The Copy/Share row mirrors the customer referral
-   link pattern. */
+   on the Profile screen. White card matching the profile card, with
+   every text colour pinned dark — unpinned spans on pale boxes went
+   invisible before (see the legibility fix above), so nothing here
+   relies on inheritance for its colour. The Copy/Share row mirrors
+   the customer referral link pattern. */
 #screen-profile .referral-box {
-  background: #1d1d1f;
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 14px;
   padding: 16px;
   margin-bottom: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-  color: #f2f0ea;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  color: var(--ink);
 }
 #screen-profile .referral-box .referral-line {
-  color: var(--white);
+  color: var(--ink);
   font-weight: 700;
   font-size: 17px;
   margin: 0 0 6px;
 }
-#screen-profile .referral-box .form-note { color: #b9b7ae; margin: 0 0 12px; }
+#screen-profile .referral-box .form-note { color: var(--grey); margin: 0 0 12px; }
 #screen-profile #driver-referral-show-btn { margin-top: 2px; }
-#screen-profile #driver-referral-link-line { color: #f2f0ea; font-size: 15px; word-break: break-all; }
-#screen-profile #driver-referral-link-line a { word-break: break-all; color: var(--gold-soft); }
+#screen-profile #driver-referral-link-line { color: var(--ink); font-size: 15px; word-break: break-all; }
+#screen-profile #driver-referral-link-line a { word-break: break-all; color: var(--blue); }
 #screen-profile .referral-actions { display: flex; gap: 10px; margin-top: 10px; }
 #screen-profile .referral-actions .btn-ghost { width: auto; flex: 1; padding: 11px 10px; }
 #screen-profile .referral-total {
   display: flex; justify-content: space-between; gap: 12px;
   padding: 12px 0 8px; margin-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-  font-size: 15.5px; color: #f2f0ea;
+  border-top: 1px solid var(--line);
+  font-size: 15.5px; color: var(--ink);
 }
-#screen-profile .referral-total .k { color: #b9b7ae; }
+#screen-profile .referral-total .k { color: var(--grey); }
 #screen-profile .referral-earn-row {
   display: flex; justify-content: space-between; gap: 12px;
-  padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  font-size: 15.5px; color: #f2f0ea;
+  padding: 8px 0; border-bottom: 1px solid var(--line);
+  font-size: 15.5px; color: var(--ink);
 }
 #screen-profile .referral-earn-row:last-child { border-bottom: 0; }
 #screen-profile #driver-referral-earnings .form-note { margin: 4px 0 0; }
@@ -991,13 +982,13 @@ input, select { font: inherit; }
   max-width: 720px;
   margin: 32px auto 48px;
   padding: 0 20px;
-  color: #f5f5f5;
+  color: var(--ink);
   font-family: inherit;
   line-height: 1.6;
 }
 .seo-drive h1 { font-size: 1.6rem; margin: 0 0 12px; color: #1a1a1a; }
 .seo-drive h2 { font-size: 1.2rem; margin: 24px 0 8px; color: #1a1a1a; }
 .seo-drive h3 { font-size: 1.05rem; margin: 16px 0 6px; color: #1a1a1a; }
-.seo-drive p { margin: 0 0 12px; color: #e8e8e8; }
+.seo-drive p { margin: 0 0 12px; color: #444444; }
 .seo-drive ul, .seo-drive ol { margin: 0 0 12px; padding-left: 22px; }
 .seo-drive li { margin-bottom: 6px; }

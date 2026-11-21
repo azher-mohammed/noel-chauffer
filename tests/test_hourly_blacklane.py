@@ -13,6 +13,7 @@ Run:  python -m unittest discover -s tests -p "test_hourly_blacklane.py"
 
 import io
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -374,6 +375,39 @@ class HourlyClassStepCase(unittest.TestCase):
         self.assertNotIn('show($("ca-field-hourly-class"))', js)
         self.assertIn('ca-hourly-class-continue', js)
         self.assertIn('ca-hourly-class-back', js)
+
+
+class ClassCapacitySymbolsCase(unittest.TestCase):
+    """Class-card capacity is SVG symbols + numbers only (owner decision
+    2026-11-21, spotted on his phone): person icon + number, dot, bag
+    icon + number. No visible words like "3 passengers · 2 bags" anywhere
+    on the website or the customer app — one-way options or hourly step.
+    The aria-labels keep the words for screen readers only."""
+
+    def _check_capacity_symbols(self, html, where):
+        self.assertNotIn("passengers · ", html,
+                         "%s must show no visible capacity words" % where)
+        parts = html.split('class="class-option-capacity"')
+        self.assertEqual(len(parts) - 1, 6,
+                         "%s must have six capacity lines (3 one-way + 3 hourly)" % where)
+        for part in parts[1:]:
+            body = part.split("</span></span>", 1)[0]
+            self.assertEqual(body.count('class="cap-icon"'), 2,
+                             "%s: every capacity line needs person + bag icons" % where)
+            visible = re.sub(r"<[^>]+>", "", body.split(">", 1)[1])
+            self.assertNotIn("passengers", visible,
+                             "%s: no visible capacity words" % where)
+            self.assertNotIn("bags", visible,
+                             "%s: no visible capacity words" % where)
+        for label, count in (("3 passengers, 2 bags", 4), ("5 passengers, 5 bags", 2)):
+            self.assertEqual(html.count('aria-label="%s"' % label), count,
+                             "%s: aria-labels stay for screen readers: %s" % (where, label))
+
+    def test_website_capacity_is_symbols_not_words(self):
+        self._check_capacity_symbols(_read("static/index.html"), "website")
+
+    def test_app_capacity_is_symbols_not_words(self):
+        self._check_capacity_symbols(_read("static/customer-app.html"), "customer app")
 
 
 if __name__ == "__main__":

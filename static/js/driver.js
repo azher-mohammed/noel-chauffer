@@ -2046,7 +2046,22 @@
      this is the visible side of it, and the tap-time check below
      sends a fresh GPS position with every gated advance. No
      location, no silent bypass: the button stays disabled and the
-     note explains that location is needed. */
+     note explains that location is needed.
+     Owner decision 2026-11-20 (voice call): the gate does not apply
+     to the owner (Azher Mohammed) or Sana Baga — the same two
+     drivers as the Model 3 exception (same three emails). For them
+     the gate is skipped entirely: the button stays enabled without
+     a location and the advance is sent with no position. Every
+     other driver keeps the gate exactly as it is. */
+  var LOCATION_EXEMPT_EMAILS = [
+    "m.azherahmed1@gmail.com",
+    "ahmedazher476@gmail.com",
+    "sanabaga12@gmail.com"
+  ];
+  function locationExempt() {
+    var email = ((state.driver && state.driver.email) || "").trim().toLowerCase();
+    return LOCATION_EXEMPT_EMAILS.indexOf(email) !== -1;
+  }
   var PROXIMITY_GATE_METERS = 100;
   function haversineMeters(lat1, lng1, lat2, lng2) {
     var r = 6371000;
@@ -2058,6 +2073,10 @@
     return 2 * r * Math.asin(Math.sqrt(a));
   }
   function gateTarget() {
+    /* Exempt drivers (owner + Sana, 2026-11-20) skip the gate
+       entirely: no target, so the button stays enabled and the
+       advance is sent with no position. */
+    if (locationExempt()) return null;
     var current = STAGES[state.stageIndex];
     var t = state.trip;
     if (!t) return null;

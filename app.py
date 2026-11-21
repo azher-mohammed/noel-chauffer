@@ -64,6 +64,7 @@ from car_models import (
     allowed_models,
     class_for_model,
     is_first_class_model,
+    location_exempt_for,
     max_car_year,
     validate_car_model,
     validate_car_year,
@@ -6684,7 +6685,7 @@ PROXIMITY_GATE_METERS = 100.0
 METERS_PER_MILE = 1609.344
 
 
-def proximity_gate_error(booking, event, data):
+def proximity_gate_error(booking, event, data, driver=None):
     """Error message when a gated stage advance is attempted from
     outside 100 m of the relevant end, else None.
 
@@ -6696,6 +6697,11 @@ def proximity_gate_error(booking, event, data):
     when location is unavailable, so the no-position case is the
     client's to enforce; the server rejects any position it IS
     given that is out of range.
+
+    Owner decision 2026-11-20 (voice call): the gate does not apply
+    to the owner (Azher Mohammed) or Sana Baga — their arrived /
+    complete advances are never blocked, with or without a position.
+    Every other driver keeps the 100 m gate exactly as it is.
     """
     if event == "arrived":
         target_lat, target_lng = booking.pickup_lat, booking.pickup_lng
@@ -6706,6 +6712,8 @@ def proximity_gate_error(booking, event, data):
         target_lat, target_lng = booking.dropoff_lat, booking.dropoff_lng
         message = "You must be at the drop-off location to complete the trip."
     else:
+        return None
+    if driver is not None and location_exempt_for(driver.email):
         return None
     if target_lat is None or target_lng is None:
         return None
@@ -6750,7 +6758,7 @@ def driver_trip_event(booking_id):
     elif event == "arrived":
         if booking.status != "en_route":
             return err("Cannot mark arrived before heading to pickup.", 409)
-        gate_err = proximity_gate_error(booking, event, data)
+        gate_err = proximity_gate_error(booking, event, data, driver=driver)
         if gate_err:
             return err(gate_err, 409)
         booking.status = "arrived"
@@ -6763,7 +6771,7 @@ def driver_trip_event(booking_id):
     elif event == "complete":
         if booking.status not in ("in_progress", "arrived"):
             return err("Cannot complete a ride that has not started.", 409)
-        gate_err = proximity_gate_error(booking, event, data)
+        gate_err = proximity_gate_error(booking, event, data, driver=driver)
         if gate_err:
             return err(gate_err, 409)
         waiting_minutes = int(data.get("waiting_minutes") or 0)

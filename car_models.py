@@ -206,6 +206,22 @@ def model_3_allowed_for(email):
     return (email or "").strip().lower() in MODEL_3_ALLOWED_EMAILS
 
 
+# Owner decision 2026-11-20 (voice call): the SAME two drivers — the
+# owner (Azher Mohammed) and Sana Baga — are exempt from the
+# arrival/completion location gate: "I have arrived" and "Complete
+# trip" work for them without a location, and a far-away position
+# never blocks them. Every other driver keeps the 100 m gate exactly
+# as it is. This shares the Model 3 email set so the two
+# special-cases stay consistent: both are owner + Sana only, and any
+# change to who counts as one of the two must change both together.
+LOCATION_EXEMPT_EMAILS = MODEL_3_ALLOWED_EMAILS
+
+
+def location_exempt_for(email):
+    """True only for the two drivers exempt from the location gate."""
+    return (email or "").strip().lower() in LOCATION_EXEMPT_EMAILS
+
+
 def uber_black_models():
     """The 132 transcribed Uber Black models, as 'Make Model' names."""
     models = []

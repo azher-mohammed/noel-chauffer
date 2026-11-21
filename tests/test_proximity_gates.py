@@ -87,12 +87,12 @@ class ProximityGatesCase(unittest.TestCase):
         self._phone_seq = 0
 
     # -- helpers ---------------------------------------------------------
-    def register_driver(self, car_model="Cadillac CT6"):
+    def register_driver(self, car_model="Cadillac CT6", email=None):
         self._driver_seq += 1
         phone = f"+1555007{self._driver_seq:04d}"
         resp = self.client.post("/api/drivers/register", data={
             "name": f"Gate Driver {self._driver_seq}", "phone": phone,
-            "email": f"gd{self._driver_seq}@test.com",
+            "email": email or f"gd{self._driver_seq}@test.com",
             "car_model": car_model, "car_year": "2023", "car_colour": "Black",
             "plate": f"G{self._driver_seq:05d}",
             "state": "New York", "bank_account_number": "123456789", "bank_routing_number": "021000021",
@@ -162,8 +162,8 @@ class ProximityGatesCase(unittest.TestCase):
                                 json={"event": event, **kw},
                                 headers={"X-Driver-Token": token})
 
-    def accepted_trip(self, booking=None):
-        _, token = self.register_driver()
+    def accepted_trip(self, booking=None, email=None):
+        _, token = self.register_driver(email=email)
         booking = booking or self.book()
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.assertEqual(self.accept(booking["id"], token).status_code, 200)
@@ -264,6 +264,99 @@ class ProximityGatesCase(unittest.TestCase):
         self.assertEqual(self.trip_event(booking["id"], token, "en_route").status_code, 200)
         resp = self.trip_event(booking["id"], token, "arrived", **at(DROPOFF))
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+
+    # -- location exemption: owner + Sana only (2026-11-20) ---------------
+    # Owner decision 2026-11-20 (voice call): the location gate does
+    # not apply to Azher Mohammed or Sana Baga — "I have arrived" and
+    # "Complete trip" work for them without a location, and a
+    # far-away position never blocks them. Every other driver keeps
+    # the 100 m gate exactly as it is. The exempt set is the same
+    # three emails as the Model 3 exception (car_models.py).
+    def test_exempt_driver_arrived_without_position_allowed(self):
+        booking, token = self.accepted_trip(email="sanabaga12@gmail.com")
+        self.assertEqual(self.trip_event(booking["id"], token, "en_route").status_code, 200)
+        resp = self.trip_event(booking["id"], token, "arrived")
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        self.assertEqual(self.status_of(booking["id"], token), "arrived")
+
+    def test_exempt_driver_arrived_far_position_allowed(self):
+        booking, token = self.accepted_trip(email="sanabaga12@gmail.com")
+        self.assertEqual(self.trip_event(booking["id"], token, "en_route").status_code, 200)
+        # Sana is at the drop-off side of town: far from the pickup —
+        # the gate must not block her.
+        resp = self.trip_event(booking["id"], token, "arrived", **at(DROPOFF))
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        self.assertEqual(self.status_of(booking["id"], token), "arrived")
+
+    def test_exempt_driver_complete_far_position_allowed(self):
+        booking, token = self.accepted_trip(email="m.azherahmed1@gmail.com")
+        self.assertEqual(self.trip_event(booking["id"], token, "en_route").status_code, 200)
+        self.assertEqual(self.trip_event(booking["id"], token, "arrived").status_code, 200)
+        self.assertEqual(self.trip_event(booking["id"], token, "start").status_code, 200)
+        # The owner is still at the pickup: far from the drop-off —
+        # the gate must not block him.
+        resp = self.trip_event(booking["id"], token, "complete", **at(PICKUP))
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+
+    def test_exempt_driver_second_owner_email_allowed(self):
+        # The owner's other email counts too (same as Model 3).
+        booking, token = self.accepted_trip(email="ahmedazher476@gmail.com")
+        self.assertEqual(self.trip_event(booking["id"], token, "en_route").status_code, 200)
+        resp = self.trip_event(booking["id"], token, "arrived", **at(DROPOFF))
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+
+    def test_other_driver_arrived_far_position_still_rejected(self):
+        # A non-exempt driver with the same far-away position is
+        # still blocked by the 100 m gate.
+        booking, token = self.accepted_trip(email="other-driver@test.com")
+        self.assertEqual(self.trip_event(booking["id"], token, "en_route").status_code, 200)
+        resp = self.trip_event(booking["id"], token, "arrived", **at(DROPOFF))
+        self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
+        self.assertIn(ARRIVED_MSG, resp.get_data(as_text=True))
+        self.assertEqual(self.status_of(booking["id"], token), "en_route")
+
+    def test_other_driver_complete_far_position_still_rejected(self):
+        booking, token = self.accepted_trip(email="other-driver@test.com")
+        self.drive_to_start(booking, token)
+        resp = self.trip_event(booking["id"], token, "complete", **at(PICKUP))
+        self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
+        self.assertIn(COMPLETE_MSG, resp.get_data(as_text=True))
+        self.assertEqual(self.status_of(booking["id"], token), "in_progress")
+
+    def test_exempt_driver_hourly_complete_ungated(self):
+        # Hourly completion stays ungated for exempt drivers too.
+        _, token = self.register_driver(email="sanabaga12@gmail.com")
+        booking = self.book_hourly()
+        self.assertEqual(self.pay(booking["id"]).status_code, 200)
+        self.assertEqual(self.accept(booking["id"], token).status_code, 200)
+        self.assertEqual(self.trip_event(booking["id"], token, "en_route").status_code, 200)
+        self.assertEqual(self.trip_event(booking["id"], token, "arrived").status_code, 200)
+        self.assertEqual(self.trip_event(booking["id"], token, "start").status_code, 200)
+        resp = self.trip_event(booking["id"], token, "complete", **at(PICKUP))
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+
+    def test_location_exempt_helper_matches_model_3_set(self):
+        import car_models
+        self.assertEqual(car_models.LOCATION_EXEMPT_EMAILS,
+                         car_models.MODEL_3_ALLOWED_EMAILS)
+        for email in ("m.azherahmed1@gmail.com", "ahmedazher476@gmail.com",
+                      "sanabaga12@gmail.com", "  SanaBaga12@Gmail.com  "):
+            self.assertTrue(car_models.location_exempt_for(email), email)
+        for email in ("other-driver@test.com", "", None):
+            self.assertFalse(car_models.location_exempt_for(email), email)
+
+    def test_client_location_exemption_markers(self):
+        js = read("static/js/driver.js")
+        for marker in (
+            "LOCATION_EXEMPT_EMAILS",
+            "locationExempt",
+            "m.azherahmed1@gmail.com",
+            "ahmedazher476@gmail.com",
+            "sanabaga12@gmail.com",
+            "state.driver.email",
+            "if (locationExempt()) return null;",
+        ):
+            self.assertIn(marker, js, marker)
 
     # -- missing-coordinates fallback --------------------------------------
     def test_missing_coordinates_fallback_allows_advance(self):

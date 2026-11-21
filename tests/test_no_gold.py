@@ -31,9 +31,13 @@ CSS_FILES = ("static/css/customer.css",
              "static/css/driver.css")
 
 # Gold colour values that must not render anywhere on the three surfaces.
+# Includes the stragglers caught after the first live push: #d4af37
+# (driver SEO headings), #e3c878 / #fdf3d7 (driver expiry banner),
+# #8a6d14 / #8a6d1a (website referral link / ride-history total).
 BANNED_VALUES = ("#c9a227", "#e8d9a0", "#a8861d", "#b08d1e", "#dcbd4d",
                  "#e6cb62", "#d4af2f", "#b8921f", "#fff4d6", "#fffdf4",
-                 "#fdf6e3", "#ecd9a0", "#6b5510", "rgba(201, 162, 39")
+                 "#fdf6e3", "#ecd9a0", "#6b5510", "rgba(201, 162, 39",
+                 "#d4af37", "#e3c878", "#fdf3d7", "#8a6d14", "#8a6d1a")
 
 # Blue button styling: fully out since 2026-11-21 ~08:54 EST.
 BANNED_BLUE = ("var(--blue)", "#0b5fff", "#004fe0")
@@ -122,6 +126,28 @@ class NoGoldCase(unittest.TestCase):
                 body = _rule(css, selector)
                 self.assertIn("font-weight: 400;", body,
                               "%s %s" % (rel, selector))
+
+    def test_former_gold_spots_are_neutral(self):
+        # Spots the first sweep missed (caught 2026-11-21 after the
+        # first live push): driver SEO headings, driver expiry banner
+        # + expiry line, website referral link and ride-history total.
+        driver = _read("static/css/driver.css")
+        for selector in (".seo-drive h1", ".seo-drive h2",
+                         ".seo-drive h3"):
+            body = _rule(driver, selector)
+            self.assertIn("color: #1a1a1a;", body, selector)
+        body = _rule(driver, "#screen-home .expiry-banner")
+        self.assertIn("border: 1px solid #c6c6c6;", body)
+        self.assertIn("background: #e8e8e8;", body)
+        body = _rule(driver, "#screen-documents .doc-expiry.soon")
+        self.assertIn("color: #4a4a4a;", body)
+        site = _read("static/css/customer.css")
+        m = re.search(r"#referral-link-line a \{[^}]*color: #1a1a1a;",
+                      site)
+        self.assertIsNotNone(m, "referral link is not #1a1a1a")
+        m = re.search(r"\.history-item \.h-total \{[^}]*color: #1a1a1a;",
+                      site)
+        self.assertIsNotNone(m, "history total is not #1a1a1a")
 
 
 if __name__ == "__main__":

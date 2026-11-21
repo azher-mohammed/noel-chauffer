@@ -268,7 +268,7 @@ input, select, textarea { font: inherit; }
   border: 1px solid var(--gold); background: #f7f7f7; border-radius: 6px; padding: 16px 18px; margin-top: 16px;
 }
 .referral-box p { margin: 4px 0; }
-#referral-link-line a { word-break: break-all; color: #8a6d14; }
+#referral-link-line a { word-break: break-all; color: #1a1a1a; }
 #referral-show-btn { margin-top: 8px; }
 .referral-actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .referral-actions .btn-ghost { padding: 9px 14px; font-size: 14.5px; }
@@ -517,7 +517,7 @@ input, select, textarea { font: inherit; }
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25);
 }
-.history-item .h-total { color: #8a6d1a; }
+.history-item .h-total { color: #1a1a1a; }
 .pill { padding: 3px 12px; font-weight: 600; }
 
 /* Cards and info boxes: gentle lift and depth (structure unchanged). */

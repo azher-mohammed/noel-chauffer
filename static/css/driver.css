@@ -873,12 +873,12 @@ input, select { font: inherit; }
   line-height: 1.4;
 }
 
-/* Document expiry notice (owner decision 2026-11-19): amber while a
+/* Document expiry notice (owner decision 2026-11-19): plain grey while a
    document is expiring within 10 days, red once it has expired and
    the registration is paused. Same shape as the suspension banner. */
 #screen-home .expiry-banner {
-  border: 1px solid #e3c878;
-  background: #fdf3d7;
+  border: 1px solid #c6c6c6;
+  background: #e8e8e8;
   color: var(--ink);
   border-radius: 10px;
   padding: 12px 14px;
@@ -903,7 +903,7 @@ input, select { font: inherit; }
   margin: -4px 0 10px;
 }
 #screen-documents .doc-expiry.soon {
-  color: #e3c878;
+  color: #4a4a4a;
   font-weight: 600;
 }
 #screen-documents .doc-expiry.expired {
@@ -995,9 +995,9 @@ input, select { font: inherit; }
   font-family: inherit;
   line-height: 1.6;
 }
-.seo-drive h1 { font-size: 1.6rem; margin: 0 0 12px; color: #d4af37; }
-.seo-drive h2 { font-size: 1.2rem; margin: 24px 0 8px; color: #d4af37; }
-.seo-drive h3 { font-size: 1.05rem; margin: 16px 0 6px; color: #d4af37; }
+.seo-drive h1 { font-size: 1.6rem; margin: 0 0 12px; color: #1a1a1a; }
+.seo-drive h2 { font-size: 1.2rem; margin: 24px 0 8px; color: #1a1a1a; }
+.seo-drive h3 { font-size: 1.05rem; margin: 16px 0 6px; color: #1a1a1a; }
 .seo-drive p { margin: 0 0 12px; color: #e8e8e8; }
 .seo-drive ul, .seo-drive ol { margin: 0 0 12px; padding-left: 22px; }
 .seo-drive li { margin-bottom: 6px; }

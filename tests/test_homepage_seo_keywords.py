@@ -20,6 +20,14 @@ airport transfer", "luxury car service Miami" and "MIA airport
 transfer" — as three more FAQ entries (visible + JSON-LD) and in the
 Airport Transfers card, naming LAX, ORD and MIA alongside the NYC
 airports.
+
+Owner decision 2026-11-21 (homepage split): the FAQ, the Airport
+Transfers card and the "Three ways to ride" card moved off the homepage
+onto their own pages (/frequently-asked-questions,
+/three-ways-to-ride, /airport-pickups). The keyword coverage tests
+below read those pages now — the keywords still live on the site,
+where the content lives. Title, description and Service schema stay
+on the homepage.
 """
 import json
 import re
@@ -27,11 +35,17 @@ import unittest
 from pathlib import Path
 
 INDEX = Path(__file__).resolve().parent.parent / "static" / "index.html"
+FAQ = Path(__file__).resolve().parent.parent / "static" / "frequently-asked-questions.html"
+THREEWAYS = Path(__file__).resolve().parent.parent / "static" / "three-ways-to-ride.html"
+AIRPORTS = Path(__file__).resolve().parent.parent / "static" / "airport-pickups.html"
 
 
 class HomepageSeoKeywordsTest(unittest.TestCase):
     def setUp(self):
         self.html = INDEX.read_text(encoding="utf-8")
+        self.faq_html = FAQ.read_text(encoding="utf-8")
+        self.threeways_html = THREEWAYS.read_text(encoding="utf-8")
+        self.airports_html = AIRPORTS.read_text(encoding="utf-8")
 
     def test_title_has_best_keywords(self):
         title = re.search(r"<title>([^<]*)", self.html).group(1)
@@ -60,9 +74,10 @@ class HomepageSeoKeywordsTest(unittest.TestCase):
         self.assertIn("airport transfers", service["description"])
 
     def test_faq_covers_best_keywords(self):
+        # FAQ lives on its own page since the 2026-11-21 homepage split.
         blocks = re.findall(
             r'<script type="application/ld\+json">(.*?)</script>',
-            self.html,
+            self.faq_html,
             re.S,
         )
         schemas = [json.loads(b) for b in blocks]
@@ -75,14 +90,15 @@ class HomepageSeoKeywordsTest(unittest.TestCase):
         # Visible FAQ must match the schema, so users see what Google reads.
         self.assertIn(
             "<h3>Do you offer black car service in New York City?</h3>",
-            self.html,
+            self.faq_html,
         )
-        self.assertIn("<h3>Do you do JFK airport transfers?</h3>", self.html)
+        self.assertIn("<h3>Do you do JFK airport transfers?</h3>", self.faq_html)
 
     def test_faq_covers_new_airport_keywords(self):
+        # FAQ lives on its own page since the 2026-11-21 homepage split.
         blocks = re.findall(
             r'<script type="application/ld\+json">(.*?)</script>',
-            self.html,
+            self.faq_html,
             re.S,
         )
         schemas = [json.loads(b) for b in blocks]
@@ -96,10 +112,11 @@ class HomepageSeoKeywordsTest(unittest.TestCase):
         for question in new_questions:
             self.assertIn(question, questions)
             # Visible FAQ must match the schema, so users see what Google reads.
-            self.assertIn(f"<h3>{question}</h3>", self.html)
+            self.assertIn(f"<h3>{question}</h3>", self.faq_html)
 
-    def test_homepage_contains_new_keywords(self):
-        lowered = self.html.lower()
+    def test_faq_page_contains_new_keywords(self):
+        # Keywords live in the FAQ answers on the FAQ page now.
+        lowered = self.faq_html.lower()
         for keyword in [
             "laguardia airport transfer",
             "newark airport transfer",
@@ -110,18 +127,20 @@ class HomepageSeoKeywordsTest(unittest.TestCase):
             self.assertIn(keyword, lowered, keyword)
 
     def test_airport_transfers_card_names_all_airports(self):
+        # Cards moved off the homepage in the 2026-11-21 split.
         self.assertIn(
             "Flying in or out of JFK, LaGuardia, Newark, LAX, ORD or MIA?",
-            self.html,
+            self.threeways_html,
         )
         self.assertIn(
-            "at the right terminal at JFK, LaGuardia or Newark", self.html
+            "at the right terminal at JFK, LaGuardia or Newark", self.airports_html
         )
 
     def test_faq_covers_top_three_city_keywords(self):
+        # FAQ lives on its own page since the 2026-11-21 homepage split.
         blocks = re.findall(
             r'<script type="application/ld\+json">(.*?)</script>',
-            self.html,
+            self.faq_html,
             re.S,
         )
         schemas = [json.loads(b) for b in blocks]
@@ -135,10 +154,11 @@ class HomepageSeoKeywordsTest(unittest.TestCase):
         for question in new_questions:
             self.assertIn(question, questions)
             # Visible FAQ must match the schema, so users see what Google reads.
-            self.assertIn(f"<h3>{question}</h3>", self.html)
+            self.assertIn(f"<h3>{question}</h3>", self.faq_html)
 
-    def test_homepage_contains_top_three_city_keywords(self):
-        lowered = self.html.lower()
+    def test_faq_page_contains_top_three_city_keywords(self):
+        # Keywords live in the FAQ answers on the FAQ page now.
+        lowered = self.faq_html.lower()
         for keyword in [
             "black car service los angeles",
             "lax airport transfer",

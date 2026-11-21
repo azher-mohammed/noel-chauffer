@@ -1708,46 +1708,6 @@
     setTimeout(function () { if (state.map) state.map.invalidateSize(); }, 150);
   }
 
-  /* ---------- Ride history ---------- */
-  $("history-form").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var phone = $("history-phone").value.trim();
-    var err = $("history-error");
-    var box = $("history-results");
-    err.textContent = "";
-    box.innerHTML = "";
-    if (!phone) { err.textContent = "Please enter your phone number."; return; }
-    box.innerHTML = "<p>Looking up your rides…</p>";
-    fetch("/api/bookings?phone=" + encodeURIComponent(phone))
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        if (!res.ok) {
-          box.innerHTML = "";
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "Could not look up rides for that number.";
-          return;
-        }
-        var list = Array.isArray(res.j) ? res.j : (res.j.bookings || res.j.rides || []);
-        if (!list.length) {
-          box.innerHTML = "<p>No rides found for that number yet.</p>";
-          return;
-        }
-        box.innerHTML = list.map(function (b) {
-          var driverName = b.driver && b.driver.name ? esc(b.driver.name) : "";
-          return '<div class="history-item"><div class="h-top"><div>' +
-            '<div class="h-route">' + esc(rideLabel(b)) + "</div>" +
-            '<div class="h-meta">' + esc(whenLabel(b)) +
-            (b.ride_type === "hourly" ? " · By the hour" : " · One way") +
-            (driverName ? " · Chauffeur: " + driverName : "") + "</div>" +
-            '<div style="margin-top:6px;"><span class="pill">' + esc(statusLabel(b.status)) + "</span></div>" +
-            "</div></div></div>";
-        }).join("");
-      })
-      .catch(function () {
-        box.innerHTML = "";
-        err.textContent = "Could not reach the booking service. Please try again.";
-      });
-  });
-
   /* ---------- Chat widget (scripted answers only) ---------- */
   /* The support widget is a SEPARATE chat from the ride chat above:
      it is available always, with no booking and no trip. Its element
@@ -1852,7 +1812,7 @@
     if (chatPanel.classList.contains("hidden")) { openChat(); } else { closeChat(); }
   });
   $("chat-close").addEventListener("click", closeChat);
-  $("open-chat-btn").addEventListener("click", openChat);
+  if ($("open-chat-btn")) { $("open-chat-btn").addEventListener("click", openChat); }
   $("support-chat-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var input = $("support-chat-input");

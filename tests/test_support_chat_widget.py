@@ -161,7 +161,9 @@ class SupportChatWidgetCase(unittest.TestCase):
         self.assertIn('id="support-chat-input"', html)
         self.assertIn('id="chat-fab"', html)
         self.assertIn('id="chat-close"', html)
-        self.assertIn('id="open-chat-btn"', html)
+        # "Open chat" lives in the Contacts section, which moved to its
+        # own page in the 2026-11-21 homepage split.
+        self.assertIn('id="open-chat-btn"', read("static/contacts.html"))
         # The ride chat keeps the original IDs (exactly one of each —
         # the no-duplicate test above proves the count).
         self.assertIn('<div id="chat-panel" class="hidden">', html)

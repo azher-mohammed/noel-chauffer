@@ -4156,6 +4156,56 @@ def point_to_point_car_service_page():
     return _serve_page("point-to-point-car-service.html", "point to point car service")
 
 
+@app.route("/airport-pickups")
+def airport_pickups_page():
+    return _serve_page("airport-pickups.html", "airport pickups")
+
+
+@app.route("/your-rides-in-your-pocket")
+def your_rides_in_your_pocket_page():
+    return _serve_page("your-rides-in-your-pocket.html", "your rides in your pocket")
+
+
+@app.route("/experience")
+def experience_page():
+    return _serve_page("experience.html", "experience")
+
+
+@app.route("/why-ride-with-noel-chauffer")
+def why_ride_with_noel_chauffer_page():
+    return _serve_page("why-ride-with-noel-chauffer.html", "why ride with noel chauffer")
+
+
+@app.route("/three-ways-to-ride")
+def three_ways_to_ride_page():
+    return _serve_page("three-ways-to-ride.html", "three ways to ride")
+
+
+@app.route("/cancellation-and-waiting")
+def cancellation_and_waiting_page():
+    return _serve_page("cancellation-and-waiting.html", "cancellation and waiting")
+
+
+@app.route("/frequently-asked-questions")
+def frequently_asked_questions_page():
+    return _serve_page("frequently-asked-questions.html", "frequently asked questions")
+
+
+@app.route("/our-company")
+def our_company_page():
+    return _serve_page("our-company.html", "our company")
+
+
+@app.route("/contacts")
+def contacts_page():
+    return _serve_page("contacts.html", "contacts")
+
+
+@app.route("/your-ride-history")
+def your_ride_history_page():
+    return _serve_page("your-ride-history.html", "your ride history")
+
+
 @app.route("/guides")
 def guides_page():
     return _serve_page("guides.html", "guides hub")

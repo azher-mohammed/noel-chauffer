@@ -26,8 +26,8 @@ These tests pin:
   no per-mile rates, no class totals, no booking fee.
 - Internal links: each page links to booking (/) and to the other
   two airport pages.
-- sitemap.xml lists all three airport URLs (31 URLs total after the
-  full SEO page set).
+- sitemap.xml lists all three airport URLs (41 URLs total after the
+  full SEO page set plus the 2026-11-21 homepage-split pages).
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -225,7 +225,7 @@ class AirportPagesTest(unittest.TestCase):
         root = ET.fromstring(resp.get_data(as_text=True))
         ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
         locs = [el.text for el in root.findall("s:url/s:loc", ns)]
-        self.assertEqual(len(locs), 31)
+        self.assertEqual(len(locs), 41)
         for path in PAGES:
             self.assertIn("https://noelchauffer.com" + path, locs, path)
         for old in ("https://noelchauffer.com/",

@@ -16,7 +16,7 @@ These tests pin:
   JFK/LaGuardia/Newark pages (owner order 2026-11-20: all prices
   removed, bookings paused). No invented reviews or ratings.
 - The guides are long (800+ words of body text each).
-- sitemap.xml lists 31 URLs; the homepage links to the airport,
+- sitemap.xml lists 41 URLs; the homepage links to the airport,
   area and guide pages; /owner stays noindexed and out of the sitemap.
 
 Run:  python -m unittest tests.test_seo_pages tests.test_bookings_paused -v
@@ -302,7 +302,7 @@ class SeoPagesTest(unittest.TestCase):
         root = ET.fromstring(resp.get_data(as_text=True))
         ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
         locs = [el.text for el in root.findall("s:url/s:loc", ns)]
-        self.assertEqual(len(locs), 31)
+        self.assertEqual(len(locs), 41)
         for path in list(PAGES) + [
             "/jfk-airport-transfers",
             "/laguardia-airport-transfers",
@@ -327,8 +327,11 @@ class SeoPagesTest(unittest.TestCase):
         self.assertNotIn(
             "Bookings are paused while we update our prices", html
         )
+        # The booking sentence moved to the FAQ page in the 2026-11-21
+        # homepage split; it still lives on the site, word for word.
+        faq = self.client.get("/frequently-asked-questions").get_data(as_text=True)
         self.assertIn(
-            "Enter your pickup and drop-off, date and time, choose your experience", html
+            "Enter your pickup and drop-off, date and time, choose your experience", faq
         )
 
     def test_owner_still_noindexed(self):

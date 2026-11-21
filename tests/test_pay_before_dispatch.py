@@ -470,6 +470,13 @@ class PayBeforeDispatchCase(unittest.TestCase):
         with open(os.path.join(REPO_DIR, "static", "index.html"),
                   encoding="utf-8") as fh:
             index = fh.read()
+        # The pay-before-dispatch copy moved with the Cancellation &
+        # waiting section to its own page in the 2026-11-21 homepage
+        # split (the "Payment" bullet list).
+        with open(os.path.join(REPO_DIR, "static",
+                               "cancellation-and-waiting.html"),
+                  encoding="utf-8") as fh:
+            policy = fh.read()
         with open(os.path.join(REPO_DIR, "static", "js", "customer.js"),
                   encoding="utf-8") as fh:
             customer_js = fh.read()
@@ -477,7 +484,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
                     "after a chauffeur accepts",
                     "only when the API returns a number, after a chauffeur"):
             self.assertNotIn(old, index + customer_js)
-        self.assertIn("You pay by card on this page, right after you book.", index)
+        self.assertIn("You pay by card on this page, right after you book.", policy)
         self.assertIn("awaiting_payment", customer_js)
         self.assertNotIn('st === "paid"', customer_js)
         # Options page: "View options" opens the class page; the old

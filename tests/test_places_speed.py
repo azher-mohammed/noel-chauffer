@@ -7,8 +7,9 @@ Covered here:
   tunnel support with the target Host header);
 - the committed popular-places snapshot (seeded JFK etc. answer with
   zero upstream calls);
-- the Photon fallback (Nominatim request failure only — never on a
-  genuine "no match" empty list), for search and for geocoding;
+- the Photon fallback (Nominatim request failure, and also an empty
+  Nominatim answer — an empty list is not proof the address does not
+  exist, see test_places_house_numbers.py), for search and geocoding;
 - the background popular-places refresh (replace only on non-empty
   live results, 1.1s pacing);
 - the OSRM route cache (repeat route = no second upstream call);
@@ -322,19 +323,32 @@ class TestPhotonFallback(SpeedTestCase):
                                side_effect=self._routed(photon_payload=None)):
             self.assertEqual(geo_module.search_places("JFK"), [])
 
-    def test_search_no_match_does_not_call_photon(self):
+    def test_search_empty_nominatim_falls_back_to_photon(self):
+        # An empty Nominatim answer is NOT a genuine "no match":
+        # from Render it answers empty for ordinary US streets
+        # (verified 2026-11-21), while Photon holds the house.
+        # search_places must therefore consult Photon instead of
+        # returning an empty list.
         urls = []
 
         def fake_get(url):
             urls.append(url)
             if "photon.komoot.io" in url:
-                raise AssertionError("Photon must not be called on no-match")
-            return []  # Nominatim answered: genuine no match
+                return PHOTON_JFK
+            return []  # Nominatim answered: no match
         with mock.patch.object(geo_module, "_http_get_json",
                                side_effect=fake_get):
-            self.assertEqual(geo_module.search_places("zzzqqq"), [])
-        self.assertEqual(len(urls), 1)
-        self.assertIn("nominatim.openstreetmap.org", urls[0])
+            results = geo_module.search_places("JFK")
+        self.assertTrue(results[0]["display_name"].startswith(
+            "John F. Kennedy International Airport"))
+        self.assertIn("photon.komoot.io",
+                      [u for u in urls if "photon" in u][0])
+        # One Nominatim base call (the airport result also triggers
+        # the 3 bounded terminal lookups, which are Nominatim URLs
+        # too — count only the base search here).
+        base = [u for u in urls
+                if "nominatim" in u and "bounded=1" not in u]
+        self.assertEqual(len(base), 1)
 
     def test_geocode_falls_back_to_photon(self):
         with mock.patch.object(geo_module, "_http_get_json",

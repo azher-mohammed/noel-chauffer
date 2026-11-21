@@ -180,10 +180,13 @@ def _http_get_json(url: str):
 
 
 # --------------------------------------------------------------------------
-# Photon fallback (Komoot, free, no key): used ONLY when a Nominatim
-# request itself fails (network error, 403/429 block). A Nominatim
-# answer of "no match" (valid empty list) is genuine and never falls
-# back. Photon results are normalized to Nominatim-shaped items and
+# Photon fallback (Komoot, free, no key): used when a Nominatim request
+# itself fails (network error, 403/429 block) OR when Nominatim
+# answers with no match at all. A Nominatim empty list is NOT proof
+# the address does not exist: from Render it answers empty for
+# ordinary US streets (verified 2026-11-21 — "180 Green Acres Road,
+# East Valley Stream" matches nothing there), while Photon holds the
+# house. Photon results are normalized to Nominatim-shaped items and
 # flow through the same parsing, so the public result shape is
 # unchanged. Airports rank first and duplicate names collapse, so a
 # "JFK" fallback still shows the airport before JFK Expressway.
@@ -210,6 +213,14 @@ def _photon_items(query: str, limit: int = 5):
     result into autocomplete or geocoding. Raises on any request
     failure. Never invents data: only live Photon features, with the
     airport (aeroway/aerodrome) first.
+
+    House numbers: Photon house/building features carry housenumber
+    + street but usually NO name. They used to be skipped for that
+    reason, so a typed house address suggested only its road ("180
+    Green Acres Road" lost its "180") or nothing at all ("1854 Stone
+    Ave" suggested nothing). The display name is therefore
+    synthesized from the feature's own housenumber + street when no
+    name is present — the address itself, never invented.
     """
     url = (
         _PHOTON_URL + "?q=" + urllib.parse.quote(query)
@@ -228,8 +239,28 @@ def _photon_items(query: str, limit: int = 5):
         if len(coords) != 2:
             continue
         name = props.get("name")
+        housenumber = props.get("housenumber")
+        street = props.get("street")
         if not name:
-            continue
+            # Photon house/building features have housenumber +
+            # street but no name (verified live 2026-11-21: the
+            # "180 Green Acres Road" house and the "1854 Stone
+            # Avenue" house both arrive nameless). Skipping them
+            # stripped the house number from suggestions or left
+            # the field with no suggestions at all, so synthesize
+            # the name from the feature's own address.
+            if housenumber and street:
+                name = str(housenumber) + " " + str(street)
+            elif street:
+                name = str(street)
+            else:
+                continue
+        elif (housenumber and street
+              and str(name).strip() == str(housenumber).strip()):
+            # A bare house-number name ("180") would read as a
+            # duplicate of the road below it; show the full street
+            # address instead.
+            name = str(housenumber) + " " + str(street)
         # USA-only gate: Photon answers worldwide, and in production
         # (Render) Nominatim is blocked so this fallback is the live
         # path — without this, "Paris" would suggest Paris, France.
@@ -238,15 +269,17 @@ def _photon_items(query: str, limit: int = 5):
         if str(props.get("countrycode") or "").lower() != "us":
             continue
         address = {}
-        if props.get("housenumber"):
-            address["house_number"] = str(props["housenumber"])
-        road = props.get("street")
+        if housenumber:
+            address["house_number"] = str(housenumber)
+        road = street
         if road:
-            if props.get("housenumber"):
-                road = str(props["housenumber"]) + " " + road
+            if housenumber:
+                road = str(housenumber) + " " + road
             address["road"] = road
-        if props.get("city"):
-            address["city"] = props["city"]
+        city = (props.get("city") or props.get("locality")
+                or props.get("district"))
+        if city:
+            address["city"] = city
         if props.get("state"):
             address["state"] = props["state"]
         if props.get("postcode"):
@@ -300,30 +333,36 @@ def _geocode_query(address: str):
             raw_address = data[0].get("address")
             details = raw_address if isinstance(raw_address, dict) else None
             return coords, details, False
-        return None, None, False
+        # Nominatim answered but matched nothing: fall through to
+        # the Photon fallback below instead of returning a miss.
+        # An empty Nominatim answer is not proof the address does
+        # not exist — from Render it matches nothing for ordinary
+        # US streets (verified 2026-11-21: "180 Green Acres Road,
+        # East Valley Stream" matches nothing there), while Photon
+        # holds the house.
     except Exception as exc:  # Nominatim request failed: Photon fallback
         log.warning("geocode Nominatim failed for %r, trying Photon: %s",
                     address, exc)
-        try:
-            items = _photon_items(address, 1)
-        except Exception as exc2:  # never raise: caller handles the miss
-            log.warning("geocode Photon failed for %r: %s", address, exc2)
-            return None, None, True
-        if not items:
-            return None, None, False
-        item = items[0]
-        # Defense in depth: _photon_items already drops non-US
-        # features, but never let a non-US address resolve even if
-        # that filter is ever bypassed — a France address must be a
-        # miss, never a geocoded point.
-        item_address = item.get("address") or {}
-        if item_address.get("country_code") not in (None, "us"):
-            return None, None, False
-        try:
-            coords = (float(item["lat"]), float(item["lon"]))
-        except (KeyError, TypeError, ValueError):
-            return None, None, True
-        return coords, item.get("address"), False
+    try:
+        items = _photon_items(address, 1)
+    except Exception as exc2:  # never raise: caller handles the miss
+        log.warning("geocode Photon failed for %r: %s", address, exc2)
+        return None, None, True
+    if not items:
+        return None, None, False
+    item = items[0]
+    # Defense in depth: _photon_items already drops non-US
+    # features, but never let a non-US address resolve even if
+    # that filter is ever bypassed — a France address must be a
+    # miss, never a geocoded point.
+    item_address = item.get("address") or {}
+    if item_address.get("country_code") not in (None, "us"):
+        return None, None, False
+    try:
+        coords = (float(item["lat"]), float(item["lon"]))
+    except (KeyError, TypeError, ValueError):
+        return None, None, True
+    return coords, item.get("address"), False
 
 
 def _strip_retry_words(address: str):
@@ -579,7 +618,12 @@ def search_places(query: str, limit: int = 5):
     Returns a list of {display_name, lat, lon, address} dicts, or [] on
     any failure. Never raises. Uses Nominatim with countrycodes=us and
     addressdetails=1; no API key. Address text + coordinates only — no
-    fare, miles, or pricing data of any kind.
+    fare, miles, or pricing data of any kind. When Nominatim fails or
+    answers with no match, the Photon fallback is consulted (same real
+    map data, USA-only) — a Nominatim empty list is not proof the
+    address does not exist, and house numbers survive in Photon
+    results because nameless house features are named from their own
+    housenumber + street (see _photon_items).
 
     When a result is an airport, the airport's terminals — including
     arrivals and departures entries where OpenStreetMap maps them —
@@ -608,10 +652,18 @@ def search_places(query: str, limit: int = 5):
         if not isinstance(data, list):
             data = []
     except Exception as exc:
-        # Nominatim request failed (not "no match" — that is a valid
-        # empty list above): fall back to Photon, same result shape.
+        # Nominatim request failed: fall back to Photon, same shape.
         log.warning("place search Nominatim failed for %r, trying Photon: %s",
                     q, exc)
+        data = None
+    if data is None or not data:
+        # Nominatim failed, or answered with no match at all: ask
+        # Photon, the same real map data in a second source. A
+        # Nominatim empty list is NOT proof the address does not
+        # exist — from Render it answers empty for ordinary US
+        # streets (verified 2026-11-21: "180 Green Acres Road, East
+        # Valley Stream" matches nothing there), while Photon holds
+        # the house. Never invents data: only live Photon features.
         try:
             data = _photon_items(q, limit)
         except Exception as exc2:

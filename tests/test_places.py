@@ -131,14 +131,19 @@ class TestPlaceSearchEndpoint(PlacesTestCase):
         with mock.patch.object(geo_module, "_http_get_json",
                                side_effect=self._capture([])):
             self.client.get("/api/places/search?q=JFK&limit=5")
-        self.assertEqual(len(self.urls), 1)
-        params = urllib.parse.parse_qs(urllib.parse.urlparse(self.urls[0]).query)
+        # Nominatim answers empty, so the Photon fallback is also
+        # consulted (2 upstream calls); the Nominatim request itself
+        # must still be the USA-only search.
+        nom_urls = [u for u in self.urls
+                    if "nominatim.openstreetmap.org" in u]
+        self.assertEqual(len(nom_urls), 1)
+        params = urllib.parse.parse_qs(urllib.parse.urlparse(nom_urls[0]).query)
         self.assertEqual(params["countrycodes"], ["us"])
         self.assertEqual(params["addressdetails"], ["1"])
         self.assertEqual(params["format"], ["json"])
         self.assertEqual(params["limit"], ["5"])
         self.assertEqual(params["q"], ["JFK"])
-        self.assertIn("nominatim.openstreetmap.org/search", self.urls[0])
+        self.assertIn("nominatim.openstreetmap.org/search", nom_urls[0])
 
     def test_empty_query_returns_empty_list_without_upstream_call(self):
         with mock.patch.object(geo_module, "_http_get_json",
@@ -205,12 +210,13 @@ class TestPlaceSearchEndpoint(PlacesTestCase):
 
     def test_short_query_still_queries_server_side(self):
         # The 3-character minimum lives in the browser; the server answers
-        # any non-empty query.
+        # any non-empty query. Nominatim answers empty here, so the
+        # Photon fallback is consulted too (2 upstream calls).
         with mock.patch.object(geo_module, "_http_get_json",
                                side_effect=self._capture([])):
             resp = self.client.get("/api/places/search?q=ab")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(len(self.urls), 1)
+        self.assertEqual(len(self.urls), 2)
 
 
 class TestSearchPlacesUnit(PlacesTestCase):

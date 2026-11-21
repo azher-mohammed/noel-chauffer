@@ -113,7 +113,9 @@ class GeocodeRetryCase(_CacheGuard):
         with mock.patch.object(geo_module, "_http_get_json", side_effect=fetch):
             self.assertEqual(geo_module.geocode("JFK Terminal 1 Arrivals"),
                              TERMINAL_1)
-        self.assertEqual(len(calls), 2)
+        # 3 calls: Nominatim "JFK Terminal 1 Arrivals" (empty) ->
+        # Photon fallback (also empty) -> strip-retry "JFK Terminal 1".
+        self.assertEqual(len(calls), 3)
 
     def test_lookup_is_usa_only(self):
         seen = []
@@ -178,11 +180,14 @@ class GeocodeCacheCase(_CacheGuard):
         self.assertEqual(calls["n"], 5)
 
     def test_empty_results_are_not_cached(self):
+        # Each empty geocode now makes 2 upstream calls (Nominatim
+        # empty -> Photon fallback, also empty), and neither result
+        # is cached, so a repeat still goes upstream.
         with mock.patch.object(geo_module, "_http_get_json",
                                return_value=[]) as fetch:
             self.assertIsNone(geo_module.geocode("Nowhere Street 1"))
             self.assertIsNone(geo_module.geocode("Nowhere Street 1"))
-            self.assertEqual(fetch.call_count, 2)
+            self.assertEqual(fetch.call_count, 4)
 
     def test_success_is_cached(self):
         with mock.patch.object(geo_module, "_http_get_json",

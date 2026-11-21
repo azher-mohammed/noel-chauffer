@@ -4,12 +4,20 @@
 Settled rules under test:
 - Fee model fitted from the Blacklane price-check workbook (158
   routes, sheet "Quotes"): black car fee 2.5% of base iff pickup in NY;
-  sales tax iff both ends in NY, rate by PICKUP county (NYC 8.875%,
-  Nassau 8.625%, Suffolk 8.75%); NY State congestion $2.75 iff an end
+  sales tax follows the PICKUP state (owner decision 2026-11-20,
+  "Sales tax doosre state ke hisaab se lagana") — NY pickups keep
+  the sheet rule (rate by PICKUP county: NYC 8.875%, Nassau 8.625%,
+  Suffolk 8.75%, and only when the dropoff is also in NY, so a NY
+  pickup to another state is still $0.00 tax); a pickup in any other
+  state uses that state's base sales-tax rate (Tax Foundation
+  midyear 2026, as of 1 July 2026), $0.00 in the five no-tax states
+  (AK, DE, MT, NH, OR). NY State congestion $2.75 iff an end
   is in Manhattan and both ends are in NY; MTA $0.75 iff an end is in
   Manhattan or (NJ-Hudson <-> NYC five boroughs); airport access
   $3.50 iff an end is JFK / LaGuardia / Newark (EWR). Total = base +
-  fees. The model reproduces all 158 Business totals in the sheet.
+  fees. The model reproduces all 158 Business totals in the sheet
+  (the sheet's cross-state rows are untouched by the 2026-11-20
+  tax change, because NY pickups to other states still pay $0.00).
 - Base fare per class interpolates the 100-rung Times Square ladder
   (1-100 road miles); below rung 1 the base is clamped at the class
   floor (Business $112.97, SUV $175.37, First $187.93); above 100.24
@@ -232,6 +240,108 @@ class TestBlacklaneEnginePure(unittest.TestCase):
                              "county": "New York County"})
         self.assertTrue(manhattan["is_manhattan"])
         self.assertTrue(manhattan["is_nyc5"])
+
+    def test_out_of_state_sales_tax_follows_pickup_state(self):
+        # Owner decision 2026-11-20, voice call ("Sales tax doosre
+        # state ke hisaab se lagana"): a pickup outside NY is taxed
+        # at that state's BASE sales-tax rate (Tax Foundation
+        # midyear 2026, as of 1 July 2026) — NJ 6.625% exactly.
+        # The state comes from the geocoder details when present,
+        # else from the typed text (", NJ" suffix / full name).
+        nj = classify_endpoint("Newark, NJ")
+        self.assertEqual(nj["state"], "NJ")
+        self.assertFalse(nj["in_ny"])
+        self.assertEqual(nj["tax_rate"], D("0.06625"))
+        nj_geo = classify_endpoint(
+            "Ridgewood", {"state": "New Jersey",
+                          "county": "Bergen County"})
+        self.assertEqual(nj_geo["tax_rate"], D("0.06625"))
+        for text, rate in (
+                ("Stamford, Connecticut", "0.0635"),
+                ("Philadelphia, Pennsylvania", "0.06"),
+                ("Los Angeles, CA", "0.0725"),
+                ("Washington, DC", "0.06"),
+                ("Chicago, IL", "0.0625"),
+                ("Boston, MA", "0.0625")):
+            self.assertEqual(classify_endpoint(text)["tax_rate"],
+                             D(rate), text)
+        # The five states with no statewide sales tax get $0.00.
+        for text in ("Portland, OR", "Manchester, NH", "Dover, DE",
+                     "Billings, MT", "Anchorage, AK"):
+            got = classify_endpoint(text)
+            self.assertEqual(got["tax_rate"], D("0.00"), text)
+            self.assertFalse(got["in_ny"], text)
+        # Newark, NJ -> Times Square, base $150.23 (the live
+        # preview's base): NJ tax $9.95, NY congestion $0.00,
+        # black car fee $0.00 (pickup not in NY) — airport $3.50
+        # and MTA $0.75 stay, exactly as before.
+        fees = blacklane_fees(classify_endpoint("Newark, NJ"),
+                              classify_endpoint(
+                                  "Times Square, New York, 10036"),
+                              D("150.23"))
+        self.assertEqual(fees["sales_tax"], D("9.95"))
+        self.assertEqual(fees["ny_congestion"], D("0.00"))
+        self.assertEqual(fees["black_car_fee"], D("0.00"))
+        self.assertEqual(fees["airport_access"], D("3.50"))
+        self.assertEqual(fees["mta_congestion"], D("0.75"))
+        self.assertEqual(fees["fees_total"], D("14.20"))
+        # Full ride, 15.0 mi, NJ pickup: base $162.44 + fees $15.01.
+        r = compute_blacklane_one_way(
+            D("15.0"), "sedan", "Newark, NJ",
+            "Times Square, New York, 10036")
+        self.assertEqual(r["base"], D("162.44"))
+        self.assertEqual(r["fees"]["sales_tax"], D("10.76"))
+        self.assertEqual(r["total"], D("177.45"))
+        # A NY pickup to another state is UNCHANGED: still $0.00
+        # tax (the sheet rule), black car fee still 2.5%.
+        r2 = compute_blacklane_one_way(
+            D("15.0"), "sedan", "Times Square", "Newark, NJ")
+        self.assertEqual(r2["fees"]["sales_tax"], D("0.00"))
+        self.assertEqual(r2["fees"]["black_car_fee"], D("4.06"))
+        self.assertEqual(r2["total"], D("170.75"))
+        # NY pickups keep their county rates (Valley Stream is
+        # Nassau, 8.625%) — text-only and geocoder paths alike.
+        self.assertEqual(
+            classify_endpoint("180 Green Acres Rd, Valley Stream")[
+                "tax_rate"], D("0.08625"))
+        # A pickup whose state is unknown still pays no tax.
+        self.assertIsNone(classify_endpoint("Nowhere")["tax_rate"])
+
+    def test_congestion_surcharges_stay_new_york_only(self):
+        # Owner decision 2026-11-20 ("wo tum dekh lena"): New York
+        # City is the only US city with congestion pricing for
+        # for-hire vehicles (MTA Congestion Relief Zone, from
+        # 5 Jan 2025). Chicago's downtown congestion fee applies to
+        # rideshare/TNP trips only and EXCLUDES taxis and liveries,
+        # so it does not apply to Noel black-car rides — no
+        # congestion charge is added for any other state.
+        for pickup, dropoff in (
+                ("Chicago, IL", "Chicago, IL"),
+                ("Los Angeles, CA", "San Diego, CA"),
+                ("Boston, MA", "Cambridge, MA"),
+                ("Philadelphia, Pennsylvania",
+                 "Philadelphia, Pennsylvania")):
+            fees = blacklane_fees(classify_endpoint(pickup),
+                                  classify_endpoint(dropoff), D("200"))
+            self.assertEqual(fees["ny_congestion"], D("0.00"),
+                             (pickup, dropoff))
+            self.assertEqual(fees["mta_congestion"], D("0.00"),
+                             (pickup, dropoff))
+        # But the sales tax still follows the pickup state outside
+        # NY: Chicago (IL 6.25%) and Los Angeles (CA 7.25%).
+        chi = blacklane_fees(classify_endpoint("Chicago, IL"),
+                             classify_endpoint("Chicago, IL"), D("200"))
+        self.assertEqual(chi["sales_tax"], D("12.50"))
+        la = blacklane_fees(classify_endpoint("Los Angeles, CA"),
+                            classify_endpoint("San Diego, CA"), D("200"))
+        self.assertEqual(la["sales_tax"], D("14.50"))
+        # And the NY $2.75 still needs BOTH ends in NY: Times
+        # Square -> Newark Airport (EWR) is $0.00 (sheet row).
+        ewr = blacklane_fees(classify_endpoint("Times Square"),
+                             classify_endpoint("Newark Airport (EWR)"),
+                             D("170.02"))
+        self.assertEqual(ewr["ny_congestion"], D("0.00"))
+        self.assertEqual(ewr["sales_tax"], D("0.00"))
 
     def test_pricing_mode_flag(self):
         # Blacklane is the live default since the owner flip
@@ -649,7 +759,11 @@ class LadderExactCase(unittest.TestCase):
     prices Times Square -> each rung's place at the rung's miles.
     The dropoff state comes from the place string (the same data
     live geocoding would supply); the pickup is always Times Square
-    (Manhattan, New York County), so the tax rate is the NYC rate."""
+    (Manhattan, New York County), so the tax rate is the NYC rate
+    when the dropoff is in NY and $0.00 when it is not — the
+    2026-11-20 out-of-state tax change (tax follows the PICKUP
+    state, NY pickups to other states still $0.00) leaves every
+    rung exactly as the sheet quoted it."""
 
     def test_all_100_rungs_x_3_classes_exact(self):
         fixture = os.path.join(

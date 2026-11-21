@@ -12,16 +12,39 @@ FEE RULES (fitted from the sheet; the model reproduces all 158
 Business totals exactly, and the SUV/First-Class base fares inverted
 from the sheet match the ladder file's own bases to within $0.01):
 - black car fee = 2.5% of the base fare, iff the PICKUP is in NY State.
-- sales tax iff pickup AND dropoff are both in NY State; the rate
-  follows the PICKUP county: New York City (the five boroughs)
-  8.875%, Nassau County 8.625%, Suffolk County 8.75%. A NY pickup in
-  any other county falls back to the NYC rate and is flagged
-  ``tax_rate_estimated`` — the sheet has no row for those counties.
+- sales tax follows the PICKUP state (owner decision 2026-11-20,
+  voice call — "Sales tax doosre state ke hisaab se lagana"):
+  NY pickups keep the sheet rule — the PICKUP county rate
+  (New York City (the five boroughs) 8.875%, Nassau County 8.625%,
+  Suffolk County 8.75%) and only when the dropoff is also in NY
+  State (a NY pickup to another state is still $0.00 tax, exactly
+  as the sheet quotes it — the 158-route sheet reproduction and
+  the 100-rung ladder are unchanged by this); a pickup in any
+  other state uses that state's BASE sales-tax rate (Tax
+  Foundation, "2026 Sales Tax Rates, Midyear Update", as of
+  1 July 2026 — see STATE_SALES_TAX_RATES below), regardless of
+  the dropoff state. The five states with no statewide sales tax
+  (Alaska, Delaware, Montana, New Hampshire, Oregon) get $0.00.
+  A NY pickup in any other county falls back to the NYC rate and
+  is flagged ``tax_rate_estimated`` — the sheet has no row for
+  those counties.
 - NY State congestion $2.75 iff (pickup or dropoff is in Manhattan)
-  AND pickup and dropoff are both in NY State.
+  AND pickup and dropoff are both in NY State. This is New York
+  State law (NYC311: the surcharge applies only to trips that
+  both begin and end in NY State and touch Manhattan south of
+  96th Street) — it cannot arise anywhere else.
 - MTA congestion $0.75 iff (pickup or dropoff is in Manhattan) OR
   (one endpoint is in NJ-Hudson — Hoboken / Weehawken / Jersey City /
   Newark / EWR — and the other is in the NYC five boroughs).
+- Congestion surcharges stay NY-only (owner decision 2026-11-20,
+  "wo tum dekh lena"): New York City is the ONLY US city with
+  congestion pricing for for-hire vehicles (MTA Congestion Relief
+  Zone, in effect 5 January 2025; FHV riders pay the $0.75
+  per-trip surcharge, black cars included). The only other US
+  congestion fee found is Chicago's downtown fee — but it applies
+  to Transportation Network Providers (Uber/Lyft) ONLY and
+  explicitly EXCLUDES taxis and liveries, so it does not apply
+  to Noel Chauffer black-car rides and is not modelled here.
 - airport access $3.50 iff pickup or dropoff is a NY-metro airport
   (JFK, LaGuardia, Newark/EWR).
 - total = base + airport + congestion + MTA + tax + black car fee.
@@ -260,6 +283,107 @@ _NYC_COUNTY_RATES = {
     "suffolk county": ("Suffolk", SUFFOLK_TAX_RATE),
 }
 _NJ_HUDSON_CITIES = {"hoboken", "weehawken", "jersey city", "newark"}
+
+# Base STATEWIDE sales-tax rates (owner decision 2026-11-20, voice
+# call — "Sales tax doosre state ke hisaab se lagana"): a pickup in
+# any state other than NY is taxed at that state's base rate.
+# Source: Tax Foundation, "2026 Sales Tax Rates, Midyear Update",
+# state-rate column as of 1 July 2026
+# (taxfoundation.org/data/all/state/2026-sales-tax-rates-midyear/).
+# The column already includes the mandatory statewide local add-ons
+# for California (1.25%), Utah (1.25%) and Virginia (1%). NY is NOT
+# in this table — NY pickups use the county rates above. The five
+# states with no statewide sales tax sit here at 0.00 (Alaska
+# localities may add their own local tax, averaging 1.82% — not
+# modelled). District of Columbia is 6.00%.
+# Exact decimals (the Foundation prints them rounded): NJ 6.625%,
+# MN 6.875%, MO 4.225%, NM 4.875%.
+STATE_SALES_TAX_RATES = {
+    "AL": Decimal("0.04"), "AK": Decimal("0.00"),
+    "AZ": Decimal("0.056"), "AR": Decimal("0.065"),
+    "CA": Decimal("0.0725"), "CO": Decimal("0.029"),
+    "CT": Decimal("0.0635"), "DE": Decimal("0.00"),
+    "DC": Decimal("0.06"), "FL": Decimal("0.06"),
+    "GA": Decimal("0.04"), "HI": Decimal("0.04"),
+    "ID": Decimal("0.06"), "IL": Decimal("0.0625"),
+    "IN": Decimal("0.07"), "IA": Decimal("0.06"),
+    "KS": Decimal("0.065"), "KY": Decimal("0.06"),
+    "LA": Decimal("0.05"), "ME": Decimal("0.055"),
+    "MD": Decimal("0.06"), "MA": Decimal("0.0625"),
+    "MI": Decimal("0.06"), "MN": Decimal("0.06875"),
+    "MS": Decimal("0.07"), "MO": Decimal("0.04225"),
+    "MT": Decimal("0.00"), "NE": Decimal("0.055"),
+    "NV": Decimal("0.0685"), "NH": Decimal("0.00"),
+    "NJ": Decimal("0.06625"), "NM": Decimal("0.04875"),
+    "NC": Decimal("0.0475"), "ND": Decimal("0.05"),
+    "OH": Decimal("0.0575"), "OK": Decimal("0.045"),
+    "OR": Decimal("0.00"), "PA": Decimal("0.06"),
+    "RI": Decimal("0.07"), "SC": Decimal("0.06"),
+    "SD": Decimal("0.042"), "TN": Decimal("0.07"),
+    "TX": Decimal("0.0625"), "UT": Decimal("0.061"),
+    "VT": Decimal("0.06"), "VA": Decimal("0.053"),
+    "WA": Decimal("0.065"), "WV": Decimal("0.06"),
+    "WI": Decimal("0.05"), "WY": Decimal("0.04"),
+}
+
+# US state full name / abbreviation (lowercase) -> 2-letter code.
+# Built from STATE_SALES_TAX_RATES plus NY (county rates, not the
+# state table). Geocoder values arrive as full names ("New Jersey")
+# or codes ("NJ", "US-NJ"); typed text arrives as ", NJ" suffixes
+# or full names ("Newark, NJ", "Stamford, Connecticut").
+_STATE_NAME_TO_CODE = {
+    "alabama": "AL", "al": "AL",
+    "alaska": "AK", "ak": "AK",
+    "arizona": "AZ", "az": "AZ",
+    "arkansas": "AR", "ar": "AR",
+    "california": "CA", "ca": "CA",
+    "colorado": "CO", "co": "CO",
+    "connecticut": "CT", "ct": "CT",
+    "delaware": "DE", "de": "DE",
+    "district of columbia": "DC", "dc": "DC",
+    "florida": "FL", "fl": "FL",
+    "georgia": "GA", "ga": "GA",
+    "hawaii": "HI", "hi": "HI",
+    "idaho": "ID", "id": "ID",
+    "illinois": "IL", "il": "IL",
+    "indiana": "IN", "in": "IN",
+    "iowa": "IA", "ia": "IA",
+    "kansas": "KS", "ks": "KS",
+    "kentucky": "KY", "ky": "KY",
+    "louisiana": "LA", "la": "LA",
+    "maine": "ME", "me": "ME",
+    "maryland": "MD", "md": "MD",
+    "massachusetts": "MA", "ma": "MA",
+    "michigan": "MI", "mi": "MI",
+    "minnesota": "MN", "mn": "MN",
+    "mississippi": "MS", "ms": "MS",
+    "missouri": "MO", "mo": "MO",
+    "montana": "MT", "mt": "MT",
+    "nebraska": "NE", "ne": "NE",
+    "nevada": "NV", "nv": "NV",
+    "new hampshire": "NH", "nh": "NH",
+    "new jersey": "NJ", "nj": "NJ",
+    "new mexico": "NM", "nm": "NM",
+    "new york": "NY", "ny": "NY",
+    "north carolina": "NC", "nc": "NC",
+    "north dakota": "ND", "nd": "ND",
+    "ohio": "OH", "oh": "OH",
+    "oklahoma": "OK", "ok": "OK",
+    "oregon": "OR", "or": "OR",
+    "pennsylvania": "PA", "pa": "PA",
+    "rhode island": "RI", "ri": "RI",
+    "south carolina": "SC", "sc": "SC",
+    "south dakota": "SD", "sd": "SD",
+    "tennessee": "TN", "tn": "TN",
+    "texas": "TX", "tx": "TX",
+    "utah": "UT", "ut": "UT",
+    "vermont": "VT", "vt": "VT",
+    "virginia": "VA", "va": "VA",
+    "washington": "WA", "wa": "WA",
+    "west virginia": "WV", "wv": "WV",
+    "wisconsin": "WI", "wi": "WI",
+    "wyoming": "WY", "wy": "WY",
+}
 
 
 # ------------------------------------------------------------------- ladder --
@@ -623,19 +747,49 @@ def base_fare(vehicle_class, miles):
 
 
 def _norm_state(state):
-    """Geocoder state value -> 'NY', 'NJ', 'CT', 'PA', 'MA', or the raw text."""
+    """Geocoder state value -> 2-letter US state code (or None).
+
+    Accepts full names ("New Jersey"), codes ("NJ") and ISO-style
+    codes ("US-NJ"). Anything that is not a US state (or DC) comes
+    back as the raw lowercased text, or None when empty.
+    """
     text = (state or "").strip().lower()
-    if text in ("new york", "ny", "us-ny"):
-        return "NY"
-    if text in ("new jersey", "nj", "us-nj"):
-        return "NJ"
-    if text in ("connecticut", "ct", "us-ct"):
-        return "CT"
-    if text in ("pennsylvania", "pa", "us-pa"):
-        return "PA"
-    if text in ("massachusetts", "ma", "us-ma"):
-        return "MA"
-    return text or None
+    if not text:
+        return None
+    if text.startswith("us-"):
+        text = text[3:]
+    return _STATE_NAME_TO_CODE.get(text, text or None)
+
+
+def _state_from_text(lowered):
+    """State code from a typed address string (no geocoder details).
+
+    Used only when the geocoder gave no state: a ", XX" suffix or a
+    trailing " XX" code, or a full state name in the text. Full names
+    are matched longest-first with word boundaries, so "West
+    Virginia" wins over "Virginia" and "Arkansas" never matches
+    "Kansas". District of Columbia is checked before Washington
+    state, so "Washington, DC" is DC, not WA. Returns a 2-letter
+    code or None.
+    """
+    if not lowered:
+        return None
+    if ("district of columbia" in lowered
+            or re.search(r",\s*dc\b", lowered)
+            or lowered.rstrip().endswith(" dc")):
+        return "DC"
+    for name in sorted(
+            (n for n in _STATE_NAME_TO_CODE if len(n) > 2),
+            key=len, reverse=True):
+        if re.search(r"\b" + re.escape(name) + r"\b", lowered):
+            return _STATE_NAME_TO_CODE[name]
+    m = re.search(r",\s*([a-z]{2})\b", lowered)
+    if m and m.group(1) in _STATE_NAME_TO_CODE:
+        return _STATE_NAME_TO_CODE[m.group(1)]
+    m = re.search(r"\b([a-z]{2})\s*$", lowered)
+    if m and m.group(1) in _STATE_NAME_TO_CODE:
+        return _STATE_NAME_TO_CODE[m.group(1)]
+    return None
 
 
 def classify_endpoint(text, details=None):
@@ -648,7 +802,11 @@ def classify_endpoint(text, details=None):
     applies (state-suffix override first, then the keyword lists).
 
     Returns a dict: in_ny, is_manhattan, is_airport, is_nj_hudson,
-    is_nyc5, tax_county ("NYC"/"Nassau"/"Suffolk"/None),
+    is_nyc5, state (2-letter code or None), tax_county
+    ("NYC"/"Nassau"/"Suffolk"/None), tax_rate (NY county rate for NY
+    pickups, the pickup state's base sales-tax rate for any other
+    US state — $0.00 in the five no-tax states — or None when the
+    state is unknown),
     tax_rate_estimated (True when a NY pickup county outside the
     sheet's three fell back to the NYC rate), meet_and_greet_unknown
     (True when the endpoint looks like a non-NY-metro airport, whose
@@ -656,7 +814,10 @@ def classify_endpoint(text, details=None):
     """
     lowered = (text or "").lower()
     details = details or {}
-    state = _norm_state(details.get("state"))
+    # Geocoder state wins; the text fallback only fills in when the
+    # geocoder gave no state at all.
+    state_from_details = _norm_state(details.get("state"))
+    state = state_from_details or _state_from_text(lowered)
     county = (details.get("county") or "").strip().lower()
     city = (details.get("city") or details.get("town")
             or details.get("village") or "").strip().lower()
@@ -685,9 +846,12 @@ def classify_endpoint(text, details=None):
     tax_rate_estimated = False
     if county in _NYC_COUNTY_RATES:
         tax_county, tax_rate = _NYC_COUNTY_RATES[county]
-    elif in_ny and state == "NY":
-        # A NY county the sheet has no row for — fall back to the NYC
-        # rate and say so, rather than guessing a county rate.
+    elif in_ny and state_from_details == "NY":
+        # The geocoder said NY but the county is one the sheet has
+        # no row for — fall back to the NYC rate and say so, rather
+        # than guessing a county rate. (Only when the state came
+        # from the geocoder: a text-only "Valley Stream, NY" still
+        # falls through to the keyword county check below.)
         tax_county, tax_rate = "NYC", NYC_TAX_RATE
         tax_rate_estimated = True
     elif in_ny:
@@ -697,6 +861,12 @@ def classify_endpoint(text, details=None):
             tax_county, tax_rate = "Suffolk", SUFFOLK_TAX_RATE
         else:
             tax_county, tax_rate = "NYC", NYC_TAX_RATE
+    elif state in STATE_SALES_TAX_RATES:
+        # Owner decision 2026-11-20 ("Sales tax doosre state ke
+        # hisaab se lagana"): a pickup outside NY is taxed at that
+        # state's base sales-tax rate — $0.00 in the five no-tax
+        # states (AK, DE, MT, NH, OR). No county/local add-ons.
+        tax_rate = STATE_SALES_TAX_RATES[state]
 
     meet_unknown = (("airport" in lowered) and not is_airport
                     and not in_ny)
@@ -706,6 +876,7 @@ def classify_endpoint(text, details=None):
         "is_airport": is_airport,
         "is_nj_hudson": is_nj_hudson,
         "is_nyc5": is_nyc5,
+        "state": state,
         "tax_county": tax_county,
         "tax_rate": tax_rate,
         "tax_rate_estimated": tax_rate_estimated,
@@ -741,8 +912,17 @@ def blacklane_fees(pickup, dropoff, base):
            or ((pickup["is_nj_hudson"] and dropoff["is_nyc5"])
                or (dropoff["is_nj_hudson"] and pickup["is_nyc5"]))
            else Decimal("0.00"))
+    # Sales tax follows the PICKUP state (owner decision 2026-11-20,
+    # "Sales tax doosre state ke hisaab se lagana"): a NY pickup is
+    # taxed at its county rate only when the dropoff is also in NY
+    # (the sheet rule — a NY pickup to another state stays $0.00,
+    # so the 158-route sheet reproduction and the 100-rung ladder
+    # are unchanged); a pickup in any other state is taxed at that
+    # state's base rate regardless of the dropoff. tax_rate is None
+    # only when the pickup state is unknown.
     tax = (money(base * pickup["tax_rate"])
-           if pickup["in_ny"] and dropoff["in_ny"] and pickup["tax_rate"]
+           if pickup["tax_rate"] is not None
+           and (not pickup["in_ny"] or dropoff["in_ny"])
            else Decimal("0.00"))
     black_car = (money(base * BLACK_CAR_FEE_RATE)
                  if pickup["in_ny"] else Decimal("0.00"))

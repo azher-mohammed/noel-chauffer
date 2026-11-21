@@ -358,8 +358,11 @@ class PickupReminderCase(unittest.TestCase):
         self.assertEqual(rem["pickup"], "JFK Airport")
         self.assertEqual(rem["dropoff"], "Times Square, New York")
         # No money or distance field reaches the driver, ever.
+        # is_return rides along (return-trip label fix, 2026-11-20):
+        # it is only a label flag, never a fare or distance figure.
         self.assertEqual(set(rem), {"booking_id", "date", "time",
-                                    "pickup", "dropoff", "ride_type"})
+                                    "pickup", "dropoff", "ride_type",
+                                    "is_return"})
         # The poll also queued the reminder (best-effort piggyback).
         self.assertEqual(len(self.reminder_outbox_for(booking["id"])), 2)
 

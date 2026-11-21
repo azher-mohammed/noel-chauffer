@@ -1861,6 +1861,7 @@
       var cls = classLabelFor(o);
       if (cls) when += (when ? " · " : "") + cls;
       if (o.ride_type === "hourly") when += (when ? " · " : "") + "By the hour" + (o.hours ? " · " + o.hours + " hour(s)" : "");
+      else if (o.is_return) when += (when ? " · " : "") + "Return trip";
       /* PAUSED (owner decision 2026-11-20): offers show pickup,
          drop-off and time only — no earnings, no toll. */
       var html = '<div class="route">' + route + "</div>" +

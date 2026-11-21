@@ -9,6 +9,7 @@
 
   var state = {
     rideType: "one_way",
+    isReturnTrip: false,
     bookingId: null,
     bookingPhone: "",
     booking: null,
@@ -90,6 +91,7 @@
     var text = rideLabel(b);
     var cls = classLabelFor(b);
     if (cls) text += " · " + cls;
+    if (b.ride_type !== "hourly") text += " · " + rideTypeLabel(b);
     if (whenLabel(b)) text += " · " + whenLabel(b);
     return text;
   }
@@ -117,6 +119,15 @@
         " · Pickup: " + (b.pickup || "");
     }
     return (b.pickup || "") + "  →  " + (b.dropoff || "");
+  }
+  /* "Return trip" is a second one-way booking made through
+     the return-trip button (owner decision 2026-11-20): it
+     must display as "Return trip", never "One way". */
+  function rideTypeLabel(b) {
+    if (!b) return "";
+    if (b.ride_type === "hourly") return "By the hour";
+    if (b.is_return) return "Return trip";
+    return "One way";
   }
   function whenLabel(b) {
     if (!b) return "";
@@ -154,6 +165,7 @@
       tab.classList.add("active");
       tab.setAttribute("aria-selected", "true");
       state.rideType = tab.getAttribute("data-ride-type");
+      state.isReturnTrip = false;
       if (state.rideType === "hourly") {
         hide($("field-dropoff"));
         show($("field-hours"));
@@ -250,6 +262,7 @@
       t.setAttribute("aria-selected", active ? "true" : "false");
     });
     state.rideType = "one_way";
+    state.isReturnTrip = false;
     show($("field-dropoff"));
     hide($("field-hours"));
     hide($("hourly-class-step"));
@@ -433,6 +446,7 @@
     }
     if (state.rideType === "one_way") {
       payload.dropoff = $("bk-dropoff").value.trim();
+      if (state.isReturnTrip) payload.is_return = true;
       var ref = $("bk-referral").value.trim();
       if (ref) payload.referral_code = ref;
     } else {
@@ -1631,6 +1645,7 @@
       t.setAttribute("aria-selected", active ? "true" : "false");
     });
     state.rideType = "one_way";
+    state.isReturnTrip = true;
     show($("field-dropoff"));
     hide($("field-hours"));
     hide($("field-contact"));

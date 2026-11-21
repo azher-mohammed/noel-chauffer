@@ -425,7 +425,7 @@
           var classBit = b.vehicle_class_label ? " · " + esc(b.vehicle_class_label) : "";
           tr.innerHTML =
             "<td>" + route + '<div class="sub">' + esc(whenLabel(b)) +
-            (b.ride_type === "hourly" ? " · By the hour" + (b.hours ? " · " + b.hours + " h" : "") : classBit) + "</div></td>" +
+            (b.ride_type === "hourly" ? " · By the hour" + (b.hours ? " · " + b.hours + " h" : "") : classBit + (b.is_return ? " · Return trip" : "")) + "</div></td>" +
             "<td>" + esc(b.customer_name || b.name || "—") + '<div class="sub">' + esc(b.phone || "") + "</div></td>" +
             "<td>" + esc(driverName) + "</td>" +
             '<td><span class="pill">' + esc(b.status || "") + "</span></td>" +
@@ -573,7 +573,7 @@
           ["Pickup", b.pickup || "—"],
           ["Drop-off", b.dropoff || (b.ride_type === "hourly" ? "By the hour" : "—")],
           ["Date / time", whenLabel(b) || "—"],
-          ["Ride type", b.ride_type === "hourly" ? "By the hour" + (b.hours ? " · " + b.hours + " hour(s)" : "") : "One way"],
+          ["Ride type", b.ride_type === "hourly" ? "By the hour" + (b.hours ? " · " + b.hours + " hour(s)" : "") : (b.is_return ? "Return trip" : "One way")],
           ["Vehicle class", b.vehicle_class_label || "—"],
           ["Flight", b.flight_number ? (b.flight_number + (b.airline_name ? " · " + b.airline_name : "") + (b.terminal ? " · " + b.terminal : "")) : "—"],
           ["Customer", b.customer_name || b.name || "—"],

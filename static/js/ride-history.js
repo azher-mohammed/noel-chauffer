@@ -20,6 +20,15 @@
     }
     return (b.pickup || "") + "  \u2192  " + (b.dropoff || "");
   }
+  /* "Return trip" is a second one-way booking made through
+     the return-trip button (owner decision 2026-11-20): it
+     must display as "Return trip", never "One way". */
+  function rideTypeLabel(b) {
+    if (!b) return "";
+    if (b.ride_type === "hourly") return "By the hour";
+    if (b.is_return) return "Return trip";
+    return "One way";
+  }
   function whenLabel(b) {
     if (!b) return "";
     var parts = [];
@@ -72,7 +81,7 @@
           return '<div class="history-item"><div class="h-top"><div>' +
             '<div class="h-route">' + esc(rideLabel(b)) + "</div>" +
             '<div class="h-meta">' + esc(whenLabel(b)) +
-            (b.ride_type === "hourly" ? " · By the hour" : " · One way") +
+            " · " + rideTypeLabel(b) +
             (driverName ? " · Chauffeur: " + driverName : "") + "</div>" +
             '<div style="margin-top:6px;"><span class="pill">' + esc(statusLabel(b.status)) + "</span></div>" +
             "</div></div></div>";

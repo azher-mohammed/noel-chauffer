@@ -2331,6 +2331,13 @@ class Booking(db.Model):
     time = db.Column(db.String(5), nullable=False)   # HH:MM
     passengers = db.Column(db.Integer, nullable=False, default=1)
     ride_type = db.Column(db.String(20), nullable=False)  # one_way | hourly
+    # True when this one-way booking was made through the "Book
+    # your return trip" flow (owner decision 2026-11-20): the
+    # return leg is a second one-way booking, but it displays as
+    # "Return trip", not "One way". False for outward one-ways
+    # and hourly rides. Added by the startup ALTER below; rows
+    # created before it read as False via getattr.
+    is_return = db.Column(db.Boolean, nullable=False, default=False)
     hours = db.Column(Numeric(5, 1), nullable=True)
     toll = db.Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     referral_code_used = db.Column(db.String(40), nullable=True)
@@ -2951,6 +2958,23 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("driver document verification column check failed: %s", exc)
+    # Same pattern for the return-trip flag (added with the
+    # return-trip label fix, owner decision 2026-11-20).
+    # DEFAULT FALSE backfills existing rows, so bookings made
+    # before the flag existed read as outward one-ways — the old
+    # test return booking is NOT relabelled from thin air.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _bcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("bookings")]
+        if "is_return" not in _bcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE bookings ADD COLUMN is_return BOOLEAN DEFAULT FALSE")
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("return-trip flag column check failed: %s", exc)
 
 # --------------------------------------------------------------- helpers ---
 
@@ -4388,6 +4412,7 @@ def _booking_create_view(booking, referral_code=None):
         "date": booking.date,
         "time": booking.time,
         "ride_type": booking.ride_type,
+        "is_return": bool(getattr(booking, "is_return", False)),
         "hours": num(booking.hours),
         "vehicle_class": booking_vehicle_class(booking),
         "vehicle_class_label": class_label(booking_vehicle_class(booking)),
@@ -4542,6 +4567,12 @@ def create_booking():
     # booking still goes through.
     flight_number = normalize_flight_number(data.get("flight_number"))
 
+    # Return-trip flag (owner decision 2026-11-20): only a
+    # one-way booking made through "Book your return trip"
+    # carries it, so it displays as "Return trip" instead of
+    # "One way". Hourly rides can never be return trips.
+    is_return = bool(data.get("is_return")) and ride_type == "one_way"
+
     booking = Booking(
         customer_name=(data.get("customer_name") or "").strip(),
         phone=(data.get("phone") or "").strip(),
@@ -4552,6 +4583,7 @@ def create_booking():
         time=data["time"],
         passengers=int(data.get("passengers") or 1),
         ride_type=ride_type,
+        is_return=is_return,
         toll=Decimal("0.00"),
         referral_code_used=referral_code_used,
         flight_number=flight_number,
@@ -4806,6 +4838,7 @@ def get_booking(booking_id):
         "date": booking.date,
         "time": booking.time,
         "ride_type": booking.ride_type,
+        "is_return": bool(getattr(booking, "is_return", False)),
         "hours": num(booking.hours),
         "vehicle_class": booking_vehicle_class(booking),
         "vehicle_class_label": class_label(booking_vehicle_class(booking)),
@@ -5343,6 +5376,8 @@ def booking_history():
         "date": b.date,
         "time": b.time,
         "status": b.status,
+        "ride_type": b.ride_type,
+        "is_return": bool(getattr(b, "is_return", False)),
     } for b in bookings])
 
 
@@ -6488,6 +6523,7 @@ def driver_active_trip():
         "date": booking.date,
         "time": booking.time,
         "ride_type": booking.ride_type,
+        "is_return": bool(getattr(booking, "is_return", False)),
         "hours": num(booking.hours),
         "vehicle_class": booking_vehicle_class(booking),
         "vehicle_class_label": class_label(booking_vehicle_class(booking)),
@@ -6528,6 +6564,7 @@ def driver_pickup_reminder():
         "pickup": booking.pickup,
         "dropoff": booking.dropoff,
         "ride_type": booking.ride_type,
+        "is_return": bool(getattr(booking, "is_return", False)),
     }})
 
 
@@ -6621,6 +6658,7 @@ def driver_offers():
             "date": b.date,
             "time": b.time,
             "ride_type": b.ride_type,
+            "is_return": bool(getattr(b, "is_return", False)),
             "hours": num(b.hours),
             "vehicle_class": booking_vehicle_class(b),
             "vehicle_class_label": class_label(booking_vehicle_class(b)),
@@ -6703,6 +6741,7 @@ def driver_accept(booking_id):
         "date": booking.date,
         "time": booking.time,
         "ride_type": booking.ride_type,
+        "is_return": bool(getattr(booking, "is_return", False)),
         "vehicle_class": booking_vehicle_class(booking),
         "vehicle_class_label": class_label(booking_vehicle_class(booking)),
         "customer_name": booking.customer_name,
@@ -7356,6 +7395,7 @@ def _owner_booking_row(b):
         "time": b.time,
         "status": b.status,
         "ride_type": b.ride_type,
+        "is_return": bool(getattr(b, "is_return", False)),
         "vehicle_class": booking_vehicle_class(b),
         "vehicle_class_label": class_label(booking_vehicle_class(b)),
         "customer_total": num(b.fare_total),
@@ -7460,6 +7500,7 @@ def owner_booking_detail(booking_id):
         "email": booking.email,
         "passengers": booking.passengers,
         "ride_type": booking.ride_type,
+        "is_return": bool(getattr(booking, "is_return", False)),
         "hours": num(booking.hours),
         "miles": num(booking.miles),
         "referral_code_used": booking.referral_code_used,

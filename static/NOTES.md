@@ -190,9 +190,15 @@ dashboard holds the full breakdown. The driver sees only earnings.
 
 - THREE classes now: sedan ("Business Class"), SUV ("Business SUV")
   and First Class ("first"). First Class OPEN since owner decision
-  2026-11-20 ("same as Blacklane"): Mercedes-Benz S-Class, BMW
-  7 Series, Audi A8, Tesla Model X — see car_models.FIRST_CLASS_
-  MODELS. First Class exists ONLY in Blacklane mode (the legacy
+  2026-11-20 ("same as Blacklane"), expanded 2026-11-21 by owner
+  order to TWELVE models: Mercedes-Benz S-Class, BMW 7 Series,
+  Audi A8, Tesla Model X, Bentley Bentayga, Bentley Flying Spur,
+  Bentley Mulsanne, Mercedes-Benz Maybach S-Class, Rolls-Royce
+  Cullinan, Rolls-Royce Ghost, Rolls-Royce Phantom, Lamborghini
+  Urus — see car_models.FIRST_CLASS_MODELS. All twelve stay in
+  Business Class too (dual eligibility, "dono mein bhi rakhen"):
+  First Class is an extra qualification by model, not a replacement
+  class. First Class exists ONLY in Blacklane mode (the legacy
   engine has no First Class rate); the options page shows the First
   Class button only when the booking's class totals include it.
   Display names are `Business Class` / `Business SUV` / `First Class`

@@ -39,10 +39,16 @@ Owner decisions (voice call 2026-11-16):
   So the list holds 109 sedans + 23 SUVs (132 models), plus the
   temporary Model 3 sedan exception (133 in the mapping). Judgment
   calls from before this change are documented in static/NOTES.md.
-- First Class: exactly four models qualify — Mercedes-Benz S-Class,
-  BMW 7 Series, Audi A8, Tesla Model X (same as Blacklane First
-  Class; owner decision 2026-11-20) — see FIRST_CLASS_MODELS below.
-  Qualification is by model, not by sedan/suv class.
+- First Class: exactly twelve models qualify — the four Blacklane
+  First Class models (Mercedes-Benz S-Class, BMW 7 Series, Audi A8,
+  Tesla Model X; owner decision 2026-11-20) plus eight owner-added
+  flagships (Bentley Bentayga, Flying Spur, Mulsanne; Mercedes-Benz
+  Maybach S-Class; Rolls-Royce Cullinan, Ghost, Phantom; Lamborghini
+  Urus; owner decision 2026-11-21, "dono mein bhi rakhen") — see
+  FIRST_CLASS_MODELS below. Qualification is by model, not by
+  sedan/suv class: every First Class model KEEPS its Business Class
+  dispatch, so First Class is an extra qualification, not a
+  replacement class.
 """
 
 from datetime import date
@@ -162,29 +168,39 @@ VEHICLE_CLASS_BY_MAKE = {
               "XC90 Hybrid": "sedan"},
 }
 
-# FIRST CLASS qualifying models — owner decision 2026-11-20 ~03:00 EST
+# FIRST CLASS qualifying models — owner decisions 2026-11-20 ~03:00 EST
 # (voice call): "wahi daal dena na same" — use the SAME cars as
-# Blacklane First Class. Blacklane First Class (blacklane.com, checked
-# 2026-11-20): Mercedes-Benz S-Class, BMW 7 Series, Audi A8, and
-# Tesla Model X in some cities — always "or similar": the customer
-# picks a CLASS, the exact model is never guaranteed. Exactly these
-# four qualify for Noel First Class dispatch. No other flagship
-# equivalents are added (Maybach S-Class, Alpina B7, i7, S8, Ghost,
-# Phantom, Flying Spur, LS, G90 and the rest stay in their Business
-# Class / Business SUV classes) — the owner can add more later if
-# he wants. All four are already on the Uber Black dropdown list,
-# so nothing is added to CAR_MODELS_BY_MAKE for this. Note the body
-# split: S-Class / 7 Series / A8 are sedans, Model X is an SUV by
-# body — First Class qualification is by MODEL, not by sedan/suv
-# class, so a Model X driver keeps his Business Class dispatch
-# (owner decision 2026-11-21: Model X is Business Class, not
-# Business SUV, since only the 23 Uber Black SUV models are SUVs)
-# and an S-Class driver keeps his Business Class dispatch.
+# Blacklane First Class; and 2026-11-21 ~01:44-01:48 EST (voice call):
+# add eight flagships, DUAL with Business Class ("dono mein bhi
+# rakhen"). Blacklane First Class (blacklane.com, checked 2026-11-20):
+# Mercedes-Benz S-Class, BMW 7 Series, Audi A8, and Tesla Model X in
+# some cities — always "or similar": the customer picks a CLASS, the
+# exact model is never guaranteed. Exactly these twelve qualify for
+# Noel First Class dispatch. The other flagship equivalents stay in
+# their Business Class / Business SUV classes (Alpina B7, i7, S8, LS,
+# G90 and the rest) — the owner can add more later if he wants. All
+# twelve are already on the Uber Black dropdown list, so nothing is
+# added to CAR_MODELS_BY_MAKE for this. First Class qualification is
+# by MODEL, not by sedan/suv class, and every one of the twelve keeps
+# its Business Class dispatch (all twelve are "sedan" in
+# VEHICLE_CLASS_BY_MAKE — including the SUV-body Bentayga, Urus and
+# Cullinan, since only the 23 Uber Black SUV models are SUVs, owner
+# decision 2026-11-21). So a Bentayga / Ghost / Urus driver gets
+# Business Class jobs AND First Class jobs, exactly like an S-Class
+# or Model X driver.
 FIRST_CLASS_MODELS = frozenset({
     "Mercedes-Benz S-Class",
     "BMW 7 Series",
     "Audi A8",
     "Tesla Model X",
+    "Bentley Bentayga",
+    "Bentley Flying Spur",
+    "Bentley Mulsanne",
+    "Mercedes-Benz Maybach S-Class",
+    "Rolls-Royce Cullinan",
+    "Rolls-Royce Ghost",
+    "Rolls-Royce Phantom",
+    "Lamborghini Urus",
 })
 
 

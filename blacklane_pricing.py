@@ -76,9 +76,12 @@ CUSTOMER FLAT (owner decision 2026-11-20 ~06:38 EST): at miles
 $130, charged exactly; First Class keeps the engine total.
 The engine computes the First Class customer fare AND driver pay. First Class
 is OPEN since owner decision 2026-11-20 ~03:00 EST ("wahi daal dena
-na same" — same models as Blacklane): Mercedes-Benz S-Class, BMW
-7 Series, Audi A8, Tesla Model X (see car_models.FIRST_CLASS_MODELS;
-app.py: driver_matches_booking_class). It exists only in Blacklane
+na same" — same models as Blacklane), expanded 2026-11-21 by owner
+order to twelve models: Blacklane's four plus Bentley Bentayga /
+Flying Spur / Mulsanne, Mercedes-Benz Maybach S-Class, Rolls-Royce
+Cullinan / Ghost / Phantom and Lamborghini Urus (see
+car_models.FIRST_CLASS_MODELS; app.py: driver_matches_booking_class).
+It exists only in Blacklane
 mode — the legacy engine has no First Class rate, so selection
 refuses "first" while NOEL_PRICING is legacy.
 

@@ -3,14 +3,19 @@
 Owner decision 2026-11-20 ~03:00 EST (voice call): First Class uses
 the SAME cars as Blacklane — Mercedes-Benz S-Class, BMW 7 Series,
 Audi A8, Tesla Model X ("or similar": the customer picks a CLASS,
-the exact model is never guaranteed). A First Class booking reaches
-ONLY drivers whose registered car is one of the four; every other
+the exact model is never guaranteed). Owner decision 2026-11-21
+~01:44-01:48 EST (voice call): ADD eight flagships — Bentley
+Bentayga, Flying Spur, Mulsanne; Mercedes-Benz Maybach S-Class;
+Rolls-Royce Cullinan, Ghost, Phantom; Lamborghini Urus — so First
+Class is TWELVE models. All twelve stay in Business Class too
+("dono mein bhi rakhen"): a First Class booking reaches ONLY
+drivers whose registered car is one of the twelve; every other
 driver never sees it and cannot accept it even by direct API call.
 The Model X is an SUV by body but classed Business Class since the
 2026-11-21 Professional SUV change (only the 23 Uber Black SUV
-models are SUVs), and the other three are sedans, so a Model X
-driver keeps his Business Class dispatch and an S-Class driver keeps
-his Business Class dispatch — First Class is an extra qualification
+models are SUVs), and so are the SUV-body Bentayga, Urus and
+Cullinan, so their drivers keep their Business Class dispatch just
+like an S-Class driver — First Class is an extra qualification
 by model, not a replacement class.
 
 Run:  python -m unittest discover -s tests -v
@@ -47,6 +52,7 @@ from car_models import (  # noqa: E402
     ALLOWED_CAR_MODELS,
     FIRST_CLASS_MODELS,
     allowed_models,
+    class_for_model,
     is_first_class_model,
 )
 
@@ -148,14 +154,33 @@ class FirstClassModelsCase(unittest.TestCase):
             headers={"X-Driver-Token": token})
 
     # -- the model list --------------------------------------------------
-    def test_first_class_models_are_exactly_the_four(self):
+    def test_first_class_models_are_exactly_the_twelve(self):
+        # Blacklane's four (owner decision 2026-11-20) plus the eight
+        # owner-added flagships (owner decision 2026-11-21).
         self.assertEqual(FIRST_CLASS_MODELS, {
             "Mercedes-Benz S-Class", "BMW 7 Series", "Audi A8",
             "Tesla Model X",
+            "Bentley Bentayga", "Bentley Flying Spur",
+            "Bentley Mulsanne", "Mercedes-Benz Maybach S-Class",
+            "Rolls-Royce Cullinan", "Rolls-Royce Ghost",
+            "Rolls-Royce Phantom", "Lamborghini Urus",
         })
+        self.assertEqual(len(FIRST_CLASS_MODELS), 12)
+
+    def test_new_first_class_models_stay_business_class(self):
+        # DUAL eligibility ("dono mein bhi rakhen", owner decision
+        # 2026-11-21): the eight new models keep their Business
+        # Class ("sedan") mapping — including the SUV-body Bentayga,
+        # Urus and Cullinan, since only the 23 Uber Black SUV models
+        # are SUVs. Nothing was removed from Business.
+        for model in ("Bentley Bentayga", "Bentley Flying Spur",
+                      "Bentley Mulsanne", "Mercedes-Benz Maybach S-Class",
+                      "Rolls-Royce Cullinan", "Rolls-Royce Ghost",
+                      "Rolls-Royce Phantom", "Lamborghini Urus"):
+            self.assertEqual(class_for_model(model), "sedan", model)
 
     def test_first_class_models_are_all_in_the_dropdown(self):
-        # No dropdown addition was needed: all four are already on
+        # No dropdown addition was needed: all twelve are already on
         # the Uber Black list the dropdown serves.
         for model in FIRST_CLASS_MODELS:
             self.assertIn(model, ALLOWED_CAR_MODELS)
@@ -163,12 +188,16 @@ class FirstClassModelsCase(unittest.TestCase):
 
     def test_is_first_class_model(self):
         for model in ("Mercedes-Benz S-Class", "BMW 7 Series",
-                      "Audi A8", "Tesla Model X"):
+                      "Audi A8", "Tesla Model X",
+                      "Bentley Bentayga", "Bentley Flying Spur",
+                      "Bentley Mulsanne", "Mercedes-Benz Maybach S-Class",
+                      "Rolls-Royce Cullinan", "Rolls-Royce Ghost",
+                      "Rolls-Royce Phantom", "Lamborghini Urus"):
             self.assertTrue(is_first_class_model(model), model)
         for model in ("Mercedes-Benz E-Class", "BMW 5 Series",
                       "Tesla Model S", "Tesla Model 3",
                       "Chevrolet Suburban", "Cadillac Escalade",
-                      "Mercedes-Benz Maybach S-Class", "Rolls-Royce Ghost",
+                      "bentley bentayga",
                       "", None):
             self.assertFalse(is_first_class_model(model), model)
 
@@ -217,6 +246,46 @@ class FirstClassModelsCase(unittest.TestCase):
         self.assertNotIn(suv["id"], self.offer_ids(s_token))
         self.assertNotIn(suv["id"], self.offer_ids(x_token))
         self.assertIn(suv["id"], self.offer_ids(sub_token))
+
+    def test_new_first_class_models_get_first_and_business_offers(self):
+        # DUAL dispatch (owner decision 2026-11-21): a Bentayga or
+        # Ghost driver sees First Class jobs AND Business Class
+        # (sedan) jobs — but no Business SUV jobs, since both are
+        # "sedan" class. An E-Class driver sees the Business job
+        # only, never the First Class one.
+        _, b_token = self.register_driver("Bentley Bentayga")
+        _, g_token = self.register_driver("Rolls-Royce Ghost")
+        _, e_token = self.register_driver("Mercedes-Benz E-Class")
+        first = self.book_first_class()
+        self.assertIn(first["id"], self.offer_ids(b_token))
+        self.assertIn(first["id"], self.offer_ids(g_token))
+        self.assertNotIn(first["id"], self.offer_ids(e_token))
+        sedan = self.book()
+        self.pay(sedan["id"])
+        self.assertIn(sedan["id"], self.offer_ids(b_token))
+        self.assertIn(sedan["id"], self.offer_ids(g_token))
+        self.assertIn(sedan["id"], self.offer_ids(e_token))
+        suv = self.book()
+        resp = self.client.post(
+            f"/api/bookings/{suv['id']}/vehicle-class",
+            json={"vehicle_class": "suv"})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        self.pay(suv["id"])
+        self.assertNotIn(suv["id"], self.offer_ids(b_token))
+        self.assertNotIn(suv["id"], self.offer_ids(g_token))
+        self.assertNotIn(suv["id"], self.offer_ids(e_token))
+
+    def test_new_first_class_driver_can_accept(self):
+        # A new-model driver can accept a First Class job by direct
+        # API call; a non-qualifying driver still gets the 409.
+        _, u_token = self.register_driver("Lamborghini Urus")
+        _, e_token = self.register_driver("Mercedes-Benz E-Class")
+        booking = self.book_first_class()
+        resp = self.accept(e_token, booking["id"])
+        self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
+        self.assertIn("First Class car", resp.get_json()["error"])
+        resp = self.accept(u_token, booking["id"])
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
 
     def pay(self, booking_id):
         resp = self.client.post(f"/api/bookings/{booking_id}/pay", json=dict(CARD))

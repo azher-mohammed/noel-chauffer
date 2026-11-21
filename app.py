@@ -3504,7 +3504,9 @@ def booking_vehicle_class(booking):
     None for hourly rows created before the class system existed;
     "sedan" for one-way bookings created before the class system
     existed; "first" for First Class bookings (owner decision
-    2026-11-20 — First Class is open, same models as Blacklane)."""
+    2026-11-20 — First Class is open, Blacklane's four models plus
+    eight owner-added flagships, 2026-11-21; see
+    car_models.FIRST_CLASS_MODELS)."""
     if booking.ride_type == "hourly":
         if booking.vehicle_class in ("sedan", "suv", "first"):
             return booking.vehicle_class
@@ -3519,14 +3521,14 @@ def driver_matches_booking_class(driver, booking):
 
     Business Class / Business SUV match by the driver's sedan/suv
     class; a First Class booking reaches ONLY drivers whose
-    registered car model is a First Class model (Mercedes-Benz
-    S-Class, BMW 7 Series, Audi A8, Tesla Model X — same as
-    Blacklane; owner decision 2026-11-20). A Model X driver keeps
-    his Business Class dispatch and an S-Class driver keeps his
-    Business Class dispatch — First Class is an extra qualification
-    by model, not a replacement class. (Owner decision 2026-11-21:
-    Model X is Business Class, not Business SUV — only the 23 Uber
-    Black SUV models are SUVs.) Hourly rides with a class
+    registered car model is a First Class model (the twelve in
+    car_models.FIRST_CLASS_MODELS — Blacklane's four plus eight
+    owner-added flagships, owner decisions 2026-11-20 and
+    2026-11-21). Every First Class driver keeps his Business Class
+    dispatch — First Class is an extra qualification by model, not
+    a replacement class. (Owner decision 2026-11-21: Model X is
+    Business Class, not Business SUV — only the 23 Uber Black SUV
+    models are SUVs.) Hourly rides with a class
     (Blacklane-style hourly, owner decision 2026-11-20) are filtered
     the same way; hourly rows from before the class system (no class
     stored) reach every driver, as before.
@@ -4211,8 +4213,9 @@ def place_search():
 # Blacklane-style total is base fare + Blacklane fees (no map toll in
 # the customer total — see blacklane_pricing.py). First Class driver
 # pay is the flat slab (owner decision 2026-11-20 ~06:25 EST) and the
-# qualifying models are the same as Blacklane's (S-Class, 7 Series,
-# A8, Model X — owner decision 2026-11-20 ~03:00 EST).
+# qualifying models are Blacklane's four plus eight owner-added
+# flagships (owner decisions 2026-11-20 ~03:00 EST and 2026-11-21;
+# see car_models.FIRST_CLASS_MODELS).
 # An address that cannot be resolved is a 400 — no distance is ever
 # invented, same rule as booking creation. Read-only: nothing is
 # stored, and the bookings pause does not apply.
@@ -4348,9 +4351,9 @@ def _booking_create_view(booking, referral_code=None):
             # 2026-11-20): base fare + fees + tax; no miles, no
             # driver pay, no profit — the customer never sees those.
             # First Class IS bookable now — the qualifying models
-            # are decided (same as Blacklane: S-Class, 7 Series,
-            # A8, Model X; owner decision 2026-11-20 ~03:00 EST);
-            # driver pay is the flat slab.
+            # are decided (Blacklane's four plus eight owner-added
+            # flagships; owner decisions 2026-11-20 ~03:00 EST and
+            # 2026-11-21); driver pay is the flat slab.
             pickup_details = geo_module.geocode_address(booking.pickup)
             dropoff_details = geo_module.geocode_address(booking.dropoff)
             results = {
@@ -4666,8 +4669,9 @@ def select_vehicle_class(booking_id):
     vehicle_class = data.get("vehicle_class")
     if vehicle_class == "first" and booking.ride_type == "one_way":
         # First Class is OPEN (owner decision 2026-11-20 ~03:00 EST):
-        # same models as Blacklane (S-Class, 7 Series, A8, Model X),
-        # driver pay is the flat slab. But it exists ONLY in Blacklane mode — the
+        # Blacklane's four models plus eight owner-added flagships
+        # (2026-11-21; see car_models.FIRST_CLASS_MODELS), driver pay
+        # is the flat slab. But it exists ONLY in Blacklane mode — the
         # legacy engine has no First Class rate at all, so in legacy
         # mode there is nothing to price it with; refuse there.
         if pricing_mode() != "blacklane":
@@ -6539,10 +6543,10 @@ def driver_offers():
         # appears only in that driver's offers.
         if b.assigned_driver_id is not None and b.assigned_driver_id != driver.id:
             continue
-        # First Class dispatch (owner decision 2026-11-20 ~03:00 EST):
-        # a First Class booking reaches ONLY drivers whose registered
-        # car is a First Class model (Mercedes-Benz S-Class, BMW
-        # 7 Series, Audi A8, Tesla Model X — same as Blacklane).
+        # First Class dispatch (owner decisions 2026-11-20 ~03:00 EST
+        # and 2026-11-21): a First Class booking reaches ONLY drivers
+        # whose registered car is a First Class model (the twelve in
+        # car_models.FIRST_CLASS_MODELS).
         # Checked on the RAW column: booking_vehicle_class() maps
         # unknown classes to "sedan", so the raw column is what
         # tells a First Class job apart. driver_matches_booking_
@@ -6600,8 +6604,10 @@ def driver_accept(booking_id):
         return err("Booking not found.", 404)
     if not driver_matches_booking_class(driver, booking):
         if booking_vehicle_class(booking) == "first":
-            return err("This ride needs a First Class car (Mercedes-Benz "
-                       "S-Class, BMW 7 Series, Audi A8 or Tesla Model X).", 409)
+            # No model list here: twelve models qualify now (owner
+            # decision 2026-11-21), too many to enumerate in an
+            # error; the driver app shows the class only.
+            return err("This ride needs a First Class car.", 409)
         return err("This ride is for a different vehicle class.", 409)
     # Dispatcher-lite: an owner-assigned booking can only be accepted
     # by the driver it was assigned to.

@@ -141,6 +141,8 @@ class CustomerAppPageCase(unittest.TestCase):
                       "ca-email", "ca-referral", "ca-flight-number",
                       "ca-class-breakdown",
                       "ca-class-option-sedan", "ca-class-option-suv",
+                      "ca-hourly-class-step", "ca-hourly-class-continue",
+                      "ca-hourly-class-back",
                       "ca-pay-number", "ca-pay-exp", "ca-pay-cvc",
                       "ca-history-phone", "ca-support-input",
                       "ca-referral-phone", "ca-driver-photo",

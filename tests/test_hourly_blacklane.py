@@ -298,5 +298,83 @@ class HourlyBlacklaneCase(unittest.TestCase):
         self.assertIs(resp.get_json()["charge_kept"], False)
 
 
+REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _read(rel):
+    with open(os.path.join(REPO_DIR, rel), encoding="utf-8") as fh:
+        return fh.read()
+
+
+class HourlyClassStepCase(unittest.TestCase):
+    """Hourly class/rates show ONLY after View options (owner decision
+    2026-11-21), on the website and the customer app. The class step
+    is a separate step, mirroring the one-way options page; the first
+    screen keeps only Pickup, Date, Time, Hours (+ hint) and contact.
+    Rates, miles math, the 2-hour minimum and all totals are unchanged
+    (covered by the API tests above)."""
+
+    def test_website_hourly_class_step_after_view_options(self):
+        index = _read("static/index.html")
+        js = _read("static/js/customer.js")
+        # The step exists, hidden until View options.
+        self.assertIn('class="class-section hidden" id="hourly-class-step"', index)
+        # The class cards, per-class totals and miles note live in the
+        # step — not in the booking form.
+        form = index.split('id="hourly-class-step"')[0].split('<form id="booking-form"')[1]
+        step = index.split('id="hourly-class-step"')[1].split("</section>")[0]
+        for gone in ("hr-class-sedan", "hr-class-suv", "hr-class-first",
+                     "hr-total-sedan", "hr-total-suv", "hr-total-first",
+                     "hr-miles-note"):
+            self.assertNotIn(gone, form,
+                             "hourly class/rates must not sit on the first screen: %s" % gone)
+        for present in ("hr-class-sedan", "hr-class-suv", "hr-class-first",
+                        "hr-total-sedan", "hr-total-suv", "hr-total-first",
+                        "hr-miles-note", "hourly-class-continue",
+                        "hourly-class-back", "hourly-class-trip-summary"):
+            self.assertIn(present, step, "hourly class step must show %r" % present)
+        # Hours field + min/max hint stay on the first screen.
+        self.assertIn('id="bk-hours"', form)
+        self.assertIn("Minimum 2 hours, maximum 24", form)
+        # JS: View options opens the step; the class is attached there
+        # (once), never on the form submit; the tab never shows the
+        # class block directly.
+        self.assertIn("showHourlyClassStep(payload)", js)
+        self.assertIn('show($("hourly-class-step"))', js)
+        self.assertIn('hide($("hourly-class-step"))', js)
+        self.assertEqual(js.count("payload.vehicle_class = state.hourlyClass"), 1,
+                         "the class must be attached only from the class step")
+        self.assertNotIn('show($("field-hourly-class"))', js)
+        self.assertIn('hourly-class-continue', js)
+        self.assertIn('hourly-class-back', js)
+
+    def test_app_hourly_class_step_after_view_options(self):
+        html = _read("static/customer-app.html")
+        js = _read("static/js/customer-app.js")
+        self.assertIn('class="hidden" id="ca-hourly-class-step"', html)
+        form = html.split('id="ca-hourly-class-step"')[0].split('<form id="ca-booking-form"')[1]
+        step = html.split('id="ca-hourly-class-step"')[1].split('id="ca-class-step"')[0]
+        for gone in ("ca-hr-class-sedan", "ca-hr-class-suv", "ca-hr-class-first",
+                     "ca-hr-total-sedan", "ca-hr-total-suv", "ca-hr-total-first",
+                     "ca-hr-miles-note"):
+            self.assertNotIn(gone, form,
+                             "hourly class/rates must not sit on the app first screen: %s" % gone)
+        for present in ("ca-hr-class-sedan", "ca-hr-class-suv", "ca-hr-class-first",
+                        "ca-hr-total-sedan", "ca-hr-total-suv", "ca-hr-total-first",
+                        "ca-hr-miles-note", "ca-hourly-class-continue",
+                        "ca-hourly-class-back", "ca-hourly-class-trip-summary"):
+            self.assertIn(present, step, "app hourly class step must show %r" % present)
+        self.assertIn('id="ca-hours"', form)
+        self.assertIn("Minimum 2 hours, maximum 24", form)
+        self.assertIn("showHourlyClassStep(payload)", js)
+        self.assertIn('show($("ca-hourly-class-step"))', js)
+        self.assertIn('hide($("ca-hourly-class-step"))', js)
+        self.assertEqual(js.count("payload.vehicle_class = state.hourlyClass"), 1,
+                         "the class must be attached only from the class step")
+        self.assertNotIn('show($("ca-field-hourly-class"))', js)
+        self.assertIn('ca-hourly-class-continue', js)
+        self.assertIn('ca-hourly-class-back', js)
+
+
 if __name__ == "__main__":
     unittest.main()

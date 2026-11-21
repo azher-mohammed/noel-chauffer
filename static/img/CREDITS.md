@@ -14,3 +14,10 @@ never depends on an external image URL.
 All three are freely licensed (CC BY-SA) on Commons. The exact model shown
 is illustrative — the customer picks a class, never a guaranteed model
 ("or similar", per the owner's First Class decision).
+
+Number plates: the plates visible in the stock photos were replaced with a
+branded "Noel Chauffer" show plate (owner order, 2026-11-21) — the plate
+shape stays, only the text reads "Noel Chauffer". Business: gold text on
+the black show plate. SUV and First Class: dark text on a white plate.
+The original plate numbers ("S-Class" show plate, German "M AG 350",
+Finnish "BM-762") are not Noel cars and no longer appear.

@@ -16,6 +16,7 @@ Settled rules under test:
 Run:  python -m unittest discover -s tests -v
 """
 
+import hashlib
 import io
 import os
 import re
@@ -731,6 +732,59 @@ class ClassApiCase(unittest.TestCase):
                 text = fh.read()
             for pat in banned_everywhere:
                 self.assertIsNone(re.search(pat, text), f"{rel}: banned {pat!r}")
+
+
+    def test_class_car_photos_show_noel_chauffer_plates(self):
+        # Owner order 2026-11-21: the number plates visible on the
+        # three class-card photos must read "Noel Chauffer" (branded
+        # show plate), not the stock photos' real numbers
+        # ("S-Class" show plate, German "M AG 350", Finnish
+        # "BM-762"). The plate shape stays; only the text changed.
+        # The files must differ from the original Wikimedia
+        # downloads, each plate region must still carry visible
+        # markings (the branded text — not blanked or blurred out),
+        # and no blue EU-strip pixel may remain in a plate area.
+        try:
+            from PIL import Image, ImageStat
+        except ImportError:
+            self.skipTest("Pillow not installed")
+        original_sha256 = {
+            "car-business.jpg":
+                "813567c000ca11146d2e232c114f5147f72993740f59c8a307d8f8641d4862ba",
+            "car-suv.jpg":
+                "478074f3d2dabad00b9d0e68605b6e40c847bc3df9a0f38d8cd9690994899c0a",
+            "car-first.jpg":
+                "1601c67dc357a7408494b966c8adbcd2754fffcbf803283b93975607094db17f",
+        }
+        # Bounding boxes of the (tilted) plate polygons.
+        plate_boxes = {
+            "car-business.jpg": (64, 176, 142, 202),
+            "car-suv.jpg": (324, 400, 452, 440),
+            "car-first.jpg": (76, 292, 224, 336),
+        }
+        for name, original_hash in original_sha256.items():
+            path = os.path.join(REPO_DIR, "static", "img", name)
+            with open(path, "rb") as fh:
+                digest = hashlib.sha256(fh.read()).hexdigest()
+            self.assertNotEqual(
+                digest, original_hash,
+                "%s must differ from the original stock photo" % name)
+            img = Image.open(path).convert("RGB")
+            box = plate_boxes[name]
+            plate = img.crop(box).convert("L")
+            stddev = ImageStat.Stat(plate).stddev[0]
+            self.assertGreater(
+                stddev, 20,
+                "%s plate region must carry visible text, not a blank" % name)
+            blue_left = 0
+            for y in range(box[1], box[3]):
+                for x in range(box[0], box[2]):
+                    r, g, b = img.getpixel((x, y))
+                    if b > 100 and b - r > 50 and b - g > 30:
+                        blue_left += 1
+            self.assertEqual(
+                blue_left, 0,
+                "%s plate area must not keep any EU-strip blue" % name)
 
 
 if __name__ == "__main__":

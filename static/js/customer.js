@@ -79,6 +79,8 @@
       opt.classList.toggle("selected", selected);
       opt.setAttribute("aria-checked", selected ? "true" : "false");
     });
+    var cont = $("hourly-class-continue");
+    if (cont) cont.textContent = "Select " + (CLASS_LABELS[state.hourlyClass] || "Business Class");
   }
   function classLabelFor(b) {
     if (!b) return "";
@@ -155,26 +157,29 @@
       if (state.rideType === "hourly") {
         hide($("field-dropoff"));
         show($("field-hours"));
-        show($("field-hourly-class"));
+        hide($("hourly-class-step"));
         paintHourlyClassSelection();
         paintHourlyTotals();
-        /* Hourly rides have no options page, so name/phone/email
-           stay on the booking form. One-way rides ask them on the
-           options page instead (Blacklane-style). */
+        /* Hourly class/rates show ONLY after View options (owner
+           decision 2026-11-21), on a separate step — never on the
+           first screen. Name/phone/email stay on the booking form:
+           one-way rides ask them on the options page instead
+           (Blacklane-style). */
         show($("field-contact"));
       } else {
         show($("field-dropoff"));
         hide($("field-hours"));
-        hide($("field-hourly-class"));
+        hide($("hourly-class-step"));
         hide($("field-contact"));
       }
     });
   });
 
   /* Hourly class picker (Blacklane-style hourly, owner decision
-     2026-11-20): the three class cards on the booking form. Picking
-     one sets the class sent with the booking; the totals on the cards
-     follow the hours input. */
+     2026-11-20): the three class cards on the hourly class step
+     (shown only after View options, owner decision 2026-11-21).
+     Picking one sets the class sent with the booking; the totals
+     on the cards follow the hours input. */
   ["sedan", "suv", "first"].forEach(function (cls) {
     var opt = $("hr-class-" + cls);
     if (opt) opt.addEventListener("click", function () {
@@ -247,7 +252,7 @@
     state.rideType = "one_way";
     show($("field-dropoff"));
     hide($("field-hours"));
-    hide($("field-hourly-class"));
+    hide($("hourly-class-step"));
     hide($("field-contact"));
     clearBookingPlaces();
   }
@@ -419,8 +424,8 @@
       ride_type: state.rideType
     };
     /* Name, phone and email are asked on the options page for
-       one-way rides (Blacklane-style). Hourly rides have no options
-       page, so they are asked here on the form. */
+       one-way rides (Blacklane-style). Hourly rides ask them on the
+       form, and pick their class on the separate class step. */
     if (state.rideType === "hourly") {
       payload.customer_name = $("bk-name").value.trim();
       payload.phone = $("bk-phone").value.trim();
@@ -432,14 +437,14 @@
       if (ref) payload.referral_code = ref;
     } else {
       /* Blacklane-style hourly (owner decision 2026-11-20): 2 to 24
-         hours, and the class the customer picked on the form. */
+         hours. The class is picked on the separate class step after
+         View options (owner decision 2026-11-21), not here. */
       var h = parseInt($("bk-hours").value, 10);
       if (isNaN(h) || h < 2 || h > 24) {
         err.textContent = "Hourly bookings need 2 to 24 hours.";
         return;
       }
       payload.hours = h;
-      payload.vehicle_class = state.hourlyClass;
     }
     /* When the customer picked a suggestion, send its coordinates so
        the fare is priced for exactly the place picked — the server
@@ -483,7 +488,15 @@
        chahiye abhi"). The step code below (showFlightStep and
        friends) stays in place, unused, so the field can come back on
        his word; the server still accepts flight_number. */
-    sendBooking(payload);
+    if (state.rideType === "hourly") {
+      /* Hourly rides go to the class step first: the class, the
+         per-class rates and the miles note show ONLY after View
+         options (owner decision 2026-11-21). The booking is created
+         from the class step, with the class picked there. */
+      showHourlyClassStep(payload);
+    } else {
+      sendBooking(payload);
+    }
   });
 
   /* Flight-number step: shown after the booking form for airport rides. */
@@ -526,6 +539,37 @@
   });
   $("flight-back").addEventListener("click", function () {
     hide($("flight-step"));
+    show($("booking-card"));
+    $("booking-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  /* Hourly class step (owner decision 2026-11-21): the class, the
+     per-class rates and the miles note show ONLY after View options.
+     The booking does not exist yet — the class is picked here, then
+     the booking is created with it. Back returns to the form with
+     its values kept; nothing was created, so nothing is cancelled. */
+  function showHourlyClassStep(payload) {
+    state.pendingPayload = payload;
+    $("hourly-class-trip-summary").textContent =
+      "By the hour · " + payload.hours + " hour(s) · Pickup: " + payload.pickup;
+    $("hourly-class-error").textContent = "";
+    paintHourlyTotals();
+    paintHourlyClassSelection();
+    hide($("booking-card"));
+    show($("hourly-class-step"));
+    $("hourly-class-step").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  $("hourly-class-continue").addEventListener("click", function () {
+    var payload = state.pendingPayload;
+    if (!payload) return;
+    payload.vehicle_class = state.hourlyClass;
+    state.pendingPayload = null;
+    sendBooking(payload);
+  });
+  $("hourly-class-back").addEventListener("click", function () {
+    state.pendingPayload = null;
+    hide($("hourly-class-step"));
     show($("booking-card"));
     $("booking-card").scrollIntoView({ behavior: "smooth", block: "start" });
   });
@@ -730,12 +774,18 @@
         btn.textContent = "View options";
         if (!res.ok || !res.j.booking || !res.j.booking.id) {
           err.textContent = (res.j && (res.j.error || res.j.message)) || "Something went wrong. Please try again.";
+          /* The error lives on the booking form: if the customer
+             came from the hourly class step, bring the form back so
+             the error is visible. (One-way failures already show
+             the form, so this is a no-op there.) */
+          hide($("hourly-class-step"));
+          show($("booking-card"));
           return;
         }
         var booking = res.j.booking;
         /* One-way rides go to the separate options screen first (pick a
-           class); hourly rides pick their class on the form and go
-           straight to the payment step. */
+           class); hourly rides picked their class on the class step
+           and go straight to the payment step. */
         if (booking.ride_type === "one_way" && booking.class_totals) {
           showClassStep(booking, payload.phone);
         } else {
@@ -746,6 +796,8 @@
         btn.disabled = false;
         btn.textContent = "View options";
         err.textContent = "Could not reach the booking service. Please check your connection and try again.";
+        hide($("hourly-class-step"));
+        show($("booking-card"));
       });
   }
 
@@ -764,6 +816,7 @@
        customer sees only this ride (status, chauffeur, chat, map)
        until it ends or they pick "Book another ride". */
     hide($("booking-card"));
+    hide($("hourly-class-step"));
     hide($("thankyou-block"));
     hide($("invoice-panel"));
     hide($("pay-panel"));

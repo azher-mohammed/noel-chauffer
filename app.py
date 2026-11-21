@@ -4447,7 +4447,8 @@ def create_booking():
     # the customer enters them on the options page ("Choose your
     # experience", Blacklane-style) after picking a class, and saves
     # them with POST /api/bookings/<id>/contact before paying.
-    # Hourly rides have no options page, so they still need contact
+    # Hourly rides ask for contact on the booking form (the class is
+    # picked on the separate class step), so they still need contact
     # up front.
     required = ["pickup", "date", "time", "ride_type"]
     for field in required:

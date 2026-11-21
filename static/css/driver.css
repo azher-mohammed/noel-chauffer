@@ -53,6 +53,16 @@ input, select { font: inherit; }
 .app-head .brand span { color: var(--gold); }
 .app-head .tag { font-size: 14px; color: #cfcfcf; margin-top: 2px; }
 .app-head .hello { font-size: 16px; margin-top: 10px; color: var(--gold-soft); }
+/* Home menu button, top-left of the header (owner 2026-11-21):
+   tapping it opens a menu with Earnings, Tax info, Documents and
+   Profile. Black and gold, like the rest of the driver app. */
+.app-head-row { display: flex; align-items: center; gap: 12px; }
+.home-menu-btn { background: transparent; color: var(--gold); border: 1px solid var(--gold); border-radius: 6px; padding: 5px 12px; font-size: 15px; font-weight: 700; }
+.home-menu-btn:active { transform: translateY(1px); }
+.home-menu { margin-top: 12px; border: 1px solid var(--gold); border-radius: 8px; overflow: hidden; }
+.home-menu button { display: block; width: 100%; text-align: left; background: var(--black); color: var(--white); border: 0; border-bottom: 1px solid #333; padding: 13px 14px; font-size: 16px; }
+.home-menu button:last-child { border-bottom: 0; }
+.home-menu button:active { background: #262626; }
 
 .screen { flex: 1; padding: 20px 20px 96px; overflow-y: auto; }
 .screen h2 { font-family: Georgia, serif; font-weight: 400; font-size: 26px; letter-spacing: 0.01em; margin: 6px 0 8px; }

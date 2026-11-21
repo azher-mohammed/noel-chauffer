@@ -813,10 +813,16 @@
       var el = $("screen-" + s);
       if (el) { if (s === name) show(el); else hide(el); }
     });
+    /* Home menu (top-left) closes on every screen change, and the
+       Home button shows only on the signed-in screens that show the
+       tab bar (home, earnings, tax, documents, profile). */
+    hide($("home-menu"));
     if (name === "login" || name === "register" || name === "trip") {
       hide($("tabbar"));
+      hide($("home-menu-btn"));
     } else {
       show($("tabbar"));
+      show($("home-menu-btn"));
       document.querySelectorAll("#tabbar button").forEach(function (b) {
         b.classList.toggle("active", b.getAttribute("data-screen") === name);
       });
@@ -839,6 +845,21 @@
     if (name === "profile") { renderProfile(); loadDriverReferral(); }
   }
   document.querySelectorAll("#tabbar button").forEach(function (b) {
+    b.addEventListener("click", function () { showScreen(b.getAttribute("data-screen")); });
+  });
+
+  /* ---------- Home menu (top-left) ---------- */
+  /* Owner decision 2026-11-21 ~23:24 EST: a "Home" button at the
+     top left of the signed-in driver screens. Tapping it shows a
+     menu with Earnings, Tax info, Documents and Profile, each
+     opening its existing screen — like Uber Driver's upper-left
+     menu (owner 2026-11-21 ~23:26 EST, "jaisa Uber Driver ka hai"),
+     with Noel's sections and the "Home" label he ordered. The
+     bottom tab bar stays as it is. */
+  $("home-menu-btn").addEventListener("click", function () {
+    $("home-menu").classList.toggle("hidden");
+  });
+  document.querySelectorAll("#home-menu button").forEach(function (b) {
     b.addEventListener("click", function () { showScreen(b.getAttribute("data-screen")); });
   });
 

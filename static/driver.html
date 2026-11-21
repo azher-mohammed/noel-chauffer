@@ -50,9 +50,18 @@
 <body>
 <div class="phone">
   <header class="app-head">
-    <div class="brand">Noel <span>Chauffer</span></div>
+    <div class="app-head-row">
+      <button class="home-menu-btn hidden" type="button" id="home-menu-btn">Home</button>
+      <div class="brand">Noel <span>Chauffer</span></div>
+    </div>
     <div class="tag">Driver app</div>
     <div class="hello hidden" id="hello-line"></div>
+    <div class="home-menu hidden" id="home-menu" role="menu" aria-label="Home menu">
+      <button type="button" data-screen="profile" role="menuitem">Profile</button>
+      <button type="button" data-screen="documents" role="menuitem">Documents</button>
+      <button type="button" data-screen="earnings" role="menuitem">Earnings</button>
+      <button type="button" data-screen="tax" role="menuitem">Tax info</button>
+    </div>
   </header>
 
   <!-- ============ SIGN IN (default entry) ============ -->

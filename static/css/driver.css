@@ -583,6 +583,7 @@ input, select { font: inherit; }
   border: 1px solid rgba(201, 162, 39, 0.4);
   border-radius: 14px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  margin-top: 16px;
 }
 #screen-home .avail-card .state { color: var(--white); font-size: 26px; }
 #screen-home .avail-card .state.on { color: #4cc38a; }

@@ -228,6 +228,50 @@ class DriverEntryFlowCase(unittest.TestCase):
         handler = js[js.index('$("reset-back-btn")'):]
         self.assertIn('window.location.assign("/driver");', handler[:300])
 
+    # -- availability card at the BOTTOM of the home screen ---------
+    # Owner decision, voice call 2026-11-21 ~23:25 EST (correcting his
+    # earlier ambiguous "kabhi neeche na aana"): the "You are
+    # offline/online" availability card sits at the VERY BOTTOM of the
+    # driver home screen, BELOW the job offers — not at the top. When
+    # rides arrive the offers show above it and the toggle stays at
+    # the bottom.
+    # Rename decided 2026-11-21 ~23:26 EST ("wo go available nahi,
+    # go online karna, go offline karna"): the button reads
+    # "Go online" / "Go offline", never "Go available". The state
+    # line stays "You are offline" / "You are online", and the notes
+    # say offers appear ABOVE (the card now sits below them).
+    def test_availability_card_is_last_on_home_screen(self):
+        html = read("static/driver.html")
+        home = html[html.index('id="screen-home"'):html.index('id="screen-trip"')]
+        self.assertIn("Job offers", home)
+        self.assertIn('id="offers-list"', home)
+        self.assertIn('id="offers-empty"', home)
+        self.assertIn('class="avail-card"', home)
+        self.assertLess(home.index("Job offers"), home.index('class="avail-card"'))
+        self.assertLess(home.index('id="offers-list"'), home.index('class="avail-card"'))
+        self.assertLess(home.index('id="offers-empty"'), home.index('class="avail-card"'))
+        # Nothing after the availability card except the section close.
+        after = home[home.index('class="avail-card"'):]
+        self.assertNotIn("Job offers", after)
+        self.assertNotIn('id="offers-list"', after)
+        self.assertNotIn('id="offers-empty"', after)
+
+    def test_availability_toggle_reads_go_online_go_offline(self):
+        html = read("static/driver.html")
+        home = html[html.index('id="screen-home"'):html.index('id="screen-trip"')]
+        self.assertIn("Go online to receive job offers.", home)
+        self.assertIn('id="avail-toggle">Go online<', home)
+        self.assertNotIn("Go available", home)
+        self.assertIn("You are offline", home)
+        js = read("static/js/driver.js")
+        avail = js[js.index("function renderAvailability"):js.index('avail-toggle").addEventListener')]
+        self.assertIn('btn.textContent = "Go online";', avail)
+        self.assertIn('btn.textContent = "Go offline";', avail)
+        self.assertNotIn('"Go available"', avail)
+        self.assertIn("Job offers will appear above as they arrive.", avail)
+        self.assertIn("Job offers will appear above as they arrive, even while you are offline.", avail)
+        self.assertNotIn("will appear below", avail)
+
     def test_reset_endpoints_still_wired(self):
         js = read("static/js/driver.js")
         self.assertIn("/api/drivers/me/forgot-password", js)

@@ -1619,7 +1619,7 @@
     if (suspensionEnd()) {
       st.textContent = "Your driver app is paused";
       st.classList.remove("on");
-      btn.textContent = "Go available";
+      btn.textContent = "Go online";
       btn.classList.remove("on");
       btn.disabled = true;
       $("avail-note").textContent = "Job offers are paused until your suspension ends.";
@@ -1631,7 +1631,7 @@
     if (state.driver && state.driver.expiry_blocked) {
       st.textContent = "Your registration is paused";
       st.classList.remove("on");
-      btn.textContent = "Go available";
+      btn.textContent = "Go online";
       btn.classList.remove("on");
       btn.disabled = true;
       $("avail-note").textContent = "Upload a new document to reactivate your registration.";
@@ -1643,13 +1643,13 @@
       st.classList.add("on");
       btn.textContent = "Go offline";
       btn.classList.add("on");
-      $("avail-note").textContent = "Job offers will appear below as they arrive.";
+      $("avail-note").textContent = "Job offers will appear above as they arrive.";
     } else {
       st.textContent = "You are offline";
       st.classList.remove("on");
-      btn.textContent = "Go available";
+      btn.textContent = "Go online";
       btn.classList.remove("on");
-      $("avail-note").textContent = "Job offers will appear below as they arrive, even while you are offline.";
+      $("avail-note").textContent = "Job offers will appear above as they arrive, even while you are offline.";
     }
   }
   $("avail-toggle").addEventListener("click", function () {

@@ -5,7 +5,7 @@ work like Blacklane's — per-class rates from the live Blacklane quote
 2026-11-20 (Hilton Times Square, Sat 21 Nov 2026 12:00, 2 hours):
 2-hour totals Business $218.32, SUV $269.46, First $343.31; driver
 Business $60/hr, SUV $70/hr, First $90/hr. Minimum 2 hours, maximum
-24. 40 km of travel included per hour. Free cancellation up to 24
+24. 25 miles of travel included per hour. Free cancellation up to 24
 hours before pickup (vs 1 hour for one-way).
 
 Run:  python -m unittest discover -s tests -p "test_hourly_blacklane.py"
@@ -37,6 +37,7 @@ geo_module.distance_miles = lambda p, d: (18.0, (40.6413, -73.7781), (40.7580, -
 
 import app as app_module  # noqa: E402
 import photo_factory  # noqa: E402
+from pricing import compute_hourly  # noqa: E402
 
 CARD = {"card_number": "4242424242424242", "card_exp": "12/30",
         "card_cvc": "123", "card_name": "Hourly Blacklane Customer"}
@@ -146,6 +147,13 @@ class HourlyBlacklaneCase(unittest.TestCase):
             self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
             booking = resp.get_json()["booking"]
             self.assertTrue(approx(booking["total"], total), booking)
+
+    def test_miles_included_per_hour(self):
+        # Owner correction 2026-11-20: miles only — 25 miles included
+        # per booked hour (2h = 50 miles, 3h = 75 miles).
+        self.assertEqual(compute_hourly(2, "sedan")["miles_included"], 50)
+        self.assertEqual(compute_hourly(3, "first")["miles_included"], 75)
+        self.assertNotIn("km_included", compute_hourly(2, "sedan"))
 
     def test_driver_pay_per_class(self):
         # Driver: Business $60/hr, SUV $70/hr, First $90/hr.

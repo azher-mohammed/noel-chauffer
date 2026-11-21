@@ -110,7 +110,9 @@ class TestHourly(unittest.TestCase):
         self.assertEqual(r["tax"], D("0.00"))
         self.assertEqual(r["toll"], D("0.00"))
         self.assertEqual(r["vehicle_class"], "sedan")
-        self.assertEqual(r["km_included"], D("80"))
+        self.assertEqual(r["miles_included"], D("50"))
+        self.assertEqual(compute_hourly(3, "sedan")["miles_included"], D("75"))
+        self.assertNotIn("km_included", r)
 
     def test_default_class_is_sedan(self):
         self.assertEqual(compute_hourly(2)["total"], D("218.32"))

@@ -54,7 +54,7 @@ classes, each with its own per-mile rate and driver rate. NO booking fee.
   $171.66/hr. Driver pay per class: Business $60/hr, SUV $70/hr,
   First $90/hr (owner decision 2026-11-20). All-in: taxes and
   tolls are inside the customer rate, like Blacklane ("All fees
-  included"), so hourly has no separate tax/fee lines. 40 km of
+  included"), so hourly has no separate tax/fee lines. 25 miles of
   travel included per hour booked. Minimum 2 hours, maximum 24.
 - WAITING: 60 free minutes at airport pickups, else 15; then $1/minute.
   Waiting money goes to owner profit.
@@ -205,7 +205,7 @@ REFERRAL_DISCOUNT_RATE = Decimal("0.05")
 # Driver pay per class (owner decision 2026-11-20): Business $60/hr,
 # SUV $70/hr, First $90/hr. All-in: taxes and tolls are inside the
 # customer rate, like Blacklane ("All fees included"), so hourly has
-# no separate tax/fee lines. 40 km of travel included per hour booked.
+# no separate tax/fee lines. 25 miles of travel included per hour booked.
 # Minimum 2 hours, maximum 24 (Blacklane: 2-24 hours).
 HOURLY_CUSTOMER_RATES = {
     "sedan": Decimal("109.16"),
@@ -219,7 +219,7 @@ HOURLY_DRIVER_RATES = {
 }
 HOURLY_MIN_HOURS = 2
 HOURLY_MAX_HOURS = 24
-HOURLY_KM_PER_HOUR = 40
+HOURLY_MILES_PER_HOUR = 25
 WAITING_RATE_PER_MIN = Decimal("1")
 
 # Up-front NJ return-toll estimate (owner decision 2026-11-16): the
@@ -426,7 +426,7 @@ def compute_hourly(hours, vehicle_class="sedan") -> dict:
     per-class hourly rate. Customer rate and driver pay are both per
     class (customer Business $109.16/hr, SUV $134.73/hr, First
     $171.66/hr; driver Business $60/hr, SUV $70/hr, First $90/hr).
-    40 km of travel included per hour booked."""
+    25 miles of travel included per hour booked."""
     vehicle_class = (vehicle_class or "sedan").strip().lower()
     if vehicle_class not in HOURLY_CUSTOMER_RATES:
         raise ValueError("vehicle_class must be sedan, suv or first.")
@@ -439,7 +439,7 @@ def compute_hourly(hours, vehicle_class="sedan") -> dict:
         "hours": hours,
         "hourly_rate": rate,
         "driver_hourly_rate": driver_rate,
-        "km_included": hours * HOURLY_KM_PER_HOUR,
+        "miles_included": hours * HOURLY_MILES_PER_HOUR,
         "fare": total,
         "toll": Decimal("0.00"),
         "booking_fee": Decimal("0.00"),

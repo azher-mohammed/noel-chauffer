@@ -56,7 +56,7 @@
      computed in whole cents so the card totals always match the
      server to the cent. */
   var HOURLY_RATE_CENTS = { sedan: 10916, suv: 13473, first: 17165.5 };
-  var HOURLY_KM_PER_HOUR = 40;
+  var HOURLY_MILES_PER_HOUR = 25;
   function hourlyTotalCents(cls, hours) {
     return Math.round(HOURLY_RATE_CENTS[cls] * hours);
   }
@@ -68,8 +68,8 @@
       var el = $("hr-total-" + cls);
       if (el) el.textContent = "$" + (hourlyTotalCents(cls, h) / 100).toFixed(2);
     });
-    var note = $("hr-km-note");
-    if (note) note.textContent = "Includes " + (h * HOURLY_KM_PER_HOUR) + " km of travel (" + HOURLY_KM_PER_HOUR + " km per hour) — taxes and tolls included.";
+    var note = $("hr-miles-note");
+    if (note) note.textContent = "Includes " + (h * HOURLY_MILES_PER_HOUR) + " miles of travel (" + HOURLY_MILES_PER_HOUR + " miles per hour) — taxes and tolls included.";
   }
   function paintHourlyClassSelection() {
     ["sedan", "suv", "first"].forEach(function (cls) {
@@ -1751,7 +1751,7 @@
       return "For a return journey, simply book a second one-way ride. After you pay for your first ride, this page offers you a return booking with the addresses already swapped for you.";
     }
     if (has("hour", "hourly", "by the hour")) {
-      return "Choose the “By the hour” tab in the booking form, pick a vehicle class and how many hours you need (minimum 2 hours). Your chauffeur stays with you for the hours you book, with 40 km of travel included per hour.";
+      return "Choose the “By the hour” tab in the booking form, pick a vehicle class and how many hours you need (minimum 2 hours). Your chauffeur stays with you for the hours you book, with 25 miles of travel included per hour.";
     }
     if (has("refer", "friend", "code")) {
       return "If a friend referred you, open their referral link — it takes you to the booking form with their code already filled in, and your first booking gets 5% off. After your ride, this page shows you how to refer a friend too.";

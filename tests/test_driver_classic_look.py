@@ -85,11 +85,16 @@ class DriverClassicLookCase(unittest.TestCase):
     def test_week_amount_24px(self):
         self.assertIn("font-size: 24px", self._rule(".pay-week .pw-amount"))
 
-    # -- availability and primary actions -------------------------------
-    def test_availability_state_larger(self):
-        self.assertIn("font-size: 24px", self._rule(".avail-card .state"))
-        self.assertIn("font-size: 26px",
-                      self._rule("#screen-home .avail-card .state"))
+    # -- availability toggle: bare button, no card -------------------
+    # Owner decision 2026-11-21 ~03:04 EST: the availability card
+    # and its state line are gone — only the bare Go online /
+    # Go offline button remains, centred at the bottom of home.
+    def test_no_availability_card_styles(self):
+        body = css()
+        self.assertNotIn("avail-card", body)
+        self.assertIn("font-size: 17px", self._rule(".toggle-btn"))
+        self.assertIn("margin: 16px auto 0",
+                      self._rule("#screen-home #avail-toggle"))
 
     def test_primary_buttons_17px(self):
         self.assertIn("font-size: 17px", self._rule(".btn-primary"))

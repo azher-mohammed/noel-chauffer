@@ -111,7 +111,7 @@ input, select { font: inherit; }
 .btn-gold { background: var(--gold); color: var(--black); font-weight: 600; }
 .btn-ghost { background: transparent; border: 1px solid #cfccc2; padding: 12px 16px; border-radius: 6px; width: 100%; }
 .btn-danger { background: transparent; border: 1px solid #d8a7a7; color: var(--bad); padding: 12px 16px; border-radius: 6px; width: 100%; }
-.btn-accept { background: var(--ok); color: #fff; border: 0; padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
+.btn-accept { background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e); color: var(--black); border: 1px solid #a8861d; padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
 .btn-decline { background: var(--white); border: 1px solid #cfccc2; padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
 .form-error { color: var(--bad); font-size: 14.5px; min-height: 1.2em; margin-top: 10px; }
 .form-note { color: var(--grey); font-size: 14px; }
@@ -146,18 +146,15 @@ input, select { font: inherit; }
 .photo-tips ul { margin: 0; padding-left: 18px; }
 .photo-tips li { margin: 2px 0; }
 
-/* Availability toggle */
-.avail-card {
-  border: 1px solid var(--line); border-radius: 10px; padding: 16px; text-align: center; background: var(--paper);
-}
-.avail-card .state { font-family: Georgia, serif; font-size: 24px; margin-bottom: 4px; }
-.avail-card .state.on { color: var(--ok); }
-.avail-card p { color: var(--grey); font-size: 15px; margin: 0 0 12px; }
+/* Availability toggle: bare button only, no card (owner 2026-11-21). */
 .toggle-btn {
   border: 0; border-radius: 999px; padding: 14px 32px; font-size: 17px; font-weight: 600;
   background: var(--black); color: var(--white);
 }
-.toggle-btn.on { background: var(--ok); }
+/* Online state is black-and-gold, never green (owner 2026-11-21:
+   "I don't like green colors"). Offline is the gold button; online
+   is black with gold text so the two states still read apart. */
+.toggle-btn.on { background: var(--black); color: var(--gold); border: 1px solid var(--gold); }
 
 /* Offers */
 .offer {
@@ -577,17 +574,11 @@ input, select { font: inherit; }
 #screen-trip .btn-danger:active,
 #screen-profile .btn-ghost:active { transform: translateY(1px); }
 
-/* Availability card: dark with a gold-tinted frame. */
-#screen-home .avail-card {
-  background: #1d1d1f;
-  border: 1px solid rgba(201, 162, 39, 0.4);
-  border-radius: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-  margin-top: 16px;
+/* Availability toggle: bare button, centred at the bottom of home. */
+#screen-home #avail-toggle {
+  display: block;
+  margin: 16px auto 0;
 }
-#screen-home .avail-card .state { color: var(--white); font-size: 26px; }
-#screen-home .avail-card .state.on { color: #4cc38a; }
-#screen-home .avail-card p { color: #b9b7ae; }
 #screen-home .toggle-btn {
   background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
   color: var(--black);
@@ -595,10 +586,10 @@ input, select { font: inherit; }
   box-shadow: 0 8px 20px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 #screen-home .toggle-btn.on {
-  background: linear-gradient(180deg, #35a86f, #1e7a4c);
-  border-color: #1e7a4c;
-  color: #fff;
-  box-shadow: 0 8px 20px rgba(30, 122, 76, 0.35);
+  background: var(--black);
+  border-color: var(--gold);
+  color: var(--gold);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 #screen-home .toggle-btn:active { transform: translateY(1px); }
 

@@ -1611,45 +1611,38 @@
     banner.appendChild(btn);
     show(banner);
   }
+  /* Bare button only (owner decision, voice call 2026-11-21
+     ~03:04 EST): the availability card and all its text lines are
+     gone — no state line, no notes. The button label alone conveys
+     the state (Go online / Go offline). Suspension and expiry-block
+     explanations still show in the banners at the top of the home
+     screen (renderSuspension / renderExpiry). */
   function renderAvailability() {
-    var st = $("avail-state");
     var btn = $("avail-toggle");
     renderSuspension();
     renderExpiry();
     if (suspensionEnd()) {
-      st.textContent = "Your driver app is paused";
-      st.classList.remove("on");
       btn.textContent = "Go online";
       btn.classList.remove("on");
       btn.disabled = true;
-      $("avail-note").textContent = "Job offers are paused until your suspension ends.";
       return;
     }
     /* An expired document pauses the registration (owner decision
        2026-11-19): the toggle stays off until the driver uploads a
        new, valid document from the Documents screen. */
     if (state.driver && state.driver.expiry_blocked) {
-      st.textContent = "Your registration is paused";
-      st.classList.remove("on");
       btn.textContent = "Go online";
       btn.classList.remove("on");
       btn.disabled = true;
-      $("avail-note").textContent = "Upload a new document to reactivate your registration.";
       return;
     }
     btn.disabled = false;
     if (state.available) {
-      st.textContent = "You are available";
-      st.classList.add("on");
       btn.textContent = "Go offline";
       btn.classList.add("on");
-      $("avail-note").textContent = "Job offers will appear above as they arrive.";
     } else {
-      st.textContent = "You are offline";
-      st.classList.remove("on");
       btn.textContent = "Go online";
       btn.classList.remove("on");
-      $("avail-note").textContent = "Job offers will appear above as they arrive, even while you are offline.";
     }
   }
   $("avail-toggle").addEventListener("click", function () {

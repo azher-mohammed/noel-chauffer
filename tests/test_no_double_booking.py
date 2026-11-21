@@ -270,7 +270,13 @@ class NoDoubleBookingCase(unittest.TestCase):
         driver_js = read("static/js/driver.js")
         self.assertIn('if (!$("screen-home").classList.contains("hidden") && !state.trip)',
                       driver_js)
-        self.assertIn("even while you are offline", driver_js)
+        # The old "even while you are offline" note is gone (owner
+        # decision, voice call 2026-11-21 ~03:04 EST: bare Go online /
+        # Go offline button, no text lines) — but the poll itself
+        # still has no availability gate, so offers still reach
+        # offline drivers.
+        self.assertNotIn("even while you are offline", driver_js)
+        self.assertNotIn("will appear above", driver_js)
         self.assertIn('document.addEventListener("pointerdown", unlockAudio)',
                       driver_js)
 

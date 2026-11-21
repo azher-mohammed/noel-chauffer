@@ -59,8 +59,48 @@
              cards already show each class's capacity. -->
         <div class="field hidden" id="ca-field-hours">
           <label for="ca-hours">Hours</label>
-          <input id="ca-hours" name="hours" type="number" min="1" step="1" value="2">
-          <div class="hint">Your chauffeur stays with you for the hours you book.</div>
+          <input id="ca-hours" name="hours" type="number" min="2" max="24" step="1" value="2">
+          <div class="hint">Minimum 2 hours, maximum 24. Your chauffeur stays with you for the hours you book.</div>
+        </div>
+        <!-- Vehicle class for hourly rides (Blacklane-style hourly,
+             owner decision 2026-11-20): the customer picks a class
+             on the form — same three classes as the one-way options
+             page, each showing its total for the booked hours.
+             Toggled in customer-app.js. -->
+        <div class="hidden" id="ca-field-hourly-class">
+          <div class="class-options" role="radiogroup" aria-label="Choose your vehicle class">
+            <button type="button" class="class-option selected" id="ca-hr-class-sedan" data-vehicle-class="sedan" role="radio" aria-checked="true">
+              <span class="class-option-media">
+                <img class="class-option-car" src="/static/img/car-business.jpg" alt="Business Class car, front view">
+                <span class="class-option-capacity" aria-label="3 passengers, 2 bags">3 passengers · 2 bags</span>
+              </span>
+              <span class="class-option-text">
+                <span class="class-option-name">Business Class</span>
+                <span class="class-option-total" id="ca-hr-total-sedan"></span>
+              </span>
+            </button>
+            <button type="button" class="class-option" id="ca-hr-class-suv" data-vehicle-class="suv" role="radio" aria-checked="false">
+              <span class="class-option-media">
+                <img class="class-option-car" src="/static/img/car-suv.jpg" alt="Business SUV car, front view">
+                <span class="class-option-capacity" aria-label="5 passengers, 5 bags">5 passengers · 5 bags</span>
+              </span>
+              <span class="class-option-text">
+                <span class="class-option-name">Business SUV</span>
+                <span class="class-option-total" id="ca-hr-total-suv"></span>
+              </span>
+            </button>
+            <button type="button" class="class-option" id="ca-hr-class-first" data-vehicle-class="first" role="radio" aria-checked="false">
+              <span class="class-option-media">
+                <img class="class-option-car" src="/static/img/car-first.jpg" alt="First Class car, front view">
+                <span class="class-option-capacity" aria-label="3 passengers, 2 bags">3 passengers · 2 bags</span>
+              </span>
+              <span class="class-option-text">
+                <span class="class-option-name">First Class</span>
+                <span class="class-option-total" id="ca-hr-total-first"></span>
+              </span>
+            </button>
+          </div>
+          <div class="hint" id="ca-hr-km-note"></div>
         </div>
         <!-- Contact is asked on the options page for one-way rides
              (Blacklane-style); hourly rides have no options page,

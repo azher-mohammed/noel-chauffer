@@ -29,6 +29,9 @@
     flightResolved: false,
     pendingPayload: null,
     selectedClass: "sedan",
+    /* Blacklane-style hourly (owner decision 2026-11-20): the class
+       the customer picked on the form for a By-the-hour ride. */
+    hourlyClass: "sedan",
     classBooking: null,
     classPhone: "",
     lastChatSig: "",
@@ -51,8 +54,41 @@
 
   /* Customer-facing class names. Internal keys stay "sedan"/"suv". */
   var CLASS_LABELS = { sedan: "Business Class", suv: "Business SUV", first: "First Class" };
+  /* Blacklane-style hourly rates, in cents (owner decision 2026-11-20,
+     "same same Blacklane jaisa"): per-class totals from the live
+     Blacklane quote 2026-11-20 (2-hour totals Business $218.32, SUV
+     $269.46, First $343.31). First is 17165.5 cents/hour ($343.31 / 2),
+     kept at half-cent precision so the 2-hour total is exactly
+     Blacklane's $343.31 — the server prices the same way. Totals are
+     computed in whole cents so the card totals always match the
+     server to the cent. */
+  var HOURLY_RATE_CENTS = { sedan: 10916, suv: 13473, first: 17165.5 };
+  var HOURLY_KM_PER_HOUR = 40;
+  function hourlyTotalCents(cls, hours) {
+    return Math.round(HOURLY_RATE_CENTS[cls] * hours);
+  }
+  function paintHourlyTotals() {
+    var h = parseInt($("ca-hours").value, 10);
+    if (isNaN(h) || h < 2) h = 2;
+    if (h > 24) h = 24;
+    ["sedan", "suv", "first"].forEach(function (cls) {
+      var el = $("ca-hr-total-" + cls);
+      if (el) el.textContent = "$" + (hourlyTotalCents(cls, h) / 100).toFixed(2);
+    });
+    var note = $("ca-hr-km-note");
+    if (note) note.textContent = "Includes " + (h * HOURLY_KM_PER_HOUR) + " km of travel (" + HOURLY_KM_PER_HOUR + " km per hour) — taxes and tolls included.";
+  }
+  function paintHourlyClassSelection() {
+    ["sedan", "suv", "first"].forEach(function (cls) {
+      var opt = $("ca-hr-class-" + cls);
+      if (!opt) return;
+      var selected = state.hourlyClass === cls;
+      opt.classList.toggle("selected", selected);
+      opt.setAttribute("aria-checked", selected ? "true" : "false");
+    });
+  }
   function classLabelFor(b) {
-    if (!b || b.ride_type !== "one_way") return "";
+    if (!b) return "";
     return b.vehicle_class_label || CLASS_LABELS[b.vehicle_class] || "";
   }
   function summaryText(b) {
@@ -151,6 +187,9 @@
       if (state.rideType === "hourly") {
         hide($("ca-field-dropoff"));
         show($("ca-field-hours"));
+        show($("ca-field-hourly-class"));
+        paintHourlyClassSelection();
+        paintHourlyTotals();
         state.dropoffPlace = null;
         /* Hourly rides have no options page, so name/phone/email
            stay on the booking form. One-way rides ask them on the
@@ -159,10 +198,25 @@
       } else {
         show($("ca-field-dropoff"));
         hide($("ca-field-hours"));
+        hide($("ca-field-hourly-class"));
         hide($("ca-field-contact"));
       }
     });
   });
+
+  /* Hourly class picker (Blacklane-style hourly, owner decision
+     2026-11-20): the three class cards on the booking form. Picking
+     one sets the class sent with the booking; the totals on the cards
+     follow the hours input. */
+  ["sedan", "suv", "first"].forEach(function (cls) {
+    var opt = $("ca-hr-class-" + cls);
+    if (opt) opt.addEventListener("click", function () {
+      state.hourlyClass = cls;
+      paintHourlyClassSelection();
+    });
+  });
+  var hoursInput = $("ca-hours");
+  if (hoursInput) hoursInput.addEventListener("input", paintHourlyTotals);
 
   /* Date input: no past dates. */
   (function () {
@@ -208,6 +262,9 @@
      "ca-date", "ca-time", "ca-referral"
     ].forEach(function (id) { var el = $(id); if (el) el.value = ""; });
     $("ca-hours").value = "2";
+    state.hourlyClass = "sedan";
+    paintHourlyClassSelection();
+    paintHourlyTotals();
     $("ca-booking-error").textContent = "";
     var btn = $("ca-book-submit");
     if (btn) { btn.disabled = false; btn.textContent = "View options"; }
@@ -219,6 +276,7 @@
     state.rideType = "one_way";
     show($("ca-field-dropoff"));
     hide($("ca-field-hours"));
+    hide($("ca-field-hourly-class"));
     hide($("ca-field-contact"));
     clearBookingPlaces();
   }
@@ -403,8 +461,15 @@
       var ref = $("ca-referral").value.trim();
       if (ref) payload.referral_code = ref;
     } else {
+      /* Blacklane-style hourly (owner decision 2026-11-20): 2 to 24
+         hours, and the class the customer picked on the form. */
       var h = parseInt($("ca-hours").value, 10);
-      if (!isNaN(h) && h > 0) payload.hours = h;
+      if (isNaN(h) || h < 2 || h > 24) {
+        err.textContent = "Hourly bookings need 2 to 24 hours.";
+        return;
+      }
+      payload.hours = h;
+      payload.vehicle_class = state.hourlyClass;
     }
     /* When the customer picked a suggestion, send its coordinates so
        the fare is priced for exactly the place picked. */
@@ -693,8 +758,8 @@
         }
         var booking = res.j.booking;
         /* One-way rides go to the separate options screen first (pick a
-           class); hourly rides have no class and go straight to the
-           payment step. */
+           class); hourly rides pick their class on the form and go
+           straight to the payment step. */
         if (booking.ride_type === "one_way" && booking.class_totals) {
           showClassStep(booking, payload.phone);
         } else {
@@ -1658,7 +1723,7 @@
       return "For a return journey, simply book a second one-way ride. After you pay for your first ride, the app offers you a return booking with the addresses already swapped for you.";
     }
     if (has("hour", "hourly", "by the hour")) {
-      return "Choose the “By the hour” tab in the booking form, enter your pickup, date, time and how many hours you need. Your chauffeur stays with you for the hours you book.";
+      return "Choose the “By the hour” tab in the booking form, pick a vehicle class and how many hours you need (minimum 2 hours). Your chauffeur stays with you for the hours you book, with 40 km of travel included per hour.";
     }
     if (has("refer", "friend", "code")) {
       return "If a friend referred you, open their referral link — it takes you to the booking form with their code already filled in, and your first booking gets 5% off. After your ride, the Referral tab shows you how to refer a friend too.";

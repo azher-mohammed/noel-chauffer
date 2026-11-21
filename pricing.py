@@ -46,14 +46,22 @@ classes, each with its own per-mile rate and driver rate. NO booking fee.
   (every booking issues its own referral code); referrers never
   earn at any step. One-way rides only; hourly rides never get a
   referral discount.
-- HOURLY: total = $90/hour; driver = $50/hour. No fee, no gratuity,
-  no tax. Unchanged by the tax/gratuity removal (hourly never had
-  either).
+- HOURLY (Blacklane-style, owner decision 2026-11-20, "same same
+  Blacklane jaisa"): per-class customer rates from the live
+  Blacklane quote 2026-11-20 (Hilton Times Square, Sat 21 Nov 2026
+  12:00, 2 hours — 2-hour totals Business $218.32, SUV $269.46,
+  First $343.31): Business $109.16/hr, SUV $134.73/hr, First
+  $171.66/hr. Driver pay per class: Business $60/hr, SUV $70/hr,
+  First $90/hr (owner decision 2026-11-20). All-in: taxes and
+  tolls are inside the customer rate, like Blacklane ("All fees
+  included"), so hourly has no separate tax/fee lines. 40 km of
+  travel included per hour booked. Minimum 2 hours, maximum 24.
 - WAITING: 60 free minutes at airport pickups, else 15; then $1/minute.
   Waiting money goes to owner profit.
 - CANCELLATION: free (full refund) if cancelled MORE than 1 hour before
   the pickup datetime (America/New_York); 1 hour or less keeps the full
-  price.
+  price. Hourly bookings: free up to 24 hours before pickup instead
+  (Blacklane rule, owner decision 2026-11-20).
 """
 
 from __future__ import annotations
@@ -102,8 +110,8 @@ BOOKING_FEE = Decimal("0")
 # {class: flat pay}); a ride belongs to the first slab whose bound
 # its miles do not exceed (miles <= 10 -> 0-10, <= 20 -> 10-20, ...).
 # Toll is NOT in the slab: the driver gets slab pay + the map toll.
-# Hourly rides stay $50/hour (compute_hourly) — slabs are one-way
-# distance rides only. NO slab exists above 400 miles: those rides
+# Hourly rides pay per class by the hour (HOURLY_DRIVER_RATES above)
+# — slabs are one-way distance rides only. NO slab exists above 400 miles: those rides
 # are refused (driver_slab_pay raises) until the owner gives numbers.
 # The first 5 slabs are the owner's dictated numbers (note: SUV is
 # $160 at BOTH 20-30 and 30-40 — his own numbers, equal is fine, do
@@ -186,8 +194,32 @@ def pricing_mode():
 # valid referral code. The referrer gets nothing; the discount comes
 # out of Noel's profit only (driver earnings are unchanged).
 REFERRAL_DISCOUNT_RATE = Decimal("0.05")
-HOURLY_CUSTOMER = Decimal("90")
-HOURLY_DRIVER = Decimal("50")
+# Blacklane-style hourly rates (owner decision 2026-11-20, "same same
+# Blacklane jaisa"): per-class rates from the live Blacklane quote
+# 2026-11-20 (Hilton Times Square, Sat 21 Nov 2026 12:00, 2 hours):
+# customer 2-hour totals Business $218.32, SUV $269.46, First $343.31
+# — per-hour $109.16 / $134.73 / $171.66. NOTE on First: $171.66 is
+# the rounded per-hour equivalent of Blacklane's $343.31 2-hour total
+# ($343.31 / 2 = $171.655), so the stored First rate keeps the third
+# decimal — 2 x $171.66 would total $343.32, one cent over Blacklane.
+# Driver pay per class (owner decision 2026-11-20): Business $60/hr,
+# SUV $70/hr, First $90/hr. All-in: taxes and tolls are inside the
+# customer rate, like Blacklane ("All fees included"), so hourly has
+# no separate tax/fee lines. 40 km of travel included per hour booked.
+# Minimum 2 hours, maximum 24 (Blacklane: 2-24 hours).
+HOURLY_CUSTOMER_RATES = {
+    "sedan": Decimal("109.16"),
+    "suv": Decimal("134.73"),
+    "first": Decimal("171.655"),
+}
+HOURLY_DRIVER_RATES = {
+    "sedan": Decimal("60"),
+    "suv": Decimal("70"),
+    "first": Decimal("90"),
+}
+HOURLY_MIN_HOURS = 2
+HOURLY_MAX_HOURS = 24
+HOURLY_KM_PER_HOUR = 40
 WAITING_RATE_PER_MIN = Decimal("1")
 
 # Up-front NJ return-toll estimate (owner decision 2026-11-16): the
@@ -388,13 +420,26 @@ def compute_extra_distance(extra_miles, vehicle_class="sedan") -> dict:
     }
 
 
-def compute_hourly(hours) -> dict:
-    """Return fare breakdown for an hourly ride. No fee, no gratuity, no tax."""
+def compute_hourly(hours, vehicle_class="sedan") -> dict:
+    """Return fare breakdown for an hourly ride. All-in, Blacklane-style:
+    no fee, no gratuity, no tax — taxes and tolls are inside the
+    per-class hourly rate. Customer rate and driver pay are both per
+    class (customer Business $109.16/hr, SUV $134.73/hr, First
+    $171.66/hr; driver Business $60/hr, SUV $70/hr, First $90/hr).
+    40 km of travel included per hour booked."""
+    vehicle_class = (vehicle_class or "sedan").strip().lower()
+    if vehicle_class not in HOURLY_CUSTOMER_RATES:
+        raise ValueError("vehicle_class must be sedan, suv or first.")
     hours = Decimal(str(hours))
-    total = money(HOURLY_CUSTOMER * hours)
-    driver_earnings = money(HOURLY_DRIVER * hours)
+    rate = HOURLY_CUSTOMER_RATES[vehicle_class]
+    driver_rate = HOURLY_DRIVER_RATES[vehicle_class]
+    total = money(rate * hours)
+    driver_earnings = money(driver_rate * hours)
     return {
         "hours": hours,
+        "hourly_rate": rate,
+        "driver_hourly_rate": driver_rate,
+        "km_included": hours * HOURLY_KM_PER_HOUR,
         "fare": total,
         "toll": Decimal("0.00"),
         "booking_fee": Decimal("0.00"),
@@ -404,7 +449,7 @@ def compute_hourly(hours) -> dict:
         "total": total,
         "driver_earnings": driver_earnings,
         "profit": money(total - driver_earnings),
-        "vehicle_class": None,
+        "vehicle_class": vehicle_class,
     }
 
 
@@ -437,8 +482,11 @@ def _pickup_timezone():
     return timezone.utc
 
 
-def cancellation_refundable(date_str: str, time_str: str, now=None) -> bool:
-    """True if cancelling now is free: more than 1 hour before pickup.
+def cancellation_refundable(date_str: str, time_str: str, now=None,
+                            free_cancel_hours=1) -> bool:
+    """True if cancelling now is free: more than `free_cancel_hours`
+    before pickup. One-way rides use 1 hour; hourly bookings use 24
+    (Blacklane rule, owner decision 2026-11-20).
 
     Pickup datetime is interpreted in America/New_York. `now` may be given
     (aware datetime) for testing; otherwise the current UTC time is used.
@@ -449,7 +497,7 @@ def cancellation_refundable(date_str: str, time_str: str, now=None) -> bool:
         now = datetime.now(timezone.utc)
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
-    return (pickup_dt - now) > timedelta(hours=1)
+    return (pickup_dt - now) > timedelta(hours=free_cancel_hours)
 
 
 def waiting_time_elapsed(date_str: str, time_str: str, pickup_text: str, now=None) -> bool:

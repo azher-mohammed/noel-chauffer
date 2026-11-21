@@ -209,7 +209,7 @@ class TestFlightStorage(FlightsApiTestCase):
 
     def test_hourly_booking_with_flight_number(self):
         resp = self._book(TERMINAL_PICKUP, "", ride_type="hourly", hours=3,
-                          flight_number="AA123")
+                          flight_number="AA123", vehicle_class="sedan")
         self.assertEqual(resp.status_code, 201, resp.get_json())
         booking = resp.get_json()["booking"]
         self.assertEqual(booking["flight_number"], "AA123")

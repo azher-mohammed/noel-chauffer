@@ -368,7 +368,8 @@ class FreeFeaturesCase(unittest.TestCase):
 
     def test_extra_miles_rejected_for_hourly_and_bad_values(self):
         _, token = self.register_driver()
-        booking = self.book(ride_type="hourly", hours=2, dropoff="")
+        booking = self.book(ride_type="hourly", hours=2, dropoff="",
+                            vehicle_class="sedan")
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         self.assertEqual(self.accept(booking["id"], token).status_code, 200)
         self.drive_to(booking["id"], token, "start")

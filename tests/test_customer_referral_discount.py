@@ -209,11 +209,11 @@ class ReferralDiscountApiCase(unittest.TestCase):
             "email": "discount@test.com",
             "pickup": "Central Park, New York",
             "date": "2030-06-01", "time": "14:00", "ride_type": "hourly",
-            "hours": 3, "referral_code": code,
+            "hours": 3, "referral_code": code, "vehicle_class": "sedan",
         })
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         booking = resp.get_json()["booking"]
-        self.assertTrue(approx(booking["total"], "270.00"), booking)
+        self.assertTrue(approx(booking["total"], "327.48"), booking)
         self.assertIsNone(booking.get("referral_discount"))
 
     def test_class_switch_keeps_discount_at_new_class_rate(self):

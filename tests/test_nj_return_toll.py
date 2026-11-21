@@ -318,8 +318,9 @@ class NjReturnTollBookingCase(unittest.TestCase):
 
     def test_hourly_ride_unaffected(self):
         booking = self.book(ride_type="hourly", hours=2, dropoff="",
-                            pickup="Central Park, New York")
-        self.assertTrue(approx(booking["total"], "180.00"), booking)
+                            pickup="Central Park, New York",
+                            vehicle_class="sedan")
+        self.assertTrue(approx(booking["total"], "218.32"), booking)
         self.assertTrue(approx(self.stored_toll(booking["id"]), "0.00"))
 
     # -- driver offer payload (before accept) ------------------------------

@@ -142,7 +142,7 @@ class ProximityGatesCase(unittest.TestCase):
             "email": "gates@test.com",
             "pickup": "JFK Airport",
             "date": "2030-06-01", "time": "12:00",
-            "ride_type": "hourly", "hours": 3,
+            "ride_type": "hourly", "hours": 3, "vehicle_class": "sedan",
         }
         resp = self.client.post("/api/bookings", json=payload)
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])

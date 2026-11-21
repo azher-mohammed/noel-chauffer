@@ -177,14 +177,19 @@ class TestClassPricingPure(unittest.TestCase):
             compute_one_way(D("18.0"), vehicle_class="suv", referral=True)["total"],
             D("171.00"))
 
-    def test_hourly_unchanged(self):
-        r = compute_hourly(3)
-        self.assertEqual(r["total"], D("270.00"))
-        self.assertEqual(r["driver_earnings"], D("150.00"))
+    def test_hourly_per_class_totals(self):
+        # Blacklane-style hourly (owner decision 2026-11-20): the
+        # customer picks a class; each class has its own hourly rate
+        # (2-hour totals Business $218.32, SUV $269.46, First $343.31).
+        r = compute_hourly(3, "sedan")
+        self.assertEqual(r["total"], D("327.48"))
+        self.assertEqual(r["driver_earnings"], D("180.00"))
         self.assertEqual(r["booking_fee"], D("0.00"))
         self.assertEqual(r["gratuity"], D("0.00"))
         self.assertEqual(r["tax"], D("0.00"))
-        self.assertIsNone(r["vehicle_class"])
+        self.assertEqual(r["vehicle_class"], "sedan")
+        self.assertEqual(compute_hourly(2, "suv")["total"], D("269.46"))
+        self.assertEqual(compute_hourly(2, "first")["total"], D("343.31"))
 
     def test_class_totals_helper(self):
         totals = compute_class_totals(D("20.0"))
@@ -371,15 +376,20 @@ class ClassApiCase(unittest.TestCase):
         self.assertNotIn("class_totals", got)
         self.assertNotIn("total", got)
 
-    def test_hourly_booking_has_no_class_or_totals(self):
+    def test_hourly_booking_carries_class_and_no_class_totals(self):
+        # Blacklane-style hourly (owner decision 2026-11-20): the
+        # customer picks a class on the form; the booking carries it
+        # and is priced per class (2h Business $218.32). One-way
+        # class totals are a one-way concept only.
         resp = self.client.post("/api/bookings", json={
             "customer_name": "Hourly", "phone": "+15550009992",
             "email": "hourly@test.com", "pickup": "Central Park, New York",
             "date": "2030-06-04", "time": "14:00",
-            "ride_type": "hourly", "hours": 2})
+            "ride_type": "hourly", "hours": 2, "vehicle_class": "sedan"})
         booking = resp.get_json()["booking"]
-        self.assertIsNone(booking["vehicle_class"])
-        self.assertIsNone(booking["vehicle_class_label"])
+        self.assertEqual(booking["vehicle_class"], "sedan")
+        self.assertEqual(booking["vehicle_class_label"], "Business Class")
+        self.assertTrue(approx(booking["total"], "218.32"), booking)
         self.assertNotIn("class_totals", booking)
 
     def test_class_switch_recomputes_totals_and_owner_breakdown(self):
@@ -421,14 +431,22 @@ class ClassApiCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         resp = self.switch_class(999999, "suv")
         self.assertEqual(resp.status_code, 404)
+        # Hourly bookings CAN switch class before payment now
+        # (Blacklane-style hourly, owner decision 2026-11-20): the
+        # class is picked on the form and may be changed on the
+        # options page while still awaiting payment.
         resp = self.client.post("/api/bookings", json={
             "customer_name": "Hourly", "phone": "+15550009993",
             "email": "hourly@test.com", "pickup": "Central Park, New York",
             "date": "2030-06-04", "time": "14:00",
-            "ride_type": "hourly", "hours": 2})
+            "ride_type": "hourly", "hours": 2, "vehicle_class": "sedan"})
         hourly_id = resp.get_json()["booking"]["id"]
         resp = self.switch_class(hourly_id, "suv")
-        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        switched = resp.get_json()["booking"]
+        self.assertEqual(switched["vehicle_class"], "suv")
+        self.assertEqual(switched["vehicle_class_label"], "Business SUV")
+        self.assertTrue(approx(switched["total"], "269.46"), switched)
 
     # -- driver class derivation ------------------------------------------
     def test_driver_class_derived_on_registration(self):
@@ -482,22 +500,38 @@ class ClassApiCase(unittest.TestCase):
                                 headers={"X-Driver-Token": sedan_token})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
 
-    def test_hourly_reaches_drivers_of_both_classes(self):
-        _, sedan_token = self.register_driver("Cadillac CT6")
+    def test_hourly_dispatch_is_filtered_by_class(self):
+        # Blacklane-style hourly (owner decision 2026-11-20): an
+        # hourly booking reaches only drivers whose car class matches
+        # the class the customer picked — like one-way rides.
+        _, sedan_token = self.register_driver("Mercedes-Benz E-Class")
         _, suv_token = self.register_driver("Cadillac Escalade")
         resp = self.client.post("/api/bookings", json={
-            "customer_name": "Hourly", "phone": "+15550009994",
+            "customer_name": "Hourly Sedan", "phone": "+15550009994",
             "email": "hourly@test.com", "pickup": "Central Park, New York",
             "date": "2030-06-04", "time": "14:00",
-            "ride_type": "hourly", "hours": 2})
-        hourly_id = resp.get_json()["booking"]["id"]
-        self.assertEqual(self.pay(hourly_id).status_code, 200)
-        for token in (sedan_token, suv_token):
-            offers = self.client.get("/api/drivers/me/offers",
-                                     headers={"X-Driver-Token": token}).get_json()
-            self.assertEqual([o["booking_id"] for o in offers], [hourly_id])
-            self.assertIsNone(offers[0]["vehicle_class"])
-
+            "ride_type": "hourly", "hours": 2, "vehicle_class": "sedan"})
+        sedan_hourly_id = resp.get_json()["booking"]["id"]
+        resp = self.client.post("/api/bookings", json={
+            "customer_name": "Hourly SUV", "phone": "+15550009995",
+            "email": "hourly@test.com", "pickup": "Central Park, New York",
+            "date": "2030-06-04", "time": "16:00",
+            "ride_type": "hourly", "hours": 2, "vehicle_class": "suv"})
+        suv_hourly_id = resp.get_json()["booking"]["id"]
+        self.assertEqual(self.pay(sedan_hourly_id).status_code, 200)
+        self.assertEqual(self.pay(suv_hourly_id).status_code, 200)
+        sedan_offers = self.client.get("/api/drivers/me/offers",
+                                       headers={"X-Driver-Token": sedan_token}).get_json()
+        self.assertEqual([o["booking_id"] for o in sedan_offers], [sedan_hourly_id])
+        self.assertEqual(sedan_offers[0]["vehicle_class"], "sedan")
+        suv_offers = self.client.get("/api/drivers/me/offers",
+                                     headers={"X-Driver-Token": suv_token}).get_json()
+        self.assertEqual([o["booking_id"] for o in suv_offers], [suv_hourly_id])
+        self.assertEqual(suv_offers[0]["vehicle_class"], "suv")
+        # A sedan driver cannot accept the SUV hourly job.
+        resp = self.client.post(f"/api/drivers/me/offers/{suv_hourly_id}/accept",
+                                headers={"X-Driver-Token": sedan_token})
+        self.assertEqual(resp.status_code, 409, resp.get_data(as_text=True)[:200])
     # -- driver privacy ------------------------------------------------------
     def test_driver_payload_privacy_sweep(self):
         _, sedan_token = self.register_driver("Cadillac CT6")

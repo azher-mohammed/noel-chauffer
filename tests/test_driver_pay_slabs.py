@@ -146,10 +146,15 @@ class TestSlabTable(unittest.TestCase):
         # Profit still total - driver earnings.
         self.assertEqual(r["profit"], r["total"] - r["driver_earnings"])
 
-    def test_hourly_rides_stay_fifty_dollars_an_hour(self):
-        r = compute_hourly(3)
-        self.assertEqual(r["driver_earnings"], D("150.00"))
-        self.assertEqual(r["total"], D("270.00"))
+    def test_hourly_rides_pay_per_class_hourly_rate(self):
+        # Blacklane-style hourly (owner decision 2026-11-20): driver
+        # Business $60/hr, SUV $70/hr, First $90/hr — slabs are
+        # one-way distance rides only.
+        r = compute_hourly(3, "sedan")
+        self.assertEqual(r["driver_earnings"], D("180.00"))
+        self.assertEqual(r["total"], D("327.48"))
+        self.assertEqual(compute_hourly(3, "suv")["driver_earnings"], D("210.00"))
+        self.assertEqual(compute_hourly(3, "first")["driver_earnings"], D("270.00"))
 
     def test_over_400_miles_has_no_slab(self):
         with self.assertRaises(ValueError):

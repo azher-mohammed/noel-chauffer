@@ -195,7 +195,7 @@ class NoDoubleBookingCase(unittest.TestCase):
         # 3-hour ride at 10:00 -> busy until 13:30.
         _, token = self.register_driver()
         hourly = self.book(ride_type="hourly", hours=3, time="10:00",
-                           dropoff="")
+                           dropoff="", vehicle_class="sedan")
         overlap = self.book(time="13:00")
         later = self.book(time="14:00")
         for b in (hourly, overlap, later):

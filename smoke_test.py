@@ -70,8 +70,11 @@ check("18mi toll total 180.50", r["total"] == Decimal("180.50"))
 check("18mi toll driver 113.50", r["driver_earnings"] == Decimal("113.50"))
 check("18mi toll: tax/gratuity stay 0.00", r["tax"] == Decimal("0.00") and r["gratuity"] == Decimal("0.00"))
 r = compute_hourly(3)
-check("hourly 3h total 270.00", r["total"] == Decimal("270.00"))
-check("hourly 3h driver 150.00", r["driver_earnings"] == Decimal("150.00"))
+check("hourly 3h sedan total 327.48", r["total"] == Decimal("327.48"))
+check("hourly 3h sedan driver 180.00", r["driver_earnings"] == Decimal("180.00"))
+r = compute_hourly(2, "first")
+check("hourly 2h first total 343.31", r["total"] == Decimal("343.31"))
+check("hourly 2h first driver 180.00", r["driver_earnings"] == Decimal("180.00"))
 check("airport 75min waiting 15.00", waiting_charge("JFK Airport", 75) == Decimal("15.00"))
 
 # --- 2. geo fallback (no network: force failures) ----------------------------

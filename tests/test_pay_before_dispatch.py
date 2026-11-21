@@ -393,17 +393,17 @@ class PayBeforeDispatchCase(unittest.TestCase):
             "customer_name": "Hourly", "phone": "+15550009991",
             "email": "hourly@test.com", "pickup": "Central Park, New York",
             "date": "2030-06-04", "time": "14:00",
-            "ride_type": "hourly", "hours": 3})
+            "ride_type": "hourly", "hours": 3, "vehicle_class": "sedan"})
         self.assertEqual(resp.status_code, 201)
         booking = resp.get_json()["booking"]
         self.assertEqual(booking["status"], "awaiting_payment")
-        self.assertTrue(approx(booking["total"], "270.00"), booking)
+        self.assertTrue(approx(booking["total"], "327.48"), booking)
         offers = self.client.get("/api/drivers/me/offers",
                                  headers={"X-Driver-Token": token}).get_json()
         self.assertEqual(offers, [])
         resp = self.pay(booking["id"])
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "270.00"))
+        self.assertTrue(approx(resp.get_json()["payment"]["amount"], "327.48"))
         offers = self.client.get("/api/drivers/me/offers",
                                  headers={"X-Driver-Token": token}).get_json()
         self.assertEqual(len(offers), 1)

@@ -83,14 +83,41 @@ class TestOneWay(unittest.TestCase):
 
 
 class TestHourly(unittest.TestCase):
-    def test_3_hours(self):
-        r = compute_hourly(3)
-        self.assertEqual(r["total"], D("270.00"))
-        self.assertEqual(r["driver_earnings"], D("150.00"))
+    # Blacklane-style hourly (owner decision 2026-11-20, "same same
+    # Blacklane jaisa"): per-class rates from the live Blacklane quote
+    # 2026-11-20 — 2-hour totals Business $218.32, SUV $269.46,
+    # First $343.31; driver Business $60/hr, SUV $70/hr, First $90/hr.
+    def test_2_hours_per_class(self):
+        self.assertEqual(compute_hourly(2, "sedan")["total"], D("218.32"))
+        self.assertEqual(compute_hourly(2, "sedan")["driver_earnings"], D("120.00"))
+        self.assertEqual(compute_hourly(2, "suv")["total"], D("269.46"))
+        self.assertEqual(compute_hourly(2, "suv")["driver_earnings"], D("140.00"))
+        self.assertEqual(compute_hourly(2, "first")["total"], D("343.31"))
+        self.assertEqual(compute_hourly(2, "first")["driver_earnings"], D("180.00"))
+
+    def test_3_hours_per_class(self):
+        self.assertEqual(compute_hourly(3, "sedan")["total"], D("327.48"))
+        self.assertEqual(compute_hourly(3, "sedan")["driver_earnings"], D("180.00"))
+        self.assertEqual(compute_hourly(3, "suv")["total"], D("404.19"))
+        self.assertEqual(compute_hourly(3, "suv")["driver_earnings"], D("210.00"))
+        self.assertEqual(compute_hourly(3, "first")["total"], D("514.97"))
+        self.assertEqual(compute_hourly(3, "first")["driver_earnings"], D("270.00"))
+
+    def test_all_in_no_separate_lines(self):
+        r = compute_hourly(2, "sedan")
         self.assertEqual(r["booking_fee"], D("0.00"))
         self.assertEqual(r["gratuity"], D("0.00"))
         self.assertEqual(r["tax"], D("0.00"))
-        self.assertIsNone(r["vehicle_class"])
+        self.assertEqual(r["toll"], D("0.00"))
+        self.assertEqual(r["vehicle_class"], "sedan")
+        self.assertEqual(r["km_included"], D("80"))
+
+    def test_default_class_is_sedan(self):
+        self.assertEqual(compute_hourly(2)["total"], D("218.32"))
+
+    def test_unknown_class_rejected(self):
+        with self.assertRaises(ValueError):
+            compute_hourly(2, "luxury")
 
 
 class TestWaiting(unittest.TestCase):
@@ -163,6 +190,18 @@ class TestCancellation(unittest.TestCase):
         self.assertFalse(cancellation_refundable("2030-06-01", "12:00", now=now))
         now = datetime(2030, 6, 1, 15, 30, tzinfo=timezone.utc)  # 30 min before
         self.assertFalse(cancellation_refundable("2030-06-01", "12:00", now=now))
+
+    def test_hourly_24_hour_window(self):
+        # Blacklane-style hourly (owner decision 2026-11-20): free
+        # cancellation up to 24 hours before pickup. Pickup 2030-06-01
+        # 12:00 New York = 16:00 UTC.
+        now = datetime(2030, 5, 31, 15, 0, tzinfo=timezone.utc)  # 25h before
+        self.assertTrue(cancellation_refundable("2030-06-01", "12:00", now=now, free_cancel_hours=24))
+        now = datetime(2030, 5, 31, 17, 0, tzinfo=timezone.utc)  # 23h before
+        self.assertFalse(cancellation_refundable("2030-06-01", "12:00", now=now, free_cancel_hours=24))
+        # The same 23-hours-before moment is still free on the 1-hour
+        # one-way window.
+        self.assertTrue(cancellation_refundable("2030-06-01", "12:00", now=now))
 
 
 class TestDriverCancelLocked(unittest.TestCase):

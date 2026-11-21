@@ -296,7 +296,7 @@ class PickupReminderCase(unittest.TestCase):
     def test_hourly_reminder_has_no_dropoff(self):
         date, time = self.pickup_offset(30)
         booking = self.book(date=date, time=time, ride_type="hourly",
-                            hours=3, dropoff="")
+                            hours=3, dropoff="", vehicle_class="sedan")
         self.pay(booking["id"])
         _driver, token = self.register_driver()
         self.accept(token, booking["id"])

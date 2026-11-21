@@ -78,6 +78,8 @@ from translation import (
 )
 from pricing import (
     DRIVER_PAY_MAX_MILES,
+    HOURLY_MAX_HOURS,
+    HOURLY_MIN_HOURS,
     cancellation_refundable,
     class_label,
     compute_class_totals,
@@ -2344,11 +2346,14 @@ class Booking(db.Model):
     # live flight tracking: the airline name is derived from the IATA
     # code in flights.py.
     flight_number = db.Column(db.String(20), nullable=True)
-    # Vehicle class for one-way rides: "sedan" (Business Class, the
-    # default the customer sees pre-selected) or "suv" (Business SUV).
-    # Hourly rides have no class (None). Nullable: bookings created
-    # before the class system existed read as "sedan" (see
-    # booking_vehicle_class below).
+    # Vehicle class: "sedan" (Business Class, the default the
+    # customer sees pre-selected), "suv" (Business SUV) or "first"
+    # (First Class). Hourly rides also carry a class now
+    # (Blacklane-style hourly, owner decision 2026-11-20); hourly
+    # rows created before that read as no class (None) and reach
+    # every driver. Nullable: one-way bookings created before the
+    # class system existed read as "sedan" (see booking_vehicle_class
+    # below).
     vehicle_class = db.Column(db.String(10), nullable=True)
     status = db.Column(db.String(30), nullable=False, default="offered")
     fare_total = db.Column(Numeric(10, 2), nullable=False)
@@ -3486,11 +3491,16 @@ def driver_vehicle_class(driver):
 
 
 def booking_vehicle_class(booking):
-    """A booking's vehicle class: None for hourly rides; "sedan" for
-    one-way bookings created before the class system existed; "first"
-    for First Class bookings (owner decision 2026-11-20 — First
-    Class is open, same models as Blacklane)."""
+    """A booking's vehicle class: the stored class for hourly rides
+    (Blacklane-style hourly, owner decision 2026-11-20 — the customer
+    picks Business / Business SUV / First Class, like Blacklane);
+    None for hourly rows created before the class system existed;
+    "sedan" for one-way bookings created before the class system
+    existed; "first" for First Class bookings (owner decision
+    2026-11-20 — First Class is open, same models as Blacklane)."""
     if booking.ride_type == "hourly":
+        if booking.vehicle_class in ("sedan", "suv", "first"):
+            return booking.vehicle_class
         return None
     if booking.vehicle_class in ("sedan", "suv", "first"):
         return booking.vehicle_class
@@ -3507,10 +3517,12 @@ def driver_matches_booking_class(driver, booking):
     Blacklane; owner decision 2026-11-20). A Model X driver keeps
     his Business SUV dispatch and an S-Class driver keeps his
     Business Class dispatch — First Class is an extra qualification
-    by model, not a replacement class. Hourly rides (no class)
-    reach every driver.
+    by model, not a replacement class. Hourly rides with a class
+    (Blacklane-style hourly, owner decision 2026-11-20) are filtered
+    the same way; hourly rows from before the class system (no class
+    stored) reach every driver, as before.
     """
-    if booking.ride_type != "one_way":
+    if booking.ride_type == "hourly" and booking_vehicle_class(booking) is None:
         return True
     if booking_vehicle_class(booking) == "first":
         return is_first_class_model(driver.car_model)
@@ -3523,7 +3535,8 @@ def _recomputed_breakdown(booking):
     Read-only fallback for rows created before fare/tax were stored.
     """
     if booking.ride_type == "hourly":
-        return compute_hourly(booking.hours or Decimal("0"))
+        return compute_hourly(booking.hours or Decimal("0"),
+                              booking.vehicle_class or "sedan")
     if booking_vehicle_class(booking) == "first":
         # First Class has no legacy rate at all (the legacy engine
         # only knows sedan/suv): recompute it with the Blacklane
@@ -3927,8 +3940,8 @@ def recompute_booking_fare(booking, referral=None):
     """
     referral_flag = referral if referral is not None else booking_referral_discount_applies(booking)
     if booking.ride_type == "hourly":
-        result = compute_hourly(booking.hours or Decimal("0"))
-        booking.vehicle_class = None
+        result = compute_hourly(booking.hours or Decimal("0"),
+                                booking.vehicle_class or "sedan")
     else:
         if pricing_mode() == "blacklane":
             # Pass the RAW stored class (booking_vehicle_class()
@@ -4490,12 +4503,17 @@ def create_booking():
             hours_dec = Decimal(str(hours))
         except Exception:
             return err("hours must be a number.")
-        if hours_dec <= 0:
-            return err("hours must be greater than 0.")
+        if hours_dec < HOURLY_MIN_HOURS or hours_dec > HOURLY_MAX_HOURS:
+            return err("Hourly bookings need 2 to 24 hours.")
+        # Blacklane-style hourly (owner decision 2026-11-20): the
+        # customer picks a vehicle class, like Blacklane.
+        vehicle_class = (data.get("vehicle_class") or "").strip().lower()
+        if vehicle_class not in ("sedan", "suv", "first"):
+            return err("vehicle_class must be sedan, suv or first.")
         booking.hours = hours_dec
         booking.miles = None
-        booking.vehicle_class = None
-        result = compute_hourly(hours_dec)
+        booking.vehicle_class = vehicle_class
+        result = compute_hourly(hours_dec, vehicle_class)
     else:
         if not booking.dropoff:
             return err("dropoff is required for one-way rides.")
@@ -4623,21 +4641,20 @@ def create_booking():
 @app.route("/api/bookings/<int:booking_id>/vehicle-class", methods=["POST"])
 def select_vehicle_class(booking_id):
     """The customer picks a class on the options page ("Choose your
-    experience") before paying. Only while the booking is still
-    awaiting payment and only for one-way rides: after payment the
-    booking is already with drivers and its class is fixed."""
+    experience") before paying — and, for hourly rides, on the booking
+    form itself. Only while the booking is still awaiting payment:
+    after payment the booking is already with drivers and its class
+    is fixed."""
     if bookings_paused():
         return err(BOOKINGS_PAUSED_MESSAGE, 503)
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
-    if booking.ride_type != "one_way":
-        return err("Hourly rides have no vehicle class.", 409)
     if booking.status != "awaiting_payment":
         return err("The vehicle class can only be changed before payment.", 409)
     data = request.get_json(silent=True) or {}
     vehicle_class = data.get("vehicle_class")
-    if vehicle_class == "first":
+    if vehicle_class == "first" and booking.ride_type == "one_way":
         # First Class is OPEN (owner decision 2026-11-20 ~03:00 EST):
         # same models as Blacklane (S-Class, 7 Series, A8, Model X),
         # driver pay is the flat slab. But it exists ONLY in Blacklane mode — the
@@ -5203,7 +5220,12 @@ def cancel_booking(booking_id):
         return err("Phone number does not match this booking.", 403)
     if booking.status in ("cancelled", "completed", "no_show"):
         return err(f"Booking is already {booking.status}.", 409)
-    refundable = cancellation_refundable(booking.date, booking.time)
+    # Free-cancel window: 1 hour before pickup on one-way rides;
+    # 24 hours on hourly bookings (Blacklane rule, owner decision
+    # 2026-11-20).
+    free_cancel_hours = 24 if booking.ride_type == "hourly" else 1
+    refundable = cancellation_refundable(booking.date, booking.time,
+                                         free_cancel_hours=free_cancel_hours)
     payment = _latest_payment(booking.id)
     refund = False
     charge_kept = False
@@ -6489,11 +6511,11 @@ def driver_offers():
     excluded_ids = [e.booking_id for e in BookingExclusion.query.filter_by(driver_id=driver.id).all()]
     # Only PAID bookings reach drivers: status "offered" means payment
     # succeeded. Unpaid bookings (awaiting_payment) never appear here.
-    # Class filtering: one-way bookings reach only drivers whose car
-    # class matches the booking's class — First Class only drivers
-    # with a First Class model (see driver_matches_booking_class);
-    # hourly rides (no class) reach every driver, available or
-    # offline.
+    # Class filtering: one-way and hourly bookings reach only drivers
+    # whose car class matches the booking's class — First Class only
+    # drivers with a First Class model (see
+    # driver_matches_booking_class); hourly rows from before the
+    # class system (no class stored) still reach every driver.
     # No double-booking: jobs overlapping a ride this driver already
     # accepted are hidden. Fetched once: the same busy windows apply
     # to every candidate offer.
@@ -6516,7 +6538,7 @@ def driver_offers():
         # tells a First Class job apart. driver_matches_booking_
         # class() holds the full rule (First Class by model, the
         # other classes by sedan/suv).
-        if b.ride_type == "one_way" and not driver_matches_booking_class(driver, b):
+        if not driver_matches_booking_class(driver, b):
             continue
         # No double-booking: hide jobs whose time overlaps a ride
         # this driver has already accepted (pickup time + driving
@@ -6566,8 +6588,7 @@ def driver_accept(booking_id):
     booking = db.session.get(Booking, booking_id)
     if not booking:
         return err("Booking not found.", 404)
-    if (booking.ride_type == "one_way"
-            and not driver_matches_booking_class(driver, booking)):
+    if not driver_matches_booking_class(driver, booking):
         if booking_vehicle_class(booking) == "first":
             return err("This ride needs a First Class car (Mercedes-Benz "
                        "S-Class, BMW 7 Series, Audi A8 or Tesla Model X).", 409)
@@ -7486,8 +7507,7 @@ def owner_assign_booking(booking_id):
     driver = db.session.get(Driver, driver_id)
     if not driver:
         return err("Driver not found.", 404)
-    if (booking.ride_type == "one_way"
-            and not driver_matches_booking_class(driver, booking)):
+    if not driver_matches_booking_class(driver, booking):
         return err("This driver’s vehicle class does not match the booking.", 409)
     # No double-booking: the owner cannot assign a ride that overlaps
     # a ride this driver has already accepted (owner decision 2026-11-16).

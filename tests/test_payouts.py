@@ -180,6 +180,7 @@ class PayoutApiCase(unittest.TestCase):
         }
         if ride_type == "hourly":
             payload["hours"] = hours
+            payload["vehicle_class"] = "sedan"
             payload.pop("dropoff")
         resp = self.client.post("/api/bookings", json=payload)
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
@@ -260,7 +261,7 @@ class PayoutApiCase(unittest.TestCase):
     def test_multiple_rides_sum_in_one_week(self):
         _driver, token = self.register_driver()
         b1 = self.complete_ride(token)                    # one-way: $95.00
-        b2 = self.complete_ride(token, ride_type="hourly", hours=3)  # $150.00
+        b2 = self.complete_ride(token, ride_type="hourly", hours=3)  # $180.00
         self.backdate_completion(b1, _utc(2026, 11, 17))
         self.backdate_completion(b2, _utc(2026, 11, 20))
         body = self.client.get("/api/drivers/me/earnings",
@@ -270,7 +271,8 @@ class PayoutApiCase(unittest.TestCase):
         self.assertNotIn("total_earnings", body["weeks"][0])
         self.owner_login()
         payouts = self.client.get("/api/owner/payouts").get_json()
-        self.assertEqual(D(str(payouts[0]["total_earnings"])), D("245.00"))
+        # One-way $95.00 + 3h hourly sedan driver $180.00 = $275.00.
+        self.assertEqual(D(str(payouts[0]["total_earnings"])), D("275.00"))
 
     def test_boundary_completion_dates_split_weeks(self):
         _driver, token = self.register_driver()

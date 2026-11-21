@@ -3127,6 +3127,25 @@
     }
   }
 
+  /* Show/hide password (eye) toggle: one button inside each
+     password field (sign-in, registration, reset). Tapping it
+     switches the field between dots and plain text and flips the
+     label between Show and Hide. It never changes the value, the
+     validation, or what the form submits. */
+  function initPasswordEyes() {
+    var buttons = document.querySelectorAll(".password-eye");
+    Array.prototype.forEach.call(buttons, function (btn) {
+      btn.addEventListener("click", function () {
+        var input = $(btn.getAttribute("data-for"));
+        if (!input) { return; }
+        var showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        btn.textContent = showing ? "Show" : "Hide";
+        btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+      });
+    });
+  }
+
   function initCarModelDropdown() {
     var input = $("reg-car-model");
     var list = $("car-model-list");
@@ -3652,6 +3671,7 @@
     });
   }
 
+  initPasswordEyes();
   initCarModelDropdown();
   initStateDropdown();
   initCityDropdown();

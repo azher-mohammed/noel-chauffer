@@ -64,6 +64,15 @@ input, select { font: inherit; }
   width: 100%; padding: 13px 14px; border: 1px solid #cfccc2; border-radius: 6px; background: var(--white); font-size: 16px;
 }
 .field input:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
+/* Show/hide password (eye) toggle, inside the password field. */
+.password-wrap { position: relative; }
+.password-wrap input { padding-right: 62px; }
+.password-eye {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  background: none; border: 0; color: var(--gold); font-size: 14px; font-weight: 600;
+  padding: 8px 10px; cursor: pointer;
+}
+.password-eye:focus { outline: 2px solid var(--gold); outline-offset: -2px; border-radius: 4px; }
 .field .hint { font-size: 13.5px; color: var(--grey); margin-top: 5px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 

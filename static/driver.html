@@ -65,7 +65,10 @@
       </div>
       <div class="field">
         <label for="signin-password">Password</label>
-        <input id="signin-password" type="password" required autocomplete="current-password">
+        <div class="password-wrap">
+          <input id="signin-password" type="password" required autocomplete="current-password">
+          <button class="password-eye" type="button" data-for="signin-password" aria-label="Show password">Show</button>
+        </div>
       </div>
       <button class="btn-primary btn-gold" type="submit" id="signin-submit">Sign in</button>
       <p class="form-error" id="signin-error" role="alert"></p>
@@ -88,11 +91,17 @@
         <div id="reset-form-fields">
           <div class="field">
             <label for="reset-password">New password</label>
-            <input id="reset-password" type="password" required autocomplete="new-password">
+            <div class="password-wrap">
+              <input id="reset-password" type="password" required autocomplete="new-password">
+              <button class="password-eye" type="button" data-for="reset-password" aria-label="Show password">Show</button>
+            </div>
           </div>
           <div class="field">
             <label for="reset-password-confirm">Confirm new password</label>
-            <input id="reset-password-confirm" type="password" required autocomplete="new-password">
+            <div class="password-wrap">
+              <input id="reset-password-confirm" type="password" required autocomplete="new-password">
+              <button class="password-eye" type="button" data-for="reset-password-confirm" aria-label="Show password">Show</button>
+            </div>
           </div>
           <button class="btn-primary btn-gold" type="submit" id="reset-submit">Set new password</button>
         </div>
@@ -131,11 +140,17 @@
       <div class="field-row">
         <div class="field">
           <label for="reg-password">Password</label>
-          <input id="reg-password" type="password" required autocomplete="new-password">
+          <div class="password-wrap">
+            <input id="reg-password" type="password" required autocomplete="new-password">
+            <button class="password-eye" type="button" data-for="reg-password" aria-label="Show password">Show</button>
+          </div>
         </div>
         <div class="field">
           <label for="reg-password-confirm">Confirm password</label>
-          <input id="reg-password-confirm" type="password" required autocomplete="new-password">
+          <div class="password-wrap">
+            <input id="reg-password-confirm" type="password" required autocomplete="new-password">
+            <button class="password-eye" type="button" data-for="reg-password-confirm" aria-label="Show password">Show</button>
+          </div>
         </div>
       </div>
       <p class="hint">At least 6 characters. You will use your email and this password to sign in.</p>

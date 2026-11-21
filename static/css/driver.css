@@ -1,12 +1,12 @@
-/* Noel Chauffer — driver app. Phone-frame, black and gold, Uber Driver style.
+/* Noel Chauffer — driver app. Phone-frame, black and grey, plain business look, Uber Driver style.
    Classic typography restyle (owner decision 2026-11-21): larger, more
    readable type and airier spacing throughout; palette, layout, wording
    and behaviour unchanged. */
 :root {
   --black: #0b0b0c;
   --ink: #161617;
-  --gold: #c9a227;
-  --gold-soft: #e8d9a0;
+  --gold: #9a9a9a;
+  --gold-soft: #d8d8d8;
   --white: #ffffff;
   --paper: #f7f5f0;
   --grey: #6b6b6b;
@@ -55,9 +55,9 @@ input, select { font: inherit; }
 .app-head .hello { font-size: 16px; margin-top: 10px; color: var(--gold-soft); }
 /* Home menu button, top-left of the header (owner 2026-11-21):
    tapping it opens a menu with Earnings, Tax info, Documents and
-   Profile. Black and gold, like the rest of the driver app. */
+   Profile. Black and grey, like the rest of the driver app. */
 .app-head-row { display: flex; align-items: center; gap: 12px; }
-.home-menu-btn { background: transparent; color: var(--gold); border: 1px solid var(--gold); border-radius: 6px; padding: 5px 12px; font-size: 15px; font-weight: 700; }
+.home-menu-btn { background: var(--black); color: var(--white); border: 1px solid #888888; border-radius: 6px; padding: 5px 12px; font-size: 15px; font-weight: 400; }
 .home-menu-btn:active { transform: translateY(1px); }
 .home-menu { margin-top: 12px; border: 1px solid var(--gold); border-radius: 8px; overflow: hidden; }
 .home-menu button { display: block; width: 100%; text-align: left; background: var(--black); color: var(--white); border: 0; border-bottom: 1px solid #333; padding: 13px 14px; font-size: 16px; }
@@ -118,11 +118,11 @@ input, select { font: inherit; }
   padding: 16px; border-radius: 6px; font-size: 17px; margin-top: 8px;
 }
 .btn-primary:disabled { opacity: 0.6; }
-.btn-gold { background: var(--gold); color: var(--black); font-weight: 600; }
-.btn-ghost { background: transparent; border: 1px solid #cfccc2; padding: 12px 16px; border-radius: 6px; width: 100%; }
-.btn-danger { background: transparent; border: 1px solid #d8a7a7; color: var(--bad); padding: 12px 16px; border-radius: 6px; width: 100%; }
-.btn-accept { background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e); color: var(--black); border: 1px solid #a8861d; padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
-.btn-decline { background: var(--white); border: 1px solid #cfccc2; padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
+.btn-gold { background: var(--black); color: var(--white); font-weight: 400; }
+.btn-ghost { background: var(--black); border: 1px solid var(--black); color: var(--white); padding: 12px 16px; border-radius: 6px; width: 100%; }
+.btn-danger { background: var(--black); border: 1px solid var(--black); color: var(--white); padding: 12px 16px; border-radius: 6px; width: 100%; }
+.btn-accept { background: var(--black); color: var(--white); border: 1px solid var(--black); padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
+.btn-decline { background: var(--black); color: var(--white); border: 1px solid var(--black); padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
 .form-error { color: var(--bad); font-size: 14.5px; min-height: 1.2em; margin-top: 10px; }
 .form-note { color: var(--grey); font-size: 14px; }
 .divider { display: flex; align-items: center; gap: 10px; color: var(--grey); font-size: 14px; margin: 22px 0 14px; }
@@ -150,7 +150,7 @@ input, select { font: inherit; }
 .doc-preview.passport-preview img { width: 140px; height: 175px; max-height: none; object-fit: cover; }
 .preview-remove { margin-top: 8px; background: transparent; border: 1px solid #cfccc2; padding: 8px 14px; border-radius: 6px; font-size: 14.5px; }
 .photo-tips {
-  background: #fffdf4; border: 1px solid var(--gold); border-radius: 8px; padding: 14px 16px; font-size: 14.5px; margin-bottom: 16px;
+  background: #f7f7f7; border: 1px solid var(--gold); border-radius: 8px; padding: 14px 16px; font-size: 14.5px; margin-bottom: 16px;
 }
 .photo-tips b { display: block; margin-bottom: 4px; }
 .photo-tips ul { margin: 0; padding-left: 18px; }
@@ -161,10 +161,11 @@ input, select { font: inherit; }
   border: 0; border-radius: 999px; padding: 14px 32px; font-size: 17px; font-weight: 600;
   background: var(--black); color: var(--white);
 }
-/* Online state is black-and-gold, never green (owner 2026-11-21:
-   "I don't like green colors"). Offline is the gold button; online
-   is black with gold text so the two states still read apart. */
-.toggle-btn.on { background: var(--black); color: var(--gold); border: 1px solid var(--gold); }
+/* Online state is black with white text and a grey border, never
+   green (owner 2026-11-21: "I don't like green colors"). Offline is
+   the plain black button; online adds the grey border so the two
+   states still read apart. */
+.toggle-btn.on { background: var(--black); color: var(--white); border: 1px solid #888888; }
 
 /* Offers */
 .offer {
@@ -182,15 +183,15 @@ input, select { font: inherit; }
 }
 .offer .when { color: var(--grey); font-size: 14.5px; margin-top: 3px; }
 .offer .earnings {
-  margin-top: 12px; background: #fffdf4; border: 1px solid var(--gold); border-radius: 8px;
+  margin-top: 12px; background: #f7f7f7; border: 1px solid var(--gold); border-radius: 8px;
   padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
 }
 .offer .earnings .label { font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--grey); }
 .offer .earnings .amount { font-family: Georgia, serif; font-size: 28px; }
-/* Toll on its own line, only when a toll applies — same pale-gold
+/* Toll on its own line, only when a toll applies — same pale-grey
    highlight on the offer card and the trip screen. */
 .toll-line {
-  margin-top: 8px; background: #fdf6e3; border: 1px solid #ecd9a0; border-radius: 8px;
+  margin-top: 8px; background: #f2f2f2; border: 1px solid #cfcfcf; border-radius: 8px;
   padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
 }
 .toll-line .label { font-size: 14px; font-weight: 600; }
@@ -214,13 +215,13 @@ input, select { font: inherit; }
   display: flex; justify-content: space-between; align-items: center; background: var(--white); font-size: 16px;
 }
 .stage-list li.done { border-color: var(--ok); color: var(--ok); }
-.stage-list li.current { border-color: var(--gold); background: #fffdf4; font-weight: 600; }
+.stage-list li.current { border-color: var(--gold); background: #f7f7f7; font-weight: 600; }
 .stage-list .tick { font-weight: 700; }
 .loc-note { font-size: 14px; color: var(--grey); margin-top: 10px; }
-/* 1-hour pickup reminder (owner decision 2026-11-18): a gold banner at
+/* 1-hour pickup reminder (owner decision 2026-11-18): a grey banner at
    the top of the trip screen while the ride is about to start. Pickup
    time + addresses only — never miles, fare, or total. */
-.reminder-banner { border: 1px solid var(--gold); background: #fffdf4; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 15.5px; line-height: 1.45; }
+.reminder-banner { border: 1px solid var(--gold); background: #f7f7f7; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 15.5px; line-height: 1.45; }
 
 /* Earnings */
 .earn-sum {
@@ -243,7 +244,7 @@ input, select { font: inherit; }
 .doc-status .name { font-weight: 600; font-size: 15.5px; }
 .badge { font-size: 13.5px; padding: 5px 12px; border-radius: 999px; white-space: nowrap; }
 .badge.done { background: #e6f4ec; color: var(--ok); border: 1px solid #bfe3cd; }
-.badge.todo { background: #fff4d6; color: #6b5510; border: 1px solid var(--gold); }
+.badge.todo { background: #f2f2f2; color: #4a4a4a; border: 1px solid var(--gold); }
 
 /* Profile */
 .profile-card { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--paper); margin-bottom: 14px; }
@@ -261,7 +262,7 @@ input, select { font: inherit; }
 .tabbar button {
   flex: 1; background: transparent; border: 0; color: #cfcfcf; padding: 13px 4px 15px; font-size: 13px;
 }
-.tabbar button.active { color: var(--gold); font-weight: 700; }
+.tabbar button.active { color: var(--white); font-weight: 700; }
 .tabbar .ico { display: block; font-size: 20px; margin-bottom: 2px; }
 
 /* Digital name sign — full-screen customer name at airport arrivals */
@@ -303,25 +304,25 @@ input, select { font: inherit; }
 .chat-empty { color: var(--grey); font-size: 14.5px; margin: 0; }
 .chat-msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15.5px; line-height: 1.45; }
 .chat-msg .who { display: block; font-size: 12.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--grey); margin-bottom: 2px; }
-.chat-msg.mine { align-self: flex-end; background: #fff4d6; border: 1px solid var(--gold); }
+.chat-msg.mine { align-self: flex-end; background: #f2f2f2; border: 1px solid var(--gold); }
 .chat-msg.theirs { align-self: flex-start; background: var(--paper); border: 1px solid var(--line); }
 .chat-input-row { display: flex; gap: 8px; }
 .chat-input-row input { flex: 1; padding: 11px 12px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 16px; min-width: 0; }
 .chat-input-row .btn-primary { width: auto; margin-top: 0; padding: 11px 18px; }
 
-/* ============ SIGN-IN SCREEN — premium black/gold redesign ============
+/* ============ SIGN-IN SCREEN — premium black/grey redesign ============
    Visual-only (owner decision 2026-11-18: the login page must look
    premium). Every rule below is scoped to #screen-login, so no
    other screen changes. No markup, IDs, wording, or behaviour is
    touched: the same email + password form, Forgot password flow,
    reset flow, and "New driver registration" link — restyled in
-   the Blacklane black/gold language of the rest of the app.
+   the Blacklane black/grey language of the rest of the app.
    The tab bar is hidden on this screen (see showScreen in
    driver.js), so the extra bottom padding for it is dropped. */
 #screen-login {
   color-scheme: dark;
   background:
-    radial-gradient(120% 42% at 50% -8%, rgba(201, 162, 39, 0.22), rgba(201, 162, 39, 0) 62%),
+    radial-gradient(120% 42% at 50% -8%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 62%),
     linear-gradient(180deg, #101012 0%, #0b0b0c 46%, #141311 100%);
   color: #f2f0ea;
   padding: 34px 22px 40px;
@@ -332,7 +333,7 @@ input, select { font: inherit; }
   letter-spacing: 0.01em;
   margin: 6px 0 4px;
 }
-/* Short gold rule under the heading — decorative only, no text. */
+/* Short grey rule under the heading — decorative only, no text. */
 #screen-login h2::after {
   content: "";
   display: block;
@@ -362,7 +363,7 @@ input, select { font: inherit; }
 #screen-login .field input:focus {
   outline: none;
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 /* Keep autofilled credentials readable on the dark fields (iOS
    Safari otherwise paints its own pale background). */
@@ -371,22 +372,23 @@ input, select { font: inherit; }
   -webkit-text-fill-color: var(--white);
   caret-color: var(--white);
 }
-/* Big tappable gold button — sign-in, set-new-password, and the
+/* Big tappable black button — sign-in, set-new-password, and the
    back-to-sign-in button all share these classes. */
 #screen-login .btn-primary.btn-gold {
   margin-top: 10px;
   padding: 16px;
-  border: 1px solid #a8861d;
+  border: 1px solid #555555;
   border-radius: 10px;
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.02em;
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  background: var(--black);
+  color: var(--white);
+  box-shadow: none;
 }
 #screen-login .btn-primary.btn-gold:active {
   transform: translateY(1px);
-  box-shadow: 0 4px 12px rgba(201, 162, 39, 0.22);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 #screen-login .form-error { color: #ff9d9d; font-size: 14.5px; }
 #screen-login .form-note { color: #b9b7ae; }
@@ -417,39 +419,39 @@ input, select { font: inherit; }
 #screen-login #reset-block { margin-top: 8px; }
 #screen-login .section-title {
   color: var(--gold-soft);
-  border-top-color: rgba(201, 162, 39, 0.35);
+  border-top-color: rgba(255, 255, 255, 0.35);
   font-size: 14px;
 }
 /* "New driver registration" stays the bottom action, now a clear
-   secondary button: gold outline on the dark screen. */
+   secondary button: grey outline on the dark screen. */
 #screen-login #show-register-link {
   display: block;
   width: 100%;
   margin-top: 30px;
   padding: 15px 14px;
-  border: 1px solid rgba(201, 162, 39, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.65);
   border-radius: 10px;
-  background: rgba(201, 162, 39, 0.06);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--gold-soft);
   font-size: 15.5px;
   font-weight: 600;
   text-align: center;
   text-decoration: none;
 }
-#screen-login #show-register-link:active { background: rgba(201, 162, 39, 0.14); }
+#screen-login #show-register-link:active { background: rgba(255, 255, 255, 0.14); }
 
 /* ============ SIGNED-IN DASHBOARD — luxury dark theme ============
    Visual-only (owner decision 2026-11-18: the dashboard must look
    as premium as the redesigned sign-in screen). Every rule below
    is scoped to the five signed-in screens, so the sign-in and
    registration screens keep their own styling untouched. Same
-   black/gold language as the sign-in screen: dark gradient
-   canvas with a gold glow, serif headings with a gold rule,
-   dark cards with soft depth, gold gradient primary buttons.
+   black/grey language as the sign-in screen: dark gradient
+   canvas with a grey glow, serif headings with a grey rule,
+   dark cards with soft depth, black primary buttons.
    No markup, IDs, wording, JS, or behaviour changed. The
-   pale-gold earnings and toll boxes keep their light background
+   pale-grey earnings and toll boxes keep their light background
    so the driver's own earnings stay readable at a glance on
-   the dark cards, and the gold reminder banner keeps its
+   the dark cards, and the grey reminder banner keeps its
    light background so it still stands out. */
 
 /* Dark canvas, shared by the five signed-in screens. */
@@ -460,12 +462,12 @@ input, select { font: inherit; }
 #screen-profile {
   color-scheme: dark;
   background:
-    radial-gradient(120% 30% at 50% -6%, rgba(201, 162, 39, 0.16), rgba(201, 162, 39, 0) 60%),
+    radial-gradient(120% 30% at 50% -6%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 60%),
     linear-gradient(180deg, #101012 0%, #0b0b0c 46%, #141311 100%);
   color: #f2f0ea;
 }
 
-/* Serif headings with a short gold rule, as on the sign-in screen. */
+/* Serif headings with a short grey rule, as on the sign-in screen. */
 #screen-trip h2,
 #screen-earnings h2,
 #screen-documents h2,
@@ -512,7 +514,7 @@ input, select { font: inherit; }
 #screen-documents .form-error,
 #screen-profile .form-error { color: #ff9d9d; }
 
-/* Section titles in soft gold with a faint gold rule. */
+/* Section titles in soft grey with a faint grey rule. */
 #screen-home .section-title,
 #screen-trip .section-title,
 #screen-earnings .section-title,
@@ -520,10 +522,10 @@ input, select { font: inherit; }
 #screen-documents .section-title,
 #screen-profile .section-title {
   color: var(--gold-soft);
-  border-top-color: rgba(201, 162, 39, 0.35);
+  border-top-color: rgba(255, 255, 255, 0.35);
 }
 
-/* Dark inputs with gold focus rings (waiting minutes, extra miles). */
+/* Dark inputs with dark focus rings (waiting minutes, extra miles). */
 #screen-trip .field label {
   color: var(--gold-soft);
   font-size: 12px;
@@ -540,21 +542,22 @@ input, select { font: inherit; }
 #screen-trip .field input:focus {
   outline: none;
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-/* Gold gradient primary buttons, as on the sign-in screen. */
+/* Flat black primary buttons, as on the sign-in screen. */
 #screen-home .btn-primary.btn-gold,
 #screen-trip .btn-primary.btn-gold,
 #screen-earnings .btn-primary.btn-gold,
 #screen-documents .btn-primary.btn-gold,
 #screen-profile .btn-primary.btn-gold {
-  border: 1px solid #a8861d;
+  border: 1px solid #555555;
   border-radius: 10px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.02em;
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  background: var(--black);
+  color: var(--white);
+  box-shadow: none;
 }
 #screen-home .btn-primary.btn-gold:active,
 #screen-trip .btn-primary.btn-gold:active,
@@ -562,7 +565,7 @@ input, select { font: inherit; }
 #screen-documents .btn-primary.btn-gold:active,
 #screen-profile .btn-primary.btn-gold:active {
   transform: translateY(1px);
-  box-shadow: 0 4px 12px rgba(201, 162, 39, 0.22);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 /* Secondary and danger buttons stay legible on dark. */
 #screen-home .btn-ghost,
@@ -590,20 +593,20 @@ input, select { font: inherit; }
   margin: 16px auto 0;
 }
 #screen-home .toggle-btn {
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  color: var(--black);
-  border: 1px solid #a8861d;
-  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  background: var(--black);
+  color: var(--white);
+  border: 1px solid var(--black);
+  box-shadow: none;
 }
 #screen-home .toggle-btn.on {
   background: var(--black);
-  border-color: var(--gold);
-  color: var(--gold);
+  border-color: #888888;
+  color: var(--white);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 #screen-home .toggle-btn:active { transform: translateY(1px); }
 
-/* Job offer cards: dark with depth, gold spine, pale-gold earnings. */
+/* Job offer cards: dark with depth, grey spine, pale-grey earnings. */
 #screen-home .offer {
   background: #1d1d1f;
   border: 1px solid #2e2e30;
@@ -622,7 +625,7 @@ input, select { font: inherit; }
 #screen-home .btn-accept:active,
 #screen-home .btn-decline:active { transform: translateY(1px); }
 
-/* Trip card: dark with depth; links in soft gold. */
+/* Trip card: dark with depth; links in soft grey. */
 #screen-trip .trip-card {
   background: #1d1d1f;
   border: 1px solid #2e2e30;
@@ -637,7 +640,7 @@ input, select { font: inherit; }
 #screen-trip .route-link { color: var(--gold-soft); }
 #screen-trip #trip-flight .flight-track-link { color: var(--gold-soft); }
 
-/* Stage list: dark rows, gold for the current stage. */
+/* Stage list: dark rows, grey for the current stage. */
 #screen-trip .stage-list li {
   background: #1d1d1f;
   border: 1px solid #2e2e30;
@@ -646,19 +649,19 @@ input, select { font: inherit; }
 }
 #screen-trip .stage-list li.done { border-color: #2e9e66; color: #4cc38a; }
 #screen-trip .stage-list li.current {
-  border-color: var(--gold);
-  background: rgba(201, 162, 39, 0.12);
-  color: var(--gold-soft);
-  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.18);
+  border-color: #888888;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+  box-shadow: none;
 }
 
-/* Gold reminder banner: same light background, now with a soft glow. */
+/* Grey reminder banner: same light background, now with a soft glow. */
 #screen-trip .reminder-banner {
   border-radius: 12px;
-  box-shadow: 0 8px 22px rgba(201, 162, 39, 0.3);
+  box-shadow: 0 8px 22px rgba(255, 255, 255, 0.3);
 }
 
-/* Trip chat: dark card, pale-gold own messages, dark replies. */
+/* Trip chat: dark card, pale-grey own messages, dark replies. */
 #screen-trip .chat-box {
   background: #1d1d1f;
   border: 1px solid #2e2e30;
@@ -689,7 +692,7 @@ input, select { font: inherit; }
 #screen-trip .chat-box .chat-input-row input:focus {
   outline: none;
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 /* Payout setup (Stripe Connect): dark cards matching the pay weeks. */
@@ -706,18 +709,18 @@ input, select { font: inherit; }
 #screen-earnings .payout-setup .payout-key { color: var(--white); }
 #screen-earnings .payout-setup .payout-line span:last-child { color: #f2f0ea; }
 
-/* Earnings: gold-framed summary, dark week cards, gold amounts. */
+/* Earnings: grey-framed summary, dark week cards, grey amounts. */
 #screen-earnings .earn-sum {
   background: linear-gradient(180deg, #1a1a1c, #0b0b0c);
-  border: 1px solid rgba(201, 162, 39, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 14px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 #screen-earnings .earn-sum .amount { color: var(--white); }
-/* Tax info: same gold-framed summary as Earnings. */
+/* Tax info: same grey-framed summary as Earnings. */
 #screen-tax .earn-sum {
   background: linear-gradient(180deg, #1a1a1c, #0b0b0c);
-  border: 1px solid rgba(201, 162, 39, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 14px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
@@ -745,7 +748,7 @@ input, select { font: inherit; }
 }
 #screen-documents .doc-status .name { color: #f2f0ea; }
 
-/* Profile: dark card, gold-framed photo. */
+/* Profile: dark card, grey-framed photo. */
 #screen-profile .profile-card {
   background: #1d1d1f;
   border: 1px solid #2e2e30;
@@ -755,28 +758,29 @@ input, select { font: inherit; }
 #screen-profile .profile-row { border-bottom-color: rgba(255, 255, 255, 0.09); color: #f2f0ea; }
 #screen-profile .profile-row .k { color: #b9b7ae; }
 
-/* Bottom tab bar: gold glow on the active tab, home-indicator room. */
+/* Bottom tab bar: grey glow on the active tab, home-indicator room. */
 .tabbar button { padding: 13px 4px max(15px, env(safe-area-inset-bottom)); }
 .tabbar button.active { color: var(--gold-soft); }
-.tabbar button.active .ico { text-shadow: 0 0 12px rgba(201, 162, 39, 0.8); }
+.tabbar button.active .ico { text-shadow: 0 0 12px rgba(255, 255, 255, 0.8); }
 .tabbar button:active { transform: translateY(1px); }
 
 /* Navigation chooser: dark luxury card over the trip screen. */
 .nav-chooser-overlay { background: rgba(0, 0, 0, 0.62); }
 .nav-chooser-card {
   background: #1d1d1f;
-  border: 1px solid rgba(201, 162, 39, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 16px;
   box-shadow: 0 24px 54px rgba(0, 0, 0, 0.55);
 }
 .nav-chooser-title { color: var(--white); }
 .nav-chooser-dest { color: #b9b7ae; }
 .nav-chooser-card .btn-primary.btn-gold {
-  border: 1px solid #a8861d;
+  border: 1px solid #555555;
   border-radius: 10px;
-  font-weight: 700;
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  font-weight: 400;
+  background: var(--black);
+  color: var(--white);
+  box-shadow: none;
 }
 .nav-chooser-card .btn-primary.btn-gold:active { transform: translateY(1px); }
 .nav-chooser-card .btn-ghost {
@@ -813,7 +817,7 @@ input, select { font: inherit; }
    background with dark ink pinned, so it stays readable on the dark
    home screen (same lesson as the earnings-amount fix above). */
 #screen-trip .cancel-reason-panel {
-  border: 1px solid rgba(201, 162, 39, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 12px;
   background: #1a1a1c;
   padding: 16px;
@@ -856,7 +860,7 @@ input, select { font: inherit; }
 #screen-trip .field textarea:focus {
   outline: none;
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 #screen-home .suspension-banner {
   border: 1px solid #d8a7a7;

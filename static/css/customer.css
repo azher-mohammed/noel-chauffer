@@ -1,9 +1,9 @@
-/* Noel Chauffer — customer site. Black / white / gold, premium. */
+/* Noel Chauffer — customer site. Black / white / grey, plain business look. */
 :root {
   --black: #0b0b0c;
   --ink: #161617;
-  --gold: #c9a227;
-  --gold-soft: #e8d9a0;
+  --gold: #1a1a1a;
+  --gold-soft: #d8d8d8;
   --white: #ffffff;
   --paper: #f7f5f0;
   --sky: #b9d3f1;
@@ -117,13 +117,13 @@ input, select, textarea { font: inherit; }
 }
 .btn-primary:hover { background: #222; }
 .btn-primary:disabled { opacity: 0.6; cursor: wait; }
-.btn-gold { background: var(--gold); color: var(--black); }
-.btn-gold:hover { background: #b8921f; }
+.btn-gold { background: var(--black); color: var(--white); font-weight: 400; }
+.btn-gold:hover { background: #222; }
 .btn-ghost {
-  background: transparent; border: 1px solid #cfccc2; color: var(--ink);
+  background: var(--black); border: 1px solid var(--black); color: var(--white);
   padding: 11px 16px; border-radius: 3px;
 }
-.btn-danger { background: transparent; border: 1px solid #d8a7a7; color: var(--bad); padding: 10px 16px; border-radius: 3px; }
+.btn-danger { background: var(--black); border: 1px solid var(--black); color: var(--white); padding: 10px 16px; border-radius: 3px; }
 .form-error { color: var(--bad); font-size: 14px; margin-top: 10px; min-height: 1.2em; }
 .form-note { color: var(--grey); font-size: 13px; margin-top: 10px; }
 
@@ -196,7 +196,7 @@ input, select, textarea { font: inherit; }
 .total-box {
   margin-top: 18px; border: 1px solid var(--gold); border-radius: 6px; padding: 18px;
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;
-  background: #fffdf4;
+  background: #f7f7f7;
 }
 .total-box .label { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--grey); }
 .total-box .amount { font-family: Georgia, serif; font-size: 34px; }
@@ -236,7 +236,7 @@ input, select, textarea { font: inherit; }
 /* Payment */
 .pay-panel { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 18px; }
 .field-label { display: block; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--grey); margin-bottom: 5px; }
-/* Stripe Card Element: styled like the site's own inputs (black-and-gold).
+/* Stripe Card Element: styled like the site's own inputs (black-and-grey).
    Card details live inside Stripe's iframe — this site never sees them. */
 .stripe-card-element {
   width: 100%; padding: 11px 12px; border: 1px solid #cfccc2; border-radius: 3px;
@@ -257,7 +257,7 @@ input, select, textarea { font: inherit; }
 .save-card { display: flex; align-items: center; gap: 8px; font-size: 14.5px; margin: 4px 0 10px; cursor: pointer; }
 .save-card input { accent-color: var(--gold); }
 .test-banner {
-  background: #fff4d6; border: 1px solid var(--gold); color: #6b5510;
+  background: #f2f2f2; border: 1px solid var(--gold); color: #4a4a4a;
   border-radius: 4px; padding: 11px 14px; font-size: 14.5px; margin-bottom: 16px;
 }
 .pay-panel .field-row { grid-template-columns: 1fr 1fr; }
@@ -265,7 +265,7 @@ input, select, textarea { font: inherit; }
 /* Thank you / invoice */
 .thankyou h2 { font-size: 30px; }
 .referral-box {
-  border: 1px solid var(--gold); background: #fffdf4; border-radius: 6px; padding: 16px 18px; margin-top: 16px;
+  border: 1px solid var(--gold); background: #f7f7f7; border-radius: 6px; padding: 16px 18px; margin-top: 16px;
 }
 .referral-box p { margin: 4px 0; }
 #referral-link-line a { word-break: break-all; color: #8a6d14; }
@@ -286,7 +286,7 @@ input, select, textarea { font: inherit; }
 .exp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 @media (max-width: 860px) { .exp-grid { grid-template-columns: 1fr; } }
 .exp-card { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--white); }
-.exp-card .band { height: 8px; background: linear-gradient(90deg, var(--gold), #7fa8d9 60%, var(--sky)); }
+.exp-card .band { height: 8px; background: linear-gradient(90deg, #555555, #7fa8d9 60%, var(--sky)); }
 .card-photo { display: block; width: 100%; height: 190px; object-fit: cover; }
 .exp-body { padding: 20px 22px 22px; }
 .exp-body .glyph { color: var(--gold); font-size: 22px; }
@@ -321,7 +321,7 @@ input, select, textarea { font: inherit; }
 .history-item .h-total { font-family: Georgia, serif; font-size: 19px; white-space: nowrap; }
 .pill {
   display: inline-block; font-size: 12.5px; padding: 2px 10px; border-radius: 999px;
-  border: 1px solid var(--gold); color: #6b5510; background: #fffdf4; text-transform: capitalize;
+  border: 1px solid #cfcfcf; color: #4a4a4a; background: #f7f7f7; text-transform: capitalize;
 }
 
 /* Footer */
@@ -366,7 +366,7 @@ input, select, textarea { font: inherit; }
 #chat-panel .chat-empty { color: var(--grey); font-size: 14px; margin: 0; }
 #chat-panel .chat-msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15px; line-height: 1.4; }
 #chat-panel .chat-msg .who { display: block; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--grey); margin-bottom: 2px; }
-#chat-panel .chat-msg.mine { align-self: flex-end; background: #fff4d6; border: 1px solid var(--gold); }
+#chat-panel .chat-msg.mine { align-self: flex-end; background: #f2f2f2; border: 1px solid var(--gold); }
 #chat-panel .chat-msg.theirs { align-self: flex-start; background: var(--white); border: 1px solid var(--line); }
 #chat-panel .chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
 #chat-panel .chat-input-row input { flex: 1; padding: 11px 12px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 16px; min-width: 0; }
@@ -378,10 +378,10 @@ input, select, textarea { font: inherit; }
    below overrides presentation only: no markup, IDs, wording, JS,
    or behaviour changed. The approved homepage keeps its copy,
    headline, sections, and structure; the polish below only adds
-   depth, gold accents, and refined controls to the booking flow,
+   depth, black accents, and refined controls to the booking flow,
    status views, history, and chat. */
 
-/* Booking, flight, and class cards: gold accent, soft depth. */
+/* Booking, flight, and class cards: black accent, soft depth. */
 .booking-card {
   border-radius: 12px;
   border-top: 3px solid var(--gold);
@@ -399,7 +399,7 @@ input, select, textarea { font: inherit; }
   margin-top: 10px;
 }
 
-/* Refined inputs with gold focus rings. */
+/* Refined inputs with dark focus rings. */
 .field input, .field select {
   border-radius: 8px;
   padding: 12px;
@@ -408,38 +408,41 @@ input, select, textarea { font: inherit; }
 .field input:focus, .field select:focus {
   outline: none;
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25);
 }
 
-/* Buttons: depth, gold gradients, press feedback. */
+/* Buttons: flat black, plain business look, press feedback. */
 .btn-primary {
   border-radius: 8px;
-  background: linear-gradient(180deg, #262628, #0b0b0c);
-  box-shadow: 0 8px 20px rgba(11, 11, 12, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: var(--black);
+  color: var(--white);
+  font-weight: 400;
+  box-shadow: 0 8px 20px rgba(11, 11, 12, 0.22);
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
 }
-.btn-primary:hover { background: linear-gradient(180deg, #333335, #161617); }
+.btn-primary:hover { background: #222; }
 .btn-primary:active { transform: translateY(1px); box-shadow: 0 4px 12px rgba(11, 11, 12, 0.2); }
 .btn-gold {
-  border: 1px solid #a8861d;
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  font-weight: 700;
-  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--black);
+  background: var(--black);
+  color: var(--white);
+  font-weight: 400;
+  box-shadow: none;
 }
-.btn-gold:hover { background: linear-gradient(180deg, #e6cb62, #d4af2f 55%, #b08d1e); }
+.btn-gold:hover { background: #222; }
 .btn-ghost { border-radius: 8px; transition: border-color 0.15s ease, transform 0.12s ease; }
-.btn-ghost:hover { border-color: var(--gold); }
+.btn-ghost:hover { background: #222; border-color: #222; }
 .btn-ghost:active { transform: translateY(1px); }
 .btn-danger { border-radius: 8px; transition: background 0.15s ease, transform 0.12s ease; }
-.btn-danger:hover { background: #fdf3f3; }
+.btn-danger:hover { background: #222; }
 .btn-danger:active { transform: translateY(1px); }
 
-/* Ride tabs: gold underline on the active tab. */
+/* Ride tabs: black underline on the active tab. */
 .ride-tab { border-radius: 8px; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
 .ride-tab:hover { border-color: var(--gold); }
 .ride-tab.active { box-shadow: inset 0 -3px 0 var(--gold); }
 
-/* Class options: lift on hover, gold ring when selected. */
+/* Class options: lift on hover, black ring when selected. */
 .class-option {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
   box-shadow: 0 2px 8px rgba(11, 11, 12, 0.05);
@@ -452,28 +455,40 @@ input, select, textarea { font: inherit; }
 /* Status card, driver card, and total: soft depth. */
 .status-card { border-radius: 12px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1); }
 .driver-card { border-radius: 10px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.07); }
-.total-box { border-radius: 10px; box-shadow: 0 8px 22px rgba(201, 162, 39, 0.14); }
+.total-box { border-radius: 10px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14); }
 
-/* Address suggestions: softer corners, gold-tinted highlight. */
+/* Address suggestions: softer corners, grey-tinted highlight. */
 .places-list { border-radius: 8px; }
-.places-list li button:hover, .places-list li button.active { background: #fffdf4; }
+.places-list li button:hover, .places-list li button.active { background: #f7f7f7; }
 
 /* Map: softer corners. */
 #map { border-radius: 8px; }
 .map-fallback { border-radius: 8px; }
 
-/* Payment: the Pay button is gold; the test banner keeps its warning look. */
+/* Payment: the Pay button is plain black with white text — normal
+   business look (owner 2026-11-21): no gold, no gradient. The test
+   banner keeps its warning look. */
 .pay-panel .btn-primary {
-  border: 1px solid #a8861d;
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  color: var(--black);
-  font-weight: 700;
-  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--black);
+  background: var(--black);
+  color: var(--white);
+  font-weight: 400;
+  box-shadow: none;
 }
-.pay-panel .btn-primary:hover { background: linear-gradient(180deg, #e6cb62, #d4af2f 55%, #b08d1e); }
+.pay-panel .btn-primary:hover { background: #222; }
+
+/* "Pay by card" opener: same plain black button, white normal text. */
+#pay-open-btn {
+  background: var(--black);
+  color: var(--white);
+  border: 1px solid var(--black);
+  font-weight: 400;
+  box-shadow: none;
+}
+#pay-open-btn:hover { background: #222; }
 .test-banner { border-radius: 8px; }
 
-/* Thank you, referral, and invoice: gold accents. */
+/* Thank you, referral, and invoice: black accents. */
 .thankyou h2::after {
   content: "";
   display: block;
@@ -486,11 +501,11 @@ input, select, textarea { font: inherit; }
 .referral-box {
   border-radius: 10px;
   border-left: 4px solid var(--gold);
-  box-shadow: 0 8px 22px rgba(201, 162, 39, 0.12);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
 }
 .invoice-panel tr.grand td { border-top: 2px solid var(--gold); }
 
-/* Ride history: gold-topped card, deep-gold totals. */
+/* Ride history: black-topped card, dark totals. */
 .history-box {
   border-radius: 12px;
   border-top: 3px solid var(--gold);
@@ -500,7 +515,7 @@ input, select, textarea { font: inherit; }
 .history-box input:focus {
   outline: none;
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25);
 }
 .history-item .h-total { color: #8a6d1a; }
 .pill { padding: 3px 12px; font-weight: 600; }
@@ -512,31 +527,33 @@ input, select, textarea { font: inherit; }
 .contacts-box { border-radius: 8px; box-shadow: 0 10px 26px rgba(11, 11, 12, 0.06); }
 .airport-card { border-radius: 10px; box-shadow: 0 16px 40px rgba(11, 11, 12, 0.1); }
 
-/* Header, hero, and footer: subtle depth and gold accents. */
+/* Header, hero, and footer: subtle depth and black accents. */
 .site-header { box-shadow: 0 4px 18px rgba(11, 11, 12, 0.06); }
 .header-cta {
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  color: var(--black);
-  font-weight: 700;
-  border: 1px solid #a8861d;
+  background: var(--black);
+  color: var(--white);
+  font-weight: 400;
+  border: 1px solid var(--black);
   border-radius: 6px;
-  box-shadow: 0 6px 16px rgba(201, 162, 39, 0.28);
+  box-shadow: none;
 }
-.header-cta:hover { background: linear-gradient(180deg, #e6cb62, #d4af2f 55%, #b08d1e); }
+.header-cta:hover { background: #222; }
 .site-footer { border-top: 3px solid var(--gold); }
 .hero-band { background: linear-gradient(180deg, #c7daf3 0%, var(--sky) 55%, #a9c4e8 100%); }
 .booking-section { background: linear-gradient(180deg, var(--sky-soft) 0%, #ffffff 100%); }
 
-/* Support chat widget: gold button, gold-topped panel. */
+/* Support chat widget: plain black "Chat with us" button with white
+   text — normal business look (owner 2026-11-21): no gold, no gradient.
+   The panel keeps its black top. */
 .chat-fab {
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  color: var(--black);
-  font-weight: 700;
-  border: 1px solid #a8861d;
-  box-shadow: 0 12px 28px rgba(201, 162, 39, 0.35);
+  background: var(--black);
+  color: var(--white);
+  font-weight: 400;
+  border: 1px solid var(--black);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.chat-fab:hover { background: linear-gradient(180deg, #e6cb62, #d4af2f 55%, #b08d1e); }
+.chat-fab:hover { background: #222; }
 .chat-fab:active { transform: translateY(1px); }
 .chat-panel {
   border-radius: 14px;
@@ -548,41 +565,41 @@ input, select, textarea { font: inherit; }
 .msg.bot { box-shadow: 0 2px 8px rgba(11, 11, 12, 0.05); }
 .msg.user { box-shadow: 0 4px 12px rgba(11, 11, 12, 0.18); }
 .chat-chips button { transition: background 0.15s ease, transform 0.12s ease; }
-.chat-chips button:hover { background: #fff4d6; }
+.chat-chips button:hover { background: #f2f2f2; }
 .chat-chips button:active { transform: translateY(1px); }
 .chat-form input { border-radius: 8px; }
 .chat-form input:focus {
   outline: none;
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25);
 }
 .chat-form button {
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  color: var(--black);
-  font-weight: 700;
-  border: 1px solid #a8861d;
+  background: var(--black);
+  color: var(--white);
+  font-weight: 400;
+  border: 1px solid var(--black);
   border-radius: 8px;
 }
 .chat-form button:active { transform: translateY(1px); }
 
-/* Ride chat with the chauffeur: soft depth, gold Send button. */
+/* Ride chat with the chauffeur: soft depth, black Send button. */
 #chat-panel .chat-msg { box-shadow: 0 2px 8px rgba(11, 11, 12, 0.05); }
 #chat-panel .chat-messages { border-radius: 10px; }
 #chat-panel .chat-input-row input:focus {
   outline: none;
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25);
 }
 #chat-panel .chat-input-row .btn-primary {
-  border: 1px solid #a8861d;
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  color: var(--black);
-  font-weight: 700;
-  box-shadow: 0 6px 16px rgba(201, 162, 39, 0.28);
+  border: 1px solid var(--black);
+  background: var(--black);
+  color: var(--white);
+  font-weight: 400;
+  box-shadow: none;
 }
 
 /* ---- Blacklane-style top of homepage (owner decision 2026-11-20) ---- */
-/* Dark premium hero: Noel's own airport photo, white headline, gold subline. */
+/* Dark premium hero: Noel's own airport photo, white headline, grey subline. */
 .hero-band {
   background: linear-gradient(rgba(11,11,12,0.78), rgba(11,11,12,0.60)), url(/static/img/airport.jpg) center 65%/cover no-repeat;
   color: var(--white);
@@ -621,7 +638,7 @@ input, select, textarea { font: inherit; }
 .airport-body p + p { margin-top: 12px; }
 .exp-body p + p { margin-top: 10px; }
 
-/* Rich footer: link columns + NAP (black and gold, as the rest of the site). */
+/* Rich footer: link columns + NAP (black and grey, as the rest of the site). */
 .footer-cols { max-width: 1100px; margin: 0 auto; padding: 8px 20px 12px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 28px; }
 @media (max-width: 860px) { .footer-cols { grid-template-columns: 1fr 1fr; } }
 .footer-col h3 { color: var(--white); font-size: 15px; margin: 0 0 10px; }
@@ -655,10 +672,9 @@ input, select, textarea { font: inherit; }
 /* ---- Blacklane-style booking top (owner decision 2026-11-20) ---- */
 /* Layout exactly like the Blacklane screenshot he sent: photo hero,
    blue One way / By the hour pill on the photo, dark card overlapping
-   the photo with the fields, blue View options button. Noel's own words
+   the photo with the fields, black View options button. Noel's own words
    only — no Blacklane headline, no Blacklane images. Booking stays
    paused; no prices shown. */
-:root { --blue: #0b5fff; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .hero-band { min-height: 340px; background: linear-gradient(rgba(11,11,12,0.55), rgba(11,11,12,0.35)), url(/static/img/airport.jpg) center 65%/cover no-repeat; }
 .hero-band-inner { min-height: 340px; display: flex; align-items: flex-end; justify-content: center; padding: 40px 20px 118px; }
@@ -671,7 +687,7 @@ input, select, textarea { font: inherit; }
 .ride-tabs { display: inline-flex; gap: 4px; margin: 0; padding: 4px; border: 1px solid rgba(255, 255, 255, 0.65); border-radius: 999px; background: rgba(0, 0, 0, 0.28); }
 .ride-tab { flex: 1; padding: 10px 24px; border: 0; background: transparent; color: #fff; border-radius: 999px; font-size: 15px; }
 .ride-tab:hover { border-color: transparent; }
-.ride-tab.active { background: var(--blue); color: #fff; box-shadow: none; }
+.ride-tab.active { background: var(--black); color: #fff; box-shadow: none; border: 1px solid rgba(255, 255, 255, 0.5); }
 .booking-card .field label { color: rgba(255, 255, 255, 0.85); }
 .booking-card .field input, .booking-card .field select { background: transparent; border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.45); border-radius: 0; padding: 8px 2px; color: #fff; color-scheme: dark; box-shadow: none; }
 .booking-card .field input::placeholder { color: #c6c6c6; }
@@ -681,8 +697,8 @@ input, select, textarea { font: inherit; }
 .booking-card .form-error { color: #fff; }
 .booking-card .btn-ghost { color: #fff; border-color: rgba(255, 255, 255, 0.5); }
 .booking-card .btn-text { color: rgba(255, 255, 255, 0.8); }
-.booking-card .btn-primary { background: var(--blue); border-radius: 999px; box-shadow: 0 8px 20px rgba(11, 95, 255, 0.35); }
-.booking-card .btn-primary:hover { background: #004fe0; }
+.booking-card .btn-primary { background: var(--black); border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 999px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }
+.booking-card .btn-primary:hover { background: #222; }
 
 /* Homepage header over the photo (owner decision 2026-11-20): the car
    photo runs behind "Noel Chauffer" + Book, like Blacklane — no white
@@ -694,7 +710,7 @@ input, select, textarea { font: inherit; }
 
 /* Paused notice: dark, not the pale yellow box (owner decision 2026-11-20).
    The message text stays exactly as it was. */
-.paused-notice { background: #1c1c1e; border: 1px solid #c9a227; color: #fff; border-radius: 8px; padding: 12px 14px; font-weight: 600; }
+.paused-notice { background: #1c1c1e; border: 1px solid #888888; color: #fff; border-radius: 8px; padding: 12px 14px; font-weight: 600; }
 
 @media (max-width: 760px) {
   .hero-band, .hero-band-inner { min-height: 300px; }

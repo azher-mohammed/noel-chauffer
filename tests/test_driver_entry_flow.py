@@ -284,7 +284,7 @@ class DriverEntryFlowCase(unittest.TestCase):
 
     def test_availability_and_accept_buttons_have_no_green(self):
         # Owner decision, voice call 2026-11-21 ~03:05 EST ("I don't
-        # like green colors"): theme is black-and-gold — the Go
+        # like green colors"): theme is black-and-white — the Go
         # online / Go offline button AND the Accept button must not
         # be green. Pin the three rules that used to be green.
         css = read("static/css/driver.css")
@@ -298,7 +298,11 @@ class DriverEntryFlowCase(unittest.TestCase):
             self.assertNotIn("#1e7a4c", body)
             self.assertNotIn("#35a86f", body)
             self.assertNotIn("#4cc38a", body)
-        self.assertIn("var(--gold)", css[css.index(".btn-accept"):][:200])
+        # And since 2026-11-21 ~08:54 EST ("Black hai to poora") the
+        # Accept button is fully black with white text — no gold.
+        accept = css[css.index(".btn-accept"):]
+        self.assertIn("background: var(--black);", accept[:200])
+        self.assertIn("color: var(--white);", accept[:200])
 
     def test_reset_endpoints_still_wired(self):
         js = read("static/js/driver.js")

@@ -1,12 +1,11 @@
-/* Noel Chauffer — customer app. Phone-frame, black and gold, same luxury
-   language as the driver app dashboard restyle (2026-11-18): dark
-   gradient canvas with a gold glow, serif headings with a gold rule,
-   dark cards with soft depth, gold gradient primary buttons. */
+/* Noel Chauffer — customer app. Phone-frame, black and grey, plain
+   business look: dark canvas, serif headings, dark cards with soft
+   depth, flat black primary buttons. */
 :root {
   --black: #0b0b0c;
   --ink: #161617;
-  --gold: #c9a227;
-  --gold-soft: #e8d9a0;
+  --gold: #9a9a9a;
+  --gold-soft: #d8d8d8;
   --white: #ffffff;
   --paper: #f7f5f0;
   --grey: #6b6b6b;
@@ -64,7 +63,7 @@ input, select { font: inherit; }
   overflow-y: auto;
   color-scheme: dark;
   background:
-    radial-gradient(120% 30% at 50% -6%, rgba(201, 162, 39, 0.16), rgba(201, 162, 39, 0) 60%),
+    radial-gradient(120% 30% at 50% -6%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 60%),
     linear-gradient(180deg, #101012 0%, #0b0b0c 46%, #141311 100%);
   color: var(--soft);
 }
@@ -90,7 +89,7 @@ input, select { font: inherit; }
 .field input::placeholder { color: #8e8e93; }
 .field input:focus, .field select:focus {
   outline: none; border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .field input:-webkit-autofill {
   -webkit-box-shadow: 0 0 0 60px #1d1d1f inset;
@@ -128,9 +127,9 @@ input, select { font: inherit; }
   background: transparent; color: var(--soft); border: 1px solid rgba(255, 255, 255, 0.35);
 }
 .ride-tab.active {
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  color: var(--black); border: 1px solid #a8861d;
-  box-shadow: 0 6px 16px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  background: var(--black);
+  color: var(--white); border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: none;
 }
 
 /* Buttons */
@@ -140,20 +139,32 @@ input, select { font: inherit; }
 }
 .btn-primary:disabled { opacity: 0.6; }
 .btn-gold {
-  border: 1px solid #a8861d; font-weight: 700; letter-spacing: 0.02em;
-  background: linear-gradient(180deg, #dcbd4d, var(--gold) 55%, #b08d1e);
-  color: var(--black);
-  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  border: 0; font-weight: 400; letter-spacing: 0.02em;
+  background: var(--black);
+  color: var(--white);
+  box-shadow: none;
 }
 .btn-primary:active { transform: translateY(1px); }
+
+/* Pay and Chat-with-us buttons: plain black with white text, normal
+   business look (owner 2026-11-21) — no gold, no gradient. .btn-gold
+   itself is now the same plain black, so this only pins the IDs. */
+#ca-pay-submit,
+#ca-chat-send {
+  background: var(--black);
+  color: var(--white);
+  border: 0;
+  font-weight: 400;
+  box-shadow: none;
+}
 .btn-ghost {
-  background: transparent; border: 1px solid rgba(255, 255, 255, 0.35); color: var(--soft);
-  padding: 13px 16px; border-radius: 10px; width: 100%; font-weight: 600;
+  background: var(--black); border: 1px solid var(--black); color: var(--white);
+  padding: 13px 16px; border-radius: 10px; width: 100%; font-weight: 400;
 }
 .btn-ghost:active { transform: translateY(1px); }
 .btn-danger {
-  background: transparent; border: 1px solid rgba(255, 157, 157, 0.55); color: #ff9d9d;
-  padding: 13px 16px; border-radius: 10px; width: 100%; font-weight: 600;
+  background: var(--black); border: 1px solid var(--black); color: var(--white);
+  padding: 13px 16px; border-radius: 10px; width: 100%; font-weight: 400;
 }
 .btn-danger:active { transform: translateY(1px); }
 .btn-text {
@@ -186,7 +197,7 @@ input, select { font: inherit; }
 .class-option:hover { border-color: var(--gold); }
 .class-option.selected {
   border: 2px solid var(--gold);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(201, 162, 39, 0.22);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.22);
 }
 .class-option-name { font-size: 16px; font-weight: 600; color: var(--white); }
 .class-option-total { font-family: Georgia, serif; font-size: 26px; color: var(--gold-soft); }
@@ -202,7 +213,7 @@ input, select { font: inherit; }
 .status-line .dot {
   display: inline-block; width: 9px; height: 9px; border-radius: 50%;
   background: var(--gold); margin-right: 8px;
-  box-shadow: 0 0 10px rgba(201, 162, 39, 0.9);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
 }
 .ride-summary { color: var(--muted); font-size: 14.5px; word-break: break-word; }
 .driver-card {
@@ -221,7 +232,7 @@ input, select { font: inherit; }
 /* Total + payment */
 .total-box {
   display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
-  background: var(--card); border: 1px solid rgba(201, 162, 39, 0.55); border-radius: 14px;
+  background: var(--card); border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 14px;
   padding: 18px; margin: 16px 0; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
 .total-box .label { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
@@ -238,7 +249,7 @@ input, select { font: inherit; }
   width: 100%; padding: 13px 14px; border: 1px solid #3a3a3e; border-radius: 10px;
   background: #1d1d1f; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
-.stripe-card-element.StripeElement--focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35); }
+.stripe-card-element.StripeElement--focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35); }
 .stripe-card-element.StripeElement--invalid { border-color: var(--bad); }
 .saved-card-option {
   display: flex; align-items: center; gap: 10px;
@@ -253,14 +264,14 @@ input, select { font: inherit; }
 .save-card { display: flex; align-items: center; gap: 8px; font-size: 14.5px; color: var(--soft); margin: 4px 0 10px; cursor: pointer; }
 .save-card input { accent-color: var(--gold); }
 .test-banner {
-  background: #fff4d6; color: #6b5510; border: 1px solid var(--gold);
+  background: #f2f2f2; color: #4a4a4a; border: 1px solid var(--gold);
   border-radius: 10px; padding: 11px 13px; font-size: 13.5px; margin-bottom: 14px;
 }
 
 /* Thank-you + referral + invoice */
 .thankyou { margin: 16px 0; }
 .referral-box {
-  background: var(--card); border: 1px solid rgba(201, 162, 39, 0.4); border-radius: 14px;
+  background: var(--card); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 14px;
   padding: 16px; margin: 12px 0; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
 .referral-box h3 { margin: 0 0 4px; }
@@ -302,11 +313,11 @@ input, select { font: inherit; }
 .chat-empty { color: var(--muted); font-size: 14px; margin: 0; }
 .chat-msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15px; line-height: 1.4; }
 .chat-msg .who { display: block; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: #a8a6a0; margin-bottom: 2px; }
-.chat-msg.mine { align-self: flex-end; background: #fff4d6; border: 1px solid var(--gold); color: var(--black); }
-.chat-msg.mine .who { color: #6b5510; }
+.chat-msg.mine { align-self: flex-end; background: #f2f2f2; border: 1px solid var(--gold); color: var(--black); }
+.chat-msg.mine .who { color: #4a4a4a; }
 .chat-msg.theirs { align-self: flex-start; background: #2a2a2c; border: 1px solid #3a3a3e; color: var(--soft); }
 .msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15px; line-height: 1.4; }
-.msg.user { align-self: flex-end; background: #fff4d6; border: 1px solid var(--gold); color: var(--black); }
+.msg.user { align-self: flex-end; background: #f2f2f2; border: 1px solid var(--gold); color: var(--black); }
 .msg.bot { align-self: flex-start; background: #2a2a2c; border: 1px solid #3a3a3e; color: var(--soft); }
 .chat-input-row { display: flex; gap: 8px; }
 .chat-input-row input {
@@ -316,15 +327,15 @@ input, select { font: inherit; }
 }
 .chat-input-row input:focus {
   outline: none; border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .chat-input-row .btn-primary { width: auto; margin-top: 0; padding: 11px 18px; }
 .chat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .chat-chips button {
-  background: transparent; border: 1px solid rgba(201, 162, 39, 0.55); color: var(--gold-soft);
+  background: transparent; border: 1px solid rgba(255, 255, 255, 0.55); color: var(--gold-soft);
   border-radius: 999px; padding: 8px 13px; font-size: 14px; font-weight: 600;
 }
-.chat-chips button:active { background: rgba(201, 162, 39, 0.14); }
+.chat-chips button:active { background: rgba(255, 255, 255, 0.14); }
 .chat-form { display: flex; gap: 8px; }
 .chat-form input {
   flex: 1; padding: 12px; border: 1px solid #3a3a3e; border-radius: 10px;
@@ -333,7 +344,7 @@ input, select { font: inherit; }
 }
 .chat-form input:focus {
   outline: none; border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .chat-form .btn-primary { width: auto; margin-top: 0; padding: 12px 18px; }
 
@@ -349,7 +360,7 @@ input, select { font: inherit; }
 .history-item .h-view { margin-top: 10px; }
 .pill {
   display: inline-block; font-size: 13px; padding: 4px 11px; border-radius: 999px;
-  background: rgba(201, 162, 39, 0.14); color: var(--gold-soft); border: 1px solid rgba(201, 162, 39, 0.55);
+  background: rgba(255, 255, 255, 0.14); color: var(--gold-soft); border: 1px solid rgba(255, 255, 255, 0.55);
   margin-top: 6px;
 }
 
@@ -364,10 +375,10 @@ input, select { font: inherit; }
   padding: 13px 4px max(15px, env(safe-area-inset-bottom)); font-size: 12.5px;
 }
 .tabbar button.active { color: var(--gold-soft); font-weight: 700; }
-.tabbar button.active .ico { text-shadow: 0 0 12px rgba(201, 162, 39, 0.8); }
+.tabbar button.active .ico { text-shadow: 0 0 12px rgba(255, 255, 255, 0.8); }
 .tabbar button:active { transform: translateY(1px); }
 .tabbar .ico { display: block; font-size: 19px; margin-bottom: 2px; }
 
 /* Paused notice: dark, not the pale yellow box (owner decision 2026-11-20).
    The message text stays exactly as it was. */
-.paused-notice { background: #1c1c1e; border: 1px solid #c9a227; color: #fff; border-radius: 8px; padding: 12px 14px; font-weight: 600; }
+.paused-notice { background: #1c1c1e; border: 1px solid #888888; color: #fff; border-radius: 8px; padding: 12px 14px; font-weight: 600; }

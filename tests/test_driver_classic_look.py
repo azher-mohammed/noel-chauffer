@@ -3,7 +3,7 @@
 Owner decision, voice call 2026-11-21 ~23:31 EST, clarified ~23:32 EST
 ("matlab samajh rahe ho, business look rehna"): the driver app should
 look classic = business-like — professional, clean, understated. Larger,
-more readable type and airier spacing, on the existing black-and-gold
+more readable type and airier spacing, on the existing black-and-grey
 palette with the Georgia-serif headings. No new colours, no new fonts,
 no flashy effects, no layout moves, no wording or behaviour changes.
 

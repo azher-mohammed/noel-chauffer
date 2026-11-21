@@ -2,7 +2,7 @@
 
 App Store Connect requires a privacy policy URL at submission, and
 https://noelchauffer.com/privacy was 404. GET /privacy serves the
-policy page in the site's black-and-gold style, and the homepage
+policy page in the site's black-and-grey style, and the homepage
 footer links to it.
 
 Run:  python -m unittest discover -s tests -v

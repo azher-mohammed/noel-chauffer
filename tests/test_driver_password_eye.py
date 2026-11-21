@@ -75,7 +75,7 @@ class DriverPasswordEyeCase(unittest.TestCase):
         self.assertEqual(html.count('class="password-eye"'),
                          len(PASSWORD_FIELDS))
 
-    # -- styling: toggle sits inside the field, gold, readable ------
+    # -- styling: toggle sits inside the field, grey, readable ------
     def test_password_wrap_css_positions_eye_inside_field(self):
         css = read("static/css/driver.css")
         self.assertIn(".password-wrap { position: relative; }", css)

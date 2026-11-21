@@ -140,8 +140,8 @@ class DriverHomeMenuCase(unittest.TestCase):
             'showScreen(b.getAttribute("data-screen")); });',
             wiring[:300])
 
-    # -- CSS: black and gold, top-left row -----------------------------
-    def test_home_menu_styling_black_and_gold(self):
+    # -- CSS: black and grey, top-left row -----------------------------
+    def test_home_menu_styling_black_and_grey(self):
         css = read("static/css/driver.css")
         self.assertIn(".app-head-row { display: flex;", css)
         self.assertIn(".home-menu-btn {", css)

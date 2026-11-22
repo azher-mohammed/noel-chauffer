@@ -282,20 +282,16 @@
             <input id="class-email" type="email" autocomplete="email" placeholder="you@example.com">
           </div>
         </div>
-        <!-- Sign in (owner decision 2026-11-22): compulsory before
-             the booking can proceed to payment. Email only — no
-             password, no Google/Apple/Facebook. A 6-digit code is
-             emailed to the address above; the phone number is
-             compulsory too. Signed-in customers stay signed in for
-             later bookings. -->
+        <!-- Sign in (owner decision 2026-11-22, corrected same
+             day: NO CODES): compulsory before the booking can
+             proceed to payment. Email only — no password, no
+             Google/Apple/Facebook. The customer types their email
+             and taps Continue — no code is emailed, no code is
+             typed back. The phone number is compulsory too.
+             Signed-in customers stay signed in for later bookings. -->
         <div class="class-signin" id="class-signin">
-          <p class="form-note">Sign in to continue — we email a 6-digit code to the address above.</p>
-          <button type="button" class="btn-ghost" id="class-send-code">Email me a sign-in code</button>
-          <div class="field hidden" id="class-code-field">
-            <label for="class-signin-code">Sign-in code</label>
-            <input id="class-signin-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" maxlength="6">
-          </div>
-          <button type="button" class="btn-ghost hidden" id="class-verify-code">Verify code</button>
+          <p class="form-note">Sign in to continue — just your email and phone number above, no code.</p>
+          <button type="button" class="btn-ghost" id="class-signin-continue">Continue</button>
           <p class="form-note hidden" id="class-signedin-note">Signed in as <b id="class-signedin-email"></b> · <button type="button" class="btn-text" id="class-signout">Use a different email</button></p>
           <p class="form-error" id="class-signin-error" role="alert"></p>
         </div>

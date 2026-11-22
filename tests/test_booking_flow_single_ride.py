@@ -303,21 +303,10 @@ class BookingApiStillWorksCase(unittest.TestCase):
 
     def signin(self, email, phone):
         """Compulsory customer sign-in (owner decision 2026-11-22):
-        payment requires a verified sign-in with the booking's
-        email, so these API tests sign in first — request the code,
-        read it from the queued email, verify it."""
-        resp = self.client.post("/api/customers/signin/request",
+        payment requires a sign-in with the booking's
+        email, so these API tests sign in first."""
+        resp = self.client.post("/api/customers/signin",
                                 json={"email": email, "phone": phone})
-        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
-        with app_module.app.app_context():
-            row = (app_module.OutboxMessage.query
-                   .filter_by(recipient=email, channel="email")
-                   .order_by(app_module.OutboxMessage.id.desc()).first())
-        self.assertIsNotNone(row, "no sign-in email was queued")
-        match = re.search(r"(\d{6})", row.body or "")
-        self.assertIsNotNone(match, "no 6-digit code in the email")
-        resp = self.client.post("/api/customers/signin/verify",
-                                json={"email": email, "code": match.group(1)})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
 
     def test_book_pay_cancel_then_book_again(self):

@@ -38,8 +38,8 @@
     classBooking: null,
     classPhone: "",
     /* Compulsory customer sign-in (owner decision 2026-11-22):
-       { email, phone } once the customer has verified the emailed
-       6-digit code, else null. */
+       { email, phone } once the customer has signed in with
+       email + Continue, else null. */
     customerSignedIn: null,
     lastChatSig: "",
     chatLanguage: "en",
@@ -721,7 +721,7 @@
     $("ca-class-error").textContent = "";
     /* Compulsory sign-in (owner 2026-11-22): pre-fill the email and
        phone from the signed-in session when there is one, else show
-       the code step. */
+       the sign-in button. */
     refreshCustomerSignin();
     paintClassSelection();
     hide($("ca-booking-card"));
@@ -737,22 +737,18 @@
   });
 
   /* ---------- Compulsory customer sign-in (owner 2026-11-22) ----------
-     Email only — no password, no Google/Apple/Facebook. A 6-digit
-     code is emailed to the address above (Resend, from
-     support@noelchauffer.com); the phone number is compulsory too.
+     Email only — no password, no Google/Apple/Facebook. NO CODES
+     (owner correction 2026-11-22): the customer types their email
+     and phone above and taps Continue — that is the whole sign-in.
      Signed-in customers stay signed in (server session) for later
      bookings, and the email/phone pre-fill from it. */
   function setSigninUi(signedIn, email) {
     if (signedIn) {
-      hide($("ca-send-code"));
-      hide($("ca-code-field"));
-      hide($("ca-verify-code"));
+      hide($("ca-signin-continue"));
       $("ca-signedin-email").textContent = email || "";
       show($("ca-signedin-note"));
     } else {
-      show($("ca-send-code"));
-      hide($("ca-code-field"));
-      hide($("ca-verify-code"));
+      show($("ca-signin-continue"));
       hide($("ca-signedin-note"));
     }
     $("ca-signin-error").textContent = "";
@@ -776,7 +772,7 @@
         setSigninUi(false);
       });
   }
-  $("ca-send-code").addEventListener("click", function () {
+  $("ca-signin-continue").addEventListener("click", function () {
     var email = $("ca-class-email").value.trim();
     var phone = $("ca-class-phone").value.trim();
     var err = $("ca-signin-error");
@@ -785,9 +781,9 @@
       err.textContent = "Please fill in your email and phone number first.";
       return;
     }
-    var btn = $("ca-send-code");
+    var btn = $("ca-signin-continue");
     btn.disabled = true;
-    fetch("/api/customers/signin/request", {
+    fetch("/api/customers/signin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email, phone: phone })
@@ -796,43 +792,10 @@
       .then(function (res) {
         btn.disabled = false;
         if (!res.ok) {
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "The code could not be sent. Please try again.";
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "Sign-in did not work. Please try again.";
           return;
         }
-        show($("ca-code-field"));
-        show($("ca-verify-code"));
-        hide($("ca-send-code"));
-        $("ca-signin-code").focus();
-      })
-      .catch(function () {
-        btn.disabled = false;
-        err.textContent = "Could not reach the booking service. Please try again.";
-      });
-  });
-  $("ca-verify-code").addEventListener("click", function () {
-    var email = $("ca-class-email").value.trim();
-    var code = $("ca-signin-code").value.trim();
-    var err = $("ca-signin-error");
-    err.textContent = "";
-    if (!code) {
-      err.textContent = "Please enter the 6-digit code from your email.";
-      return;
-    }
-    var btn = $("ca-verify-code");
-    btn.disabled = true;
-    fetch("/api/customers/signin/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email, code: code })
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        btn.disabled = false;
-        if (!res.ok) {
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "That code did not work. Please try again.";
-          return;
-        }
-        state.customerSignedIn = { email: res.j.email || email, phone: res.j.phone || $("ca-class-phone").value.trim() };
+        state.customerSignedIn = { email: res.j.email || email, phone: res.j.phone || phone };
         setSigninUi(true, state.customerSignedIn.email);
       })
       .catch(function () {
@@ -873,7 +836,7 @@
        /contact and /pay, so this is the friendly early stop. */
     var signedIn = state.customerSignedIn;
     if (!signedIn || (signedIn.email || "").toLowerCase() !== contactEmail.toLowerCase()) {
-      err.textContent = "Please sign in first — tap \"Email me a sign-in code\" above and enter the code from your email.";
+      err.textContent = "Please sign in first — enter your email and phone above and tap Continue.";
       $("ca-signin").scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -895,10 +858,10 @@
             btn.disabled = false;
             if (res.status === 401) {
               /* Sign-in expired or changed since the page loaded —
-                 the gate is server-side, so re-open the code step. */
+                 the gate is server-side, so sign in again. */
               state.customerSignedIn = null;
               setSigninUi(false);
-              err.textContent = "Your sign-in expired — please request a new code and verify it, then try again.";
+              err.textContent = "Your sign-in expired — please sign in again with your email, then try again.";
               return;
             }
             err.textContent = (res.j && (res.j.error || res.j.message)) || "Your details could not be saved. Please try again.";

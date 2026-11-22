@@ -2581,43 +2581,6 @@ class PasswordResetToken(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
-class CustomerSigninCode(db.Model):
-    """One-time sign-in code for CUSTOMERS (owner decision
-    2026-11-22, voice call): sign-in is compulsory before a
-    booking can proceed to payment, and it is EMAIL ONLY — no
-    password, no Google/Apple/Facebook. The customer types their
-    email (and phone number, which is compulsory too) on the
-    options page, gets a 6-digit code by email via the existing
-    Resend setup, and types the code back. Only the SHA-256 hash
-    of the code is stored — never the code itself — plus a
-    10-minute expiry, a used flag and a wrong-guess counter (5
-    wrong guesses lock that code; the customer just requests a
-    new one). A new table, so create_all() creates it on the
-    live database too. The code is emailed through the existing
-    outbox (recorded, and sent when Resend is configured) and
-    never appears in any API response or log."""
-    __tablename__ = "customer_signin_codes"
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(200), nullable=False)
-    # Phone given with the code request (compulsory, owner
-    # decision 2026-11-22): stored so the verified session
-    # carries the phone the customer signed in with.
-    phone = db.Column(db.String(40), nullable=False, default="")
-    code_hash = db.Column(db.String(64), nullable=False)
-    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
-    used_at = db.Column(db.DateTime(timezone=True), nullable=True)
-    attempts = db.Column(db.Integer, nullable=False, default=0)
-    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
-
-
-# Customer sign-in (owner decision 2026-11-22): email-only,
-# one-time-code sign-in, compulsory before payment.
-CUSTOMER_CODE_TTL_MINUTES = 10
-CUSTOMER_CODE_MAX_ATTEMPTS = 5
-CUSTOMER_CODE_MAX_REQUESTS_PER_HOUR = 5
-CUSTOMER_SIGNIN_CODE_LENGTH = 6
-
-
 class BookingEvent(db.Model):
     __tablename__ = "booking_events"
     id = db.Column(db.Integer, primary_key=True)
@@ -3548,9 +3511,9 @@ def _normalize_customer_email(email):
 
 def _customer_signin_email():
     """Email the browser is signed in as (None when not signed
-    in). Stored in the Flask session after a one-time code is
-    verified, so a signed-in customer stays signed in for later
-    bookings on the same browser."""
+    in). Stored in the Flask session after sign-in, so a signed-in
+    customer stays signed in for later bookings on the same
+    browser."""
     return _normalize_customer_email(session.get("customer_email")) or None
 
 
@@ -3572,8 +3535,7 @@ def _customer_signin_error(booking):
         return "Please add your name, phone and email before paying."
     signed_in = _customer_signin_email()
     if not signed_in:
-        return ("Please sign in with your email to continue. "
-                "We sent a 6-digit code to your email.")
+        return "Please sign in with your email to continue."
     if signed_in != _normalize_customer_email(booking.email):
         return ("Please sign in with the same email as this booking "
                 f"({booking.email}).")
@@ -4898,14 +4860,13 @@ def save_booking_contact(booking_id):
         return err("Please enter a valid email address.")
     # Compulsory customer sign-in (owner decision 2026-11-22):
     # contact can only be saved once the customer has signed in
-    # with a one-time code sent to THIS email, and the phone number
-    # (compulsory too) is already required above. The gate compares
-    # against the SUBMITTED email here — the booking itself has no
-    # email yet at this step.
+    # with THIS email, and the phone number (compulsory too) is
+    # already required above. The gate compares against the
+    # SUBMITTED email here — the booking itself has no email yet
+    # at this step.
     signed_in = _customer_signin_email()
     if not signed_in:
-        return err("Please sign in with your email first. We will send "
-                   "a 6-digit code to your email.", 401)
+        return err("Please sign in with your email first.", 401)
     if signed_in != _normalize_customer_email(data["email"]):
         return err("Please sign in with the same email as this booking.", 401)
     had_contact = bool(booking.phone or booking.email)
@@ -5175,14 +5136,14 @@ def _release_booking_payment(booking):
 # "Choose your experience", before the booking can proceed to
 # payment, the customer MUST sign in. Sign-in is EMAIL ONLY — one
 # email field + Continue, like Blacklane's first step; NO password,
-# NO Google/Apple/Facebook buttons. A 6-digit one-time code goes to
-# that email via the existing Resend setup (from
-# support@noelchauffer.com); the customer types the code back.
-# Phone number is compulsory too (owner decision 2026-11-22): it is
-# collected with the email at the sign-in step, and the booking
-# cannot proceed without it. A verified sign-in lives in the Flask
-# session, so the customer stays signed in for later bookings on
-# the same browser.
+# NO Google/Apple/Facebook buttons. NO CODES (owner correction
+# 2026-11-22, "Nahi bhai, no codes"): the customer types their
+# email, taps Continue, and is signed in — no code is emailed, no
+# code is typed back, nothing is verified. Phone number is
+# compulsory too (owner decision 2026-11-22): it is collected with
+# the email at the sign-in step, and the booking cannot proceed
+# without it. A sign-in lives in the Flask session, so the customer
+# stays signed in for later bookings on the same browser.
 
 
 @app.route("/api/customers/me", methods=["GET"])
@@ -5203,16 +5164,15 @@ def customer_signout():
     return jsonify({"signed_in": False})
 
 
-@app.route("/api/customers/signin/request", methods=["POST"])
-def customer_signin_request():
-    """Send a 6-digit sign-in code to the customer's email. Email
-    AND phone are both compulsory here (owner decision 2026-11-22).
-    The code is emailed through the existing outbox (Resend when
-    configured; queued-only otherwise, exactly like every other
-    customer email). The code itself is never in the response —
-    only its SHA-256 hash is stored. At most 5 codes per email per
-    hour; older unused codes for the email are voided, so only the
-    latest code works."""
+@app.route("/api/customers/signin", methods=["POST"])
+def customer_signin():
+    """Sign in with email + phone only (owner decision 2026-11-22,
+    corrected same day: NO CODES). The customer types their email
+    (and phone number, compulsory) and taps Continue — that is the
+    whole sign-in. No code is emailed, no code is typed back, and
+    nothing is stored except the Flask session: the browser session
+    carries the email + phone, so the customer stays signed in for
+    later bookings on the same browser."""
     data = request.get_json(silent=True) or {}
     email = _normalize_customer_email(data.get("email"))
     phone = (data.get("phone") or "").strip()
@@ -5221,69 +5181,9 @@ def customer_signin_request():
     digits = "".join(ch for ch in phone if ch.isdigit())
     if not phone or len(digits) < 7:
         return err("Please enter a valid phone number.")
-    now = utcnow()
-    hour_ago = now - timedelta(hours=1)
-    recent = CustomerSigninCode.query.filter(
-        CustomerSigninCode.email == email,
-        CustomerSigninCode.created_at >= hour_ago).count()
-    if recent >= CUSTOMER_CODE_MAX_REQUESTS_PER_HOUR:
-        return err("Too many codes sent to this email. "
-                   "Please try again in an hour.", 429)
-    # Void older unused codes: only the latest code works.
-    for old in CustomerSigninCode.query.filter_by(
-            email=email, used_at=None).all():
-        old.used_at = now
-    code = "%06d" % secrets.randbelow(10 ** CUSTOMER_SIGNIN_CODE_LENGTH)
-    row = CustomerSigninCode(
-        email=email, phone=phone,
-        code_hash=hashlib.sha256(code.encode("utf-8")).hexdigest(),
-        expires_at=now + timedelta(minutes=CUSTOMER_CODE_TTL_MINUTES))
-    db.session.add(row)
-    add_outbox(
-        "email", email,
-        "Your Noel Chauffer sign-in code is " + code + ". "
-        "It expires in 10 minutes. If you did not ask for this code, "
-        "you can ignore this email.",
-        subject="Your Noel Chauffer sign-in code")
-    db.session.commit()
-    return jsonify({"sent": True})
-
-
-@app.route("/api/customers/signin/verify", methods=["POST"])
-def customer_signin_verify():
-    """Check a 6-digit sign-in code. Single-use, 10-minute expiry,
-    5 wrong guesses lock that code. On success the browser session
-    carries the verified email + phone, so the customer stays
-    signed in for later bookings."""
-    data = request.get_json(silent=True) or {}
-    email = _normalize_customer_email(data.get("email"))
-    code = "".join(ch for ch in str(data.get("code") or "") if ch.isdigit())
-    if not email or "@" not in email:
-        return err("Please enter a valid email address.")
-    if len(code) != CUSTOMER_SIGNIN_CODE_LENGTH:
-        return err("Please enter the 6-digit code from your email.")
-    now = utcnow()
-    row = (CustomerSigninCode.query.filter_by(email=email, used_at=None)
-           .order_by(CustomerSigninCode.id.desc()).first())
-    if row is None:
-        return err("That code is not valid or has expired. "
-                   "Please request a new code.", 401)
-    # SQLite stores datetimes naive: read the expiry as UTC, like
-    # the driver reset-token check does.
-    if _as_aware(row.expires_at) <= now:
-        return err("That code has expired. Please request a new code.", 401)
-    if row.attempts >= CUSTOMER_CODE_MAX_ATTEMPTS:
-        return err("Too many wrong tries. Please request a new code.", 401)
-    if not hmac.compare_digest(
-            row.code_hash, hashlib.sha256(code.encode("utf-8")).hexdigest()):
-        row.attempts += 1
-        db.session.commit()
-        return err("That code is not correct. Please try again.", 401)
-    row.used_at = now
     session["customer_email"] = email
-    session["customer_phone"] = row.phone
-    db.session.commit()
-    return jsonify({"signed_in": True, "email": email, "phone": row.phone})
+    session["customer_phone"] = phone
+    return jsonify({"signed_in": True, "email": email, "phone": phone})
 
 
 @app.route("/api/stripe/publishable-key", methods=["GET"])
@@ -5326,7 +5226,7 @@ def pay_booking(booking_id):
     if not booking.customer_name or not booking.phone or not booking.email:
         return err("Please add your name, phone and email before paying.", 400)
     # Compulsory customer sign-in (owner decision 2026-11-22): no
-    # payment without a verified email sign-in for this booking's
+    # payment without an email sign-in for this booking's
     # email, and a phone number on the booking.
     gate = _customer_signin_error(booking)
     if gate:
@@ -5608,7 +5508,7 @@ def booking_history():
         # Signed-in customers see their own rides by email (owner
         # decision 2026-11-22: a signed-in customer stays signed in
         # for later bookings, and My Rides shows their rides). The
-        # email must match the verified sign-in session — an email
+        # email must match the sign-in session — an email
         # query for anyone else's address is refused. The old
         # phone lookup still works exactly as before for rides
         # booked before sign-in existed.

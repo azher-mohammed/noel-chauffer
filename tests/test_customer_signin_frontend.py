@@ -6,11 +6,11 @@ Owner decisions, voice calls 2026-11-22:
 - Sign-in is COMPULSORY after View options / Choose your experience,
   before the booking can proceed to payment. EMAIL ONLY — just an
   email field + Continue, NO password, NO Google/Apple/Facebook
-  buttons. A 6-digit code is emailed (Resend, from
-  support@noelchauffer.com). The PHONE NUMBER is compulsory too.
-  Signed-in customers stay signed in for later bookings; My Rides
-  shows their rides. The old phone lookup keeps working for rides
-  booked before sign-in existed.
+  buttons, NO CODES (owner correction 2026-11-22: "Nahi bhai, no
+  codes" — no code is emailed, no code is typed back). The PHONE
+  NUMBER is compulsory too. Signed-in customers stay signed in for
+  later bookings; My Rides shows their rides. The old phone lookup
+  keeps working for rides booked before sign-in existed.
 - Second page (Choose your experience), payment page and the
   post-payment confirmation page: NOTHING below the booking flow —
   no section, no link column, no extra text. Only the small
@@ -52,8 +52,7 @@ class SigninUiTest(unittest.TestCase):
         # Inside the class step, after the class options.
         self.assertGreater(html.index('id="class-signin"'),
                            html.index('id="class-step"'))
-        for ident in ("class-send-code", "class-code-field",
-                      "class-signin-code", "class-verify-code",
+        for ident in ("class-signin-continue",
                       "class-signedin-note", "class-signedin-email",
                       "class-signout", "class-signin-error"):
             self.assertIn('id="%s"' % ident, html, ident)
@@ -65,15 +64,20 @@ class SigninUiTest(unittest.TestCase):
         self.assertNotIn("Google", panel)
         self.assertNotIn("Apple", panel)
         self.assertNotIn("Facebook", panel)
-        self.assertIn("Email me a sign-in code", panel)
-        self.assertIn("6-digit code", panel)
+        self.assertIn("Continue", panel)
+        # NO CODES (owner 2026-11-22): no code field, no code button,
+        # no code wording anywhere in the panel.
+        self.assertNotIn("code-field", panel)
+        self.assertNotIn("signin-code", panel)
+        self.assertNotIn("Verify code", panel)
+        self.assertNotIn("6-digit", panel)
+        self.assertNotIn("Email me a sign-in code", panel)
 
     def test_app_signin_panel(self):
         html = _read("static/customer-app.html")
         self.assertGreater(html.index('id="ca-signin"'),
                            html.index('id="ca-class-step"'))
-        for ident in ("ca-send-code", "ca-code-field",
-                      "ca-signin-code", "ca-verify-code",
+        for ident in ("ca-signin-continue",
                       "ca-signedin-note", "ca-signedin-email",
                       "ca-signout", "ca-signin-error"):
             self.assertIn('id="%s"' % ident, html, ident)
@@ -83,19 +87,27 @@ class SigninUiTest(unittest.TestCase):
         self.assertNotIn("Google", panel)
         self.assertNotIn("Apple", panel)
         self.assertNotIn("Facebook", panel)
+        self.assertIn("Continue", panel)
+        self.assertNotIn("code-field", panel)
+        self.assertNotIn("signin-code", panel)
+        self.assertNotIn("Verify code", panel)
+        self.assertNotIn("6-digit", panel)
+        self.assertNotIn("Email me a sign-in code", panel)
 
     def test_website_signin_wiring(self):
         js = _read("static/js/customer.js")
         for endpoint in ("/api/customers/me",
-                         "/api/customers/signin/request",
-                         "/api/customers/signin/verify",
+                         "/api/customers/signin",
                          "/api/customers/signout"):
             self.assertIn('"%s"' % endpoint, js, endpoint)
+        # NO CODES: the old code endpoints are gone entirely.
+        self.assertNotIn("/api/customers/signin/request", js)
+        self.assertNotIn("/api/customers/signin/verify", js)
         # The gate: Select cannot proceed unless signed in with the
         # same email as the booking.
         self.assertIn("state.customerSignedIn", js)
         self.assertIn("Please sign in first", js)
-        # A 401 from /contact re-opens the code step.
+        # A 401 from /contact re-opens the sign-in step.
         self.assertIn("res.status === 401", js)
         self.assertIn("Your sign-in expired", js)
         # Signed-in sessions pre-fill email + phone on the class step.
@@ -104,10 +116,11 @@ class SigninUiTest(unittest.TestCase):
     def test_app_signin_wiring(self):
         js = _read("static/js/customer-app.js")
         for endpoint in ("/api/customers/me",
-                         "/api/customers/signin/request",
-                         "/api/customers/signin/verify",
+                         "/api/customers/signin",
                          "/api/customers/signout"):
             self.assertIn('"%s"' % endpoint, js, endpoint)
+        self.assertNotIn("/api/customers/signin/request", js)
+        self.assertNotIn("/api/customers/signin/verify", js)
         self.assertIn("state.customerSignedIn", js)
         self.assertIn("Please sign in first", js)
         self.assertIn("res.status === 401", js)

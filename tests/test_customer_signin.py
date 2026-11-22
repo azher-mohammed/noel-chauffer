@@ -1,20 +1,19 @@
 """Tests for compulsory EMAIL-ONLY customer sign-in (owner decision
-2026-11-22, voice call): after "View options" / "Choose your
-experience", before the booking can proceed to payment, the
-customer MUST sign in. Sign-in is email only — one email field +
-Continue, NO password, NO Google/Apple/Facebook. A 6-digit
-one-time code goes to that email via the existing Resend setup
-(from support@noelchauffer.com); the customer types the code back.
-Phone number is compulsory too: it is collected with the email at
-the sign-in step, and the booking cannot proceed without it.
+2026-11-22, voice call, corrected the same day: NO CODES — "Nahi
+bhai, no codes"): after "View options" / "Choose your experience",
+before the booking can proceed to payment, the customer MUST sign
+in. Sign-in is email only — one email field + Continue, NO
+password, NO Google/Apple/Facebook, NO code emailed, NO code typed
+back. The customer types their email (and phone number, which is
+compulsory too) and taps Continue — that is the whole sign-in.
+Signed-in customers stay signed in (Flask session) for later
+bookings.
 
 Server rules pinned here:
-- POST /api/customers/signin/request needs a valid email AND a
-  phone number; at most 5 codes per email per hour; only the
-  latest code works; the code never appears in any response.
-- POST /api/customers/signin/verify: single-use, 10-minute expiry,
-  5 wrong guesses lock that code; success signs the browser in
-  (Flask session) so later bookings skip the code step.
+- POST /api/customers/signin needs a valid email AND a phone
+  number; success signs the browser in (Flask session) so later
+  bookings skip the sign-in step. It sends NO email and stores
+  NO code anywhere.
 - POST /api/bookings/<id>/contact refuses (401) unless the browser
   is signed in with the SAME email; phone is compulsory there.
 - POST /api/bookings/<id>/pay (and /pay/confirm) refuse (401)
@@ -23,18 +22,13 @@ Server rules pinned here:
 - GET /api/bookings?email=... returns a signed-in customer's own
   rides; the old phone lookup still works unchanged.
 
-The code travels by email: tests read it from the outbox row, the
-same place a real customer reads it from their inbox.
-
 Run:  python -m unittest discover -s tests -v
 """
 
 import os
-import re
 import sys
 import tempfile
 import unittest
-from datetime import timedelta
 
 # --- test env BEFORE importing the app -------------------------------------
 _tmpdir = tempfile.mkdtemp(prefix="noel-signin-")
@@ -71,27 +65,12 @@ class CustomerSigninCase(unittest.TestCase):
         self._phone_seq = 0
 
     # -- helpers ---------------------------------------------------------
-    def request_code(self, email=EMAIL, phone=PHONE):
-        return self.client.post("/api/customers/signin/request",
-                                json={"email": email, "phone": phone})
-
-    def read_code(self, email=EMAIL):
-        """The code as the customer sees it: in the emailed outbox row."""
-        with app_module.app.app_context():
-            row = (app_module.OutboxMessage.query
-                   .filter_by(recipient=email, channel="email")
-                   .order_by(app_module.OutboxMessage.id.desc()).first())
-        self.assertIsNotNone(row, "no sign-in email was queued")
-        match = re.search(r"(\d{6})", row.body or "")
-        self.assertIsNotNone(match, "no 6-digit code in the email: %r" % row.body)
-        return match.group(1)
-
     def signin(self, email=EMAIL, phone=PHONE):
-        resp = self.request_code(email, phone)
-        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
-        code = self.read_code(email)
-        resp = self.client.post("/api/customers/signin/verify",
-                                json={"email": email, "code": code})
+        """Email + Continue only (owner 2026-11-22: NO CODES) — one
+        POST signs the browser in; nothing is emailed, no code is
+        typed back."""
+        resp = self.client.post("/api/customers/signin",
+                                json={"email": email, "phone": phone})
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
         return resp.get_json()
 
@@ -112,83 +91,38 @@ class CustomerSigninCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         return resp.get_json()["booking"]
 
-    # -- code request ----------------------------------------------------
-    def test_request_needs_email_and_phone(self):
-        self.assertEqual(self.request_code(email="").status_code, 400)
-        self.assertEqual(self.request_code(email="not-an-email").status_code, 400)
-        self.assertEqual(self.request_code(phone="").status_code, 400)
-        self.assertEqual(self.request_code(phone="123").status_code, 400)
-        resp = self.request_code()
-        self.assertEqual(resp.status_code, 200)
-        self.assertTrue(resp.get_json().get("sent"))
-        # The code is NEVER in the response.
-        self.assertNotIn("code", resp.get_json())
+    # -- sign-in ---------------------------------------------------------
+    def test_signin_needs_email_and_phone(self):
+        self.assertEqual(self.client.post(
+            "/api/customers/signin",
+            json={"email": "", "phone": PHONE}).status_code, 400)
+        self.assertEqual(self.client.post(
+            "/api/customers/signin",
+            json={"email": "not-an-email", "phone": PHONE}).status_code, 400)
+        self.assertEqual(self.client.post(
+            "/api/customers/signin",
+            json={"email": EMAIL, "phone": ""}).status_code, 400)
+        self.assertEqual(self.client.post(
+            "/api/customers/signin",
+            json={"email": EMAIL, "phone": "123"}).status_code, 400)
+        body = self.signin()
+        self.assertTrue(body["signed_in"])
+        self.assertEqual(body["email"], EMAIL)
+        self.assertEqual(body["phone"], PHONE)
 
-    def test_request_rate_limited_per_hour(self):
-        for _ in range(5):
-            self.assertEqual(self.request_code().status_code, 200)
-        self.assertEqual(self.request_code().status_code, 429)
-
-    def test_only_latest_code_works(self):
-        self.request_code()
-        first = self.read_code()
-        self.request_code()
-        second = self.read_code()
-        self.assertNotEqual(first, second)
-        resp = self.client.post("/api/customers/signin/verify",
-                                json={"email": EMAIL, "code": first})
-        self.assertEqual(resp.status_code, 401)
-        resp = self.client.post("/api/customers/signin/verify",
-                                json={"email": EMAIL, "code": second})
-        self.assertEqual(resp.status_code, 200)
-
-    # -- code verify ------------------------------------------------------
-    def test_verify_wrong_code_then_right_code(self):
-        self.request_code()
-        code = self.read_code()
-        wrong = "000000" if code != "000000" else "111111"
-        resp = self.client.post("/api/customers/signin/verify",
-                                json={"email": EMAIL, "code": wrong})
-        self.assertEqual(resp.status_code, 401)
-        resp = self.client.post("/api/customers/signin/verify",
-                                json={"email": EMAIL, "code": code})
-        self.assertEqual(resp.status_code, 200)
-        self.assertTrue(resp.get_json()["signed_in"])
-        self.assertEqual(resp.get_json()["email"], EMAIL)
-        self.assertEqual(resp.get_json()["phone"], PHONE)
-
-    def test_code_is_single_use(self):
+    def test_signin_sends_no_email_and_stores_no_code(self):
+        """Owner 2026-11-22: NO CODES — sign-in must not email
+        anything and must not create any code row."""
         self.signin()
-        code = self.read_code()
-        resp = self.client.post("/api/customers/signin/verify",
-                                json={"email": EMAIL, "code": code})
-        self.assertEqual(resp.status_code, 401)
-
-    def test_five_wrong_guesses_lock_the_code(self):
-        self.request_code()
-        code = self.read_code()
-        wrong = "000000" if code != "000000" else "111111"
-        for _ in range(5):
-            self.assertEqual(self.client.post(
-                "/api/customers/signin/verify",
-                json={"email": EMAIL, "code": wrong}).status_code, 401)
-        # Even the right code no longer works after 5 wrong guesses.
-        resp = self.client.post("/api/customers/signin/verify",
-                                json={"email": EMAIL, "code": code})
-        self.assertEqual(resp.status_code, 401)
-
-    def test_expired_code_rejected(self):
-        self.request_code()
-        code = self.read_code()
         with app_module.app.app_context():
-            row = (app_module.CustomerSigninCode.query
-                   .filter_by(email=EMAIL).order_by(
-                       app_module.CustomerSigninCode.id.desc()).first())
-            row.expires_at = app_module.utcnow() - timedelta(minutes=1)
-            app_module.db.session.commit()
-        resp = self.client.post("/api/customers/signin/verify",
-                                json={"email": EMAIL, "code": code})
-        self.assertEqual(resp.status_code, 401)
+            self.assertEqual(app_module.OutboxMessage.query.count(), 0)
+            self.assertFalse(hasattr(app_module, "CustomerSigninCode"))
+
+    def test_signin_normalizes_email(self):
+        body = self.signin(email="  Rider@Example.COM  ")
+        self.assertEqual(body["email"], EMAIL)
+        resp = self.client.get("/api/customers/me")
+        self.assertEqual(resp.get_json()["email"], EMAIL)
 
     def test_me_and_signout(self):
         resp = self.client.get("/api/customers/me")
@@ -251,7 +185,7 @@ class CustomerSigninCase(unittest.TestCase):
         first = self.book()
         resp = self.client.post(f"/api/bookings/{first['id']}/pay", json=CARD)
         self.assertEqual(resp.status_code, 200)
-        # Second booking, same browser: no new code needed.
+        # Second booking, same browser: no new sign-in needed.
         self._phone_seq += 1
         second = self.book()
         resp = self.client.post(f"/api/bookings/{second['id']}/pay", json=CARD)

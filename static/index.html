@@ -457,12 +457,18 @@
         <p class="eyebrow">Noel Chauffer app</p>
         <h2><a href="/your-rides-in-your-pocket">Your rides, in your pocket.</a></h2>
         <p>Book your ride, follow your chauffeur, and see your rides — all in the Noel Chauffer app in your browser. No download, just open and go.</p>
-        <a class="btn-primary" href="/app">Open the app</a>
-        <div class="store-badges">
-          <!-- Store badges link to the browser app at /app for now: the
-               native apps are not on either store yet (owner 2026-11-21). -->
-          <a href="/app"><img src="/static/img/google-play-badge.png" alt="Get it on Google Play" height="48"></a>
-          <a href="/app"><img src="/static/img/app-store-badge.svg" alt="Download on the App Store" height="48"></a>
+        <!-- App actions: button + store badges in ONE straight flex
+             row (owner 2026-11-22): the two badges must sit on one
+             horizontal line, level with each other and with the
+             "Open the app" button — never stacked or staggered. -->
+        <div class="app-actions">
+          <a class="btn-primary" href="/app">Open the app</a>
+          <div class="store-badges">
+            <!-- Store badges link to the browser app at /app for now: the
+                 native apps are not on either store yet (owner 2026-11-21). -->
+            <a href="/app"><img src="/static/img/google-play-badge.png" alt="Get it on Google Play" height="48"></a>
+            <a href="/app"><img src="/static/img/app-store-badge.svg" alt="Download on the App Store" height="48"></a>
+          </div>
         </div>
       </div>
       <img class="card-photo" src="/static/img/cabin.jpg" alt="Premium rear cabin with tan leather seats in soft warm light" loading="lazy" decoding="async">
@@ -503,11 +509,11 @@
     <p class="intro">Every booking works the same way: choose your class and pay by card — then your chauffeur is assigned.</p>
     <div class="exp-grid">
       <div class="exp-card"><div class="band"></div><div class="exp-body"><div class="glyph">✦</div><h3>Airport Transfers</h3><p>Flying in or out of JFK, LaGuardia, Newark, LAX, ORD or MIA? Your chauffeur meets you at the right terminal. Add your flight number when you book, and take your time — airport pickups include 60 minutes of free waiting.</p>
-<p><a href="/jfk-airport-transfers">Learn more about airport transfers</a></p></div></div>
+<p class="card-link"><a href="/jfk-airport-transfers">Learn more about airport transfers</a></p></div></div>
       <div class="exp-card"><div class="band"></div><div class="exp-body"><div class="glyph">✦</div><h3>Point to Point</h3><p>One ride from one address to another, anywhere in the USA. Home to the office, hotel to dinner, or across state lines — your chauffeur takes you straight there, on time.</p>
-<p><a href="/point-to-point-car-service">Learn more about point-to-point rides</a></p></div></div>
+<p class="card-link"><a href="/point-to-point-car-service">Learn more about point-to-point rides</a></p></div></div>
       <div class="exp-card"><div class="band"></div><div class="exp-body"><div class="glyph">✦</div><h3>Hourly as Directed</h3><p>Keep your chauffeur for as long as you need. Several stops, meetings across town, or a whole evening out — book by the hour.</p>
-<p><a href="/hourly-chauffeur-service">Learn more about hourly hire</a></p></div></div>
+<p class="card-link"><a href="/hourly-chauffeur-service">Learn more about hourly hire</a></p></div></div>
     </div>
   </section>
 

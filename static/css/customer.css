@@ -730,3 +730,45 @@ input, select, textarea { font: inherit; }
   .booking-section { margin-top: -92px; }
   .ride-tab { padding: 9px 18px; font-size: 14px; }
 }
+
+/* ---- Homepage alignment (owner 2026-11-22: "sab ek ek line mein hi
+   aana chahiye") ----
+   The owner's full-page screenshot showed sections drifting up and
+   down: the two store badges sat staggered instead of on one line,
+   the "Learn more" links in the three ride-type cards landed at
+   different heights, and the footer columns staggered on mobile.
+   Every fix below is alignment only: no wording, colours, prices,
+   buttons, or section order changed. Heading sizes stay as pinned
+   by test_headings_clean (26px / 25px / 29px); only their line
+   height is tightened so a heading that wraps to two lines still
+   reads as one clean block. */
+
+/* Section headings: one straight baseline, tight wrapped lines. */
+.section h2 { line-height: 1.25; }
+.section .airport-body h2 { line-height: 1.25; }
+.app-band h2 { line-height: 1.25; }
+
+/* App band actions: "Open the app" button + both store badges in ONE
+   straight flex row, vertically centred — the badges never stack or
+   sit at different heights. The badge links are flex boxes with
+   line-height 0 so the images never sit on a text baseline. */
+.app-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.app-actions .btn-primary { margin-top: 0; }
+.store-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0; }
+.store-badges a { display: flex; align-items: center; line-height: 0; }
+.store-badges img { display: block; height: 48px; width: auto; }
+
+/* Ride-type / trust cards: equal-height flex columns, so every card
+   starts on the same line; the "Learn more" link is pushed to the
+   bottom of its card, so all three links sit on one straight line
+   even though the card texts are different lengths. */
+.exp-card { display: flex; flex-direction: column; }
+.exp-body { display: flex; flex-direction: column; flex: 1; }
+.exp-body .card-link { margin-top: auto; padding-top: 10px; }
+
+/* Footer columns: every column heading starts on one straight
+   baseline on desktop; on mobile the columns stack one below the
+   other in a single column instead of a ragged two-column grid. */
+.footer-cols { align-items: start; }
+.footer-col h3 { line-height: 1.3; }
+@media (max-width: 860px) { .footer-cols { grid-template-columns: 1fr; } }

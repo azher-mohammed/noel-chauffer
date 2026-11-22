@@ -395,3 +395,124 @@ input, select { font: inherit; }
 /* Paused notice: dark, not the pale yellow box (owner decision 2026-11-20).
    The message text stays exactly as it was. */
 .paused-notice { background: #1c1c1e; border: 1px solid #888888; color: #fff; border-radius: 8px; padding: 12px 14px; font-weight: 600; }
+
+/* ---- Blacklane-style booking form + class page (owner 2026-11-22) ----
+   Dark suggestion box with type icons, dark November-calendar date
+   picker, 10-minute time list, full-width time field, swipeable
+   class cards, class details, dotted price-breakdown leaders,
+   sticky class bar. No prices, rates or payment code touched here.
+   (No hamburger menu in the app: it has a tab bar, not a header
+   nav. No Google Places: the owner dropped it 2026-11-22, so there
+   is deliberately NO Google attribution line.) */
+
+/* Field-required error: red message under the field + red underline. */
+.field-error { color: #ff9d9d; font-size: 13.5px; margin: 5px 0 0; }
+.field input.field-invalid { border-color: #ff6b6b; }
+
+/* Address suggestions: dark dropdown, full address as the bold main
+   line with the same text smaller/grey beneath, type icon on the
+   left. Same font sizes as Blacklane's list (15px / 13px). */
+.places-list li button {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px;
+}
+.places-list li button:hover, .places-list li button.active { background: #333336; }
+.places-icon { flex: none; width: 18px; height: 18px; color: #9db4d8; margin-top: 2px; }
+.places-icon svg { display: block; width: 18px; height: 18px; }
+.places-text { flex: 1; min-width: 0; }
+.places-main { display: block; font-weight: 600; font-size: 15px; color: var(--white); }
+.places-detail { display: block; color: #9aa8bc; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Date + time pickers drop from their fields. */
+.field-date, .field-time { position: relative; }
+.date-picker {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 1000;
+  width: 320px; max-width: calc(100vw - 40px);
+  background: #262628; color: var(--white);
+  border: 1px solid #3a3a3e; border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  padding: 14px;
+}
+.dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dp-title { font-weight: 700; font-size: 15px; }
+.dp-nav { background: none; border: 0; color: var(--white); font-size: 18px; padding: 4px 10px; line-height: 1; }
+.dp-nav:disabled { opacity: 0.3; cursor: default; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.dp-dow { font-size: 12px; color: var(--muted); padding: 4px 0; }
+.dp-day { background: none; border: 0; color: var(--white); font-size: 14px; padding: 7px 0; border-radius: 6px; }
+.dp-day:hover { background: #333336; }
+.dp-day.past { color: #6b6b70; text-decoration: line-through; cursor: default; }
+.dp-day.past:hover { background: none; }
+.dp-day.today { box-shadow: inset 0 0 0 1px var(--blue); }
+.dp-day.selected { background: var(--blue); color: var(--white); }
+.dp-day.empty { visibility: hidden; }
+.time-list {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1000;
+  list-style: none; margin: 0; padding: 0;
+  background: #262628; border: 1px solid #3a3a3e; border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  max-height: 264px; overflow-y: auto;
+}
+.time-list li button { display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--white); padding: 9px 12px; font-size: 14.5px; }
+.time-list li button:hover { background: #333336; }
+.time-list li button.selected { background: var(--blue); color: var(--white); }
+
+/* Choose your experience: swipeable cards (the app is always
+   narrow), one card mostly in view with the next peeking. */
+.class-options {
+  flex-direction: row; overflow-x: auto; scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch; padding-bottom: 6px;
+}
+.class-options .class-option {
+  flex: 0 0 82%; scroll-snap-align: start;
+  flex-direction: column; align-items: stretch; gap: 8px;
+}
+.class-option-media { width: 100%; }
+.class-option-car { width: 100%; height: 110px; border-radius: 8px; }
+.class-option-capacity { justify-content: flex-start; }
+
+/* Class details below the cards. */
+.class-explore { font-size: 15px; font-weight: 600; color: var(--white); margin: 16px 0 8px; }
+.class-highlights { position: relative; overflow: hidden; border-radius: 10px; }
+.highlights-track { display: flex; transition: transform 0.3s ease; }
+.hl-slide { flex: 0 0 100%; min-width: 0; }
+.hl-slide figure { margin: 0; }
+.hl-slide img { width: 100%; height: 200px; object-fit: cover; display: block; border-radius: 10px; background: #fff; }
+.hl-slide figcaption { font-size: 14.5px; color: var(--soft); padding: 10px 4px 0; }
+.hl-slide-text { padding: 18px; background: var(--card); border: 1px solid var(--card-line); border-radius: 10px; min-height: 110px; }
+.hl-slide-text h4 { margin: 0 0 6px; font-size: 17px; color: var(--white); }
+.hl-slide-text p { margin: 0; color: var(--muted); font-size: 14.5px; }
+.hl-arrow {
+  position: absolute; top: 82px; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(11, 11, 12, 0.55); color: #fff; border: 0; font-size: 20px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.hl-prev { left: 8px; }
+.hl-next { right: 8px; }
+.hl-dots { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
+.hl-dot { width: 8px; height: 8px; border-radius: 50%; border: 0; background: #555558; padding: 0; }
+.hl-dot.active { background: var(--blue); }
+.class-included ul, .class-notes ul { margin: 6px 0 0; padding-left: 20px; font-size: 14.5px; color: var(--soft); }
+.class-included li, .class-notes li { margin-bottom: 6px; }
+.class-included h3, .class-capacity h3, .class-notes h3 { font-size: 15px; color: var(--white); margin: 16px 0 6px; }
+.cap-tabs { display: flex; gap: 8px; margin: 6px 0 8px; }
+.cap-tab { padding: 8px 16px; border: 1px solid var(--card-line); background: var(--card); color: var(--soft); border-radius: 999px; font-size: 14px; }
+.cap-tab.active { background: var(--blue); color: var(--white); border-color: var(--blue); }
+.cap-panel { font-size: 14.5px; color: var(--soft); margin: 0; }
+
+/* Price breakdown: dotted leader lines between label and value. */
+.class-breakdown .breakdown-row { align-items: baseline; }
+.class-breakdown .breakdown-row::after { content: ""; flex: 1; border-bottom: 1px dotted #555558; order: 2; }
+.class-breakdown .breakdown-row span:first-child { order: 1; }
+.class-breakdown .breakdown-row span:last-child { order: 3; }
+.class-breakdown .breakdown-total::after { border-bottom: 0; }
+
+/* Sticky bottom bar on the class page: total + Select button. */
+#ca-class-step .class-actions {
+  position: sticky; bottom: 0; z-index: 20;
+  display: flex; align-items: center; gap: 14px;
+  background: var(--black); padding: 12px 0; border-top: 1px solid var(--card-line);
+  margin-top: 16px;
+}
+#ca-class-step .class-actions .btn-primary { flex: 1; margin-top: 0; }
+.class-sticky-total { font-family: Georgia, serif; font-size: 22px; color: var(--white); white-space: nowrap; }

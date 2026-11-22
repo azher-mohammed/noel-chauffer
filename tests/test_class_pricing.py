@@ -737,32 +737,34 @@ class ClassApiCase(unittest.TestCase):
     def test_class_car_photos_have_no_plates(self):
         # Owner order 2026-11-21 (supersedes the branded-plate order
         # from earlier the same day): NO plate on ANY class-card car
-        # photo — "Bhai plate math rakho". Business and First Class
-        # use the owner's own photos with the plate removed entirely;
-        # the SUV photo is deferred to tomorrow and stays exactly as
-        # it was. Pin the exact files, and for the two new photos
-        # check the bumper-centre plate band carries no white plate
-        # (a white show plate would be thousands of near-white
-        # pixels there; measured 0 for Business, 93 for First Class
-        # from chrome reflections). Stddev is deliberately NOT used:
-        # bumper chrome has natural variance (27-39) even with no
-        # plate at all, so it cannot tell a blank band from text.
+        # photo — "Bhai plate math rakho". 2026-11-22 the owner
+        # approved all three restyled photos (dark night background
+        # with golden bokeh, same framing, no plate anywhere):
+        # Business = his Mercedes sedan, First = black S-Class,
+        # SUV = his own black Escalade photo. Pin the exact files,
+        # and for each check the bumper-centre plate band carries
+        # no white plate (a white show plate would be thousands of
+        # near-white pixels there). Stddev is deliberately NOT used:
+        # bumper chrome has natural variance even with no plate at
+        # all, so it cannot tell a blank band from text.
         try:
             from PIL import Image
         except ImportError:
             self.skipTest("Pillow not installed")
         expected_sha256 = {
             "car-business.jpg":
-                "2c8ff28fd1af698c6d0af66e9ade28446288d9933466ec38b55ffcd7575fbb53",
+                "f0979c7aecbaa112a1e54576697d63be61ff2df86d6bec2ec8c31fe0cb818bf9",
             "car-suv.jpg":
-                "4c63550628a9f0abac41113f19523ffbe472a7f304e71494b5cf77a0a0be8ce0",
+                "d74627dda05343a0fa87b160b0bd0de2dd68694d7806673b47279edb594401d7",
             "car-first.jpg":
-                "a605fab9cb5b22c5acae34ef5e28f9cf771f8b85bf45ea787d613107baeb4789",
+                "de5c4530deaa735ff6cfe5a35f2b0c0d635fd1437a9d79cd31cf21c53f8ccd2d",
         }
-        # Bumper-centre band where a number plate would sit (480x480).
+        # Bumper-centre band where a number plate would sit.
+        # Business and First are 1600x1600, SUV is 1840x1360.
         plate_boxes = {
-            "car-business.jpg": (180, 380, 300, 430),
-            "car-first.jpg": (150, 360, 330, 410),
+            "car-business.jpg": (600, 1267, 1000, 1433),
+            "car-first.jpg": (200, 1100, 600, 1260),
+            "car-suv.jpg": (690, 1077, 1150, 1218),
         }
         for name, expected_hash in expected_sha256.items():
             path = os.path.join(REPO_DIR, "static", "img", name)

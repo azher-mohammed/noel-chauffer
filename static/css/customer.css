@@ -280,15 +280,15 @@ input, select, textarea { font: inherit; }
 .invoice-panel tr.grand td { font-weight: 700; border-bottom: 0; font-size: 17px; }
 
 /* Sections */
-.section { max-width: 1100px; margin: 0 auto; padding: 56px 20px 8px; }
-.section h2 { font-size: 32px; margin: 0 0 8px; }
+.section { max-width: 1100px; margin: 0 auto; padding: 36px 20px 6px; }
+.section h2 { font-size: 26px; font-weight: 500; margin: 0 0 6px; }
 /* Homepage section headings are links to their own pages (owner
    decision 2026-11-21) — but they must look like the plain clean
    headings they were before the split: no underline, same colour
    as the heading text, never link-blue. (Owner 2026-11-21 ~18:12
    EST: "Achha text liyo" — the underlined headings looked dirty.) */
 .section h2 a, .app-band h2 a { color: inherit; text-decoration: none; }
-.section .intro { color: var(--grey); max-width: 640px; margin: 0 0 26px; }
+.section .intro { color: var(--grey); max-width: 640px; margin: 0 0 18px; }
 /* Experience / trust cards (photos on experience cards; gradient band on trust cards) */
 .exp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 @media (max-width: 860px) { .exp-grid { grid-template-columns: 1fr; } }
@@ -306,7 +306,7 @@ input, select, textarea { font: inherit; }
 @media (max-width: 860px) { .airport-card .card-photo { height: 220px; } }
 .airport-body { padding: 26px 28px 28px; }
 .airport-body .eyebrow { margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grey); }
-.section .airport-body h2 { font-size: 30px; margin: 0 0 8px; }
+.section .airport-body h2 { font-size: 25px; font-weight: 500; margin: 0 0 6px; }
 .airport-body p { margin: 0; color: #3c3c3c; max-width: 680px; font-size: 16.5px; }
 .policy { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 24px 26px; }
 .policy h3 { margin: 18px 0 4px; font-size: 19px; }
@@ -618,14 +618,14 @@ input, select, textarea { font: inherit; }
 
 /* App band: your rides in your pocket — the browser customer app at /app. */
 .app-band { background: var(--paper); }
-.app-band-inner { max-width: 1100px; margin: 0 auto; padding: 64px 20px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 36px; align-items: center; }
+.app-band-inner { max-width: 1100px; margin: 0 auto; padding: 44px 20px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 36px; align-items: center; }
 .app-band .eyebrow { margin: 0 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grey); }
-.app-band h2 { font-size: 36px; margin: 0 0 10px; }
+.app-band h2 { font-size: 29px; font-weight: 500; margin: 0 0 8px; }
 .app-band p { color: #3c3c3c; font-size: 17px; margin: 0 0 18px; max-width: 520px; }
 .app-band .btn-primary { display: inline-block; width: auto; text-decoration: none; margin-top: 0; }
 .app-band .card-photo { height: 300px; border-radius: 10px; }
 @media (max-width: 860px) {
-  .app-band-inner { grid-template-columns: 1fr; padding: 48px 20px; }
+  .app-band-inner { grid-template-columns: 1fr; padding: 36px 20px; }
   .app-band .card-photo { height: 220px; }
 }
 

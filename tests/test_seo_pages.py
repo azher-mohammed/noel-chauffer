@@ -331,7 +331,7 @@ class SeoPagesTest(unittest.TestCase):
         # homepage split; it still lives on the site, word for word.
         faq = self.client.get("/frequently-asked-questions").get_data(as_text=True)
         self.assertIn(
-            "Enter your pickup and drop-off, date and time, choose your experience", faq
+            "Enter your pickup and drop-off, date and time, choose your ride", faq
         )
 
     def test_owner_still_noindexed(self):

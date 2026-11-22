@@ -17,7 +17,9 @@ Gold stays OUT everywhere EXCEPT the brand name: only the word
 (#D4AF37 with a subtle sheen, owner order 2026-11-22 ~06:49 EST,
 superseding the 2026-11-21 light gold #e8cf8f); see test_no_gold.py.
 Applies on the website, the customer app (/app) AND the driver app
-(/driver).
+(/driver). Two driver-app button exceptions (owner 2026-11-21
+~21:05 EST): Decline is light red and the Go online / Go offline
+toggle is black — see test_driver_colours_slide.py.
 
 These are static pins on the three stylesheets only: the change is
 CSS-only, so the shipped stylesheets are the whole change.
@@ -141,7 +143,10 @@ class BlueButtonsCase(unittest.TestCase):
         self.assertIn("#5b9bd5", css)
         self.assertNotIn("#0b5fff", css, "dark blue is OUT (owner 2026-11-21 ~19:00 EST)")
 
-    def test_ghost_danger_decline_are_blue_too(self):
+    def test_ghost_danger_are_blue_decline_is_light_red(self):
+        # Ghost and danger stay very light blue. Decline is LIGHT RED
+        # (owner 2026-11-21 ~21:05 EST) — see
+        # test_driver_colours_slide.py for the full pin.
         for rel in ("static/css/customer.css",
                     "static/css/customer-app.css",
                     "static/css/driver.css"):
@@ -153,8 +158,10 @@ class BlueButtonsCase(unittest.TestCase):
                 self.assertIn("color: var(--white);", body,
                               "%s %s" % (rel, selector))
         body = _rule(_read("static/css/driver.css"), ".btn-decline")
-        self.assertIn("background: var(--blue);", body)
-        self.assertIn("color: var(--white);", body)
+        self.assertIn("background: #f5c6c2;", body)
+        self.assertIn("border: 1px solid #e8a49e;", body)
+        self.assertIn("color: var(--ink);", body)
+        self.assertNotIn("var(--blue)", body)
 
     def test_header_cta_and_home_menu_are_blue(self):
         body = _rule(_read("static/css/customer.css"), ".header-cta")

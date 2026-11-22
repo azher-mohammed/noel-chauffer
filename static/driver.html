@@ -338,7 +338,10 @@
       <input id="extra-miles" type="number" min="0" step="0.1" value="0">
     </div>
 
-    <button class="btn-primary btn-gold" type="button" id="trip-next-btn">Head to pickup</button>
+    <!-- Slide to confirm (owner 2026-11-22, Uber-style): the driver
+         slides the thumb to the end instead of tapping — Head to
+         pickup, I have arrived, Start trip, Complete trip. -->
+    <button class="btn-primary btn-gold slide-confirm" type="button" id="trip-next-btn" aria-label="Slide to confirm"><span class="slide-label">Head to pickup</span><span class="slide-thumb" aria-hidden="true">&#8250;</span></button>
     <p class="loc-note hidden" id="trip-gate-note" role="status"></p>
     <p class="loc-note hidden" id="loc-note"></p>
     <div style="height:10px;"></div>

@@ -2153,7 +2153,13 @@
       else { tick.textContent = ""; }
     });
     var current = STAGES[state.stageIndex];
-    $("trip-next-btn").textContent = STAGE_BUTTON[current] || "Continue";
+    /* Slide-to-confirm label (owner 2026-11-22): the button holds a
+       label span and a thumb, so the stage name goes into the label
+       span — setting textContent on the button would wipe the
+       thumb. */
+    var stageLabel = document.querySelector("#trip-next-btn .slide-label");
+    if (stageLabel) { stageLabel.textContent = STAGE_BUTTON[current] || "Continue"; }
+    else { $("trip-next-btn").textContent = STAGE_BUTTON[current] || "Continue"; }
     if (current === "complete") {
       show($("waiting-field"));
       /* Extra miles apply to one-way rides only, never hourly. */
@@ -2393,7 +2399,16 @@
       body: JSON.stringify(payload)
     }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
   }
-  $("trip-next-btn").addEventListener("click", function () {
+  /* Slide to confirm (owner 2026-11-22, Uber-style): the trip
+     stage advances only when the driver slides the thumb to the
+     end of the track — Head to pickup, I have arrived, Start trip,
+     Complete trip. No more accidental taps. The slide calls the
+     same advance path as the old tap: the 100 m location gate
+     (Azher + Sana exemption), the Maps/Waze chooser and the stage
+     flow are all unchanged. Keyboard Enter/Space on the focused
+     slide completes it, so the control stays usable without a
+     pointer. A disabled slide (location gate) cannot be dragged. */
+  function fireStageAdvance() {
     var current = STAGES[state.stageIndex];
     if (!current || !state.trip || state.advancing) return;
     var btn = $("trip-next-btn");
@@ -2434,7 +2449,63 @@
       extra.lng = pos.lng;
       advanceStage(current, extra, btn);
     });
-  });
+  }
+  var SLIDE_COMPLETE_FRACTION = 0.8;
+  function wireTripSlide() {
+    var btn = $("trip-next-btn");
+    if (!btn) return;
+    var thumb = btn.querySelector(".slide-thumb");
+    var dragging = false, startX = 0, dragX = 0, maxDx = 0;
+    function slideMax() {
+      var track = btn.getBoundingClientRect().width;
+      var tw = thumb ? thumb.getBoundingClientRect().width : 50;
+      return Math.max(0, track - tw - 8);
+    }
+    function setThumb(x) {
+      if (thumb) thumb.style.transform = "translateX(" + x + "px)";
+    }
+    function resetThumb() {
+      if (!thumb) return;
+      thumb.style.transition = "transform 0.18s ease";
+      thumb.style.transform = "translateX(0)";
+      setTimeout(function () { if (thumb) thumb.style.transition = ""; }, 200);
+    }
+    $("trip-next-btn").addEventListener("pointerdown", function (e) {
+      if (btn.disabled || state.advancing || !state.trip) return;
+      dragging = true;
+      startX = e.clientX;
+      dragX = 0;
+      maxDx = slideMax();
+      try { btn.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+      e.preventDefault();
+    });
+    $("trip-next-btn").addEventListener("pointermove", function (e) {
+      if (!dragging) return;
+      dragX = Math.max(0, Math.min(maxDx, e.clientX - startX));
+      setThumb(dragX);
+    });
+    function finishDrag() {
+      if (!dragging) return;
+      dragging = false;
+      var done = maxDx > 0 && dragX >= SLIDE_COMPLETE_FRACTION * maxDx;
+      dragX = 0;
+      resetThumb();
+      if (done) fireStageAdvance();
+    }
+    $("trip-next-btn").addEventListener("pointerup", finishDrag);
+    $("trip-next-btn").addEventListener("pointercancel", function () {
+      dragging = false;
+      dragX = 0;
+      resetThumb();
+    });
+    $("trip-next-btn").addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        fireStageAdvance();
+      }
+    });
+  }
+  wireTripSlide();
   function advanceStage(current, extra, btn) {
     postTripEvent(current, extra)
       .then(function (res) {

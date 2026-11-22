@@ -23,6 +23,12 @@ looked dull/grey to him. The word "Noel" stays its normal colour
 (white on dark backgrounds, black ink on the white driver app).
 No layout or position changes.
 
+Driver-app button exceptions (owner 2026-11-21 ~21:05 EST): the
+offer-card Decline button is LIGHT RED and the Go online / Go
+offline toggle is BLACK — deliberate exceptions to the never-black
+rule (see test_driver_colours_slide.py). Accept and every other
+button stay very light blue.
+
 Notes:
 - The class name `.btn-gold` and the variable `var(--gold)` still
   exist by name; only their rendered values changed (the variable now
@@ -110,17 +116,14 @@ class NoGoldCase(unittest.TestCase):
                                  "%s %s" % (rel, selector))
 
     def test_driver_accept_and_toggle_blue(self):
+        # Accept stays very light blue. The Go online / Go offline
+        # toggle is BLACK (owner 2026-11-21 ~21:05 EST) — a
+        # deliberate exception to the never-black-buttons rule, for
+        # this button only (see test_driver_colours_slide.py).
         css = _read("static/css/driver.css")
-        for selector in (".btn-accept", ".toggle-btn",
-                         "#screen-home .toggle-btn"):
-            body = _rule(css, selector)
-            self.assertIn("background: var(--blue);", body, selector)
-            self.assertIn("color: var(--white);", body, selector)
-        for selector in (".toggle-btn.on",
-                         "#screen-home .toggle-btn.on"):
-            body = _rule(css, selector)
-            self.assertIn("background: var(--blue);", body, selector)
-            self.assertIn("color: var(--white);", body, selector)
+        body = _rule(css, ".btn-accept")
+        self.assertIn("background: var(--blue);", body)
+        self.assertIn("color: var(--white);", body)
 
     def test_chat_fab_green_and_pay_buttons_blue(self):
         # Chat with us is WhatsApp green #25D366 (owner 2026-11-22);

@@ -7,10 +7,12 @@ black-and-gold driver app background. Applies to ALL driver app
 screens: sign-in / register / reset, home, jobs/offers, trip,
 earnings, tax info, documents, profile.
 
-Buttons stay BLUE (#5b9bd5, full business look, never black — see
-test_blue_buttons.py). The wordmark keeps only "Chauffeur" golden, in
-the BRIGHT gold #D4AF37 with a subtle sheen on all three surfaces
-(owner 2026-11-22 ~06:49 EST); "Noel" is black ink.
+Buttons stay BLUE (#5b9bd5, full business look — see
+test_blue_buttons.py), EXCEPT the Go online / Go offline toggle,
+which is BLACK (owner 2026-11-21 ~21:05 EST, a deliberate exception
+to the never-black rule). The wordmark keeps only "Chauffeur"
+golden, in the BRIGHT gold #D4AF37 with a subtle sheen on all three
+surfaces (owner 2026-11-22 ~06:49 EST); "Noel" is black ink.
 
 These are static pins on static/css/driver.css only: the change is
 CSS-only, so the shipped stylesheet is the whole change.
@@ -177,8 +179,10 @@ class DriverWhiteCase(unittest.TestCase):
 
     def test_buttons_still_blue_on_white(self):
         css = _read(CSS)
-        for selector in (".btn-primary", ".btn-gold", ".btn-accept",
-                         ".toggle-btn"):
+        # The Go online / Go offline toggle is NOT in this list: it
+        # is BLACK (owner 2026-11-21 ~21:05 EST exception — see
+        # test_driver_colours_slide.py).
+        for selector in (".btn-primary", ".btn-gold", ".btn-accept"):
             body = _rule(css, selector)
             self.assertIn("background: var(--blue);", body, selector)
             self.assertIn("color: var(--white);", body, selector)

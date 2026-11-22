@@ -51,13 +51,14 @@ input, select { font: inherit; }
   padding: 20px 20px 16px;
   border-bottom: 1px solid var(--line);
 }
-.app-head .brand { font-family: Georgia, "Times New Roman", serif; font-size: 26px; letter-spacing: 0.04em; }
+/* Premium text wordmark (owner 2026-11-21 ~21:05 EST; sheen refined
+   2026-11-22 ~06:49 EST): TEXT ONLY, no logo — "Noel" plain,
+   "Chauffeur" in bright gold #D4AF37 with a subtle metallic sheen,
+   the SAME bright gold on the website, the customer app and the
+   driver app. Wider tracking and a medium weight make it read
+   premium. */
+.app-head .brand { font-family: Georgia, "Times New Roman", serif; font-size: 26px; letter-spacing: 0.07em; font-weight: 500; }
 .app-head .brand span {
-  /* Bright golden "Chauffeur" with a subtle metallic sheen (owner
-     2026-11-22): "Noel" stays plain, only "Chauffeur" is gold —
-     the SAME bright gold on the website, the customer app and the
-     driver app. The solid colour is the fallback; browsers that
-     support background-clip:text show the sheen. */
   color: var(--wordmark-gold);
   background: linear-gradient(105deg, #B8860B 0%, var(--wordmark-gold) 32%, #F6E27A 50%, var(--wordmark-gold) 68%, #B8860B 100%);
   -webkit-background-clip: text;
@@ -135,7 +136,10 @@ input, select { font: inherit; }
 .btn-ghost { background: var(--blue); border: 1px solid var(--blue); color: var(--white); padding: 12px 16px; border-radius: 6px; width: 100%; }
 .btn-danger { background: var(--blue); border: 1px solid var(--blue); color: var(--white); padding: 12px 16px; border-radius: 6px; width: 100%; }
 .btn-accept { background: var(--blue); color: var(--white); border: 1px solid var(--blue); padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
-.btn-decline { background: var(--blue); color: var(--white); border: 1px solid var(--blue); padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
+/* Decline is LIGHT RED (owner 2026-11-21 ~21:05 EST) — the only red
+   button in the driver app; Accept stays very light blue. Dark ink
+   text on the light red, for readability. */
+.btn-decline { background: #f5c6c2; color: var(--ink); border: 1px solid #e8a49e; padding: 13px; border-radius: 6px; flex: 1; font-size: 16px; }
 .form-error { color: var(--bad); font-size: 14.5px; min-height: 1.2em; margin-top: 10px; }
 .form-note { color: var(--grey); font-size: 14px; }
 .divider { display: flex; align-items: center; gap: 10px; color: var(--grey); font-size: 14px; margin: 22px 0 14px; }
@@ -169,16 +173,18 @@ input, select { font: inherit; }
 .photo-tips ul { margin: 0; padding-left: 18px; }
 .photo-tips li { margin: 2px 0; }
 
-/* Availability toggle: bare button only, no card (owner 2026-11-21). */
+/* Availability toggle: bare button only, no card (owner 2026-11-21).
+   BLACK (owner 2026-11-21 ~21:05 EST) — a deliberate exception to
+   the never-black-buttons rule, for this button only. */
 .toggle-btn {
   border: 0; border-radius: 999px; padding: 14px 32px; font-size: 17px; font-weight: 600;
-  background: var(--blue); color: var(--white);
+  background: var(--black); color: var(--white);
 }
-/* Online state is blue with white text and a grey border, never
+/* Online state is black with white text and a grey border, never
    green (owner 2026-11-21: "I don't like green colors"). Offline is
-   the plain blue button; online adds the grey border so the two
+   the plain black button; online adds the grey border so the two
    states still read apart. */
-.toggle-btn.on { background: var(--blue); color: var(--white); border: 1px solid #888888; }
+.toggle-btn.on { background: var(--black); color: var(--white); border: 1px solid #888888; }
 
 /* Offers */
 .offer {
@@ -600,18 +606,52 @@ input, select { font: inherit; }
   margin: 16px auto 0;
 }
 #screen-home .toggle-btn {
-  background: var(--blue);
+  background: var(--black);
   color: var(--white);
-  border: 1px solid var(--blue);
+  border: 1px solid var(--black);
   box-shadow: none;
 }
 #screen-home .toggle-btn.on {
-  background: var(--blue);
+  background: var(--black);
   border-color: #888888;
   color: var(--white);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 #screen-home .toggle-btn:active { transform: translateY(1px); }
+
+/* Slide-to-confirm trip button (owner 2026-11-22, Uber-style): the
+   driver slides the thumb to the end of the track instead of
+   tapping — Head to pickup, I have arrived, Start trip, Complete
+   trip. Same blue button and label; the thumb is a pale tab with a
+   chevron. When the location gate disables the button the whole
+   track dims. Vertical scrolling still works (touch-action: pan-y);
+   the thumb itself never takes pointer events, so the drag is
+   tracked on the button. */
+#screen-trip #trip-next-btn.slide-confirm {
+  position: relative;
+  overflow: hidden;
+  height: 58px;
+  padding: 0;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#screen-trip #trip-next-btn .slide-label {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  pointer-events: none;
+}
+#screen-trip #trip-next-btn .slide-thumb {
+  position: absolute; left: 4px; top: 4px; bottom: 4px; width: 50px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--blue);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 700;
+  pointer-events: none;
+}
+#screen-trip #trip-next-btn:disabled { opacity: 0.55; }
 
 /* Job offer cards: white with depth, blue spine, pale-grey earnings. */
 #screen-home .offer {

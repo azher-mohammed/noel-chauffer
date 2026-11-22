@@ -809,3 +809,173 @@ body.in-booking-flow .footer-cols { display: none; }
 .footer-cols { align-items: start; }
 .footer-col h3 { line-height: 1.3; }
 @media (max-width: 860px) { .footer-cols { grid-template-columns: 1fr 1fr; } }
+
+/* ---- Blacklane-style booking form + class page (owner 2026-11-22) ----
+   Hamburger menu, dark suggestion box with type icons, dark
+   November-calendar date picker, 10-minute time list, full-width
+   time field, side-by-side class cards (swipeable on narrow
+   widths), class details, dotted price-breakdown leaders, sticky
+   class bar, no footer on the booking page. No prices, rates or
+   payment code touched here. */
+
+/* Hamburger menu: circular button with THREE lines, narrow width
+   only (the full nav shows on desktop). */
+.menu-btn { display: none; }
+@media (max-width: 760px) {
+  .menu-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    width: 44px; height: 44px; flex: none;
+    background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.65); border-radius: 50%;
+  }
+  .menu-btn span { display: block; width: 20px; height: 2px; background: #fff; }
+}
+/* Full-screen dark menu overlay. */
+.mobile-menu {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(11, 11, 12, 0.97); color: var(--white);
+  overflow-y: auto; padding: 14px 20px 48px;
+}
+.mobile-menu-head { display: flex; align-items: center; justify-content: space-between; max-width: 1100px; margin: 0 auto; padding: 0 0 8px; }
+.mobile-menu .wordmark { color: var(--white); }
+.menu-close { background: none; border: 0; color: var(--white); font-size: 24px; padding: 8px; line-height: 1; }
+.mobile-menu-nav { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; }
+.menu-group-btn, .menu-link {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: none; border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--white); font-size: 19px; text-align: left; text-decoration: none;
+  padding: 16px 4px;
+}
+.menu-group-btn .chev { font-size: 22px; color: #cfcfcf; transition: transform 0.2s ease; }
+.menu-group-btn[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.menu-sub { list-style: none; margin: 0; padding: 0 0 8px 16px; }
+.menu-sub a { display: block; color: #cfcfcf; font-size: 16px; text-decoration: none; padding: 9px 4px; }
+.menu-plain { color: #cfcfcf; }
+
+/* Field-required error (Blacklane-style): red message under the
+   field + red underline on the input. */
+.field-error { color: var(--bad); font-size: 13.5px; margin: 5px 0 0; }
+.field input.field-invalid { border-color: var(--bad); }
+.booking-card .field-error { color: #ff9d9d; }
+.booking-card .field input.field-invalid { border-bottom-color: #ff6b6b; }
+
+/* Address suggestions: dark dropdown (Blacklane look), full address
+   as the bold main line with the same text smaller/grey beneath,
+   type icon on the left. Suggestions still come from
+   Photon/Nominatim (owner dropped Google Places 2026-11-22), so
+   there is deliberately NO Google attribution line. */
+.places-list {
+  background: #101c2e; border: 1px solid #1f2f47; border-radius: 8px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+  max-height: 300px;
+}
+.places-list li button {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: #101c2e; color: var(--white); border-bottom: 1px solid #1f2f47;
+  padding: 10px 12px;
+}
+.places-list li button:hover, .places-list li button.active { background: #1b2c47; }
+.places-list li button:focus { outline: 2px solid var(--blue); outline-offset: -2px; }
+.places-icon { flex: none; width: 18px; height: 18px; color: #9db4d8; margin-top: 2px; }
+.places-icon svg { display: block; width: 18px; height: 18px; }
+.places-text { flex: 1; min-width: 0; }
+.places-main { display: block; font-weight: 600; font-size: 15px; color: var(--white); }
+.places-detail { display: block; color: #9aa8bc; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Date + time pickers drop from their fields. */
+.field-date, .field-time { position: relative; }
+.date-picker {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 1000;
+  width: 320px; max-width: calc(100vw - 40px);
+  background: #101c2e; color: var(--white);
+  border: 1px solid #1f2f47; border-radius: 10px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+  padding: 14px;
+}
+.dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dp-title { font-weight: 700; font-size: 15px; }
+.dp-nav { background: none; border: 0; color: var(--white); font-size: 18px; padding: 4px 10px; line-height: 1; }
+.dp-nav:disabled { opacity: 0.3; cursor: default; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.dp-dow { font-size: 12px; color: #9aa8bc; padding: 4px 0; }
+.dp-day { background: none; border: 0; color: var(--white); font-size: 14px; padding: 7px 0; border-radius: 6px; }
+.dp-day:hover { background: #1b2c47; }
+.dp-day.past { color: #5a6b82; text-decoration: line-through; cursor: default; }
+.dp-day.past:hover { background: none; }
+.dp-day.today { box-shadow: inset 0 0 0 1px var(--blue); }
+.dp-day.selected { background: var(--blue); color: var(--white); }
+.dp-day.empty { visibility: hidden; }
+.time-list {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1000;
+  list-style: none; margin: 0; padding: 0;
+  background: #101c2e; border: 1px solid #1f2f47; border-radius: 8px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+  max-height: 264px; overflow-y: auto;
+}
+.time-list li button { display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--white); padding: 9px 12px; font-size: 14.5px; }
+.time-list li button:hover { background: #1b2c47; }
+.time-list li button.selected { background: var(--blue); color: var(--white); }
+
+/* Choose your experience: side-by-side cards on desktop, swipeable
+   carousel on narrow widths. */
+.class-options { flex-wrap: nowrap; }
+.class-option {
+  flex: 1 1 0; min-width: 0;
+  flex-direction: column; align-items: stretch; gap: 8px;
+  padding: 12px;
+}
+.class-option-media { width: 100%; }
+.class-option-car { width: 100%; height: 110px; border-radius: 8px; }
+.class-option-capacity { justify-content: flex-start; }
+@media (max-width: 760px) {
+  .class-options { overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+  .class-options .class-option { flex: 0 0 78%; scroll-snap-align: start; }
+}
+
+/* Class details below the cards. */
+.class-explore { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
+.class-highlights { position: relative; overflow: hidden; border-radius: 10px; }
+.highlights-track { display: flex; transition: transform 0.3s ease; }
+.hl-slide { flex: 0 0 100%; min-width: 0; }
+.hl-slide figure { margin: 0; }
+.hl-slide img { width: 100%; height: 220px; object-fit: cover; display: block; border-radius: 10px; background: #fff; }
+.hl-slide figcaption { font-size: 14.5px; padding: 10px 4px 0; }
+.hl-slide-text { padding: 18px; background: var(--paper); border-radius: 10px; min-height: 120px; }
+.hl-slide-text h4 { margin: 0 0 6px; font-size: 17px; }
+.hl-slide-text p { margin: 0; color: var(--grey); font-size: 14.5px; }
+.hl-arrow {
+  position: absolute; top: 88px; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(11, 11, 12, 0.55); color: #fff; border: 0; font-size: 20px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.hl-prev { left: 8px; }
+.hl-next { right: 8px; }
+.hl-dots { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
+.hl-dot { width: 8px; height: 8px; border-radius: 50%; border: 0; background: #cfccc2; padding: 0; }
+.hl-dot.active { background: var(--blue); }
+.class-included ul, .class-notes ul { margin: 6px 0 0; padding-left: 20px; font-size: 14.5px; }
+.class-included li, .class-notes li { margin-bottom: 6px; }
+.class-included h3, .class-capacity h3, .class-notes h3 { font-size: 15px; margin: 16px 0 6px; }
+.cap-tabs { display: flex; gap: 8px; margin: 6px 0 8px; }
+.cap-tab { padding: 8px 16px; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; font-size: 14px; }
+.cap-tab.active { background: var(--blue); color: var(--white); border-color: var(--blue); }
+.cap-panel { font-size: 14.5px; margin: 0; }
+
+/* Price breakdown: dotted leader lines between label and value. */
+.class-breakdown .breakdown-row { align-items: baseline; }
+.class-breakdown .breakdown-row::after { content: ""; flex: 1; border-bottom: 1px dotted #9a968a; order: 2; }
+.class-breakdown .breakdown-row span:first-child { order: 1; }
+.class-breakdown .breakdown-row span:last-child { order: 3; }
+.class-breakdown .breakdown-total::after { border-bottom: 0; }
+
+/* Sticky bottom bar on the class page: total + Select button. */
+#class-step .class-actions {
+  position: sticky; bottom: 0; z-index: 20;
+  display: flex; align-items: center; gap: 14px;
+  background: var(--white); padding: 12px 0; border-top: 1px solid var(--line);
+  margin-top: 16px;
+}
+#class-step .class-actions .btn-primary { flex: 1; margin-top: 0; }
+.class-sticky-total { font-family: Georgia, serif; font-size: 22px; white-space: nowrap; }
+
+/* No footer on the booking (class) page. */
+body.class-step-open .site-footer { display: none; }

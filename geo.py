@@ -466,8 +466,13 @@ def _parse_place(item):
     """Normalize one Nominatim item to (result dict, class, type) or None.
 
     The result dict is the public shape: display_name, lat, lon,
-    address. Class/type are internal only (airport/terminal detection)
-    and are never included in API responses.
+    address, airport, kind. Class/type are internal only
+    (airport/terminal detection) and are never included in API
+    responses. "kind" is the suggestion's type for the booking form
+    — "airport", "hotel", "terminal" (set by the terminal merge, see
+    search_places) or "address" — so the form can draw the right
+    icon (plane / hotel / pin) and show the flight-number field for
+    airport picks.
     """
     if not isinstance(item, dict):
         return None
@@ -491,6 +496,15 @@ def _parse_place(item):
     # upstream ever returns one (e.g. via the Photon fallback).
     if address.get("country_code") not in (None, "us"):
         return None
+    cls = item.get("class")
+    typ = item.get("type")
+    is_airport = cls == "aeroway" and typ == "aerodrome"
+    if is_airport:
+        kind = "airport"
+    elif cls == "tourism" and typ in ("hotel", "motel", "hostel", "guest_house"):
+        kind = "hotel"
+    else:
+        kind = "address"
     return (
         {
             "display_name": display_name,
@@ -500,11 +514,11 @@ def _parse_place(item):
             # True only for the airport itself (aeroway/aerodrome), so
             # the booking form can tell an airport suggestion apart
             # from a terminal or street address.
-            "airport": item.get("class") == "aeroway"
-            and item.get("type") == "aerodrome",
+            "airport": is_airport,
+            "kind": kind,
         },
-        item.get("class"),
-        item.get("type"),
+        cls,
+        typ,
     )
 
 
@@ -607,6 +621,11 @@ def _airport_terminals(airport_lat, airport_lon):
         found.values(),
         key=lambda item: item["display_name"].split(",")[0].strip().lower(),
     )
+    # Terminals are airport facilities: the booking form draws them
+    # with the plane icon and shows the flight-number field for them,
+    # same as the airport itself.
+    for terminal in terminals:
+        terminal["kind"] = "terminal"
     if len(_terminal_cache) < _CACHE_LIMIT:
         _terminal_cache[key] = terminals
     return terminals

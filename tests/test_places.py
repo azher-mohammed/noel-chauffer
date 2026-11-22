@@ -115,7 +115,7 @@ class TestPlaceSearchEndpoint(PlacesTestCase):
         self.assertEqual(len(results), 2)
         first = results[0]
         self.assertEqual(set(first.keys()),
-                         {"display_name", "lat", "lon", "address", "airport"})
+                         {"display_name", "lat", "lon", "address", "airport", "kind"})
         self.assertEqual(first["display_name"], NOMINATIM_OK[0]["display_name"])
         self.assertIsInstance(first["lat"], float)
         self.assertIsInstance(first["lon"], float)
@@ -340,9 +340,11 @@ class TestAirportTerminals(PlacesTestCase):
              "Terminal 5 Arrivals", "Terminal 5 Departures",
              "JFK Airport AirTrain Station"])
         # Every entry keeps the exact public shape, no pricing fields.
+        # "kind" is the suggestion type for the booking form's icon
+        # and flight-number field (Blacklane-style, owner 2026-11-22).
         for item in results:
             self.assertEqual(set(item.keys()),
-                             {"display_name", "lat", "lon", "address", "airport"})
+                             {"display_name", "lat", "lon", "address", "airport", "kind"})
             self.assertFalse(FORBIDDEN_KEYS & set(item.keys()))
             self.assertFalse(FORBIDDEN_KEYS & set(item["address"].keys()))
             self.assertNotIn("class", item)

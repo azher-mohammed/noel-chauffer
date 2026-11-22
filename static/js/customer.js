@@ -20,6 +20,12 @@
     mapReady: false,
     pickupPlace: null,
     dropoffPlace: null,
+    /* Blacklane-style pickers (owner decision 2026-11-22): the date
+       and time the customer picked in the custom calendar / time
+       list, in server format (YYYY-MM-DD / HH:MM). The visible
+       inputs show "Tue, Nov 24" / "07:10 AM". */
+    dateIso: "",
+    timeValue: "",
     flightNumber: null,
     flightResolved: false,
     pendingPayload: null,
@@ -137,6 +143,45 @@
     });
     document.body.classList.toggle("in-booking-flow", inFlow);
   }
+/* ---------- Hamburger menu (Blacklane-style, owner 2026-11-22) ---------- */
+  /* Circular three-lines button, narrow width only; opens a
+     full-screen dark overlay. Only one accordion section stays open
+     at a time. "Sign in" and the language are plain items: Noel has
+     no customer accounts and the site is English-only. */
+  (function initMenu() {
+    var menuBtn = $("menu-btn");
+    var mobileMenu = $("mobile-menu");
+    if (!menuBtn || !mobileMenu) return;
+    function openMenu() {
+      show(mobileMenu);
+      document.body.style.overflow = "hidden";
+      menuBtn.setAttribute("aria-expanded", "true");
+    }
+    function closeMenu() {
+      hide(mobileMenu);
+      document.body.style.overflow = "";
+      menuBtn.setAttribute("aria-expanded", "false");
+    }
+    menuBtn.addEventListener("click", openMenu);
+    var closeBtn = $("menu-close");
+    if (closeBtn) closeBtn.addEventListener("click", closeMenu);
+    mobileMenu.querySelectorAll(".menu-group-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var group = btn.getAttribute("data-menu-group");
+        var sub = mobileMenu.querySelector('[data-menu-sub="' + group + '"]');
+        var isOpen = sub && !sub.classList.contains("hidden");
+        mobileMenu.querySelectorAll(".menu-sub").forEach(function (s) { s.classList.add("hidden"); });
+        mobileMenu.querySelectorAll(".menu-group-btn").forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+        if (!isOpen && sub) {
+          sub.classList.remove("hidden");
+          btn.setAttribute("aria-expanded", "true");
+        }
+      });
+    });
+    mobileMenu.querySelectorAll(".menu-sub a, .menu-link[href]").forEach(function (a) {
+      a.addEventListener("click", closeMenu);
+    });
+  })();
   /* Bookings are LIVE (owner decision 2026-11-20: Blacklane prices
      + slab driver pay, "Driver aur customer dono live kar do").
      The server still enforces the pause either way. */
@@ -222,6 +267,7 @@
         hide($("hourly-class-step"));
         hide($("field-contact"));
       }
+      updateFlightField();
     });
   });
 
@@ -240,12 +286,148 @@
   var hoursInput = $("bk-hours");
   if (hoursInput) hoursInput.addEventListener("input", paintHourlyTotals);
 
-  /* Date input: no past dates. */
+  /* ---------- Blacklane-style date + time pickers ---------- */
+  /* Date: a dark November-calendar popup (owner decision 2026-11-22).
+     Past dates are dimmed, struck through and unselectable; today is
+     the first enabled date; picking a date sets "Tue, Nov 24" (no
+     year) and closes the picker. Time: a dropdown list, every 10
+     minutes, 12:00 AM–11:50 PM (144 options). The server still
+     blocks past dates/times on submit, and the time field is full
+     width like the Date field. */
+  var MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  function fmtDateDisplay(iso) {
+    var p = iso.split("-");
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    return DAYS_SHORT[d.getDay()] + ", " + MONTHS_SHORT[d.getMonth()] + " " + d.getDate();
+  }
+  function isoParts(iso) {
+    var p = (iso || "").split("-");
+    return { y: Number(p[0]), m: Number(p[1]) - 1, d: Number(p[2]) };
+  }
+  var datePicker = $("bk-date-picker");
+  var dateView = null; // {y, m} 0-based month, set on first open
+  function renderDatePicker() {
+    var today = todayNY();
+    var tp = isoParts(today);
+    if (!dateView) dateView = { y: tp.y, m: tp.m };
+    var first = new Date(dateView.y, dateView.m, 1);
+    var daysInMonth = new Date(dateView.y, dateView.m + 1, 0).getDate();
+    var prevDisabled = dateView.y === tp.y && dateView.m === tp.m;
+    var html = '<div class="dp-head">'
+      + '<button type="button" class="dp-nav" id="bk-dp-prev" aria-label="Previous month"' + (prevDisabled ? " disabled" : "") + '>&#8249;</button>'
+      + '<span class="dp-title">' + MONTHS_FULL[dateView.m] + " " + dateView.y + '</span>'
+      + '<button type="button" class="dp-nav" id="bk-dp-next" aria-label="Next month">&#8250;</button></div>';
+    html += '<div class="dp-grid">';
+    ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].forEach(function (d) { html += '<span class="dp-dow">' + d + '</span>'; });
+    var i;
+    for (i = 0; i < first.getDay(); i++) html += '<span class="dp-day empty"></span>';
+    for (i = 1; i <= daysInMonth; i++) {
+      var iso = dateView.y + "-" + String(dateView.m + 1).padStart(2, "0") + "-" + String(i).padStart(2, "0");
+      var cls = "dp-day";
+      if (iso < today) cls += " past";
+      if (iso === today) cls += " today";
+      if (iso === state.dateIso) cls += " selected";
+      html += '<button type="button" class="' + cls + '" data-date="' + iso + '"' + (iso < today ? " disabled" : "") + '>' + i + '</button>';
+    }
+    html += '</div>';
+    datePicker.innerHTML = html;
+    var prev = $("bk-dp-prev");
+    if (prev) prev.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (dateView.m === 0) { dateView = { y: dateView.y - 1, m: 11 }; } else { dateView.m -= 1; }
+      renderDatePicker();
+    });
+    var next = $("bk-dp-next");
+    if (next) next.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (dateView.m === 11) { dateView = { y: dateView.y + 1, m: 0 }; } else { dateView.m += 1; }
+      renderDatePicker();
+    });
+    datePicker.querySelectorAll(".dp-day[data-date]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.dateIso = btn.getAttribute("data-date");
+        $("bk-date").value = fmtDateDisplay(state.dateIso);
+        closeDatePicker();
+      });
+    });
+  }
+  function openDatePicker() { renderDatePicker(); show(datePicker); }
+  function closeDatePicker() { hide(datePicker); }
+  /* 144 options: every 10 minutes across the full day, 12-hour
+     format with zero-padded hours ("07:10 AM"). */
+  var TIME_OPTIONS = [];
   (function () {
-    var d = new Date();
-    var iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-    $("bk-date").setAttribute("min", iso);
+    var h, m;
+    for (h = 0; h < 24; h++) {
+      for (m = 0; m < 60; m += 10) {
+        var ap = h < 12 ? "AM" : "PM";
+        var hh = h % 12; if (hh === 0) hh = 12;
+        TIME_OPTIONS.push({
+          value: String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0"),
+          label: String(hh).padStart(2, "0") + ":" + String(m).padStart(2, "0") + " " + ap
+        });
+      }
+    }
   })();
+  var timeList = $("bk-time-list");
+  function renderTimeList() {
+    timeList.innerHTML = TIME_OPTIONS.map(function (o) {
+      return '<li><button type="button" data-time="' + o.value + '"' + (o.value === state.timeValue ? ' class="selected"' : "") + '>' + o.label + '</button></li>';
+    }).join("");
+    timeList.querySelectorAll("button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.timeValue = btn.getAttribute("data-time");
+        $("bk-time").value = btn.textContent;
+        closeTimeList();
+      });
+    });
+  }
+  function openTimeList() {
+    renderTimeList();
+    show(timeList);
+    var sel = timeList.querySelector("button.selected");
+    if (sel) sel.scrollIntoView({ block: "nearest" });
+  }
+  function closeTimeList() { hide(timeList); }
+  $("bk-date").addEventListener("click", function () {
+    closeTimeList();
+    if (datePicker.classList.contains("hidden")) { openDatePicker(); } else { closeDatePicker(); }
+  });
+  $("bk-time").addEventListener("click", function () {
+    closeDatePicker();
+    if (timeList.classList.contains("hidden")) { openTimeList(); } else { closeTimeList(); }
+  });
+  document.addEventListener("click", function (e) {
+    if (datePicker && !datePicker.classList.contains("hidden")
+        && !$("bk-date").contains(e.target) && !datePicker.contains(e.target)) closeDatePicker();
+    if (timeList && !timeList.classList.contains("hidden")
+        && !$("bk-time").contains(e.target) && !timeList.contains(e.target)) closeTimeList();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { closeDatePicker(); closeTimeList(); }
+  });
+
+  /* Flight-number field (Blacklane-style, owner decision 2026-11-22):
+     shown between Date and Pickup time when ANY airport (or terminal)
+     is picked, pickup or drop-off; hidden again otherwise. */
+  function isAirportPlace(p) {
+    return !!(p && (p.airport || p.kind === "airport" || p.kind === "terminal"));
+  }
+  function updateFlightField() {
+    var showIt = state.rideType === "hourly"
+      ? isAirportPlace(state.pickupPlace)
+      : (isAirportPlace(state.pickupPlace) || isAirportPlace(state.dropoffPlace));
+    if (showIt) { show($("field-flight")); }
+    else { hide($("field-flight")); $("bk-flight").value = ""; }
+  }
+  /* Red "This field is required" under the field + red underline. */
+  function setFieldError(inputId, errorId, on) {
+    var input = $(inputId), errorEl = $(errorId);
+    if (input) input.classList.toggle("field-invalid", on);
+    if (errorEl) errorEl.classList.toggle("hidden", !on);
+  }
 
   /* ---------- USA address search (autocomplete only) ---------- */
   /* Typing in Pickup / Drop-off shows USA-only suggestions below the
@@ -287,6 +469,13 @@
      "bk-date", "bk-time", "bk-referral"
     ].forEach(function (id) { var el = $(id); if (el) el.value = ""; });
     $("bk-hours").value = "2";
+    state.dateIso = "";
+    state.timeValue = "";
+    $("bk-flight").value = "";
+    setFieldError("bk-pickup", "bk-pickup-error", false);
+    setFieldError("bk-dropoff", "bk-dropoff-error", false);
+    hide($("field-flight"));
+    document.body.classList.remove("class-step-open");
     state.hourlyClass = "sedan";
     paintHourlyClassSelection();
     paintHourlyTotals();
@@ -330,11 +519,27 @@
       /* Editing an address re-arms the flight-number step, so a changed
          airport address is asked about again on the next submit. */
       state.flightResolved = false;
+      updateFlightField();
+      setFieldError(input.id, input.id === "bk-pickup" ? "bk-pickup-error" : "bk-dropoff-error", false);
     }
     function choose(item) {
       input.value = item.display_name;
       if (kind === "pickup") { state.pickupPlace = item; } else { state.dropoffPlace = item; }
+      setFieldError(input.id, input.id === "bk-pickup" ? "bk-pickup-error" : "bk-dropoff-error", false);
+      updateFlightField();
       closeList();
+    }
+    /* Suggestion type icon (Blacklane look): plane for airports and
+       terminals, hotel for hotels, pin for plain addresses. */
+    function placeIcon(item) {
+      var k = item.kind || (item.airport ? "airport" : "address");
+      if (k === "airport" || k === "terminal") {
+        return '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>';
+      }
+      if (k === "hotel") {
+        return '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9c0-2.21-1.79-4-4-4z"/></svg>';
+      }
+      return '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>';
     }
     function paintActive() {
       var btns = list.querySelectorAll("button");
@@ -354,25 +559,33 @@
       list.innerHTML = "";
       if (!results.length) { closeList(); return; }
       results.forEach(function (item, idx) {
-        var parts = String(item.display_name).split(",");
-        var main = parts.shift().trim();
-        var detail = parts.join(",").trim();
+        /* Blacklane look: the FULL address as the bold main line and
+           the same text smaller/grey beneath it, with a type icon on
+           the left. Suggestions still come from Photon/Nominatim
+           (owner dropped Google Places 2026-11-22) — no "powered by
+           Google" line anywhere. */
         var li = document.createElement("li");
         var btn = document.createElement("button");
         btn.type = "button";
         btn.setAttribute("role", "option");
         btn.setAttribute("aria-selected", "false");
         btn.id = listId + "-opt-" + idx;
+        var icon = document.createElement("span");
+        icon.className = "places-icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.innerHTML = placeIcon(item);
+        btn.appendChild(icon);
+        var textWrap = document.createElement("span");
+        textWrap.className = "places-text";
         var mainEl = document.createElement("span");
         mainEl.className = "places-main";
-        mainEl.textContent = main || item.display_name;
-        btn.appendChild(mainEl);
-        if (detail) {
-          var detEl = document.createElement("span");
-          detEl.className = "places-detail";
-          detEl.textContent = detail;
-          btn.appendChild(detEl);
-        }
+        mainEl.textContent = item.display_name;
+        textWrap.appendChild(mainEl);
+        var detEl = document.createElement("span");
+        detEl.className = "places-detail";
+        detEl.textContent = item.display_name;
+        textWrap.appendChild(detEl);
+        btn.appendChild(textWrap);
         /* mousedown fires before the input loses focus, so a tap or
            click always lands on the suggestion. */
         btn.addEventListener("mousedown", function (e) {
@@ -450,7 +663,6 @@
     parts.forEach(function (p) { if (p.type === "hour") h = p.value; if (p.type === "minute") mi = p.value; });
     return h + ":" + mi;
   }
-  $("bk-date").min = todayNY();
 
   /* ---------- Create a booking ---------- */
   $("booking-form").addEventListener("submit", function (e) {
@@ -470,8 +682,8 @@
     }
     var payload = {
       pickup: $("bk-pickup").value.trim(),
-      date: $("bk-date").value,
-      time: $("bk-time").value,
+      date: state.dateIso,
+      time: state.timeValue,
       ride_type: state.rideType
     };
     /* Name, phone and email are asked on the options page for
@@ -500,8 +712,8 @@
     }
     /* When the customer picked a suggestion, send its coordinates so
        the fare is priced for exactly the place picked — the server
-       never has to re-resolve the address text. Typed text without a
-       pick sends no coordinates and the server resolves the text;
+       never has to re-resolve the address text. Typed text without
+       a pick is rejected above (a suggestion must be picked), and
        editing a field clears the stored pick (see clearStored). */
     if (state.pickupPlace && isFinite(state.pickupPlace.lat) && isFinite(state.pickupPlace.lon)) {
       payload.pickup_lat = state.pickupPlace.lat;
@@ -511,8 +723,23 @@
       payload.dropoff_lat = state.dropoffPlace.lat;
       payload.dropoff_lng = state.dropoffPlace.lon;
     }
-    if (!payload.pickup || !payload.date || !payload.time) {
-      err.textContent = "Please fill in your pickup, date and time.";
+    /* Flight number from the in-form field (Blacklane-style, owner
+       order 2026-11-22): the field only shows for airport picks, so
+       it is sent only when filled in. */
+    var flightInput = $("bk-flight");
+    if (flightInput && flightInput.value.trim()) payload.flight_number = flightInput.value.trim();
+    /* A suggestion must be picked, not just typed (owner decision
+       2026-11-22, Blacklane-style): typed-but-unselected text does
+       not count — View options stops with a red "This field is
+       required" under the field and a red underline on it. */
+    var pickupPicked = !!state.pickupPlace;
+    var dropoffPicked = state.rideType !== "one_way" || !!state.dropoffPlace;
+    setFieldError("bk-pickup", "bk-pickup-error", !pickupPicked);
+    setFieldError("bk-dropoff", "bk-dropoff-error", state.rideType === "one_way" && !dropoffPicked);
+    if (!pickupPicked) { $("bk-pickup").focus(); return; }
+    if (!dropoffPicked) { $("bk-dropoff").focus(); return; }
+    if (!payload.date || !payload.time) {
+      err.textContent = "Please choose a date and time.";
       return;
     }
     /* Past dates and times cannot be booked (owner decision
@@ -531,15 +758,11 @@
       err.textContent = "Please fill in your name, phone and email.";
       return;
     }
-    if (state.rideType === "one_way" && !payload.dropoff) {
-      err.textContent = "Please enter a drop-off address.";
-      return;
-    }
-    /* Flight number: REMOVED from the booking form and the separate
-       step by owner order 2026-11-20 ("flight number nahi aana
-       chahiye abhi"). The step code below (showFlightStep and
-       friends) stays in place, unused, so the field can come back on
-       his word; the server still accepts flight_number. */
+    /* Flight number: BACK in the booking form by owner order
+       2026-11-22 (Blacklane-style, in-form field between Date and
+       Pickup time, airport picks only). The separate step code below
+       (showFlightStep and friends) stays in place, unused; the
+       server still accepts flight_number. */
     if (state.rideType === "hourly") {
       /* Hourly rides go to the class step first: the class, the
          per-class rates and the miles note show ONLY after View
@@ -608,6 +831,8 @@
     paintHourlyTotals();
     paintHourlyClassSelection();
     hide($("booking-card"));
+    /* No footer on the booking (class) page. */
+    document.body.classList.add("class-step-open");
     show($("hourly-class-step"));
     $("hourly-class-step").scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -622,6 +847,7 @@
   $("hourly-class-back").addEventListener("click", function () {
     state.pendingPayload = null;
     hide($("hourly-class-step"));
+    document.body.classList.remove("class-step-open");
     show($("booking-card"));
     $("booking-card").scrollIntoView({ behavior: "smooth", block: "start" });
   });
@@ -641,7 +867,86 @@
     });
     $("class-continue").textContent = "Select " + (CLASS_LABELS[state.selectedClass] || "Business Class");
     paintClassBreakdown();
+    paintClassDetails();
   }
+
+  /* Blacklane-style class details (owner decision 2026-11-22):
+     "Explore <Class> details" line, 5-slide highlights carousel
+     (first slide: the class photo + "Clean, quiet, and
+     executive-level comfort."; the rest are Noel's own short
+     lines), Capacity tabs, and the sticky total. No pricing
+     changed here — the breakdown values are the existing ones. */
+  var CLASS_PHOTOS = { sedan: "/static/img/car-business.jpg", suv: "/static/img/car-suv.jpg", first: "/static/img/car-first.jpg" };
+  var CLASS_CAPACITY = { sedan: { bags: 2, seats: 3 }, suv: { bags: 5, seats: 5 }, first: { bags: 2, seats: 3 } };
+  var HIGHLIGHTS = [
+    { photo: true, caption: "Clean, quiet, and executive-level comfort." },
+    { title: "Professional chauffeurs", text: "Polite, experienced chauffeurs who know the roads and respect your time." },
+    { title: "On-time pickups", text: "Your chauffeur plans the route and arrives on time, every time." },
+    { title: "Recent high-end cars", text: "Clean, comfortable, recent cars, ready for every ride." },
+    { title: "Arrive fully charged", text: "Phone chargers in every car, so your phone is full when you arrive." }
+  ];
+  var hlIndex = 0;
+  function paintClassDetails() {
+    var label = CLASS_LABELS[state.selectedClass] || "Business Class";
+    var explore = $("class-explore");
+    if (explore) explore.textContent = "Explore " + label + " details";
+    var cap = CLASS_CAPACITY[state.selectedClass] || CLASS_CAPACITY.sedan;
+    var bags = $("class-cap-luggage-count");
+    if (bags) bags.textContent = cap.bags + " x Carry-on";
+    var seats = $("class-cap-seating-count");
+    if (seats) seats.textContent = cap.seats + " passengers";
+    var track = $("class-highlights-track");
+    if (track) {
+      var photo = CLASS_PHOTOS[state.selectedClass] || CLASS_PHOTOS.sedan;
+      track.innerHTML = HIGHLIGHTS.map(function (h) {
+        if (h.photo) {
+          return '<div class="hl-slide"><figure><img src="' + esc(photo) + '" alt="' + esc(label) + ' car"><figcaption>' + esc(h.caption) + '</figcaption></figure></div>';
+        }
+        return '<div class="hl-slide"><div class="hl-slide-text"><h4>' + esc(h.title) + '</h4><p>' + esc(h.text) + '</p></div></div>';
+      }).join("");
+      track.style.transform = "translateX(-" + (hlIndex * 100) + "%)";
+    }
+    var dots = $("class-hl-dots");
+    if (dots) {
+      dots.innerHTML = HIGHLIGHTS.map(function (h, i) {
+        return '<button type="button" class="hl-dot' + (i === hlIndex ? " active" : "") + '" data-hl="' + i + '" role="tab" aria-label="Highlight ' + (i + 1) + '"></button>';
+      }).join("");
+      dots.querySelectorAll(".hl-dot").forEach(function (d) {
+        d.addEventListener("click", function () {
+          hlIndex = Number(d.getAttribute("data-hl"));
+          paintClassDetails();
+        });
+      });
+    }
+    var sticky = $("class-sticky-total");
+    if (sticky) {
+      var b = (state.classBreakdowns || {})[state.selectedClass];
+      sticky.textContent = b ? money(b.total) : "";
+    }
+  }
+  var hlPrev = $("class-hl-prev");
+  if (hlPrev) hlPrev.addEventListener("click", function () {
+    hlIndex = (hlIndex + HIGHLIGHTS.length - 1) % HIGHLIGHTS.length;
+    paintClassDetails();
+  });
+  var hlNext = $("class-hl-next");
+  if (hlNext) hlNext.addEventListener("click", function () {
+    hlIndex = (hlIndex + 1) % HIGHLIGHTS.length;
+    paintClassDetails();
+  });
+  document.querySelectorAll("#class-step .cap-tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      var which = tab.getAttribute("data-cap-tab");
+      document.querySelectorAll("#class-step .cap-tab").forEach(function (t) {
+        var active = t === tab;
+        t.classList.toggle("active", active);
+        t.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      var luggage = $("class-cap-luggage"), seating = $("class-cap-seating");
+      if (luggage) luggage.classList.toggle("hidden", which !== "luggage");
+      if (seating) seating.classList.toggle("hidden", which !== "seating");
+    });
+  });
 
   /* Price breakdown for the selected class (Blacklane-style): the
      fare composition the customer pays, in the owner's line order
@@ -711,6 +1016,8 @@
     refreshCustomerSignin();
     paintClassSelection();
     hide($("booking-card"));
+    /* No footer on the booking (class) page. */
+    document.body.classList.add("class-step-open");
     show($("class-step"));
     $("class-step").scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -828,6 +1135,7 @@
     }
     function proceedWith(updated) {
       hide($("class-step"));
+      document.body.classList.remove("class-step-open");
       /* The booking form stays hidden once the ride exists: the
          customer sees only the ride from here on. A new booking
          comes from the separate "Book another ride" button. */
@@ -897,6 +1205,7 @@
     state.classBooking = null;
     state.classPhone = "";
     hide($("class-step"));
+    document.body.classList.remove("class-step-open");
     show($("booking-card"));
     $("booking-card").scrollIntoView({ behavior: "smooth", block: "start" });
     /* The booking was created but never paid: cancel it so it never
@@ -957,6 +1266,7 @@
 
   function startTracking(booking, phone) {
     stopPolling();
+    document.body.classList.remove("class-step-open");
     state.bookingId = booking.id;
     state.bookingPhone = phone;
     state.booking = booking;
@@ -1726,7 +2036,19 @@
     $("bk-date").value = "";
     $("bk-time").value = "";
     $("bk-referral").value = "";
+    /* The swapped addresses keep their picked suggestions (with
+       coordinates), so the must-pick rule still passes — the
+       customer only re-picks if the page was reloaded since the
+       first booking. The flight field follows the swapped places. */
+    var prevPickup = state.pickupPlace;
+    var prevDropoff = state.dropoffPlace;
     clearBookingPlaces();
+    state.pickupPlace = prevDropoff;
+    state.dropoffPlace = prevPickup;
+    state.dateIso = "";
+    state.timeValue = "";
+    $("bk-flight").value = "";
+    updateFlightField();
     state.bookingId = null;
     state.booking = null;
     state.paid = false;

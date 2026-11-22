@@ -101,7 +101,10 @@ class CustomerAppPageCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         home = resp.get_data(as_text=True)
         self.assertNotIn("Luxury rides, chauffeur-driven.", home)  # headline removed by owner order 2026-11-20
-        self.assertIn("Book your ride", home)
+        # "Book your ride" became "Your ride" (Blacklane batch, owner
+        # order 2026-11-22: no 'Book' wording on the homepage).
+        self.assertIn("Your ride", home)
+        self.assertNotIn("Book your ride", home)
         self.assertIn("Three ways to ride", home)
         resp = self.client.get("/driver")
         self.assertEqual(resp.status_code, 200)

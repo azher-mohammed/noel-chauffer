@@ -161,8 +161,9 @@ class WebsiteFlowCase(unittest.TestCase):
                       "cancel must hide the stale thank-you block")
 
     def test_buttons_exist_with_exact_labels(self):
-        self.assertIn('id="new-booking-btn">Book another ride<', self.html)
-        self.assertIn('id="return-trip-btn">Book your return trip<', self.html)
+        # No "Book" wording on the homepage (owner decision 2026-11-22).
+        self.assertIn('id="new-booking-btn">Another ride<', self.html)
+        self.assertIn('id="return-trip-btn">Your return trip<', self.html)
 
 
 class AppFlowCase(unittest.TestCase):

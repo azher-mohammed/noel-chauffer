@@ -117,7 +117,7 @@ class AirportPagesTest(unittest.TestCase):
 
     def test_other_pages_still_serve(self):
         for path, marker in (
-            ("/", "Book your ride"),
+            ("/", "Your ride"),
             ("/driver", "Drive with Noel Chauffer"),
             ("/app", "Noel Chauffer"),
             ("/privacy", "Privacy"),

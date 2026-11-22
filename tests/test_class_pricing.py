@@ -334,6 +334,28 @@ class ClassApiCase(unittest.TestCase):
                          headers={"X-Driver-Token": body["token"]})
         return body["driver"], body["token"]
 
+    def signin(self, email, phone):
+        """Compulsory customer sign-in (owner 2026-11-22): payment
+        needs a verified sign-in with the booking's email. Signs in
+        once per email per test — the session persists for later
+        bookings and payments in the same test."""
+        if getattr(self, "_signed_in_email", None) == email:
+            return
+        resp = self.client.post("/api/customers/signin/request",
+                                json={"email": email, "phone": phone})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        with app_module.app.app_context():
+            row = (app_module.OutboxMessage.query
+                   .filter_by(recipient=email, channel="email")
+                   .order_by(app_module.OutboxMessage.id.desc()).first())
+        self.assertIsNotNone(row, "no sign-in email was queued")
+        match = re.search(r"(\d{6})", row.body or "")
+        self.assertIsNotNone(match, "no 6-digit code in the email")
+        resp = self.client.post("/api/customers/signin/verify",
+                                json={"email": email, "code": match.group(1)})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        self._signed_in_email = email
+
     def book(self, **extra):
         self._phone_seq += 1
         payload = {
@@ -346,7 +368,9 @@ class ClassApiCase(unittest.TestCase):
         payload.update(extra)
         resp = self.client.post("/api/bookings", json=payload)
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
-        return resp.get_json()["booking"]
+        booking = resp.get_json()["booking"]
+        self.signin(payload["email"], payload["phone"])
+        return booking
 
     def pay(self, booking_id):
         return self.client.post(f"/api/bookings/{booking_id}/pay", json=dict(CARD))
@@ -553,6 +577,9 @@ class ClassApiCase(unittest.TestCase):
             "date": "2030-06-04", "time": "16:00",
             "ride_type": "hourly", "hours": 2, "vehicle_class": "suv"})
         suv_hourly_id = resp.get_json()["booking"]["id"]
+        # Compulsory sign-in (owner 2026-11-22): payment needs a
+        # verified sign-in with the bookings' email.
+        self.signin("hourly@test.com", "+15550009994")
         self.assertEqual(self.pay(sedan_hourly_id).status_code, 200)
         self.assertEqual(self.pay(suv_hourly_id).status_code, 200)
         sedan_offers = self.client.get("/api/drivers/me/offers",

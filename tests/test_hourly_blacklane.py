@@ -100,6 +100,28 @@ class HourlyBlacklaneCase(unittest.TestCase):
                          headers={"X-Driver-Token": body["token"]})
         return body["driver"], body["token"]
 
+    def signin(self, email, phone):
+        """Compulsory customer sign-in (owner 2026-11-22): payment
+        needs a verified sign-in with the booking's email. Signs in
+        once per email per test — the session persists for later
+        bookings and payments in the same test."""
+        if getattr(self, "_signed_in_email", None) == email:
+            return
+        resp = self.client.post("/api/customers/signin/request",
+                                json={"email": email, "phone": phone})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        with app_module.app.app_context():
+            row = (app_module.OutboxMessage.query
+                   .filter_by(recipient=email, channel="email")
+                   .order_by(app_module.OutboxMessage.id.desc()).first())
+        self.assertIsNotNone(row, "no sign-in email was queued")
+        match = re.search(r"(\d{6})", row.body or "")
+        self.assertIsNotNone(match, "no 6-digit code in the email")
+        resp = self.client.post("/api/customers/signin/verify",
+                                json={"email": email, "code": match.group(1)})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        self._signed_in_email = email
+
     def book_hourly(self, hours=2, vehicle_class="sedan", date="2030-06-04", time="14:00"):
         self._phone_seq += 1
         self._last_phone = f"+1555003{self._phone_seq:04d}"
@@ -112,7 +134,10 @@ class HourlyBlacklaneCase(unittest.TestCase):
         }
         if vehicle_class is not None:
             payload["vehicle_class"] = vehicle_class
-        return self.client.post("/api/bookings", json=payload)
+        resp = self.client.post("/api/bookings", json=payload)
+        if resp.status_code == 201:
+            self.signin(payload["email"], payload["phone"])
+        return resp
 
     def pay(self, booking_id):
         return self.client.post(f"/api/bookings/{booking_id}/pay", json=dict(CARD))
@@ -291,6 +316,9 @@ class HourlyBlacklaneCase(unittest.TestCase):
             "date": date, "time": time, "ride_type": "one_way"})
         self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
         booking = resp.get_json()["booking"]
+        # Compulsory sign-in (owner 2026-11-22): payment needs a
+        # verified sign-in with the booking's email.
+        self.signin("oneway@test.com", phone)
         self.assertEqual(self.pay(booking["id"]).status_code, 200)
         resp = self.client.post(f"/api/bookings/{booking['id']}/cancel",
                                 json={"phone": phone})

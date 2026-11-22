@@ -130,6 +130,26 @@ class PausedCase(unittest.TestCase):
             "date": "2030-06-01", "time": "12:00", "ride_type": "one_way",
         }
 
+    def signin(self, email, phone):
+        """Compulsory customer sign-in (owner 2026-11-22): payment
+        needs a verified sign-in with the booking's email."""
+        if getattr(self, "_signed_in_email", None) == email:
+            return
+        resp = self.client.post("/api/customers/signin/request",
+                                json={"email": email, "phone": phone})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        with app_module.app.app_context():
+            row = (app_module.OutboxMessage.query
+                   .filter_by(recipient=email, channel="email")
+                   .order_by(app_module.OutboxMessage.id.desc()).first())
+        self.assertIsNotNone(row, "no sign-in email was queued")
+        match = re.search(r"(\d{6})", row.body or "")
+        self.assertIsNotNone(match, "no 6-digit code in the email")
+        resp = self.client.post("/api/customers/signin/verify",
+                                json={"email": email, "code": match.group(1)})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        self._signed_in_email = email
+
     def make_paid_booking(self, token=None):
         """Create + pay a booking with the pause lifted, then re-pause."""
         self._pause_off()
@@ -137,6 +157,7 @@ class PausedCase(unittest.TestCase):
             resp = self.client.post("/api/bookings", json=self._booking_payload())
             self.assertEqual(resp.status_code, 201, resp.get_data(as_text=True)[:200])
             booking_id = resp.get_json()["booking"]["id"]
+            self.signin("cust@test.com", "+15550009999")
             resp = self.client.post(f"/api/bookings/{booking_id}/pay", json={
                 "card_number": "4242424242424242", "card_exp": "12/30",
                 "card_cvc": "123", "card_name": "Paused Customer"})

@@ -106,6 +106,26 @@ class TaxInfoApiCase(unittest.TestCase):
                          headers={"X-Driver-Token": body["token"]})
         return body["driver"], body["token"]
 
+    def signin(self, email, phone):
+        """Compulsory customer sign-in (owner 2026-11-22): payment
+        needs a verified sign-in with the booking's email."""
+        if getattr(self, "_signed_in_email", None) == email:
+            return
+        resp = self.client.post("/api/customers/signin/request",
+                                json={"email": email, "phone": phone})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        with app_module.app.app_context():
+            row = (app_module.OutboxMessage.query
+                   .filter_by(recipient=email, channel="email")
+                   .order_by(app_module.OutboxMessage.id.desc()).first())
+        self.assertIsNotNone(row, "no sign-in email was queued")
+        match = re.search(r"(\d{6})", row.body or "")
+        self.assertIsNotNone(match, "no 6-digit code in the email")
+        resp = self.client.post("/api/customers/signin/verify",
+                                json={"email": email, "code": match.group(1)})
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        self._signed_in_email = email
+
     def complete_ride(self, token):
         payload = {
             "customer_name": "Tax Customer", "phone": "+15550009999",
@@ -118,6 +138,7 @@ class TaxInfoApiCase(unittest.TestCase):
         booking_id = resp.get_json()["booking"]["id"]
         # Payment comes BEFORE dispatch: pay first, then the driver
         # accepts, then the trip runs stage by stage.
+        self.signin(payload["email"], payload["phone"])
         resp = self.client.post(f"/api/bookings/{booking_id}/pay", json={
             "card_number": "4242424242424242", "card_exp": "12/30",
             "card_cvc": "123", "card_name": "Tax Customer"})

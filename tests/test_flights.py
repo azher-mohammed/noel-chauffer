@@ -158,8 +158,21 @@ class FlightsApiTestCase(unittest.TestCase):
         payload.update(extra)
         return self.client.post("/api/bookings", json=payload)
 
+    def _signin(self, email="flight@example.com", phone="555-010-0001"):
+        """Compulsory customer sign-in (owner 2026-11-22): payment
+        needs a verified sign-in with the booking's email. The
+        code-request/verify flow itself is covered in
+        test_customer_signin.py; here the session is set directly
+        because this module shares ONE database across all its tests
+        (no drop_all in setUp) and the 5-codes-per-hour limit would
+        otherwise trip on the shared email."""
+        with self.client.session_transaction() as sess:
+            sess["customer_email"] = email
+            sess["customer_phone"] = phone
+
     def _pay(self, booking_id):
         """Pay for a booking (payment comes before dispatch)."""
+        self._signin()
         resp = self.client.post("/api/bookings/%d/pay" % booking_id, json={
             "card_number": "4242424242424242", "card_exp": "12/30",
             "card_cvc": "123", "card_name": "Flight Tester"})

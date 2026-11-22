@@ -337,13 +337,16 @@ input, select, textarea { font: inherit; }
 .footer-inner .wordmark { color: var(--white); font-size: 22px; }
 .footer-inner p { margin: 0; font-size: 14px; }
 
-/* Chat widget */
+/* Chat widget — WhatsApp-green "Chat with us" button (owner
+   2026-11-22): #25D366, clean shiny look like WhatsApp's button —
+   a subtle top highlight, no heavy gradient or glow. Explicit
+   exception to the no-green rule, for THIS button only. */
 .chat-fab {
   position: fixed; right: 20px; bottom: 20px; z-index: 60;
-  background: var(--blue); color: var(--white); border: 1px solid var(--blue);
-  border-radius: 999px; padding: 13px 20px; font-size: 15px; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+  background: #25D366; color: var(--white); border: 1px solid #25D366;
+  border-radius: 999px; padding: 13px 20px; font-size: 15px; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
-.chat-fab:hover { background: #4a8ac2; }
+.chat-fab:hover { background: #1eb856; }
 .chat-panel {
   position: fixed; right: 20px; bottom: 76px; z-index: 60;
   width: min(370px, calc(100vw - 40px)); height: 480px; max-height: calc(100vh - 110px);
@@ -549,18 +552,20 @@ input, select, textarea { font: inherit; }
 .hero-band { background: linear-gradient(180deg, #c7daf3 0%, var(--sky) 55%, #a9c4e8 100%); }
 .booking-section { background: linear-gradient(180deg, var(--sky-soft) 0%, #ffffff 100%); }
 
-/* Support chat widget: plain blue "Chat with us" button with white
-   text — normal business look (owner 2026-11-21): no gold, no gradient.
-   The panel keeps its black top. */
+/* Support chat widget: WhatsApp-green "Chat with us" button
+   (owner 2026-11-22) — #25D366 with a subtle top highlight, like
+   WhatsApp's button. Explicit exception to the no-green rule, for
+   THIS button only. No gold, no heavy gradient. The panel keeps
+   its black top. */
 .chat-fab {
-  background: var(--blue);
+  background: #25D366;
   color: var(--white);
   font-weight: 400;
-  border: 1px solid var(--blue);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+  border: 1px solid #25D366;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.chat-fab:hover { background: #4a8ac2; }
+.chat-fab:hover { background: #1eb856; }
 .chat-fab:active { transform: translateY(1px); }
 .chat-panel {
   border-radius: 14px;

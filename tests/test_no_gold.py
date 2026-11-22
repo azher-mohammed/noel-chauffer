@@ -126,9 +126,14 @@ class NoGoldCase(unittest.TestCase):
             self.assertIn("background: var(--blue);", body, selector)
             self.assertIn("color: var(--white);", body, selector)
 
-    def test_chat_fab_and_pay_buttons_blue(self):
+    def test_chat_fab_green_and_pay_buttons_blue(self):
+        # Chat with us is WhatsApp green #25D366 (owner 2026-11-22);
+        # Pay buttons stay blue.
         site = _read("static/css/customer.css")
-        for selector in (".chat-fab", "#pay-open-btn"):
+        body = _rule(site, ".chat-fab")
+        self.assertIn("background: #25D366;", body, ".chat-fab")
+        self.assertIn("color: var(--white);", body, ".chat-fab")
+        for selector in ("#pay-open-btn",):
             body = _rule(site, selector)
             self.assertIn("background: var(--blue);", body, selector)
             self.assertIn("color: var(--white);", body, selector)
@@ -136,10 +141,14 @@ class NoGoldCase(unittest.TestCase):
         self.assertIn("background: var(--blue);", body)
         self.assertIn("color: var(--white);", body)
         app = _read("static/css/customer-app.css")
-        m = re.search(r"#ca-pay-submit,\s*#ca-chat-send\s*\{([^}]*)\}",
-                      app)
-        self.assertIsNotNone(m, "missing #ca-pay-submit/#ca-chat-send")
+        m = re.search(r"#ca-pay-submit\s*\{([^}]*)\}", app)
+        self.assertIsNotNone(m, "missing #ca-pay-submit")
         self.assertIn("background: var(--blue);", m.group(1))
+        self.assertIn("color: var(--white);", m.group(1))
+        m = re.search(r"#ca-chat-send,\s*#ca-support-send\s*\{([^}]*)\}",
+                      app)
+        self.assertIsNotNone(m, "missing #ca-chat-send/#ca-support-send")
+        self.assertIn("background: #25D366;", m.group(1))
         self.assertIn("color: var(--white);", m.group(1))
 
     def test_buttons_use_normal_weight(self):

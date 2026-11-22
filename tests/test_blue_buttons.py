@@ -76,10 +76,13 @@ class BlueButtonsCase(unittest.TestCase):
         self.assertNotIn("gold", body)
 
     # -- website: Chat with us pill ----------------------------------
-    def test_website_chat_fab_blue_white_normal(self):
+    # WhatsApp green (owner 2026-11-22): #25D366, clean shiny look
+    # like WhatsApp's button. Explicit exception to the no-green
+    # rule, for THIS button only — all other buttons stay blue.
+    def test_website_chat_fab_whatsapp_green(self):
         # Two .chat-fab rules exist; the later one wins.
         body = _last_rule(_read("static/css/customer.css"), ".chat-fab")
-        self.assertIn("background: var(--blue);", body)
+        self.assertIn("background: #25D366;", body)
         self.assertIn("color: var(--white);", body)
         self.assertIn("font-weight: 400;", body)
         self.assertNotIn("linear-gradient", body)
@@ -88,16 +91,30 @@ class BlueButtonsCase(unittest.TestCase):
     def test_website_chat_fab_hover_plain(self):
         body = _last_rule(_read("static/css/customer.css"),
                           ".chat-fab:hover")
-        self.assertIn("background: #4a8ac2;", body)
+        self.assertIn("background: #1eb856;", body)
         self.assertNotIn("linear-gradient", body)
 
-    # -- customer app: Pay + Chat send -------------------------------
+    # -- customer app: Pay stays blue, Chat send goes green -----------
     def test_app_pay_submit_blue_white_normal(self):
         css = _read("static/css/customer-app.css")
-        m = re.search(r"#ca-pay-submit,\s*#ca-chat-send\s*\{([^}]*)\}", css)
-        self.assertIsNotNone(m, "missing #ca-pay-submit/#ca-chat-send rule")
+        m = re.search(r"#ca-pay-submit\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(m, "missing #ca-pay-submit rule")
         body = m.group(1)
         self.assertIn("background: var(--blue);", body)
+        self.assertIn("color: var(--white);", body)
+        self.assertIn("font-weight: 400;", body)
+        self.assertNotIn("linear-gradient", body)
+        self.assertNotIn("gold", body)
+
+    def test_app_chat_send_whatsapp_green(self):
+        # Chat-with-us Send buttons (trip chat + support chat):
+        # WhatsApp green #25D366 (owner 2026-11-22).
+        css = _read("static/css/customer-app.css")
+        m = re.search(
+            r"#ca-chat-send,\s*#ca-support-send\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(m, "missing #ca-chat-send/#ca-support-send rule")
+        body = m.group(1)
+        self.assertIn("background: #25D366;", body)
         self.assertIn("color: var(--white);", body)
         self.assertIn("font-weight: 400;", body)
         self.assertNotIn("linear-gradient", body)

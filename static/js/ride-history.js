@@ -1,9 +1,11 @@
-/* Noel Chauffer — ride-history lookup (own page).
+/* Noel Chauffer — ride-history lookup.
    Moved verbatim out of static/js/customer.js when the "Your ride
    history" section got its own page (owner, 2026-11-21): customer.js
    is loaded only by the homepage and wires the booking form
    unguarded, so it cannot run here. This file wires only the
-   phone-lookup form on /your-ride-history. */
+   phone-lookup form. Since the homepage restore (owner, 2026-11-22)
+   the form lives on the homepage too, so index.html loads this file
+   as well as /your-ride-history. */
 (function () {
   "use strict";
   function $(id) { return document.getElementById(id); }

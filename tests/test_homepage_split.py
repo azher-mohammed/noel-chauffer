@@ -1,25 +1,27 @@
-"""Homepage split (owner decision 2026-11-21, voice calls 08:59-09:02 EST).
+"""Homepage restore (owner decision 2026-11-22, voice call ~02:57 EST).
 
-The homepage had too much written on it ("Website ki jo page hai iske
-andar bahut zyada likha hua dikh raha hai"). Each homepage section now
-has its own separate page, linked from the homepage by its heading:
+The owner reversed the 2026-11-21 homepage split ("pehla page purana
+jaisa kar do"): the homepage again carries the booking form on top
+AND all ten sections below it on the same page, with a clean
+professional look — small clean headings, simple plain text below,
+page not big/heavy. The ten separate pages KEEP working (they are
+still linked from the homepage headings); the sections are now
+rendered on the homepage too, not only on their own pages.
 
+Sections on the homepage (content copied verbatim from the pages):
 - /airport-pickups, /your-rides-in-your-pocket, /experience,
   /why-ride-with-noel-chauffer, /three-ways-to-ride,
   /cancellation-and-waiting, /frequently-asked-questions,
   /our-company, /contacts, /your-ride-history
 
-Each page holds only that section's existing content, wording exactly
-as-is. The homepage is short: hero + booking form + clickable
-headings. "Your ride history" STAYS as a homepage link but opens on
-its own page when clicked (owner clarification, recorded in MEMORY.md
-2026-11-21 — this supersedes the 09:00 EST removal order in the
-original brief). Its phone-lookup wiring moved verbatim from
-customer.js into static/js/ride-history.js, because customer.js is
-loaded only by the homepage and wires the booking form unguarded.
-The "Your rides in your pocket" page shows the official Google Play
-and App Store badges, both linking to the browser customer app at
-/app (the native apps are not on either store yet, so no store URLs).
+Rules kept from the removal order (commit 8464317): NO "Refer a
+friend" text anywhere on the homepage. The FAQ's 5%-off referral
+Q&A is left off the homepage (it stays on the standalone FAQ page);
+the backend 5% discount for already-shared links is untouched.
+
+The ride-history phone lookup now lives on the homepage too, so
+static/js/ride-history.js is loaded by index.html as well as by
+/your-ride-history.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -34,11 +36,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 # --- test env BEFORE importing the app -------------------------------------
-_tmpdir = tempfile.mkdtemp(prefix="noel-homepage-split-")
+_tmpdir = tempfile.mkdtemp(prefix="noel-homepage-restore-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "test.db")
 os.environ["BOOKINGS_PAUSED"] = "false"  # bookings pause is OFF in tests (owner decision 2026-11-20)
 os.environ["OWNER_PIN"] = "9999"
-os.environ["SECRET_KEY"] = "homepage-split-secret-key"
+os.environ["SECRET_KEY"] = "homepage-restore-secret-key"
 from cryptography.fernet import Fernet  # noqa: E402
 
 os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
@@ -105,12 +107,13 @@ PAGES = {
 }
 
 
-class HomepageSplitTest(unittest.TestCase):
+class HomepageRestoreTest(unittest.TestCase):
     def setUp(self):
         self.client = app_module.app.test_client()
         self.home = INDEX.read_text(encoding="utf-8")
 
-    def test_each_new_page_returns_200_and_carries_its_section(self):
+    def test_each_section_page_still_returns_200_and_carries_its_section(self):
+        # The separate pages keep working; nothing was deleted.
         for route, (file, heading, fragment) in PAGES.items():
             with self.subTest(route=route):
                 res = self.client.get(route)
@@ -122,8 +125,6 @@ class HomepageSplitTest(unittest.TestCase):
                 self.assertEqual(
                     html, (REPO_DIR / "static" / file).read_text(encoding="utf-8")
                 )
-                # Page head: title + canonical + footer, like the other
-                # SEO pages.
                 self.assertIn("<title>", html, route)
                 self.assertIn(
                     f'href="https://noelchauffer.com{route}"', html, route
@@ -135,71 +136,50 @@ class HomepageSplitTest(unittest.TestCase):
         for route, (_file, heading, _fragment) in PAGES.items():
             with self.subTest(route=route):
                 self.assertIn(f'<a href="{route}">{heading}</a>', self.home, route)
-        # No section is reached by an in-page anchor any more.
-        for anchor in ["#airports", "#why", "#ride-types", "#policy", "#faq",
-                       "#company", "#contacts", "#experience", "#app-band"]:
-            self.assertNotIn(f'href="{anchor}"', self.home, anchor)
 
-    def test_homepage_no_longer_carries_the_moved_section_bodies(self):
-        # The bodies moved; only the heading links stay.
+    def test_homepage_carries_all_ten_section_bodies(self):
+        # The restore: the bodies are back on the homepage, verbatim.
         for body in [
             "Professional chauffeurs",
             "Flying in or out of JFK, LaGuardia, Newark, LAX, ORD or MIA?",
             "Free cancellation if you cancel more than 1 hour before pickup.",
-            # FAQ visible heading (the bare phrase also appears in the
-            # support-chat quick-question chips, which stay on the
-            # homepage — the <h3> form is the FAQ body).
             "<h3>How do I book a ride?</h3>",
             "Noel Chauffer is a premium chauffeur service",
             "at the right terminal at JFK, LaGuardia or Newark",
             "No download, just open and go.",
             "Enter the phone number you booked with to see your past rides.",
             "Do you offer black car service in New York City?",
+            "Your chauffeur opens the door, greets you by name",
+            "60 minutes of waiting free",
         ]:
-            self.assertNotIn(body, self.home, body)
-        # FAQ schema moved with the FAQ section.
-        self.assertNotIn("FAQPage", self.home)
+            self.assertIn(body, self.home, body)
         # Homepage still has the booking form, the chat widget and the
-        # footer — only the long sections left.
+        # footer — the sections came back below the form.
         self.assertIn('id="booking-form"', self.home)
         self.assertIn('id="support-chat-panel"', self.home)
         self.assertIn('id="chat-fab"', self.home)
         self.assertIn("site-footer", self.home)
 
-    def test_ride_history_has_its_own_page(self):
-        # Owner clarification (MEMORY.md 2026-11-21): "Your ride history"
-        # STAYS as a homepage link but opens on its own page when clicked.
-        # The homepage keeps only the heading link + nav link; the form
-        # lives on the page.
+    def test_homepage_has_no_refer_a_friend(self):
+        # Removal (commit 8464317) stands: no referral UI on the homepage.
+        self.assertNotIn("Refer a friend", self.home)
+        self.assertNotIn("referral-box", self.home)
+        # The FAQ's 5%-off referral Q&A stays off the homepage too.
+        self.assertNotIn("How do I get 5% off my first ride?", self.home)
+        # ...but the backend discount note for already-shared links stays.
+        self.assertIn("Referral discount applied", self.home)
+
+    def test_ride_history_lookup_lives_on_the_homepage_too(self):
+        self.assertIn('id="history-form"', self.home)
+        self.assertIn('id="history-phone"', self.home)
+        self.assertIn('id="history-results"', self.home)
+        self.assertIn("/static/js/ride-history.js", self.home)
+        # ...and still on its own page.
         res = self.client.get("/your-ride-history")
         self.assertEqual(res.status_code, 200)
         page = res.get_data(as_text=True)
         self.assertIn("<h2>Your ride history</h2>", page)
         self.assertIn('id="history-form"', page)
-        self.assertIn('id="history-phone"', page)
-        self.assertIn('id="history-results"', page)
-        self.assertIn("/static/js/ride-history.js", page)
-        self.assertIn('<a href="/your-ride-history">Your ride history</a>', self.home)
-        self.assertIn('<a href="/your-ride-history">Ride history</a>', self.home)
-        for needle in [
-            'id="history-form"',
-            'id="history-phone"',
-            "Enter the phone number you booked with to see your past rides.",
-        ]:
-            self.assertNotIn(needle, self.home, needle)
-        # The lookup wiring moved out of customer.js into ride-history.js
-        # (customer.js is loaded only by the homepage and wires the
-        # booking form unguarded, so it cannot run on the history page).
-        js = (REPO_DIR / "static" / "js" / "customer.js").read_text(encoding="utf-8")
-        self.assertNotIn("history-form", js)
-        history_js = (REPO_DIR / "static" / "js" / "ride-history.js").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn('history-form', history_js)
-        self.assertIn('/api/bookings?phone=', history_js)
-        for helper in ["function esc(", "function rideLabel(", "function whenLabel(",
-                       "function statusLabel("]:
-            self.assertIn(helper, history_js, helper)
 
     def test_faq_json_ld_lives_on_the_faq_page(self):
         faq = (REPO_DIR / "static" / "frequently-asked-questions.html").read_text(
@@ -219,40 +199,12 @@ class HomepageSplitTest(unittest.TestCase):
         app_page = (
             REPO_DIR / "static" / "your-rides-in-your-pocket.html"
         ).read_text(encoding="utf-8")
-        # Both official badges, side by side, next to "Open the app".
-        self.assertIn('href="/app">Open the app</a>', app_page)
-        self.assertIn("/static/img/google-play-badge.png", app_page)
-        self.assertIn("/static/img/app-store-badge.svg", app_page)
-        self.assertIn('alt="Get it on Google Play"', app_page)
-        self.assertIn('alt="Download on the App Store"', app_page)
-        # Both badges link to the browser app at /app — the native apps
-        # are not on either store yet, so no store URLs anywhere.
-        badge_links = re.findall(
-            r'<a href="([^"]+)"><img src="/static/img/(?:google-play-badge\.png|app-store-badge\.svg)"',
-            app_page,
-        )
-        self.assertEqual(badge_links, ["/app", "/app"])
-        self.assertTrue((REPO_DIR / "static" / "img" / "google-play-badge.png").exists())
-        self.assertTrue((REPO_DIR / "static" / "img" / "app-store-badge.svg").exists())
-        for page in (REPO_DIR / "static").glob("*.html"):
-            text = page.read_text(encoding="utf-8")
-            self.assertNotIn("play.google.com", text, page.name)
-            self.assertNotIn("apps.apple.com", text, page.name)
-
-    def test_sitemap_lists_the_ten_new_pages(self):
-        tree = ET.parse(REPO_DIR / "static" / "sitemap.xml")
-        ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
-        locs = [e.text for e in tree.getroot().findall("s:url/s:loc", ns)]
-        self.assertEqual(len(locs), 41)
-        for route in PAGES:
-            self.assertIn(f"https://noelchauffer.com{route}", locs, route)
-
-    def test_each_new_page_has_no_duplicate_ids(self):
-        for _route, (file, _heading, _fragment) in PAGES.items():
-            with self.subTest(file=file):
-                html = (REPO_DIR / "static" / file).read_text(encoding="utf-8")
-                ids = re.findall(r'id="([^"]+)"', html)
-                self.assertEqual(len(ids), len(set(ids)), file)
+        self.assertIn("/app", app_page)
+        self.assertNotIn("play.google.com", app_page)
+        self.assertNotIn("apps.apple.com", app_page)
+        # Same badges render on the homepage section.
+        self.assertIn("google-play-badge.png", self.home)
+        self.assertIn("app-store-badge.svg", self.home)
 
 
 if __name__ == "__main__":

@@ -93,15 +93,17 @@ class TestBlacklaneEnginePure(unittest.TestCase):
         # (miles, dropoff, class) -> sheet total. The engine
         # interpolates the ladder, so a rung's own miles hit its
         # point exactly and the fee rules rebuild the sheet total —
-        # EXCEPT at miles <= 10, where the owner overrode the
-        # Blacklane total with his flat customer charge (Business
-        # $100, SUV $130; owner decision 2026-11-20 ~06:38 EST).
-        # First Class keeps the engine total at every distance.
+        # EXCEPT at miles <= 10, where the owner's flat $100/$130
+        # is the BASE FARE only and the fees are charged on top
+        # (owner decision 2026-11-20 ~06:38 EST, refined
+        # 2026-11-21 ~18:48 EST: "Haan waise hi laana hundred
+        # ke upar"). First Class keeps the engine total at every
+        # distance.
         cases = [
-            (1.08, "Rockefeller Center", "sedan", "100.00"),
-            (1.08, "Rockefeller Center", "suv", "130.00"),
+            (1.08, "Rockefeller Center", "sedan", "114.88"),
+            (1.08, "Rockefeller Center", "suv", "148.29"),
             (1.08, "Rockefeller Center", "first", "212.81"),
-            (8.90, "Rego Park", "sedan", "100.00"),
+            (8.90, "Rego Park", "sedan", "114.88"),
             (46.95, "Lincolndale", "sedan", "318.22"),
             (100.24, "Sag Harbor Post Office", "sedan", "485.82"),
             (100.24, "Sag Harbor Post Office", "suv", "649.67"),
@@ -155,15 +157,18 @@ class TestBlacklaneEnginePure(unittest.TestCase):
         # Rungs 1-3 all price at the Business floor; SUV/First floors
         # are their rung-1 bases. The base floor still exists, but
         # the CUSTOMER total at miles <= 10 is now the owner's flat
-        # $100 (Business) / $130 (SUV) — owner decision 2026-11-20
-        # ~06:38 EST.
+        # $100 (Business) / $130 (SUV) as the BASE FARE only, with
+        # the fees on top (owner decision 2026-11-20 ~06:38 EST,
+        # refined 2026-11-21 ~18:48 EST) — so 0.5 mi Manhattan
+        # totals $114.88, not $100.00.
         self.assertEqual(base_fare("sedan", D("0.5")), D("112.97"))
         self.assertEqual(base_fare("sedan", D("0")), D("112.97"))
         self.assertEqual(base_fare("suv", D("0.5")), D("175.37"))
         self.assertEqual(base_fare("first", D("0.5")), D("187.93"))
         r = compute_blacklane_one_way(D("0.5"), "sedan",
                                       "Times Square", "Rockefeller Center")
-        self.assertEqual(r["total"], D("100.00"))
+        self.assertEqual(r["base"], D("100.00"))
+        self.assertEqual(r["total"], D("114.88"))
 
     def test_interpolation_between_rungs(self):
         # 25.5 mi sits between the 24.97-mi and 25.94-mi rungs.
@@ -190,30 +195,74 @@ class TestBlacklaneEnginePure(unittest.TestCase):
             self.assertFalse(got["first_class_driver_pay_tbd"], cls)
 
     def test_driver_pay_is_the_slab_plus_toll(self):
-        # The flat slab + the map toll (toll is NOT in the customer
-        # total, but the driver still gets it). 17.9 mi -> 10-20
-        # slab: sedan $95, SUV $130.
+        # The flat slab + the map toll — and the toll IS in the
+        # customer total (owner decision 2026-11-21 ~18:56 EST:
+        # the breakdown shows a Toll line and the lines sum to the
+        # total). 17.9 mi -> 10-20 slab: sedan $95, SUV $130.
         r = compute_blacklane_one_way(D("17.9"), "sedan",
                                       "JFK Airport", "Times Square",
                                       toll=D("7.46"))
         self.assertEqual(r["driver_earnings"], D("102.46"))
-        self.assertEqual(r["total"], D("193.87"))
-        self.assertEqual(r["profit"], D("91.41"))
+        self.assertEqual(r["toll"], D("7.46"))
+        self.assertEqual(r["total"], D("201.33"))
+        self.assertEqual(r["profit"], D("98.87"))
         s = compute_blacklane_one_way(D("17.9"), "suv",
                                       "JFK Airport", "Times Square",
                                       toll=D("7.46"))
         self.assertEqual(s["driver_earnings"], D("137.46"))
 
     def test_referral_discount_comes_off_the_total_only(self):
-        # 1.08 mi sedan: flat customer total $100, so the 5%
-        # referral discount is $5.00 and the total $95.00; the
+        # 1.08 mi sedan: the $100 flat is the BASE FARE only (owner
+        # decision 2026-11-21 ~18:48 EST: "Haan waise hi laana
+        # hundred ke upar") — the fees are computed on the flat
+        # base and charged on top, so the total is $114.88 and the
+        # 5% referral discount is $5.74, leaving $109.14; the
         # driver keeps his slab ($80 at 1-5 mi) in full.
         r = compute_blacklane_one_way(D("1.08"), "sedan",
                                       "Times Square", "Rockefeller Center",
                                       referral=True)
-        self.assertEqual(r["referral_discount"], D("5.00"))
-        self.assertEqual(r["total"], D("95.00"))
+        self.assertEqual(r["base"], D("100.00"))
+        self.assertEqual(r["referral_discount"], D("5.74"))
+        self.assertEqual(r["total"], D("109.14"))
         self.assertEqual(r["driver_earnings"], D("80.00"))
+
+    def test_flat_short_ride_charges_fees_on_top_of_flat_base(self):
+        # Owner decision 2026-11-21 ~18:48 EST ("Haan waise hi
+        # laana hundred ke upar"): at miles <= 10 the $100/$130
+        # flat is the BASE FARE only — the Blacklane fees are
+        # computed on the flat base and charged on top, so the
+        # total goes above the flat. 1.08 mi Manhattan ride:
+        # sedan base $100 + NY congestion $2.75 + MTA $0.75 +
+        # sales tax $8.88 + black car $2.50 = $114.88; SUV base
+        # $130 + fees $18.29 = $148.29.
+        sedan = compute_blacklane_one_way(
+            D("1.08"), "sedan", "Times Square", "Rockefeller Center")
+        self.assertEqual(sedan["base"], D("100.00"))
+        self.assertEqual(sedan["fees"]["ny_congestion"], D("2.75"))
+        self.assertEqual(sedan["fees"]["mta_congestion"], D("0.75"))
+        self.assertEqual(sedan["fees"]["sales_tax"], D("8.88"))
+        self.assertEqual(sedan["fees"]["black_car_fee"], D("2.50"))
+        self.assertEqual(sedan["total"], D("114.88"))
+        suv = compute_blacklane_one_way(
+            D("1.08"), "suv", "Times Square", "Rockefeller Center")
+        self.assertEqual(suv["base"], D("130.00"))
+        self.assertEqual(suv["total"], D("148.29"))
+        # First Class was never flat — its total is unchanged.
+        first = compute_blacklane_one_way(
+            D("1.08"), "first", "Times Square", "Rockefeller Center")
+        self.assertEqual(first["total"], D("212.81"))
+
+    def test_toll_is_in_the_customer_total(self):
+        # Owner decision 2026-11-21 ~18:56 EST: the breakdown
+        # shows a Toll line and the lines sum to the total.
+        r = compute_blacklane_one_way(D("17.9"), "sedan",
+                                      "JFK Airport", "Times Square",
+                                      toll=D("7.46"))
+        self.assertEqual(r["toll"], D("7.46"))
+        parts = (r["base"] + r["fees"]["fees_total"] + r["toll"]
+                 - r["referral_discount"])
+        self.assertEqual(parts, r["total"])
+        self.assertEqual(r["total"], D("201.33"))
 
     def test_classify_endpoint_geocoder_details(self):
         ny_nassau = classify_endpoint(
@@ -360,12 +409,14 @@ class TestBlacklaneEnginePure(unittest.TestCase):
 
     def test_class_totals_include_first(self):
         # 1.08 mi: Business and SUV are the owner's flat $100/$130
-        # (owner decision 2026-11-20 ~06:38 EST); First keeps the
+        # as the BASE FARE only, with the fees on top (owner
+        # decision 2026-11-20 ~06:38 EST, refined 2026-11-21
+        # ~18:48 EST) — $114.88 / $148.29; First keeps the
         # engine total.
         totals = blacklane_class_totals(
             D("1.08"), "Times Square", "Rockefeller Center")
-        self.assertEqual(totals, {"sedan": D("100.00"),
-                                  "suv": D("130.00"),
+        self.assertEqual(totals, {"sedan": D("114.88"),
+                                  "suv": D("148.29"),
                                   "first": D("212.81")})
 
     def test_unknown_class_rejected(self):
@@ -512,11 +563,11 @@ class BlacklaneApiCase(unittest.TestCase):
         for cls, b in breakdowns.items():
             self.assertEqual(set(b), {"base", "airport_access", "ny_congestion",
                                      "mta_congestion", "sales_tax", "black_car_fee",
-                                     "referral_discount", "total"},
+                                     "toll", "referral_discount", "total"},
                              "%s breakdown must carry only fare fields" % cls)
             parts = (b["base"] + b["airport_access"] + b["ny_congestion"]
                      + b["mta_congestion"] + b["sales_tax"] + b["black_car_fee"]
-                     - b["referral_discount"])
+                     + b["toll"] - b["referral_discount"])
             self.assertAlmostEqual(parts, b["total"], places=2,
                                    msg="%s breakdown must sum to its total" % cls)
             self.assertAlmostEqual(b["total"], booking["class_totals"][cls],
@@ -528,6 +579,7 @@ class BlacklaneApiCase(unittest.TestCase):
         self.assertEqual(sedan["mta_congestion"], 0.75)
         self.assertEqual(sedan["sales_tax"], 14.89)
         self.assertEqual(sedan["black_car_fee"], 4.19)
+        self.assertEqual(sedan["toll"], 0.0)
         self.assertEqual(sedan["total"], 193.87)
 
     def test_preview_class_filter_first(self):
@@ -752,11 +804,13 @@ class LadderExactCase(unittest.TestCase):
     """Owner hard rule 2026-11-20 ~02:32 EST: 'Dono mein ek rupay ka
     fark nahi aana' — ZERO difference to the cent between Blacklane's
     total and Noel's, on all 100 ladder rungs x 3 classes — with ONE
-    later owner override (2026-11-20 ~06:38 EST): at miles <= 10 the
-    customer pays his flat $100 (Business) / $130 (SUV) instead of
-    the Blacklane total; First Class keeps the engine total. Expected
-    totals come from the sheet (frozen in the fixture); the engine
-    prices Times Square -> each rung's place at the rung's miles.
+    later owner override (2026-11-20 ~06:38 EST, refined 2026-11-21
+    ~18:48 EST: "Haan waise hi laana hundred ke upar"): at miles
+    <= 10 the flat $100 (Business) / $130 (SUV) is the BASE FARE
+    only and the fees are charged on top, so the total goes above
+    the flat; First Class keeps the engine total. Expected totals
+    come from the sheet (frozen in the fixture); the engine prices
+    Times Square -> each rung's place at the rung's miles.
     The dropoff state comes from the place string (the same data
     live geocoding would supply); the pickup is always Times Square
     (Manhattan, New York County), so the tax rate is the NYC rate
@@ -797,13 +851,22 @@ class LadderExactCase(unittest.TestCase):
                     toll=D("0"))
                 want = D(str(rung["totals"][cls]))
                 if D(str(rung["miles"])) <= D("10"):
-                    # Owner flat override (2026-11-20 ~06:38 EST):
-                    # Business $100, SUV $130 at miles <= 10; First
-                    # keeps the sheet total.
-                    if cls == "sedan":
-                        want = D("100.00")
-                    elif cls == "suv":
-                        want = D("130.00")
+                    # Owner flat override, refined 2026-11-21
+                    # ~18:48 EST ("Haan waise hi laana hundred ke
+                    # upar"): the $100/$130 flat is the BASE FARE
+                    # only — the fees are computed on the flat base
+                    # and charged on top, so the expected total is
+                    # flat + fees (the frozen sheet still shows the
+                    # bare flat for these rungs). First keeps the
+                    # sheet total.
+                    flat = {"sedan": D("100.00"),
+                            "suv": D("130.00")}.get(cls)
+                    if flat is not None:
+                        fees = blacklane_fees(
+                            classify_endpoint("Times Square", ts_details),
+                            classify_endpoint(place, dropoff_details),
+                            flat)
+                        want = money(flat + fees["fees_total"])
                 if got["total"] != want:
                     mismatches.append(
                         (rung["n"], cls, str(want), str(got["total"])))

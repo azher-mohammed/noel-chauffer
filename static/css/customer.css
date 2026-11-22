@@ -1,7 +1,7 @@
 /* Noel Chauffer — customer site. Black / white / grey, plain business look. */
 :root {
   --black: #0b0b0c;
-  --blue: #0b5fff;
+  --blue: #5b9bd5;
   --ink: #161617;
   --gold: #1a1a1a;
   --gold-soft: #d8d8d8;
@@ -77,7 +77,7 @@ input, select, textarea { font: inherit; }
   background: var(--blue); color: var(--white); border: 0;
   padding: 10px 18px; border-radius: 2px; letter-spacing: 0.04em; text-decoration: none; white-space: nowrap;
 }
-.header-cta:hover { background: #004fe0; }
+.header-cta:hover { background: #4a8ac2; }
 @media (max-width: 760px) { .main-nav { display: none; } }
 
 /* Hero band + booking form (top of page) */
@@ -116,10 +116,10 @@ input, select, textarea { font: inherit; }
   width: 100%; background: var(--blue); color: var(--white); border: 0;
   padding: 14px; border-radius: 3px; font-size: 16px; letter-spacing: 0.03em; margin-top: 6px;
 }
-.btn-primary:hover { background: #004fe0; }
+.btn-primary:hover { background: #4a8ac2; }
 .btn-primary:disabled { opacity: 0.6; cursor: wait; }
 .btn-gold { background: var(--blue); color: var(--white); font-weight: 400; }
-.btn-gold:hover { background: #004fe0; }
+.btn-gold:hover { background: #4a8ac2; }
 .btn-ghost {
   background: var(--blue); border: 1px solid var(--blue); color: var(--white);
   padding: 11px 16px; border-radius: 3px;
@@ -282,6 +282,12 @@ input, select, textarea { font: inherit; }
 /* Sections */
 .section { max-width: 1100px; margin: 0 auto; padding: 56px 20px 8px; }
 .section h2 { font-size: 32px; margin: 0 0 8px; }
+/* Homepage section headings are links to their own pages (owner
+   decision 2026-11-21) — but they must look like the plain clean
+   headings they were before the split: no underline, same colour
+   as the heading text, never link-blue. (Owner 2026-11-21 ~18:12
+   EST: "Achha text liyo" — the underlined headings looked dirty.) */
+.section h2 a, .app-band h2 a { color: inherit; text-decoration: none; }
 .section .intro { color: var(--grey); max-width: 640px; margin: 0 0 26px; }
 /* Experience / trust cards (photos on experience cards; gradient band on trust cards) */
 .exp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
@@ -337,7 +343,7 @@ input, select, textarea { font: inherit; }
   background: var(--blue); color: var(--white); border: 1px solid var(--blue);
   border-radius: 999px; padding: 13px 20px; font-size: 15px; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
 }
-.chat-fab:hover { background: #004fe0; }
+.chat-fab:hover { background: #4a8ac2; }
 .chat-panel {
   position: fixed; right: 20px; bottom: 76px; z-index: 60;
   width: min(370px, calc(100vw - 40px)); height: 480px; max-height: calc(100vh - 110px);
@@ -421,7 +427,7 @@ input, select, textarea { font: inherit; }
   box-shadow: none;
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
 }
-.btn-primary:hover { background: #004fe0; }
+.btn-primary:hover { background: #4a8ac2; }
 .btn-primary:active { transform: translateY(1px); box-shadow: none; }
 .btn-gold {
   border: 1px solid var(--blue);
@@ -430,12 +436,12 @@ input, select, textarea { font: inherit; }
   font-weight: 400;
   box-shadow: none;
 }
-.btn-gold:hover { background: #004fe0; }
+.btn-gold:hover { background: #4a8ac2; }
 .btn-ghost { border-radius: 8px; transition: border-color 0.15s ease, transform 0.12s ease; }
-.btn-ghost:hover { background: #004fe0; border-color: #004fe0; }
+.btn-ghost:hover { background: #4a8ac2; border-color: #4a8ac2; }
 .btn-ghost:active { transform: translateY(1px); }
 .btn-danger { border-radius: 8px; transition: background 0.15s ease, transform 0.12s ease; }
-.btn-danger:hover { background: #004fe0; }
+.btn-danger:hover { background: #4a8ac2; }
 .btn-danger:active { transform: translateY(1px); }
 
 /* Ride tabs: black underline on the active tab. */
@@ -476,7 +482,7 @@ input, select, textarea { font: inherit; }
   font-weight: 400;
   box-shadow: none;
 }
-.pay-panel .btn-primary:hover { background: #004fe0; }
+.pay-panel .btn-primary:hover { background: #4a8ac2; }
 
 /* "Pay by card" opener: same plain blue button, white normal text. */
 #pay-open-btn {
@@ -486,7 +492,7 @@ input, select, textarea { font: inherit; }
   font-weight: 400;
   box-shadow: none;
 }
-#pay-open-btn:hover { background: #004fe0; }
+#pay-open-btn:hover { background: #4a8ac2; }
 .test-banner { border-radius: 8px; }
 
 /* Thank you, referral, and invoice: black accents. */
@@ -538,7 +544,7 @@ input, select, textarea { font: inherit; }
   border-radius: 6px;
   box-shadow: none;
 }
-.header-cta:hover { background: #004fe0; }
+.header-cta:hover { background: #4a8ac2; }
 .site-footer { border-top: 3px solid var(--gold); }
 .hero-band { background: linear-gradient(180deg, #c7daf3 0%, var(--sky) 55%, #a9c4e8 100%); }
 .booking-section { background: linear-gradient(180deg, var(--sky-soft) 0%, #ffffff 100%); }
@@ -554,7 +560,7 @@ input, select, textarea { font: inherit; }
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.chat-fab:hover { background: #004fe0; }
+.chat-fab:hover { background: #4a8ac2; }
 .chat-fab:active { transform: translateY(1px); }
 .chat-panel {
   border-radius: 14px;
@@ -699,7 +705,7 @@ input, select, textarea { font: inherit; }
 .booking-card .btn-ghost { color: #fff; border-color: rgba(255, 255, 255, 0.5); }
 .booking-card .btn-text { color: rgba(255, 255, 255, 0.8); }
 .booking-card .btn-primary { background: var(--blue); border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 999px; box-shadow: none; }
-.booking-card .btn-primary:hover { background: #004fe0; }
+.booking-card .btn-primary:hover { background: #4a8ac2; }
 
 /* Homepage header over the photo (owner decision 2026-11-20): the car
    photo runs behind "Noel Chauffer" + Book, like Blacklane — no white

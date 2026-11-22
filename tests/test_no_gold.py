@@ -8,7 +8,7 @@ are plain black / white / grey.
 Standing colour rule, main chat 2026-11-21 ~09:55-09:57 EST ("I dont
 like black" / "Blue kar do" / "Aab se best color use karo" / "Not black
 buttons" / "Ek dum business wala button"): ALL buttons are BLUE
-(#0b5fff) with white normal text, full business look — no gradient,
+(#5b9bd5) with white normal text, full business look — no gradient,
 no glow, normal weight. NEVER black buttons. This supersedes the
 all-black buttons order of ~08:54 EST.
 
@@ -95,10 +95,10 @@ class NoGoldCase(unittest.TestCase):
             self.assertIn("--gold-soft: #d8d8d8;", css, rel)
 
     def test_blue_is_defined_and_used(self):
-        # Standing rule: buttons are blue (#0b5fff), never black.
+        # Standing rule: buttons are blue (#5b9bd5), never black.
         for rel in CSS_FILES:
             css = _read(rel)
-            self.assertIn("--blue: #0b5fff;", css, rel)
+            self.assertIn("--blue: #5b9bd5;", css, rel)
             self.assertIn("var(--blue)", css, rel)
 
     def test_all_primary_buttons_flat_blue_white_text(self):

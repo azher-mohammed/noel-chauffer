@@ -7,7 +7,7 @@ black-and-gold driver app background. Applies to ALL driver app
 screens: sign-in / register / reset, home, jobs/offers, trip,
 earnings, tax info, documents, profile.
 
-Buttons stay BLUE (#0b5fff, full business look, never black — see
+Buttons stay BLUE (#5b9bd5, full business look, never black — see
 test_blue_buttons.py). The wordmark keeps only "Chauffeur" golden, in
 the deeper readable gold #8a6d14 on white (the light gold #e8cf8f
 would not read on white — see test_no_gold.py); "Noel" is black ink.

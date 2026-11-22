@@ -57,23 +57,26 @@ from the sheet match the ladder file's own bases to within $0.01):
   base — Business $112.97, Business SUV $175.37, First Class $187.93
   (rungs 1-3 all price at the Business floor, total $129.32).
 
-CUSTOMER TOTAL vs MAP TOLL: Blacklane's own quote has no separate
-route-toll line — its total is base + the fees above. So the
-Blacklane-style customer total here is base + fees ONLY; the map toll
-(the E-ZPass crossings from tolls.py, kept on the booking as before)
-is NOT added to what the customer pays. The driver still gets the
-map toll in his pay (driver earnings = flat slab + map toll), so
-in Blacklane mode the map toll comes out of Noel's profit. If the
-owner wants the toll added on top of the Blacklane total instead,
-that is a one-line change in ``compute_blacklane_one_way``.
-
+CUSTOMER TOTAL vs MAP TOLL (owner decision 2026-11-21 ~18:56 EST):
+the customer total is base + fees + the map toll (the E-ZPass
+crossings, kept on the booking as before). The driver still gets
+the map toll in his pay (driver earnings = flat slab + map toll).
+The breakdown on the class page shows the Toll line whenever the
+route has one, so the lines sum to the total. NOTE: this makes the
+customer total HIGHER than Blacklane's own quoted total on tolled
+routes (Blacklane's quote has no separate toll line) — the owner's
+hard zero-difference rule still holds exactly on the 100-rung
+ladder, whose rungs carry no map toll.
+CUSTOMER FLAT (owner decision 2026-11-20 ~06:38 EST, refined
+2026-11-21 ~18:48 EST: "Haan waise hi laana hundred ke upar"): at
+miles <= 10, Business Class is a flat $100 and Business SUV a flat
+$130 — as the BASE FARE only. The Blacklane fees are computed on
+the flat base and charged on top, so the total goes above
+$100/$130; First Class keeps the engine total.
 DRIVER PAY — FLAT SLAB (owner decision 2026-11-20 ~06:25 EST,
 "Slap wala"): the driver gets pricing.driver_slab_pay(miles,
 class) + map toll — NOT per mile. The old per-mile rates (sedan
 $4/mi, SUV $6/mi, First Class $9/mi) are gone from this engine.
-CUSTOMER FLAT (owner decision 2026-11-20 ~06:38 EST): at miles
-<= 10, Business Class is a flat $100 and Business SUV a flat
-$130, charged exactly; First Class keeps the engine total.
 The engine computes the First Class customer fare AND driver pay. First Class
 is OPEN since owner decision 2026-11-20 ~03:00 EST ("wahi daal dena
 na same" — same models as Blacklane), expanded 2026-11-21 by owner
@@ -948,18 +951,23 @@ def compute_blacklane_one_way(miles, vehicle_class, pickup_text,
     """Blacklane-style fare breakdown for a one-way ride. All values Decimal.
 
     vehicle_class: "sedan" (Business Class), "suv" (Business SUV) or
-    "first" (First Class). toll is the MAP toll for the route (kept
-    for driver pay — see the module docstring: it is NOT added to
-    the customer total). referral: a NEW customer's first booking
-    with a valid referral code gets 5% off the total, driver pay
-    unchanged (same rule as the legacy engine).
+    "first" (First Class). toll is the MAP toll for the route — it is
+    charged to the customer on top of base + fees (owner decision
+    2026-11-21 ~18:56 EST: the breakdown shows a Toll line whenever
+    the route has one, and the lines sum to the total). referral: a
+    NEW customer's first booking with a valid referral code gets 5%
+    off the total, driver pay unchanged (same rule as the legacy
+    engine).
 
     Driver pay is the owner's FLAT slab (pricing.driver_slab_pay)
     + map toll for every class — NOT per mile (owner decision
     2026-11-20 ~06:25 EST). Customer total: the Blacklane
-    base + fees, EXCEPT at miles <= 10 where Business Class is a
-    flat $100 and Business SUV a flat $130 (owner decision
-    2026-11-20 ~06:38 EST); First Class keeps the engine total.
+    base + fees + map toll. At miles <= 10 the $100/$130 flat is
+    the BASE FARE only (owner decision 2026-11-20 ~06:38 EST,
+    refined 2026-11-21 ~18:48 EST: "hundred ke upar") — the
+    Blacklane fees are computed on the flat base and charged on
+    top, so the total goes above $100/$130; First Class keeps the
+    engine total.
     """
     if vehicle_class not in BLACKLANE_CLASSES:
         raise ValueError("vehicle_class must be 'sedan', 'suv' or 'first'")
@@ -968,14 +976,15 @@ def compute_blacklane_one_way(miles, vehicle_class, pickup_text,
     base = base_fare(vehicle_class, miles_dec)
     pickup = classify_endpoint(pickup_text, pickup_details)
     dropoff = classify_endpoint(dropoff_text, dropoff_details)
-    fees = blacklane_fees(pickup, dropoff, base)
     flat_total = CUSTOMER_FLAT_1_TO_10.get(vehicle_class)
     if flat_total is not None and miles_dec <= Decimal("10"):
-        # Short ride: the customer is charged exactly the flat
-        # $100/$130 — no Blacklane base/fees on top of it.
+        # Short ride: the flat $100/$130 is the BASE FARE only —
+        # the fees below are computed on the flat base and charged
+        # on top (owner 2026-11-21: "Haan waise hi laana hundred
+        # ke upar"), so the customer total goes above the flat.
         base = flat_total
-        fees = {k: Decimal("0.00") for k in fees}
-    total = money(base + fees["fees_total"])
+    fees = blacklane_fees(pickup, dropoff, base)
+    total = money(base + fees["fees_total"] + toll)
     referral_discount = Decimal("0.00")
     if referral:
         referral_discount = money(total * REFERRAL_DISCOUNT_RATE)

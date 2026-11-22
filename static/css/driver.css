@@ -4,7 +4,7 @@
    and behaviour unchanged. */
 :root {
   --black: #0b0b0c;
-  --blue: #0b5fff;
+  --blue: #5b9bd5;
   --ink: #161617;
   --gold: #9a9a9a;
   --gold-soft: #d8d8d8;
@@ -63,7 +63,7 @@ input, select { font: inherit; }
 .home-menu { margin-top: 12px; border: 1px solid var(--gold); border-radius: 8px; overflow: hidden; }
 .home-menu button { display: block; width: 100%; text-align: left; background: var(--blue); color: var(--white); border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.35); padding: 13px 14px; font-size: 16px; }
 .home-menu button:last-child { border-bottom: 0; }
-.home-menu button:active { background: #004fe0; }
+.home-menu button:active { background: #4a8ac2; }
 
 .screen { flex: 1; padding: 20px 20px 96px; overflow-y: auto; }
 .screen h2 { font-family: Georgia, serif; font-weight: 400; font-size: 26px; letter-spacing: 0.01em; margin: 6px 0 8px; }
@@ -361,7 +361,7 @@ input, select { font: inherit; }
 #screen-login .field input:focus {
   outline: none;
   border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(11, 95, 255, 0.25);
+  box-shadow: 0 0 0 3px rgba(91, 155, 213, 0.25);
 }
 /* Keep autofilled credentials readable on the white fields (iOS
    Safari otherwise paints its own pale background). */
@@ -537,7 +537,7 @@ input, select { font: inherit; }
 #screen-trip .field input:focus {
   outline: none;
   border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(11, 95, 255, 0.25);
+  box-shadow: 0 0 0 3px rgba(91, 155, 213, 0.25);
 }
 
 /* Flat blue primary buttons, as on the sign-in screen. */
@@ -686,7 +686,7 @@ input, select { font: inherit; }
 #screen-trip .chat-box .chat-input-row input:focus {
   outline: none;
   border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(11, 95, 255, 0.25);
+  box-shadow: 0 0 0 3px rgba(91, 155, 213, 0.25);
 }
 
 /* Payout setup (Stripe Connect): white cards matching the pay weeks. */
@@ -852,7 +852,7 @@ input, select { font: inherit; }
 #screen-trip .field textarea:focus {
   outline: none;
   border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(11, 95, 255, 0.25);
+  box-shadow: 0 0 0 3px rgba(91, 155, 213, 0.25);
 }
 #screen-home .suspension-banner {
   border: 1px solid #d8a7a7;

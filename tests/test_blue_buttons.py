@@ -1,13 +1,16 @@
-"""Tests for the BLUE buttons with a full business look.
+"""Tests for the LIGHT BLUE buttons with a full business look.
 
 Owner standing rule, main chat 2026-11-21 ~09:55-09:57 EST ("I dont
 like black" / "Blue kar do" / "Aab se best color use karo" / "Not black
 buttons" / "Ek dum business wala button"): from now on the BEST colour
-is used — ALL buttons are BLUE (#0b5fff, the bright royal blue the
-"View options" button had), with white normal text, clean professional
-business styling (no gradient, no glow, normal weight). NEVER black
-buttons. This supersedes the all-black buttons order of ~08:54 EST
-("Black hai to poora"), which itself superseded the gold buttons.
+is used — ALL buttons are BLUE, with white normal text, clean
+professional business styling (no gradient, no glow, normal weight).
+NEVER black buttons. This supersedes the all-black buttons order of
+~08:54 EST ("Black hai to poora"), which itself superseded the gold
+buttons. Owner correction, voice call 2026-11-21 ~19:00 EST ("ekdum
+light blue" / "bahut dark blue ho gaya"): the blue must be VERY LIGHT
+— #5b9bd5, NOT the dark #0b5fff — on EVERY button, including the
+"Chat with us" floating button.
 
 Gold stays OUT everywhere EXCEPT the brand name: only the word
 "Chauffeur" in "Noel Chauffer" is golden — a VERY LIGHT gold
@@ -61,7 +64,7 @@ class BlueButtonsCase(unittest.TestCase):
     def test_website_pay_submit_hover_plain(self):
         body = _rule(_read("static/css/customer.css"),
                      ".pay-panel .btn-primary:hover")
-        self.assertIn("background: #004fe0;", body)
+        self.assertIn("background: #4a8ac2;", body)
         self.assertNotIn("linear-gradient", body)
 
     def test_website_pay_by_card_opener_blue_white_normal(self):
@@ -85,7 +88,7 @@ class BlueButtonsCase(unittest.TestCase):
     def test_website_chat_fab_hover_plain(self):
         body = _last_rule(_read("static/css/customer.css"),
                           ".chat-fab:hover")
-        self.assertIn("background: #004fe0;", body)
+        self.assertIn("background: #4a8ac2;", body)
         self.assertNotIn("linear-gradient", body)
 
     # -- customer app: Pay + Chat send -------------------------------
@@ -117,7 +120,8 @@ class BlueButtonsCase(unittest.TestCase):
         self.assertIsNotNone(m, "missing .ride-tab.active")
         self.assertIn("background: var(--blue);", m.group(1))
         self.assertIn("var(--blue)", css)
-        self.assertIn("#0b5fff", css)
+        self.assertIn("#5b9bd5", css)
+        self.assertNotIn("#0b5fff", css, "dark blue is OUT (owner 2026-11-21 ~19:00 EST)")
 
     def test_ghost_danger_decline_are_blue_too(self):
         for rel in ("static/css/customer.css",
@@ -141,6 +145,17 @@ class BlueButtonsCase(unittest.TestCase):
         body = _rule(_read("static/css/driver.css"), ".home-menu-btn")
         self.assertIn("background: var(--blue);", body)
         self.assertIn("color: var(--white);", body)
+
+    def test_dark_blue_is_gone_from_all_three_sheets(self):
+        # The dark #0b5fff / #004fe0 are OUT everywhere (owner
+        # 2026-11-21 ~19:00 EST: "ekdum light blue").
+        for rel in ("static/css/customer.css",
+                    "static/css/customer-app.css",
+                    "static/css/driver.css"):
+            css = _read(rel)
+            self.assertNotIn("#0b5fff", css, rel)
+            self.assertNotIn("#004fe0", css, rel)
+            self.assertIn("#5b9bd5", css, rel)
 
     def test_buttons_still_present(self):
         html = _read("static/index.html")

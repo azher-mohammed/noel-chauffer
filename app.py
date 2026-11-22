@@ -4448,6 +4448,7 @@ def _booking_create_view(booking, referral_code=None):
                     "mta_congestion": num(v["fees"]["mta_congestion"]),
                     "sales_tax": num(v["fees"]["sales_tax"]),
                     "black_car_fee": num(v["fees"]["black_car_fee"]),
+                    "toll": num(v["toll"]),
                     "referral_discount": num(v["referral_discount"]),
                     "total": num(v["total"]),
                 }
@@ -4459,6 +4460,27 @@ def _booking_create_view(booking, referral_code=None):
                 booking.miles or Decimal("0"), toll=booking.toll or Decimal("0"),
                 referral=booking_referral_discount_applies(booking))
             view["class_totals"] = {k: num(v) for k, v in totals.items()}
+    elif booking.ride_type == "hourly":
+        # Hourly rides get a breakdown too (owner decision
+        # 2026-11-21 ~18:56 EST: every ride, one-way and hourly).
+        # The hourly rate is all-in — taxes and tolls are inside
+        # the per-hour rate — so the base fare is the full
+        # hours x rate total and the fee lines are $0.00.
+        _hourly = {}
+        for _cls in ("sedan", "suv", "first"):
+            _h = compute_hourly(booking.hours or Decimal("0"), _cls)
+            _hourly[_cls] = {
+                "base": num(_h["total"]),
+                "airport_access": num(0),
+                "ny_congestion": num(0),
+                "mta_congestion": num(0),
+                "sales_tax": num(0),
+                "black_car_fee": num(0),
+                "toll": num(0),
+                "referral_discount": num(0),
+                "total": num(_h["total"]),
+            }
+        view["class_breakdowns"] = _hourly
     # 5% first-ride referral discount granted on this booking
     # ($0.00 when a code was used but no discount applied; None on
     # hourly rides and rows created before the discount existed).

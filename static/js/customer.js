@@ -71,6 +71,21 @@
     });
     var note = $("hr-miles-note");
     if (note) note.textContent = "Includes " + (h * HOURLY_MILES_PER_HOUR) + " miles of travel (" + HOURLY_MILES_PER_HOUR + " miles per hour) — taxes and tolls included.";
+    paintHourlyBreakdown();
+  }
+  /* Hourly price breakdown (owner decision 2026-11-21 ~18:56 EST:
+     every ride gets a breakdown, one-way and hourly). The hourly
+     rate is all-in — taxes and tolls are inside the per-hour rate —
+     so the breakdown is Base fare (hours x rate) + Total. */
+  function paintHourlyBreakdown() {
+    var box = $("hourly-class-breakdown");
+    if (!box) return;
+    var h = parseInt($("bk-hours").value, 10);
+    if (isNaN(h) || h < 2) h = 2;
+    if (h > 24) h = 24;
+    var total = hourlyTotalCents(state.hourlyClass, h) / 100;
+    box.innerHTML = '<div class="breakdown-row"><span>Base fare</span><span>' + esc(money(total)) + '</span></div>'
+      + '<div class="breakdown-row breakdown-total"><span>Total</span><span>' + esc(money(total)) + '</span></div>';
   }
   function paintHourlyClassSelection() {
     ["sedan", "suv", "first"].forEach(function (cls) {
@@ -82,6 +97,7 @@
     });
     var cont = $("hourly-class-continue");
     if (cont) cont.textContent = "Select " + (CLASS_LABELS[state.hourlyClass] || "Business Class");
+    paintHourlyBreakdown();
   }
   function classLabelFor(b) {
     if (!b) return "";
@@ -606,9 +622,12 @@
   }
 
   /* Price breakdown for the selected class (Blacklane-style): the
-     fare composition the customer pays — base fare + fees + tax,
-     minus any referral discount. Only lines above $0 are shown;
-     the total always matches the class option's total. */
+     fare composition the customer pays, in the owner's line order
+     (2026-11-21 ~18:56 EST) — Base fare, Airport access fee (only
+     on airport rides), Black car fee, Sales tax, Congestion (NY
+     State + MTA), Toll (only when the route has one), then Total.
+     Only lines above $0 are shown; the total always matches the
+     class option's total. No refund line in the breakdown. */
   function paintClassBreakdown() {
     var box = $("class-breakdown");
     if (!box) return;
@@ -616,10 +635,11 @@
     if (!b) { box.innerHTML = ""; return; }
     var rows = [["Base fare", money(b.base)]];
     if (Number(b.airport_access) > 0) rows.push(["Airport access fee", money(b.airport_access)]);
+    if (Number(b.black_car_fee) > 0) rows.push(["Black car fee", money(b.black_car_fee)]);
+    if (Number(b.sales_tax) > 0) rows.push(["Sales tax", money(b.sales_tax)]);
     if (Number(b.ny_congestion) > 0) rows.push(["NY State congestion surcharge", money(b.ny_congestion)]);
     if (Number(b.mta_congestion) > 0) rows.push(["MTA congestion surcharge", money(b.mta_congestion)]);
-    if (Number(b.sales_tax) > 0) rows.push(["Sales tax", money(b.sales_tax)]);
-    if (Number(b.black_car_fee) > 0) rows.push(["Black car fee", money(b.black_car_fee)]);
+    if (Number(b.toll) > 0) rows.push(["Toll", money(b.toll)]);
     if (Number(b.referral_discount) > 0) rows.push(["Referral discount", "−" + money(b.referral_discount)]);
     var html = rows.map(function (r) {
       return '<div class="breakdown-row"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>';

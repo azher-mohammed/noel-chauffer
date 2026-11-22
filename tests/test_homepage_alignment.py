@@ -6,11 +6,13 @@ professional look. His order: "sab ek ek line mein hi aana chahiye"
 — everything must come in one line each.
 
 Fixes pinned here:
-1. App band: "Open the app" button + Google Play + App Store badges
-   sit in ONE straight flex row, vertically centred — the badges
-   never stack or sit at different heights (before, the two badges
-   were bare inline images with no layout rule at all, so they
-   staggered on the text baseline).
+1. App band: Google Play + App Store badges sit in ONE straight
+   flex row, vertically centred — the badges never stack or sit
+   at different heights (before, the two badges were bare inline
+   images with no layout rule at all, so they staggered on the
+   text baseline). Since owner order 2026-11-22 the band carries
+   NO heading, NO paragraph and NO "Open the app" button — just
+   the "Noel Chauffer app" label and the two badges.
 2. Ride-type cards: equal-height flex columns; the "Learn more" link
    is pushed to the bottom of its card, so all three links sit on
    one straight line despite different text lengths.
@@ -52,18 +54,19 @@ def _rule(selector):
 
 class TestHomepageAlignment(unittest.TestCase):
     def test_app_actions_one_straight_row(self):
-        # Button + badges wrapped in a single flex row, vertically centred.
+        # Badges wrapped in a single flex row, vertically centred.
+        # (Owner 2026-11-22: no button in the band any more.)
         self.assertIn('<div class="app-actions">', INDEX)
         actions = _rule(".app-actions")
         self.assertIn("display: flex", actions)
         self.assertIn("align-items: center", actions)
-        # The button and the badges live inside that one row.
+        # Only the badges live inside that one row.
         m = re.search(
             r'<div class="app-actions">(.*?)</div>\s*</div>', INDEX, re.S
         )
         self.assertIsNotNone(m, "app-actions wrapper not found")
         inner = m.group(1)
-        self.assertIn('href="/app">Open the app</a>', inner)
+        self.assertNotIn("Open the app", inner)
         self.assertIn('class="store-badges"', inner)
         self.assertIn("google-play-badge.png", inner)
         self.assertIn("app-store-badge.svg", inner)
@@ -123,9 +126,10 @@ class TestHomepageAlignment(unittest.TestCase):
         self.assertNotIn("Refer a friend", INDEX)
         self.assertNotIn("referral-box", INDEX)
         # Section pages still linked from the homepage headings.
+        # (The app-band heading link is gone by owner order
+        # 2026-11-22; its separate page still exists.)
         for href in [
             "/airport-pickups",
-            "/your-rides-in-your-pocket",
             "/experience",
             "/why-ride-with-noel-chauffer",
             "/three-ways-to-ride",

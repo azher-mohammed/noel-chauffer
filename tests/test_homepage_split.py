@@ -133,24 +133,41 @@ class HomepageRestoreTest(unittest.TestCase):
                 self.assertNotIn("top-strip", html, route)
 
     def test_homepage_links_to_all_ten_pages_by_heading(self):
+        # (The app-band heading link to /your-rides-in-your-pocket
+        # was removed by owner order 2026-11-22 — the band carries
+        # only the label and the two badges now. The Cancellation,
+        # FAQ and Contacts heading links were removed the same day —
+        # those sections are off the homepage entirely and live only
+        # on their own pages, reached from the top nav. The pages
+        # themselves still exist; see
+        # test_each_section_page_still_returns_200.)
+        skipped = {
+            "/your-rides-in-your-pocket",
+            "/cancellation-and-waiting",
+            "/frequently-asked-questions",
+            "/contacts",
+        }
         for route, (_file, heading, _fragment) in PAGES.items():
+            if route in skipped:
+                continue
             with self.subTest(route=route):
                 self.assertIn(f'<a href="{route}">{heading}</a>', self.home, route)
 
     def test_homepage_carries_all_ten_section_bodies(self):
         # The restore: the bodies are back on the homepage, verbatim.
+        # (Except the app-band body "No download, just open and go." —
+        # removed with the band's text by owner order 2026-11-22. It
+        # still lives on the separate page. And except the whole
+        # Cancellation, FAQ and Contacts section bodies — those
+        # sections were taken off the homepage entirely the same day
+        # by owner order; they live only on their own pages.)
         for body in [
             "Professional chauffeurs",
             "Flying in or out of JFK, LaGuardia, Newark, LAX, ORD or MIA?",
-            "Free cancellation if you cancel more than 1 hour before pickup.",
-            "<h3>How do I book a ride?</h3>",
             "Noel Chauffer is a premium chauffeur service",
             "at the right terminal at JFK, LaGuardia or Newark",
-            "No download, just open and go.",
             "Enter the phone number you booked with to see your past rides.",
-            "Do you offer black car service in New York City?",
             "Your chauffeur opens the door, greets you by name",
-            "60 minutes of waiting free",
         ]:
             self.assertIn(body, self.home, body)
         # Homepage still has the booking form, the chat widget and the

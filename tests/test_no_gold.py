@@ -13,14 +13,15 @@ no glow, normal weight. NEVER black buttons. This supersedes the
 all-black buttons order of ~08:54 EST.
 
 Wordmark exception (owner 2026-11-21 ~09:55-09:56 EST, "Only chauffeur
-in Golden", refined ~10:02 EST, "Ek dum light golden kare toh"): in the
-"Noel Chauffer" brand name, ONLY the word "Chauffeur" is golden, and
-only in a VERY LIGHT gold (#e8cf8f — never the deep #d4af37) on dark
-surfaces (website, customer app); on the WHITE driver app pages
-(owner 2026-11-21 ~10:03 EST) the same word uses the deeper readable
-gold #8a6d14, because the light gold does not read on white. The word
-"Noel" stays white on dark backgrounds and black ink on the white
-driver app. No layout or position changes.
+in Golden", refined ~10:02 EST, "Ek dum light golden kare toh"):
+in the "Noel Chauffer" brand name, ONLY the word "Chauffeur" is
+golden. SUPERSEDED by owner order 2026-11-22 ~06:49 EST ("Yes"):
+"Chauffeur" is now a BRIGHT, RICH gold (#D4AF37) with a subtle
+metallic sheen — the SAME bright gold on all three surfaces
+(website, customer app, driver app), because the old light gold
+looked dull/grey to him. The word "Noel" stays its normal colour
+(white on dark backgrounds, black ink on the white driver app).
+No layout or position changes.
 
 Notes:
 - The class name `.btn-gold` and the variable `var(--gold)` still
@@ -47,22 +48,17 @@ CSS_FILES = ("static/css/customer.css",
 # Gold colour values that must not render anywhere on the three surfaces.
 # Includes the stragglers caught after the first live push: #e3c878 /
 # #fdf3d7 (driver expiry banner), #8a6d1a (website ride-history total).
-# The deep gold #d4af37 is banned too — the wordmark uses only the
-# very light gold #e8cf8f on dark surfaces (website, customer app)
-# and the deeper readable gold #8a6d14 on the white driver app
-# (see test_gold_only_on_chauffeur_wordmark).
+# The old dull wordmark golds #e8cf8f and #8a6d14 are banned too —
+# the wordmark "Chauffeur" now uses the bright gold #D4AF37 on all
+# three surfaces (owner 2026-11-22; see test_gold_only_on_chauffeur_wordmark).
 BANNED_VALUES = ("#c9a227", "#e8d9a0", "#a8861d", "#b08d1e", "#dcbd4d",
                  "#e6cb62", "#d4af2f", "#b8921f", "#fff4d6", "#fffdf4",
                  "#fdf6e3", "#ecd9a0", "#6b5510", "rgba(201, 162, 39",
-                 "#d4af37", "#e3c878", "#fdf3d7", "#8a6d1a")
+                 "#e3c878", "#fdf3d7", "#8a6d1a", "#e8cf8f", "#8a6d14")
 
-# The only allowed golds: the very light gold of the word "Chauffeur"
-# on dark surfaces (website, customer app), and the deeper readable
-# gold of the same word on the white driver app (owner 2026-11-21
-# ~10:03 EST: driver app pages are white, so the light gold would
-# not read there).
-LIGHT_GOLD = "#e8cf8f"
-DRIVER_GOLD = "#8a6d14"
+# The only allowed gold: the bright gold of the word "Chauffeur",
+# the same on all three surfaces (owner 2026-11-22 ~06:49 EST).
+WORDMARK_GOLD = "#D4AF37"
 
 
 def _read(relpath):
@@ -162,26 +158,28 @@ class NoGoldCase(unittest.TestCase):
     def test_gold_only_on_chauffeur_wordmark(self):
         # ONLY the word "Chauffeur" is golden, in exactly one span rule
         # per stylesheet and nowhere else. "Noel" stays its normal
-        # colour. The shade depends on the surface behind the wordmark:
-        # very light gold #e8cf8f on dark (owner 2026-11-21 ~10:02 EST)
-        # for the website and customer app, deeper readable gold #8a6d14
-        # on the white driver app (owner 2026-11-21 ~10:03 EST).
-        expected = {
-            "static/css/customer.css": (".wordmark span", LIGHT_GOLD),
-            "static/css/customer-app.css": (".app-head .brand span",
-                                            LIGHT_GOLD),
-            "static/css/driver.css": (".app-head .brand span", DRIVER_GOLD),
+        # colour. The shade is the SAME bright gold #D4AF37 with a
+        # subtle metallic sheen on all three surfaces (owner
+        # 2026-11-22 ~06:49 EST) — this supersedes the 2026-11-21
+        # light-gold rule (#e8cf8f on dark, #8a6d14 on the driver
+        # app), which looked dull/grey to him.
+        selectors = {
+            "static/css/customer.css": ".wordmark span",
+            "static/css/customer-app.css": ".app-head .brand span",
+            "static/css/driver.css": ".app-head .brand span",
         }
-        for rel, (selector, gold) in expected.items():
+        for rel, selector in selectors.items():
             css = _read(rel)
-            self.assertEqual(css.count(gold), 1,
-                             "%s: %s must appear exactly once" % (rel, gold))
+            self.assertIn("--wordmark-gold: #D4AF37;", css, rel)
             body = _rule(css, selector)
-            self.assertIn("color: %s;" % gold, body, rel)
-            # No deep gold anywhere, and no other surface's gold here.
-            self.assertNotIn("#d4af37", css, rel)
-            other = DRIVER_GOLD if gold == LIGHT_GOLD else LIGHT_GOLD
-            self.assertNotIn(other, css, rel)
+            self.assertIn("color: var(--wordmark-gold);", body, rel)
+            # Subtle metallic sheen on the wordmark text only.
+            self.assertIn("linear-gradient(105deg", body, rel)
+            self.assertIn("#F6E27A", body, rel)
+            self.assertIn("background-clip: text;", body, rel)
+            # No old dull gold anywhere, and no other surface's gold.
+            self.assertNotIn("#e8cf8f", css, rel)
+            self.assertNotIn("#8a6d14", css, rel)
         # The wordmark base itself is white on dark backgrounds.
         site = _read("static/css/customer.css")
         self.assertIn(".home .wordmark { color: var(--white); }", site)

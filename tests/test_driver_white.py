@@ -9,8 +9,8 @@ earnings, tax info, documents, profile.
 
 Buttons stay BLUE (#5b9bd5, full business look, never black — see
 test_blue_buttons.py). The wordmark keeps only "Chauffeur" golden, in
-the deeper readable gold #8a6d14 on white (the light gold #e8cf8f
-would not read on white — see test_no_gold.py); "Noel" is black ink.
+the BRIGHT gold #D4AF37 with a subtle sheen on all three surfaces
+(owner 2026-11-22 ~06:49 EST); "Noel" is black ink.
 
 These are static pins on static/css/driver.css only: the change is
 CSS-only, so the shipped stylesheet is the whole change.
@@ -71,9 +71,10 @@ class DriverWhiteCase(unittest.TestCase):
     def test_wordmark_readable_on_white(self):
         css = _read(CSS)
         span = _rule(css, ".app-head .brand span")
-        self.assertIn("color: #8a6d14;", span)
+        self.assertIn("color: var(--wordmark-gold);", span)
+        self.assertIn("--wordmark-gold: #D4AF37;", css)
         self.assertNotIn("#e8cf8f", css)
-        self.assertNotIn("#d4af37", css)
+        self.assertNotIn("#8a6d14", css)
 
     def test_login_screen_is_white(self):
         css = _read(CSS)

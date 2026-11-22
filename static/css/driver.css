@@ -8,6 +8,7 @@
   --ink: #161617;
   --gold: #9a9a9a;
   --gold-soft: #d8d8d8;
+  --wordmark-gold: #D4AF37;
   --white: #ffffff;
   --paper: #f7f5f0;
   --grey: #6b6b6b;
@@ -51,7 +52,18 @@ input, select { font: inherit; }
   border-bottom: 1px solid var(--line);
 }
 .app-head .brand { font-family: Georgia, "Times New Roman", serif; font-size: 26px; letter-spacing: 0.04em; }
-.app-head .brand span { color: #8a6d14; }
+.app-head .brand span {
+  /* Bright golden "Chauffeur" with a subtle metallic sheen (owner
+     2026-11-22): "Noel" stays plain, only "Chauffeur" is gold —
+     the SAME bright gold on the website, the customer app and the
+     driver app. The solid colour is the fallback; browsers that
+     support background-clip:text show the sheen. */
+  color: var(--wordmark-gold);
+  background: linear-gradient(105deg, #B8860B 0%, var(--wordmark-gold) 32%, #F6E27A 50%, var(--wordmark-gold) 68%, #B8860B 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 .app-head .tag { font-size: 14px; color: var(--grey); margin-top: 2px; }
 .app-head .hello { font-size: 16px; margin-top: 10px; color: var(--grey); }
 /* Home menu button, top-left of the header (owner 2026-11-21):

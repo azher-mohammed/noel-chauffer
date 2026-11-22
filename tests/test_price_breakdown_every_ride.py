@@ -72,11 +72,7 @@ class BreakdownUiCase(unittest.TestCase):
                 ("three-ways-to-ride", "Three ways to ride"),
                 ("airport-pickups", "Airport pickups, without the rush."),
                 ("experience", "Sit back and enjoy the ride."),
-                ("cancellation-and-waiting", "Cancellation &amp; waiting"),
-                ("frequently-asked-questions", "Frequently asked questions"),
                 ("our-company", "Our company"),
-                ("contacts", "Contacts"),
-                ("your-rides-in-your-pocket", "Your rides, in your pocket."),
                 ("your-ride-history", "Your ride history")):
             self.assertIn('<h2><a href="/%s">%s</a></h2>' % (slug, text),
                           html, slug)

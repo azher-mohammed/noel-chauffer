@@ -13,10 +13,11 @@ light blue" / "bahut dark blue ho gaya"): the blue must be VERY LIGHT
 "Chat with us" floating button.
 
 Gold stays OUT everywhere EXCEPT the brand name: only the word
-"Chauffeur" in "Noel Chauffer" is golden — a VERY LIGHT gold
-(#e8cf8f, owner tweak 2026-11-21 ~10:02 EST, "Ek dum light golden
-kare toh"); see test_no_gold.py. Applies on the website, the customer
-app (/app) AND the driver app (/driver).
+"Chauffeur" in "Noel Chauffer" is golden — a BRIGHT gold
+(#D4AF37 with a subtle sheen, owner order 2026-11-22 ~06:49 EST,
+superseding the 2026-11-21 light gold #e8cf8f); see test_no_gold.py.
+Applies on the website, the customer app (/app) AND the driver app
+(/driver).
 
 These are static pins on the three stylesheets only: the change is
 CSS-only, so the shipped stylesheets are the whole change.

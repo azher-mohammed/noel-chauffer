@@ -128,16 +128,17 @@ class TestHeadingsClean(unittest.TestCase):
         self.assertIn("margin: 0 0 18px;", _rule(".section .intro"))
 
     def test_heading_texts_and_links_unchanged(self):
+        # (The app-band heading "Your rides, in your pocket." was
+        # removed from the homepage by owner order 2026-11-22; its
+        # separate page keeps it. The Cancellation, FAQ and Contacts
+        # headings were removed the same day — those sections are off
+        # the homepage entirely and live only on their own pages.)
         for text, href in [
             ("Airport pickups, without the rush.", "/airport-pickups"),
-            ("Your rides, in your pocket.", "/your-rides-in-your-pocket"),
             ("Sit back and enjoy the ride.", "/experience"),
             ("Why ride with Noel Chauffer", "/why-ride-with-noel-chauffer"),
             ("Three ways to ride", "/three-ways-to-ride"),
-            ("Cancellation &amp; waiting", "/cancellation-and-waiting"),
-            ("Frequently asked questions", "/frequently-asked-questions"),
             ("Our company", "/our-company"),
-            ("Contacts", "/contacts"),
             ("Your ride history", "/your-ride-history"),
         ]:
             self.assertIn(f'<h2><a href="{href}">{text}</a></h2>', INDEX)

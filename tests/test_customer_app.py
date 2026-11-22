@@ -80,13 +80,17 @@ class CustomerAppPageCase(unittest.TestCase):
         self.assertIn('id="screen-book"', html)
         self.assertIn('id="screen-rides"', html)
         self.assertIn('id="screen-support"', html)
-        self.assertIn('id="screen-referral"', html)
+        # Referral tab removed (owner 2026-11-21): no referral screen
+        # or "Refer a friend" text anywhere in the customer app.
+        self.assertNotIn('id="screen-referral"', html)
+        self.assertNotIn('data-screen="referral"', html)
+        self.assertNotIn("Refer a friend", html)
         self.assertIn('id="ca-tabbar"', html)
         self.assertIn("Book your ride", html)
         self.assertIn("Choose your experience", html)
         self.assertIn("My rides", html)
         self.assertIn("Chat with us", html)
-        self.assertIn("Refer a friend", html)
+        self.assertNotIn("Refer a friend", html)
         self.assertIn("/static/js/customer-app.js", html)
         self.assertIn("/static/css/customer-app.css", html)
         self.assertIn("/static/js/flight.js", html)
@@ -145,7 +149,7 @@ class CustomerAppPageCase(unittest.TestCase):
                       "ca-hourly-class-back",
                       "ca-pay-number", "ca-pay-exp", "ca-pay-cvc",
                       "ca-history-phone", "ca-support-input",
-                      "ca-referral-phone", "ca-driver-photo",
+                      "ca-driver-photo",
                       "ca-chat-messages", "ca-map"):
             self.assertIn('id="%s"' % field, html)
 
@@ -218,13 +222,19 @@ class CustomerAppPageCase(unittest.TestCase):
         for banned in ("fetch(\"https://", "openai", "gpt", "llm", "AI answer"):
             self.assertNotIn(banned, js)
 
-    def test_app_js_referral_states_no_benefit_or_amount(self):
+    def test_app_js_referral_ui_removed(self):
+        # Referral tab removed (owner 2026-11-21): no Referral tab
+        # code, no referral UI wiring, only three screens.
         js = read("static/js/customer-app.js")
-        block = js[js.index("Referral tab"):]
-        for banned in ("$5", "$20", "discount", "cash back", "cashback",
-                       "free ride", "off your"):
-            self.assertNotIn(banned, block, f"referral block must not promise {banned!r}")
-        self.assertIn("referral_code", block)
+        self.assertNotIn("Referral tab", js)
+        self.assertNotIn("showReferralCode", js)
+        self.assertNotIn("showReferralLink", js)
+        self.assertNotIn("ca-tab-referral", js)
+        self.assertNotIn("ca-referral-form", js)
+        self.assertIn('var SCREENS = ["book", "rides", "support"];', js)
+        # The ?ref= prefill and the 5% first-ride discount stay.
+        self.assertIn("prefillReferralFromUrl", js)
+        self.assertIn("referral_code", js)
 
     def test_app_js_has_no_driver_owned_or_download_wording(self):
         js = read("static/js/customer-app.js")

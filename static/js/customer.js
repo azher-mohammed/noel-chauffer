@@ -1126,89 +1126,21 @@
     if (testNote) {
       if (state.testModePaid) show(testNote); else hide(testNote);
     }
-    /* The API returns the issued code as `referral_code` on the booking. */
-    var code = b.referral_code || b.customer_referral_code || b.share_code || b.own_referral_code || null;
-    if (code) {
-      show($("referral-code-line"));
-      $("referral-code-value").textContent = code;
-      showReferralLink(code);
-    } else {
-      hide($("referral-code-line"));
-      hide($("referral-show-btn"));
-      hide($("referral-link-line"));
-      hide($("referral-link-actions"));
-    }
     if (b.ride_type === "one_way") { show($("return-trip-btn")); } else { hide($("return-trip-btn")); }
   }
 
-  /* ---------- Referral link ---------- */
-  /* The shareable link carries the same code the booking form
-     accepts: https://noelchauffer.com/?ref=CODE (built from the
-     current origin so it works on every host). Tapping the
-     "Refer a Friend" button reveals the link with Copy and native
-     Share options; the CUSTOMER shares it himself (WhatsApp,
-     message, etc.) — the system sends nothing to friends.
-     Clicking the link prefills the friend's referral field — see
-     prefillReferralFromUrl below. Booking-time validation is
-     unchanged: an unknown code is rejected exactly as a mistyped
-     one. No benefit or amount is stated anywhere — the benefit
-     is TBD, as before. */
-  function referralLinkFor(code) {
-    return window.location.origin + "/?ref=" + encodeURIComponent(code);
-  }
-  function copyTextToClipboard(text, btn) {
-    var label = btn ? btn.textContent : "";
-    function done() {
-      if (!btn) return;
-      btn.textContent = "Copied";
-      setTimeout(function () { btn.textContent = label; }, 2000);
-    }
-    function fallback() {
-      var ta = document.createElement("textarea");
-      ta.value = text;
-      ta.setAttribute("readonly", "");
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand("copy"); } catch (e) { /* clipboard unavailable */ }
-      document.body.removeChild(ta);
-      done();
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, fallback);
-    } else {
-      fallback();
-    }
-  }
-  function showReferralLink(code) {
-    var link = referralLinkFor(code);
-    var anchor = $("referral-link-anchor");
-    anchor.href = link;
-    anchor.textContent = link;
-    var copyBtn = $("referral-copy-btn");
-    copyBtn.onclick = function () { copyTextToClipboard(link, copyBtn); };
-    var shareBtn = $("referral-share-btn");
-    if (navigator.share) {
-      show(shareBtn);
-      shareBtn.onclick = function () {
-        navigator.share({ title: "Noel Chauffer", url: link }).catch(function () {});
-      };
-    } else {
-      hide(shareBtn);
-    }
-    var revealBtn = $("referral-show-btn");
-    revealBtn.onclick = function () {
-      show($("referral-link-line"));
-      show($("referral-link-actions"));
-      hide(revealBtn);
-    };
-    show(revealBtn);
-  }
-  /* A friend arriving via a referral link gets the code prefilled
-     — no typing needed. No validation here: the booking endpoint
-     rejects unknown codes as usual, so a bad link can never break
-     the page. */
+  /* ---------- Referral link prefill (no visible referral UI) ---------- */
+  /* The visible referral UI was removed (owner decision 2026-11-21),
+     but already-shared referral links keep working: the shareable
+     link carries the same code the booking form accepts:
+     https://noelchauffer.com/?ref=CODE (built from the current
+     origin so it works on every host). The CUSTOMER shares the link
+     himself (WhatsApp, message, etc.) — the system sends nothing to
+     friends. A friend arriving via a referral link gets the code
+     prefilled — no typing needed. No validation here: the booking
+     endpoint rejects unknown codes as usual, so a bad link can never
+     break the page. The 5% first-ride discount for the new customer
+     still applies server-side. */
   (function prefillReferralFromUrl() {
     var ref = (new URLSearchParams(window.location.search).get("ref") || "").trim();
     if (!ref) return;
@@ -1810,7 +1742,7 @@
       return "Choose the “By the hour” tab in the booking form, pick a vehicle class and how many hours you need (minimum 2 hours). Your chauffeur stays with you for the hours you book, with 25 miles of travel included per hour.";
     }
     if (has("refer", "friend", "code")) {
-      return "If a friend referred you, open their referral link — it takes you to the booking form with their code already filled in, and your first booking gets 5% off. After your ride, this page shows you how to refer a friend too.";
+      return "If a friend referred you, open their referral link — it takes you to the booking form with their code already filled in, and your first booking gets 5% off.";
     }
     if (has("book", "reserve", "ride", "pickup", "how")) {
       return "Enter your pickup and drop-off, date and time in the booking form above, choose your experience, and pay by card — your chauffeur is assigned right after payment.";

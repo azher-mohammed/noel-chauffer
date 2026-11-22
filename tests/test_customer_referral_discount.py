@@ -285,9 +285,17 @@ class ReferralDiscountWordingCase(unittest.TestCase):
     FRIEND_ONLY = "Your friend gets 5% off their first ride."
 
     def test_referral_sections_state_friend_only_five_percent(self):
+        # Referral sections removed (owner 2026-11-21): the friend-only
+        # 5% wording no longer appears in the customer HTML. The
+        # discount itself still applies server-side (see the booking
+        # tests above) and is still announced where it is granted —
+        # the options-page note "Referral discount applied — 5% off
+        # your first ride."
         for rel in ("static/index.html", "static/customer-app.html"):
             html = read(rel)
-            self.assertIn(self.FRIEND_ONLY, html, rel)
+            self.assertNotIn(self.FRIEND_ONLY, html, rel)
+            self.assertIn("Referral discount applied — 5% off your first ride.",
+                          html, rel)
 
     def test_no_referrer_benefit_promised_in_customer_files(self):
         banned = ("you earn", "you get 5%", "your reward", "cash back",

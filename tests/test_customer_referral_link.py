@@ -1,40 +1,33 @@
-"""Tests for the CUSTOMER referral LINK (owner request, voice call
-2026-11-18, clarified the same call): a happy customer shares a
-referral LINK — not just a typed code — so a friend clicking it
-lands on booking with the referral already applied.
+"""Tests for the CUSTOMER referral LINK after the visible referral UI
+was removed (owner order, voice call 2026-11-21): the ENTIRE
+"Refer a friend" section is gone from the customer-facing surfaces
+— no referral box on the website thank-you view, no Referral tab in
+the customer app, no "Refer a Friend" button anywhere.
 
-The entry point is the standard pattern: a clearly labeled
-"Refer a Friend" button in the website referral box and in the
-customer app (thank-you box + Referral tab). Tapping it reveals
-the customer's referral link with Copy and native Share options.
-The CUSTOMER shares the link himself (WhatsApp, message, etc.) —
-the system sends nothing to friends.
-
-Link format (query param on the existing pages, zero new server
-routes, zero new server logic — purely client-side):
-- website: https://noelchauffer.com/?ref=CODE
-- app:     https://noelchauffer.com/app?ref=CODE
-
-Clicking the link prefills the booking form's referral field;
+What REMAINS (and these tests pin it): already-shared referral links
+keep working. A friend clicking a link lands on booking with the
+referral already applied via the ?ref= prefill (client-side only),
 booking-time validation is unchanged (an unknown code is rejected
 exactly as a mistyped one), attribution is identical to a typed
 code (used_count increments), and a NEW customer's first booking
 with the code gets 5% off (owner decision 2026-11-18) while the
-referring customer gets nothing. The existing "Your referral code:"
-line is untouched; the explainer text gains one sentence stating
-the friend's 5% off.
+referring customer gets nothing.
+
+Link format (query param on the existing pages, zero new server
+routes, zero new server logic — purely client-side prefill):
+- website: https://noelchauffer.com/?ref=CODE
+- app:     https://noelchauffer.com/app?ref=CODE
+
+The DRIVER referral ("Get $5 in cash for each ride you refer") is a
+separate feature and is untouched by this removal.
 
 These tests pin:
-- The "Refer a Friend" button, link line, anchor, Copy and Share
-  controls exist in all three referral spots, start hidden, and
-  the approved code line + explainer text are byte-identical.
-- The JS builds the exact link formats, reads the ref param on
-  load, prefills the referral field (app: opens the Book tab),
-  reveals the link on button tap, and offers Copy (clipboard +
-  fallback) and native Share.
-- The referral sections state the friend-only 5% first-ride
-  discount ("Your friend gets 5% off their first ride."); no
-  referrer-benefit wording exists anywhere in the customer files.
+- NO "Refer a friend" text, referral box, Referral tab, or
+  "Refer a Friend" button exists in the website or customer-app
+  HTML/JS; the app tab bar has only Book / My Rides / Support.
+- The JS still reads the ref param on load and prefills the hidden
+  referral field (app: opens the Book tab); the prefill adds no
+  validation semantics.
 - No new server route exists for referrals.
 - Pages load fine with an unknown ref value (?ref= garbage).
 - Typed-code booking behavior: valid code accepted, used_count
@@ -74,11 +67,11 @@ import app as app_module  # noqa: E402
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Owner decision 2026-11-20: no visible referral field in the booking
-# form — friends book through the referral link instead.
-EXPLAINER = ("Know someone who would enjoy a calm, comfortable ride? "
-             "Tell them about Noel Chauffer. Your friend gets 5% off "
-             "their first ride. They just need to book through your link.")
+# Owner decision 2026-11-21: the visible "Refer a friend" UI is gone.
+# The explainer text below must NOT appear in any customer file.
+REMOVED_EXPLAINER = ("Know someone who would enjoy a calm, comfortable ride? "
+                     "Tell them about Noel Chauffer. Your friend gets 5% off "
+                     "their first ride. They just need to book through your link.")
 
 
 def read(rel):
@@ -87,54 +80,66 @@ def read(rel):
 
 
 def referral_link_block(js):
-    """The referral-link section of a customer JS file."""
-    start = js.index("/* ---------- Referral link ---------- */")
-    end = js.index("/* ----------", start + 10)
+    """The referral-link prefill section of a customer JS file."""
+    start = js.index("/* ---------- Referral link prefill")
+    try:
+        end = js.index("/* ----------", start + 10)
+    except ValueError:
+        end = len(js)  # prefill is the last section in customer-app.js
     return js[start:end]
 
 
 class ReferralLinkMarkupCase(unittest.TestCase):
-    # -- website referral box ----------------------------------------------
-    def test_website_referral_box_has_button_link_and_actions(self):
+    # -- the visible referral UI is GONE (owner 2026-11-21) ---------------
+    def test_website_has_no_referral_ui(self):
         html = read("static/index.html")
-        self.assertIn(EXPLAINER, html)
-        self.assertIn('id="referral-code-line" class="hidden">Your referral code: '
-                      '<strong id="referral-code-value"></strong>', html)
-        self.assertIn('id="referral-show-btn">Refer a Friend</button>', html)
-        self.assertIn('id="referral-link-line" class="hidden">Your referral link: '
-                      '<a id="referral-link-anchor" href="#"></a>', html)
-        self.assertIn('id="referral-copy-btn">Copy link</button>', html)
-        self.assertIn('id="referral-share-btn">Share link</button>', html)
-        # The reveal button and the link start hidden.
-        self.assertIn('id="referral-show-btn"',
-                      re.search(r'<button[^>]*id="referral-show-btn"[^>]*>', html).group(0))
-        self.assertIn("hidden", re.search(r'<button[^>]*id="referral-show-btn"[^>]*>', html).group(0))
-        self.assertIn("hidden", re.search(r'<div[^>]*id="referral-link-actions"[^>]*>', html).group(0))
+        self.assertNotIn("Refer a friend", html)
+        self.assertNotIn("Refer a Friend", html)
+        self.assertNotIn("referral-box", html)
+        self.assertNotIn(REMOVED_EXPLAINER, html)
+        for gone_id in ("referral-code-line", "referral-code-value",
+                        "referral-show-btn", "referral-link-line",
+                        "referral-link-anchor", "referral-link-actions",
+                        "referral-copy-btn", "referral-share-btn"):
+            self.assertNotIn(gone_id, html, f"{gone_id} must be gone")
+        # The thank-you view itself is untouched: return-trip and
+        # book-another-ride buttons still there.
+        self.assertIn('id="thankyou-block"', html)
+        self.assertIn('id="return-trip-btn"', html)
+        self.assertIn('id="new-booking-btn"', html)
+        # The hidden referral field that links prefill into stays.
+        self.assertIn('id="bk-referral"', html)
 
-    # -- customer app: thank-you box + Referral tab -------------------------
-    def test_app_thankyou_box_has_button_link_and_actions(self):
+    # -- customer app: no thank-you box, no Referral tab -------------------
+    def test_app_has_no_referral_ui(self):
         html = read("static/customer-app.html")
-        self.assertIn('id="ca-referral-code-line" class="hidden">Your referral code: '
-                      '<strong id="ca-referral-code-value"></strong>', html)
-        self.assertIn('id="ca-referral-show-btn">Refer a Friend</button>', html)
-        self.assertIn('id="ca-referral-link-line" class="hidden">Your referral link: '
-                      '<a id="ca-referral-link-anchor" href="#"></a>', html)
-        self.assertIn('id="ca-referral-copy-btn">Copy link</button>', html)
-        self.assertIn('id="ca-referral-share-btn">Share link</button>', html)
-        self.assertIn("hidden", re.search(r'<button[^>]*id="ca-referral-show-btn"[^>]*>', html).group(0))
-
-    def test_app_referral_tab_has_button_link_and_actions(self):
-        html = read("static/customer-app.html")
-        self.assertIn('id="ca-tab-referral-line" class="hidden">Your referral code: '
-                      '<strong id="ca-tab-referral-value"></strong>', html)
-        self.assertIn('id="ca-tab-referral-show-btn">Refer a Friend</button>', html)
-        self.assertIn('id="ca-tab-referral-link-line" class="hidden">Your referral link: '
-                      '<a id="ca-tab-referral-link-anchor" href="#"></a>', html)
-        self.assertIn('id="ca-tab-referral-copy-btn">Copy link</button>', html)
-        self.assertIn('id="ca-tab-referral-share-btn">Share link</button>', html)
-        self.assertIn("hidden", re.search(r'<button[^>]*id="ca-tab-referral-show-btn"[^>]*>', html).group(0))
-        # The empty-state line is untouched.
-        self.assertIn("Your referral code appears here after your first ride is booked.", html)
+        self.assertNotIn("Refer a friend", html)
+        self.assertNotIn("Refer a Friend", html)
+        self.assertNotIn("referral-box", html)
+        self.assertNotIn(REMOVED_EXPLAINER, html)
+        self.assertNotIn('id="screen-referral"', html)
+        self.assertNotIn('data-screen="referral"', html)
+        for gone_id in ("ca-referral-code-line", "ca-referral-code-value",
+                        "ca-referral-show-btn", "ca-referral-link-line",
+                        "ca-referral-link-anchor", "ca-referral-link-actions",
+                        "ca-referral-copy-btn", "ca-referral-share-btn",
+                        "ca-tab-referral-line", "ca-tab-referral-value",
+                        "ca-tab-referral-show-btn", "ca-tab-referral-link-line",
+                        "ca-tab-referral-link-anchor",
+                        "ca-tab-referral-link-actions",
+                        "ca-tab-referral-copy-btn", "ca-tab-referral-share-btn",
+                        "ca-tab-referral-empty", "ca-referral-form",
+                        "ca-referral-phone", "ca-referral-error"):
+            self.assertNotIn(gone_id, html, f"{gone_id} must be gone")
+        # The thank-you view itself is untouched.
+        self.assertIn('id="ca-thankyou-block"', html)
+        self.assertIn('id="ca-return-trip-btn"', html)
+        self.assertIn('id="ca-new-booking-btn"', html)
+        # The hidden referral field that links prefill into stays.
+        self.assertIn('id="ca-referral"', html)
+        # Tab bar: only Book / My Rides / Support remain.
+        for tab in ("book", "rides", "support"):
+            self.assertIn(f'data-screen="{tab}"', html)
 
     def test_no_duplicate_ids_introduced(self):
         for rel in ("static/index.html", "static/customer-app.html"):
@@ -154,10 +159,19 @@ class ReferralLinkMarkupCase(unittest.TestCase):
 
 
 class ReferralLinkJsCase(unittest.TestCase):
-    # -- website JS ---------------------------------------------------------
-    def test_website_js_builds_exact_link_format(self):
+    # -- website JS: no referral UI wiring, prefill stays -------------------
+    def test_website_js_has_no_referral_ui_wiring(self):
         js = read("static/js/customer.js")
-        self.assertIn('window.location.origin + "/?ref=" + encodeURIComponent(code)', js)
+        for gone in ("Refer a Friend", "referral-show-btn",
+                     "referral-link-line", "referral-link-anchor",
+                     "referral-copy-btn", "referral-share-btn",
+                     "referral-link-actions", "referral-code-line",
+                     "referral-code-value", "showReferralLink",
+                     "referralLinkFor", "copyTextToClipboard"):
+            self.assertNotIn(gone, js, f"{gone} must be gone from customer.js")
+        # The hidden referral field + discount display stay.
+        self.assertIn('$("bk-referral")', js)
+        self.assertIn("referral_discount", js)
 
     def test_website_js_prefills_from_ref_param(self):
         js = read("static/js/customer.js")
@@ -166,19 +180,24 @@ class ReferralLinkJsCase(unittest.TestCase):
         self.assertIn('$("bk-referral")', block)
         self.assertIn("field.value = ref", block)
 
-    def test_website_js_reveals_link_on_button_tap(self):
-        js = read("static/js/customer.js")
-        block = referral_link_block(js)
-        self.assertIn('$("referral-show-btn")', block)
-        self.assertIn('show($("referral-link-line"))', block)
-        self.assertIn('show($("referral-link-actions"))', block)
-        self.assertIn('anchor.href = link', block)
-        self.assertIn('anchor.textContent = link', block)
-
-    # -- customer app JS ----------------------------------------------------
-    def test_app_js_builds_exact_link_format(self):
+    # -- customer app JS: no referral UI wiring, prefill stays --------------
+    def test_app_js_has_no_referral_ui_wiring(self):
         js = read("static/js/customer-app.js")
-        self.assertIn('window.location.origin + "/app?ref=" + encodeURIComponent(code)', js)
+        for gone in ("Refer a Friend", "Refer a friend", "Referral tab",
+                     "ca-referral-show-btn", "ca-referral-link-line",
+                     "ca-referral-link-anchor", "ca-referral-copy-btn",
+                     "ca-referral-share-btn", "ca-referral-link-actions",
+                     "ca-referral-code-line", "ca-referral-code-value",
+                     "ca-tab-referral", "ca-referral-form",
+                     "showReferralLink", "showReferralCode",
+                     "referralLinkFor", "copyTextToClipboard",
+                     "THANKYOU_REFERRAL_IDS", "TAB_REFERRAL_IDS"):
+            self.assertNotIn(gone, js, f"{gone} must be gone from customer-app.js")
+        # Only three screens remain.
+        self.assertIn('var SCREENS = ["book", "rides", "support"];', js)
+        # The hidden referral field + discount display stay.
+        self.assertIn('$("ca-referral")', js)
+        self.assertIn("referral_discount", js)
 
     def test_app_js_prefills_and_opens_book_tab(self):
         js = read("static/js/customer-app.js")
@@ -188,46 +207,21 @@ class ReferralLinkJsCase(unittest.TestCase):
         self.assertIn("field.value = ref", block)
         self.assertIn('showScreen("book")', block)
 
-    def test_app_js_reveals_link_on_button_tap_both_spots(self):
-        js = read("static/js/customer-app.js")
-        block = referral_link_block(js)
-        self.assertIn("THANKYOU_REFERRAL_IDS", block)
-        self.assertIn("TAB_REFERRAL_IDS", block)
-        self.assertIn('show($(ids.line))', block)
-        self.assertIn('show($(ids.actions))', block)
-        self.assertIn('anchor.href = link', block)
-        self.assertIn('showReferralLink(code, TAB_REFERRAL_IDS)', js)
-        self.assertIn('showReferralLink(code, THANKYOU_REFERRAL_IDS)', js)
-
-    # -- Copy + Share in both files -----------------------------------------
-    def test_copy_and_share_in_both_js_files(self):
-        for rel in ("static/js/customer.js", "static/js/customer-app.js"):
-            js = read(rel)
-            block = referral_link_block(js)
-            self.assertIn("navigator.clipboard.writeText", block, rel)
-            self.assertIn('document.execCommand("copy")', block, rel)
-            self.assertIn("navigator.share", block, rel)
-            self.assertIn('"Copied"', block, rel)
-
-    # -- friend-only benefit, no referrer promise ---------------------------
+    # -- no referrer-benefit wording anywhere in the customer files --------
     def test_no_referrer_benefit_wording(self):
         # The 5% discount is for the NEW customer only (owner decision
-        # 2026-11-18): the referral sections may say the friend gets
-        # 5% off their first ride, but nothing may promise the
-        # referrer anything.
-        for rel in ("static/js/customer.js", "static/js/customer-app.js"):
-            block = referral_link_block(read(rel))
-            for word in ("reward", "earn", "cash back", "cashback",
-                         "free ride", "$5", "$10", "$20"):
-                self.assertNotIn(word, block.lower(),
-                                 f"{rel} referral block must not promise {word!r}")
-        for rel in ("static/index.html", "static/customer-app.html"):
-            html = read(rel)
-            self.assertIn("Your friend gets 5% off their first ride.", html, rel)
-            for word in ("you earn", "you get 5%", "your reward",
-                         "cash back", "cashback", "free ride", "both get",
-                         "$5", "$10", "$20"):
-                self.assertNotIn(word, html.lower(),
+        # 2026-11-18) and the visible referral sections are gone
+        # (owner decision 2026-11-21): nothing in the customer files
+        # may promise the referrer anything, and the removed
+        # explainer text must not appear anywhere.
+        for rel in ("static/index.html", "static/customer-app.html",
+                    "static/js/customer.js", "static/js/customer-app.js"):
+            text = read(rel)
+            self.assertNotIn(REMOVED_EXPLAINER, text, rel)
+            for word in ("you earn", "your reward", "cash back",
+                         "cashback", "free ride", "both get",
+                         "get $5", "get $10", "get $20"):
+                self.assertNotIn(word, text.lower(),
                                  f"{rel} must not promise the referrer {word!r}")
 
     def test_prefill_does_not_validate_or_fetch(self):
@@ -287,7 +281,7 @@ class ReferralLinkServerCase(unittest.TestCase):
                      "/app?ref=NOEL-XXXXXX", "/app?ref=garbage%20value"):
             resp = self.client.get(path)
             self.assertEqual(resp.status_code, 200, path)
-            self.assertIn("Refer a friend", resp.get_data(as_text=True))
+            self.assertNotIn("Refer a friend", resp.get_data(as_text=True))
 
     def test_typed_code_behavior_unchanged(self):
         first = self.book()

@@ -352,17 +352,6 @@
         <h2>Thank you — your ride is booked.</h2>
         <p class="status-line" id="ca-thankyou-summary"></p>
         <p class="form-note hidden" id="ca-thankyou-test-note"><strong>Test mode — no real charge.</strong> This booking was paid in test mode; no real payment was taken.</p>
-        <div class="referral-box">
-          <h3>Refer a friend</h3>
-          <p>Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. Your friend gets 5% off their first ride. They just need to book through your link.</p>
-          <p id="ca-referral-code-line" class="hidden">Your referral code: <strong id="ca-referral-code-value"></strong></p>
-          <button class="btn-ghost hidden" type="button" id="ca-referral-show-btn">Refer a Friend</button>
-          <p id="ca-referral-link-line" class="hidden">Your referral link: <a id="ca-referral-link-anchor" href="#"></a></p>
-          <div id="ca-referral-link-actions" class="referral-actions hidden">
-            <button class="btn-ghost" type="button" id="ca-referral-copy-btn">Copy link</button>
-            <button class="btn-ghost" type="button" id="ca-referral-share-btn">Share link</button>
-          </div>
-        </div>
         <div class="status-actions">
           <button class="btn-primary btn-gold hidden" type="button" id="ca-return-trip-btn">Book your return trip</button>
           <button class="btn-ghost" type="button" id="ca-new-booking-btn">Book another ride</button>
@@ -429,36 +418,11 @@
     <p class="form-note">You can also email us at <a href="mailto:support@noelchauffer.com">support@noelchauffer.com</a>.</p>
   </section>
 
-  <!-- ============ REFERRAL ============ -->
-  <section class="screen hidden" id="screen-referral">
-    <h2>Refer a friend</h2>
-    <p class="intro">Know someone who would enjoy a calm, comfortable ride? Tell them about Noel Chauffer. Your friend gets 5% off their first ride. They just need to book through your link.</p>
-    <div class="referral-box">
-      <p id="ca-tab-referral-line" class="hidden">Your referral code: <strong id="ca-tab-referral-value"></strong></p>
-      <button class="btn-ghost hidden" type="button" id="ca-tab-referral-show-btn">Refer a Friend</button>
-      <p id="ca-tab-referral-link-line" class="hidden">Your referral link: <a id="ca-tab-referral-link-anchor" href="#"></a></p>
-      <div id="ca-tab-referral-link-actions" class="referral-actions hidden">
-        <button class="btn-ghost" type="button" id="ca-tab-referral-copy-btn">Copy link</button>
-        <button class="btn-ghost" type="button" id="ca-tab-referral-share-btn">Share link</button>
-      </div>
-      <p id="ca-tab-referral-empty">Your referral code appears here after your first ride is booked.</p>
-    </div>
-    <form id="ca-referral-form" novalidate>
-      <div class="field">
-        <label for="ca-referral-phone">Phone number you booked with</label>
-        <input id="ca-referral-phone" type="tel" required placeholder="Phone number used for booking" autocomplete="tel">
-      </div>
-      <button class="btn-primary btn-gold" type="submit">Find my code</button>
-      <p class="form-error" id="ca-referral-error" role="alert"></p>
-    </form>
-  </section>
-
   <!-- Bottom tabs -->
   <nav class="tabbar" id="ca-tabbar" aria-label="Customer app">
     <button type="button" data-screen="book" class="active"><span class="ico">✦</span>Book</button>
     <button type="button" data-screen="rides"><span class="ico">▤</span>My Rides</button>
     <button type="button" data-screen="support"><span class="ico">💬</span>Support</button>
-    <button type="button" data-screen="referral"><span class="ico">♡</span>Referral</button>
   </nav>
 </div>
 

@@ -18,10 +18,12 @@ Run:  python -m unittest discover -s tests -v
 
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
-os.environ["DATABASE_URL"] = "<redacted>"
+_tmpdir = tempfile.mkdtemp(prefix="noel-sections-removed-")
+os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmpdir, "test.db")
 os.environ["BOOKINGS_PAUSED"] = "false"
 os.environ["OWNER_PIN"] = "9999"
 os.environ["SECRET_KEY"] = "sections-removed-secret-key"

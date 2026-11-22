@@ -105,15 +105,16 @@ class TestHomepageAlignment(unittest.TestCase):
     def test_footer_columns_aligned(self):
         cols = _rule(".footer-cols")
         self.assertIn("align-items: start", cols)
-        # Mobile: single column, one footer column below the other —
-        # the old ragged two-column grid must be gone.
+        # Mobile: two-column grid (owner 2026-11-22) — row 1:
+        # Airport transfers | Where we drive; row 2: Guides |
+        # Services; row 3: Company. The single-column stack from
+        # the 9a45d10 alignment fix was reversed by this order.
         mobile = re.findall(
             r"@media \(max-width: 860px\) \{\s*\.footer-cols \{([^}]*)\}",
             CSS,
         )
         self.assertTrue(mobile, "no mobile footer-cols rule found")
-        self.assertIn("grid-template-columns: 1fr", mobile[-1])
-        self.assertNotIn("1fr 1fr", mobile[-1])
+        self.assertIn("grid-template-columns: 1fr 1fr", mobile[-1])
 
     def test_heading_sizes_unchanged(self):
         self.assertIn("font-size: 26px", _rule(".section h2"))

@@ -37,6 +37,10 @@
     hourlyClass: "sedan",
     classBooking: null,
     classPhone: "",
+    /* Compulsory customer sign-in (owner decision 2026-11-22):
+       { email, phone } once the customer has verified the emailed
+       6-digit code, else null. */
+    customerSignedIn: null,
     lastChatSig: "",
     chatLanguage: "en",
     chatLangInitFor: null,
@@ -197,6 +201,9 @@
     var section = $("screen-" + name);
     if (section) section.scrollTop = 0;
     window.scrollTo(0, 0);
+    /* Signed-in customers see their own rides on the My Rides tab
+       (owner 2026-11-22); the phone lookup stays for older rides. */
+    if (name === "rides") refreshHistorySignin();
   }
   document.querySelectorAll("#ca-tabbar button").forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -712,6 +719,10 @@
     $("ca-class-phone").value = "";
     $("ca-class-email").value = "";
     $("ca-class-error").textContent = "";
+    /* Compulsory sign-in (owner 2026-11-22): pre-fill the email and
+       phone from the signed-in session when there is one, else show
+       the code step. */
+    refreshCustomerSignin();
     paintClassSelection();
     hide($("ca-booking-card"));
     show($("ca-class-step"));
@@ -723,6 +734,119 @@
       state.selectedClass = cls;
       paintClassSelection();
     });
+  });
+
+  /* ---------- Compulsory customer sign-in (owner 2026-11-22) ----------
+     Email only — no password, no Google/Apple/Facebook. A 6-digit
+     code is emailed to the address above (Resend, from
+     support@noelchauffer.com); the phone number is compulsory too.
+     Signed-in customers stay signed in (server session) for later
+     bookings, and the email/phone pre-fill from it. */
+  function setSigninUi(signedIn, email) {
+    if (signedIn) {
+      hide($("ca-send-code"));
+      hide($("ca-code-field"));
+      hide($("ca-verify-code"));
+      $("ca-signedin-email").textContent = email || "";
+      show($("ca-signedin-note"));
+    } else {
+      show($("ca-send-code"));
+      hide($("ca-code-field"));
+      hide($("ca-verify-code"));
+      hide($("ca-signedin-note"));
+    }
+    $("ca-signin-error").textContent = "";
+  }
+  function refreshCustomerSignin() {
+    return fetch("/api/customers/me")
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.signed_in) {
+          state.customerSignedIn = { email: j.email, phone: j.phone };
+          if (j.email) $("ca-class-email").value = j.email;
+          if (j.phone) $("ca-class-phone").value = j.phone;
+          setSigninUi(true, j.email);
+        } else {
+          state.customerSignedIn = null;
+          setSigninUi(false);
+        }
+      })
+      .catch(function () {
+        state.customerSignedIn = null;
+        setSigninUi(false);
+      });
+  }
+  $("ca-send-code").addEventListener("click", function () {
+    var email = $("ca-class-email").value.trim();
+    var phone = $("ca-class-phone").value.trim();
+    var err = $("ca-signin-error");
+    err.textContent = "";
+    if (!email || email.indexOf("@") === -1 || !phone) {
+      err.textContent = "Please fill in your email and phone number first.";
+      return;
+    }
+    var btn = $("ca-send-code");
+    btn.disabled = true;
+    fetch("/api/customers/signin/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, phone: phone })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) {
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "The code could not be sent. Please try again.";
+          return;
+        }
+        show($("ca-code-field"));
+        show($("ca-verify-code"));
+        hide($("ca-send-code"));
+        $("ca-signin-code").focus();
+      })
+      .catch(function () {
+        btn.disabled = false;
+        err.textContent = "Could not reach the booking service. Please try again.";
+      });
+  });
+  $("ca-verify-code").addEventListener("click", function () {
+    var email = $("ca-class-email").value.trim();
+    var code = $("ca-signin-code").value.trim();
+    var err = $("ca-signin-error");
+    err.textContent = "";
+    if (!code) {
+      err.textContent = "Please enter the 6-digit code from your email.";
+      return;
+    }
+    var btn = $("ca-verify-code");
+    btn.disabled = true;
+    fetch("/api/customers/signin/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, code: code })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) {
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "That code did not work. Please try again.";
+          return;
+        }
+        state.customerSignedIn = { email: res.j.email || email, phone: res.j.phone || $("ca-class-phone").value.trim() };
+        setSigninUi(true, state.customerSignedIn.email);
+      })
+      .catch(function () {
+        btn.disabled = false;
+        err.textContent = "Could not reach the booking service. Please try again.";
+      });
+  });
+  $("ca-signout").addEventListener("click", function () {
+    fetch("/api/customers/signout", { method: "POST" })
+      .catch(function () { /* Signing out is best-effort. */ })
+      .finally(function () {
+        state.customerSignedIn = null;
+        setSigninUi(false);
+      });
   });
 
   $("ca-class-continue").addEventListener("click", function () {
@@ -743,6 +867,16 @@
       err.textContent = "Please fill in your name, phone and email.";
       return;
     }
+    /* Compulsory sign-in gate (owner 2026-11-22): the booking may
+       only proceed once the customer has signed in with the SAME
+       email as the booking. The server enforces the same rule on
+       /contact and /pay, so this is the friendly early stop. */
+    var signedIn = state.customerSignedIn;
+    if (!signedIn || (signedIn.email || "").toLowerCase() !== contactEmail.toLowerCase()) {
+      err.textContent = "Please sign in first — tap \"Email me a sign-in code\" above and enter the code from your email.";
+      $("ca-signin").scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     function proceedWith(updated) {
       hide($("ca-class-step"));
       show($("ca-booking-card"));
@@ -755,10 +889,18 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customer_name: contactName, phone: contactPhone, email: contactEmail })
       })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
         .then(function (res) {
           if (!res.ok || !res.j.booking) {
             btn.disabled = false;
+            if (res.status === 401) {
+              /* Sign-in expired or changed since the page loaded —
+                 the gate is server-side, so re-open the code step. */
+              state.customerSignedIn = null;
+              setSigninUi(false);
+              err.textContent = "Your sign-in expired — please request a new code and verify it, then try again.";
+              return;
+            }
             err.textContent = (res.j && (res.j.error || res.j.message)) || "Your details could not be saved. Please try again.";
             return;
           }
@@ -1681,6 +1823,31 @@
   }
 
   /* ---------- Ride history ---------- */
+  function renderHistoryList(list, phone, emptyMsg) {
+    var box = $("ca-history-results");
+    if (!list.length) {
+      box.innerHTML = "<p>" + esc(emptyMsg || "No rides found yet.") + "</p>";
+      return;
+    }
+    box.innerHTML = "";
+    list.forEach(function (b) {
+      var item = document.createElement("div");
+      item.className = "history-item";
+      item.innerHTML = '<div class="h-top"><div>' +
+        '<div class="h-route">' + esc(rideLabel(b)) + "</div>" +
+        '<div class="h-meta">' + esc(whenLabel(b)) +
+        " · " + rideTypeLabel(b) + "</div>" +
+        '<div><span class="pill">' + esc(statusLabel(b.status)) + "</span></div>" +
+        "</div></div>";
+      var viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.className = "btn-ghost h-view";
+      viewBtn.textContent = "View this ride";
+      viewBtn.addEventListener("click", function () { openRide(b.id, phone); });
+      item.appendChild(viewBtn);
+      box.appendChild(item);
+    });
+  }
   function loadHistory(phone) {
     var err = $("ca-history-error");
     var box = $("ca-history-results");
@@ -1698,33 +1865,51 @@
           return;
         }
         var list = Array.isArray(res.j) ? res.j : (res.j.bookings || res.j.rides || []);
-        if (!list.length) {
-          box.innerHTML = "<p>No rides found for that number yet.</p>";
-          return;
-        }
-        box.innerHTML = "";
-        list.forEach(function (b) {
-          var item = document.createElement("div");
-          item.className = "history-item";
-          item.innerHTML = '<div class="h-top"><div>' +
-            '<div class="h-route">' + esc(rideLabel(b)) + "</div>" +
-            '<div class="h-meta">' + esc(whenLabel(b)) +
-            " · " + rideTypeLabel(b) + "</div>" +
-            '<div><span class="pill">' + esc(statusLabel(b.status)) + "</span></div>" +
-            "</div></div>";
-          var viewBtn = document.createElement("button");
-          viewBtn.type = "button";
-          viewBtn.className = "btn-ghost h-view";
-          viewBtn.textContent = "View this ride";
-          viewBtn.addEventListener("click", function () { openRide(b.id, phone); });
-          item.appendChild(viewBtn);
-          box.appendChild(item);
-        });
+        renderHistoryList(list, phone, "No rides found for that number yet.");
       })
       .catch(function () {
         box.innerHTML = "";
         err.textContent = "Could not reach the booking service. Please try again.";
       });
+  }
+  /* Signed-in customers see their own rides by email (owner
+     decision 2026-11-22); the phone lookup above stays for rides
+     booked before sign-in existed. */
+  function loadHistoryByEmail(email) {
+    var err = $("ca-history-error");
+    var box = $("ca-history-results");
+    err.textContent = "";
+    box.innerHTML = "<p>Looking up your rides…</p>";
+    fetch("/api/bookings?email=" + encodeURIComponent(email))
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          box.innerHTML = "";
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "Could not look up rides for that email.";
+          return;
+        }
+        var list = Array.isArray(res.j) ? res.j : (res.j.bookings || res.j.rides || []);
+        renderHistoryList(list, state.customerSignedIn ? state.customerSignedIn.phone : "", "No rides found for this email yet.");
+      })
+      .catch(function () {
+        box.innerHTML = "";
+        err.textContent = "Could not reach the booking service. Please try again.";
+      });
+  }
+  function refreshHistorySignin() {
+    fetch("/api/customers/me")
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.signed_in) {
+          state.customerSignedIn = { email: j.email, phone: j.phone };
+          $("ca-history-signedin-email").textContent = j.email;
+          show($("ca-history-signedin"));
+          loadHistoryByEmail(j.email);
+        } else {
+          hide($("ca-history-signedin"));
+        }
+      })
+      .catch(function () { hide($("ca-history-signedin")); });
   }
 
   /* Open one ride from history in the same status view a fresh

@@ -29,6 +29,10 @@
     hourlyClass: "sedan",
     classBooking: null,
     classPhone: "",
+    /* Compulsory customer sign-in (owner decision 2026-11-22):
+       { email, phone } once the customer has verified the emailed
+       6-digit code, else null. */
+    customerSignedIn: null,
     lastChatSig: "",
     chatLanguage: "en",
     chatLangInitFor: null,
@@ -113,8 +117,26 @@
   }
 
   function $(id) { return document.getElementById(id); }
-  function show(el) { if (el) el.classList.remove("hidden"); }
-  function hide(el) { if (el) el.classList.add("hidden"); }
+  function show(el) { if (el) el.classList.remove("hidden"); syncFlowState(); }
+  function hide(el) { if (el) el.classList.add("hidden"); syncFlowState(); }
+  /* Second-page strip (owner 2026-11-22): once the customer has
+     moved past the booking form — flight number, class choice,
+     payment or confirmation — NOTHING shows below the booking flow:
+     no homepage sections, no footer link columns. Only the
+     "powered by" line and the black footer with the address stay.
+     The homepage (booking-form state) is untouched — the owner
+     decides its fate later. The signal is any post-form step being
+     visible; show()/hide() are the single choke point, so every
+     transition — back-buttons, cancel, and a reload with a live
+     ride — re-syncs it automatically. */
+  function syncFlowState() {
+    var inFlow = ["flight-step", "hourly-class-step", "class-step",
+                  "pay-panel", "thankyou-block", "status-card"].some(function (id) {
+      var el = document.getElementById(id);
+      return el && !el.classList.contains("hidden");
+    });
+    document.body.classList.toggle("in-booking-flow", inFlow);
+  }
   /* Bookings are LIVE (owner decision 2026-11-20: Blacklane prices
      + slab driver pay, "Driver aur customer dono live kar do").
      The server still enforces the pause either way. */
@@ -683,6 +705,10 @@
     $("class-phone").value = "";
     $("class-email").value = "";
     $("class-error").textContent = "";
+    /* Compulsory sign-in (owner 2026-11-22): pre-fill the email and
+       phone from the signed-in session when there is one, else show
+       the code step. */
+    refreshCustomerSignin();
     paintClassSelection();
     hide($("booking-card"));
     show($("class-step"));
@@ -694,6 +720,119 @@
       state.selectedClass = cls;
       paintClassSelection();
     });
+  });
+
+  /* ---------- Compulsory customer sign-in (owner 2026-11-22) ----------
+     Email only — no password, no Google/Apple/Facebook. A 6-digit
+     code is emailed to the address above (Resend, from
+     support@noelchauffer.com); the phone number is compulsory too.
+     Signed-in customers stay signed in (server session) for later
+     bookings, and the email/phone pre-fill from it. */
+  function setSigninUi(signedIn, email) {
+    if (signedIn) {
+      hide($("class-send-code"));
+      hide($("class-code-field"));
+      hide($("class-verify-code"));
+      $("class-signedin-email").textContent = email || "";
+      show($("class-signedin-note"));
+    } else {
+      show($("class-send-code"));
+      hide($("class-code-field"));
+      hide($("class-verify-code"));
+      hide($("class-signedin-note"));
+    }
+    $("class-signin-error").textContent = "";
+  }
+  function refreshCustomerSignin() {
+    return fetch("/api/customers/me")
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.signed_in) {
+          state.customerSignedIn = { email: j.email, phone: j.phone };
+          if (j.email) $("class-email").value = j.email;
+          if (j.phone) $("class-phone").value = j.phone;
+          setSigninUi(true, j.email);
+        } else {
+          state.customerSignedIn = null;
+          setSigninUi(false);
+        }
+      })
+      .catch(function () {
+        state.customerSignedIn = null;
+        setSigninUi(false);
+      });
+  }
+  $("class-send-code").addEventListener("click", function () {
+    var email = $("class-email").value.trim();
+    var phone = $("class-phone").value.trim();
+    var err = $("class-signin-error");
+    err.textContent = "";
+    if (!email || email.indexOf("@") === -1 || !phone) {
+      err.textContent = "Please fill in your email and phone number first.";
+      return;
+    }
+    var btn = $("class-send-code");
+    btn.disabled = true;
+    fetch("/api/customers/signin/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, phone: phone })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) {
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "The code could not be sent. Please try again.";
+          return;
+        }
+        show($("class-code-field"));
+        show($("class-verify-code"));
+        hide($("class-send-code"));
+        $("class-signin-code").focus();
+      })
+      .catch(function () {
+        btn.disabled = false;
+        err.textContent = "Could not reach the booking service. Please try again.";
+      });
+  });
+  $("class-verify-code").addEventListener("click", function () {
+    var email = $("class-email").value.trim();
+    var code = $("class-signin-code").value.trim();
+    var err = $("class-signin-error");
+    err.textContent = "";
+    if (!code) {
+      err.textContent = "Please enter the 6-digit code from your email.";
+      return;
+    }
+    var btn = $("class-verify-code");
+    btn.disabled = true;
+    fetch("/api/customers/signin/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, code: code })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) {
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "That code did not work. Please try again.";
+          return;
+        }
+        state.customerSignedIn = { email: res.j.email || email, phone: res.j.phone || $("class-phone").value.trim() };
+        setSigninUi(true, state.customerSignedIn.email);
+      })
+      .catch(function () {
+        btn.disabled = false;
+        err.textContent = "Could not reach the booking service. Please try again.";
+      });
+  });
+  $("class-signout").addEventListener("click", function () {
+    fetch("/api/customers/signout", { method: "POST" })
+      .catch(function () { /* Signing out is best-effort. */ })
+      .finally(function () {
+        state.customerSignedIn = null;
+        setSigninUi(false);
+      });
   });
 
   $("class-continue").addEventListener("click", function () {
@@ -714,6 +853,16 @@
       err.textContent = "Please fill in your name, phone and email.";
       return;
     }
+    /* Compulsory sign-in gate (owner 2026-11-22): the booking may
+       only proceed once the customer has signed in with the SAME
+       email as the booking. The server enforces the same rule on
+       /contact and /pay, so this is the friendly early stop. */
+    var signedIn = state.customerSignedIn;
+    if (!signedIn || (signedIn.email || "").toLowerCase() !== contactEmail.toLowerCase()) {
+      err.textContent = "Please sign in first — tap \"Email me a sign-in code\" above and enter the code from your email.";
+      $("class-signin").scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     function proceedWith(updated) {
       hide($("class-step"));
       /* The booking form stays hidden once the ride exists: the
@@ -729,10 +878,18 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customer_name: contactName, phone: contactPhone, email: contactEmail })
       })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
         .then(function (res) {
           if (!res.ok || !res.j.booking) {
             btn.disabled = false;
+            if (res.status === 401) {
+              /* Sign-in expired or changed since the page loaded —
+                 the gate is server-side, so re-open the code step. */
+              state.customerSignedIn = null;
+              setSigninUi(false);
+              err.textContent = "Your sign-in expired — please request a new code and verify it, then try again.";
+              return;
+            }
             err.textContent = (res.j && (res.j.error || res.j.message)) || "Your details could not be saved. Please try again.";
             return;
           }

@@ -282,6 +282,23 @@
             <input id="class-email" type="email" autocomplete="email" placeholder="you@example.com">
           </div>
         </div>
+        <!-- Sign in (owner decision 2026-11-22): compulsory before
+             the booking can proceed to payment. Email only — no
+             password, no Google/Apple/Facebook. A 6-digit code is
+             emailed to the address above; the phone number is
+             compulsory too. Signed-in customers stay signed in for
+             later bookings. -->
+        <div class="class-signin" id="class-signin">
+          <p class="form-note">Sign in to continue — we email a 6-digit code to the address above.</p>
+          <button type="button" class="btn-ghost" id="class-send-code">Email me a sign-in code</button>
+          <div class="field hidden" id="class-code-field">
+            <label for="class-signin-code">Sign-in code</label>
+            <input id="class-signin-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" maxlength="6">
+          </div>
+          <button type="button" class="btn-ghost hidden" id="class-verify-code">Verify code</button>
+          <p class="form-note hidden" id="class-signedin-note">Signed in as <b id="class-signedin-email"></b> · <button type="button" class="btn-text" id="class-signout">Use a different email</button></p>
+          <p class="form-error" id="class-signin-error" role="alert"></p>
+        </div>
       </div>
       <p class="form-note hidden" id="class-discount-note">Referral discount applied — 5% off your first ride.</p>
             <p class="form-error" id="class-error" role="alert"></p>
@@ -524,6 +541,10 @@
   <section class="section" id="history">
     <h2><a href="/your-ride-history">Your ride history</a></h2>
     <p class="intro">Enter the phone number you booked with to see your past rides.</p>
+    <!-- Signed-in customers see their own rides automatically
+         (owner decision 2026-11-22); the phone lookup below stays
+         for rides booked before sign-in existed. -->
+    <p class="form-note hidden" id="history-signedin">Signed in as <b id="history-signedin-email"></b> — showing your rides.</p>
     <div class="history-box">
       <form id="history-form" novalidate>
         <div class="row">
@@ -538,6 +559,13 @@
 
   
 </main>
+
+<!-- "Powered by" line below the booking flow (owner 2026-11-22):
+     stays on every step; the brand name is the wordmark — "Noel" in
+     dark ink on the light page, "Chauffeur" in the same bright gold
+     as the header/footer wordmark (standing rule). It sits directly
+     below the flow and above the black footer. -->
+<p id="powered-by">Powered by <span class="wordmark">Noel <span>Chauffer</span></span></p>
 
 <footer class="site-footer">
   <div class="footer-inner">

@@ -40,6 +40,10 @@
   <section class="section" id="history">
     <h2>Your ride history</h2>
     <p class="intro">Enter the phone number you booked with to see your past rides.</p>
+    <!-- Signed-in customers see their own rides automatically
+         (owner decision 2026-11-22); the phone lookup below stays
+         for rides booked before sign-in existed. -->
+    <p class="form-note hidden" id="history-signedin">Signed in as <b id="history-signedin-email"></b> — showing your rides.</p>
     <div class="history-box">
       <form id="history-form" novalidate>
         <div class="row">

@@ -1,6 +1,8 @@
-/* Noel Chauffer — customer app. Phone-frame, black and grey, plain
-   business look: dark canvas, serif headings, dark cards with soft
-   depth, flat blue primary buttons. */
+/* Noel Chauffer — customer app. Phone-frame, plain business look:
+   WHITE canvas with the booking form on BLACK (owner 2026-11-22),
+   serif headings, flat blue primary buttons. The header and the
+   bottom tab bar stay black; cards and panels stay dark with light
+   text, so they read as black cards on the white screen. */
 :root {
   --black: #0b0b0c;
   --blue: #5b9bd5;
@@ -24,7 +26,7 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #1a1a1a;
+  background: #ffffff;
   color: var(--ink);
   line-height: 1.5;
 }
@@ -36,7 +38,7 @@ input, select { font: inherit; }
 .phone {
   max-width: 430px;
   margin: 0 auto;
-  background: var(--black);
+  background: var(--white);
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -69,31 +71,66 @@ input, select { font: inherit; }
 }
 .app-head .tag { font-size: 13px; color: #cfcfcf; margin-top: 2px; }
 
-/* Screens: dark luxury canvas, room for the tab bar. */
+/* "Powered by" line at the bottom of the Book screen (owner
+   2026-11-22): "Noel" dark on the white screen, "Chauffer" the
+   SAME bright gold as the header brand — standing rule, Chauffer
+   is always golden bright, never dull or black. */
+#ca-powered-by { text-align: center; font-size: 12px; color: #6b7280; margin: 20px 0 0; }
+#ca-powered-by .brand { color: var(--ink); font-size: 12px; font-family: Georgia, "Times New Roman", serif; letter-spacing: 0.03em; }
+#ca-powered-by .brand span {
+  color: var(--wordmark-gold);
+  background: linear-gradient(105deg, #B8860B 0%, var(--wordmark-gold) 32%, #F6E27A 50%, var(--wordmark-gold) 68%, #B8860B 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Screens: WHITE canvas, room for the tab bar. The booking form
+   itself sits on a black card (#ca-booking-card below); the other
+   steps, cards and panels keep their dark styling, so they read as
+   black cards on the white screen. */
 .screen {
   flex: 1;
   padding: 22px 18px 110px;
   overflow-y: auto;
-  color-scheme: dark;
-  background:
-    radial-gradient(120% 30% at 50% -6%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 60%),
-    linear-gradient(180deg, #101012 0%, #0b0b0c 46%, #141311 100%);
-  color: var(--soft);
+  color-scheme: light;
+  background: var(--white);
+  color: var(--ink);
 }
 .screen h2 {
-  font-family: Georgia, serif; font-weight: 400; font-size: 28px; color: var(--white);
+  font-family: Georgia, serif; font-weight: 400; font-size: 28px; color: var(--ink);
   letter-spacing: 0.01em; margin: 4px 0 6px;
 }
 .screen h2::after {
   content: ""; display: block; width: 44px; height: 3px;
   background: var(--gold); border-radius: 2px; margin-top: 12px;
 }
-.screen h3 { font-family: Georgia, serif; font-weight: 400; font-size: 20px; color: var(--white); margin: 0 0 8px; }
-.screen .intro { color: var(--muted); font-size: 14.5px; margin: 0 0 16px; }
+.screen h3 { font-family: Georgia, serif; font-weight: 400; font-size: 20px; color: var(--ink); margin: 0 0 8px; }
+.screen .intro { color: #6b7280; font-size: 14.5px; margin: 0 0 16px; }
+
+/* Booking form card — BLACK on the white screen (owner 2026-11-22).
+   The form (pickup, drop-off, date, time, ride-type tabs, View
+   options) sits on black; its heading stays white and its native
+   date/time pickers keep the dark colour scheme. */
+#ca-booking-card {
+  background: var(--black);
+  border: 1px solid #2e2e30;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 4px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+#ca-booking-card h2 { color: var(--white); }
+#ca-booking-card .field label { color: var(--gold-soft); }
+#ca-booking-card .field .hint { color: var(--muted); }
+#ca-booking-card .form-error { color: #ff9d9d; }
 
 /* Fields */
 .field { margin-bottom: 14px; }
-.field label { display: block; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--gold-soft); margin-bottom: 5px; }
+.field label { display: block; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; color: #6b7280; margin-bottom: 5px; }
+/* Field labels inside dark cards keep the light colour. */
+.pay-panel .field label { color: var(--gold-soft); }
 .field input, .field select {
   width: 100%; padding: 13px 14px; border: 1px solid #3a3a3e; border-radius: 10px;
   background: #1d1d1f; color: var(--white); font-size: 16px;
@@ -109,7 +146,7 @@ input, select { font: inherit; }
   -webkit-text-fill-color: var(--white);
   caret-color: var(--white);
 }
-.field .hint { font-size: 13px; color: var(--muted); margin-top: 5px; }
+.field .hint { font-size: 13px; color: #6b7280; margin-top: 5px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field-row .field-wide { grid-column: 1 / -1; }
 .field-places { position: relative; }
@@ -193,15 +230,19 @@ input, select { font: inherit; }
 }
 .btn-danger:active { transform: translateY(1px); }
 .btn-text {
-  background: none; border: 0; padding: 10px 0; color: var(--gold-soft);
+  background: none; border: 0; padding: 10px 0; color: var(--blue);
   font-weight: 600; font-size: 15px; text-align: left;
 }
-.form-error { color: #ff9d9d; font-size: 14px; min-height: 1.2em; margin-top: 10px; }
-.form-note { color: var(--muted); font-size: 13.5px; }
+.form-error { color: var(--bad); font-size: 14px; min-height: 1.2em; margin-top: 10px; }
+/* Error text inside dark panels keeps the light red. */
+.pay-panel .form-error { color: #ff9d9d; }
+.form-note { color: #6b7280; font-size: 13.5px; }
+/* Notes inside dark panels keep the light muted colour. */
+.pay-panel .form-note { color: var(--muted); }
 .form-note a { color: var(--gold-soft); }
 
 /* Flight step + class chooser */
-.flight-airport { color: var(--gold-soft); font-weight: 600; font-size: 15px; word-break: break-word; }
+.flight-airport { color: var(--ink); font-weight: 600; font-size: 15px; word-break: break-word; }
 .flight-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 .flight-actions .btn-ghost { margin-top: 0; }
 .class-options { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 6px; }
@@ -234,13 +275,13 @@ input, select { font: inherit; }
 .class-actions { margin-top: 8px; }
 
 /* Ride status */
-.status-line { font-size: 15.5px; color: var(--soft); }
+.status-line { font-size: 15.5px; color: var(--ink); }
 .status-line .dot {
   display: inline-block; width: 9px; height: 9px; border-radius: 50%;
   background: var(--gold); margin-right: 8px;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
 }
-.ride-summary { color: var(--muted); font-size: 14.5px; word-break: break-word; }
+.ride-summary { color: #6b7280; font-size: 14.5px; word-break: break-word; }
 .driver-card {
   display: flex; gap: 14px; align-items: flex-start;
   background: var(--card); border: 1px solid var(--card-line); border-radius: 14px;
@@ -321,7 +362,7 @@ input, select { font: inherit; }
 .map-wrap { margin: 16px 0; }
 .map-wrap h3 { margin: 0 0 8px; font-size: 19px; }
 #ca-map { height: 300px; border-radius: 12px; border: 1px solid var(--card-line); z-index: 1; }
-.map-fallback { color: var(--muted); font-size: 14.5px; }
+.map-fallback { color: #6b7280; font-size: 14.5px; }
 
 /* Trip chat + support chat */
 .chat-panel {
@@ -357,10 +398,10 @@ input, select { font: inherit; }
 .chat-input-row .btn-primary { width: auto; margin-top: 0; padding: 11px 18px; }
 .chat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .chat-chips button {
-  background: transparent; border: 1px solid rgba(255, 255, 255, 0.55); color: var(--gold-soft);
+  background: transparent; border: 1px solid rgba(0, 0, 0, 0.35); color: var(--ink);
   border-radius: 999px; padding: 8px 13px; font-size: 14px; font-weight: 600;
 }
-.chat-chips button:active { background: rgba(255, 255, 255, 0.14); }
+.chat-chips button:active { background: rgba(0, 0, 0, 0.08); }
 .chat-form { display: flex; gap: 8px; }
 .chat-form input {
   flex: 1; padding: 12px; border: 1px solid #3a3a3e; border-radius: 10px;

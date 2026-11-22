@@ -56,6 +56,51 @@
     return map[status] || String(status || "");
   }
   /* ---------- Ride history ---------- */
+  function renderHistoryList(list, emptyMsg) {
+    var box = $("history-results");
+    if (!list.length) {
+      box.innerHTML = "<p>" + esc(emptyMsg) + "</p>";
+      return;
+    }
+    box.innerHTML = list.map(function (b) {
+      var driverName = b.driver && b.driver.name ? esc(b.driver.name) : "";
+      return '<div class="history-item"><div class="h-top"><div>' +
+        '<div class="h-route">' + esc(rideLabel(b)) + "</div>" +
+        '<div class="h-meta">' + esc(whenLabel(b)) +
+        " · " + rideTypeLabel(b) +
+        (driverName ? " · Chauffeur: " + driverName : "") + "</div>" +
+        '<div style="margin-top:6px;"><span class="pill">' + esc(statusLabel(b.status)) + "</span></div>" +
+        "</div></div></div>";
+    }).join("");
+  }
+  /* Signed-in customers see their own rides by email (owner
+     decision 2026-11-22); the phone lookup below stays for rides
+     booked before sign-in existed. */
+  (function loadSignedInHistory() {
+    var note = $("history-signedin");
+    if (!note) return;
+    fetch("/api/customers/me")
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!(j && j.signed_in)) return;
+        $("history-signedin-email").textContent = j.email;
+        note.classList.remove("hidden");
+        var box = $("history-results");
+        box.innerHTML = "<p>Looking up your rides…</p>";
+        fetch("/api/bookings?email=" + encodeURIComponent(j.email))
+          .then(function (r) { return r.json().then(function (jj) { return { ok: r.ok, j: jj }; }); })
+          .then(function (res) {
+            if (!res.ok) {
+              box.innerHTML = "";
+              return;
+            }
+            var list = Array.isArray(res.j) ? res.j : (res.j.bookings || res.j.rides || []);
+            renderHistoryList(list, "No rides found for this email yet.");
+          })
+          .catch(function () { box.innerHTML = ""; });
+      })
+      .catch(function () { /* Not signed in — phone lookup stays. */ });
+  })();
   $("history-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var phone = $("history-phone").value.trim();
@@ -74,20 +119,7 @@
           return;
         }
         var list = Array.isArray(res.j) ? res.j : (res.j.bookings || res.j.rides || []);
-        if (!list.length) {
-          box.innerHTML = "<p>No rides found for that number yet.</p>";
-          return;
-        }
-        box.innerHTML = list.map(function (b) {
-          var driverName = b.driver && b.driver.name ? esc(b.driver.name) : "";
-          return '<div class="history-item"><div class="h-top"><div>' +
-            '<div class="h-route">' + esc(rideLabel(b)) + "</div>" +
-            '<div class="h-meta">' + esc(whenLabel(b)) +
-            " · " + rideTypeLabel(b) +
-            (driverName ? " · Chauffeur: " + driverName : "") + "</div>" +
-            '<div style="margin-top:6px;"><span class="pill">' + esc(statusLabel(b.status)) + "</span></div>" +
-            "</div></div></div>";
-        }).join("");
+        renderHistoryList(list, "No rides found for that number yet.");
       })
       .catch(function () {
         box.innerHTML = "";

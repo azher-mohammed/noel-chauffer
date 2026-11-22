@@ -674,6 +674,30 @@ input, select, textarea { font: inherit; }
 .footer-nap p { margin: 0 0 6px; }
 .footer-nap a { color: var(--gold-soft); }
 
+/* "Powered by" line below the booking flow (owner 2026-11-22):
+   one small line that stays on every step (class choice, payment,
+   confirmation). The brand name is the wordmark — "Noel" in dark
+   ink on the light page, "Chauffer" in the SAME bright gold as the
+   header/footer wordmark (standing rule: Chauffer is always
+   golden bright, never dull or black). The inner span picks up the
+   gold gradient from the .wordmark span rule above. */
+#powered-by { text-align: center; font-size: 13px; color: var(--muted); padding: 20px 16px 8px; margin: 0; }
+#powered-by .wordmark { color: var(--ink); font-size: 13px; }
+
+/* Second-page strip (owner 2026-11-22): on the Choose-your-experience
+   page, the payment page and the post-payment confirmation page,
+   NOTHING shows below the booking flow. The body class is set by
+   syncFlowState() in customer.js whenever a post-form step is
+   visible. The homepage sections (Airport pickups, Your rides in
+   your pocket, Experience, Why ride, Three ways, Cancellation,
+   FAQ, Our company, Contacts, Your ride history) and the footer
+   link columns all hide; only the "powered by" line above and the
+   black footer with the address below stay. */
+body.in-booking-flow main > section.section,
+body.in-booking-flow main > section.app-band { display: none; }
+body.in-booking-flow .footer-inner,
+body.in-booking-flow .footer-cols { display: none; }
+
 /* ---- Compact booking form, black text (owner decision 2026-11-20) ---- */
 /* Form chhota aur simple; jo text likhte hain (jaise JFK) woh kaala;
    booking form mein neela/gulabi/laal rang nahi — seedha kaala. */

@@ -127,6 +127,20 @@
         <p class="section-note">Registration attempts rejected by the document checks — a photo already used on another driver account, the same photo in two document slots, a blank or too-small photo, or an expired document. Read-only; nothing is stored for these attempts.</p>
         <div class="feed" id="flags-feed"><div class="empty">Loading…</div></div>
       </details>
+
+      <!-- Removed drivers (owner decision 2026-11-23): every driver
+           removed from the dashboard leaves a snapshot here, newest
+           first, with a Restore button per row. Restoring brings the
+           driver back with the same name, phone, email and car — but
+           documents are gone, so the driver must re-upload all
+           documents and set a new password before going available.
+           Only drivers removed from now on appear here; earlier
+           removals left no record. -->
+      <details class="sub-block" id="removed-block">
+        <summary>Removed drivers <span class="count-badge zero" id="removed-count">0</span></summary>
+        <p class="section-note">Drivers removed from the dashboard, newest first. Restoring brings the driver back with the same name, phone, email and car — but documents are gone: the driver must re-upload all documents and set a new password (forgot password on the driver sign-in) before going available. Bookings stay unlinked. Only drivers removed from now on appear here — earlier removals left no record.</p>
+        <div class="feed" id="removed-feed"><div class="empty">Loading…</div></div>
+      </details>
     </section>
 
     <!-- ============ MONEY TAB ============ -->

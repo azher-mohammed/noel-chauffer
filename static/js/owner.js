@@ -199,6 +199,7 @@
     loadOutbox();
     loadSupportMessages();
     loadDrivers();
+    loadRemovedDrivers();
     loadDriverReferrals();
     loadDocumentFlags();
     runExpiryAlerts();
@@ -375,6 +376,7 @@
           loadAlerts();
           loadOutbox();
           loadDrivers();
+          loadRemovedDrivers();
         });
       });
   });
@@ -389,7 +391,69 @@
           finish(false);
           if (!res.ok) return;
           loadDrivers();
+          loadRemovedDrivers();
           loadBookings();
+          loadSummaryThenEnterSoft();
+        });
+      });
+  }
+
+  /* ---------- Removed drivers + Restore (owner decision 2026-11-23) ----
+     Every driver removed from the dashboard leaves a snapshot in
+     GET /api/owner/removed-drivers, newest first. Restoring brings
+     the driver back with the same name, phone, email and car — but
+     documents are gone, so the driver must re-upload all documents
+     and set a new password before going available. Restore asks for
+     the PIN again, same as removal; a 409 means that phone or email
+     is registered to another driver by now, and nothing changes. */
+  function loadRemovedDrivers() {
+    fetch("/api/owner/removed-drivers", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var list = asList(j, "removed_drivers");
+        var feed = $("removed-feed");
+        setCountBadge("removed-count", list.length);
+        if (!list.length) { feed.innerHTML = '<div class="empty">No drivers removed yet.</div>'; return; }
+        feed.innerHTML = "";
+        list.forEach(function (r) {
+          var item = document.createElement("div");
+          item.className = "feed-item";
+          var carBits = [r.car_year, r.car].filter(Boolean).join(" · ");
+          var when = r.removed_at ? r.removed_at.slice(0, 10) : "";
+          var who = [r.name, r.phone].filter(Boolean).join(" · ") || "Unknown driver";
+          item.innerHTML = '<div class="ch">Removed' + (r.removed_via === "bulk" ? " · Remove all" : "") + '</div>' +
+            '<div class="body"><strong>' + esc(who) + '</strong>' +
+            (r.email ? "<br>" + esc(r.email) : "") +
+            (carBits ? "<br>" + esc(carBits) : "") +
+            (r.plate ? " · Plate " + esc(r.plate) : "") +
+            (r.state ? "<br>" + esc(r.state) + (r.city ? " · " + esc(r.city) : "") : "") +
+            '</div>' +
+            (when ? '<div class="t">Removed ' + esc(when) + "</div>" : "");
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "row-btn";
+          btn.textContent = "Restore driver";
+          btn.addEventListener("click", function () { restoreRemovedDriver(r); });
+          item.appendChild(btn);
+          feed.appendChild(item);
+        });
+      })
+      .catch(function () { $("removed-feed").innerHTML = '<div class="empty">Could not load removed drivers.</div>'; });
+  }
+
+  function restoreRemovedDriver(r) {
+    openPinConfirm("Enter PIN to restore driver",
+      "Restore " + (r.name || "this driver") + "? The driver comes back with the same name, phone, email and car. Documents are gone — the driver must re-upload all documents and set a new password before going available. Bookings stay unlinked.",
+      function (pin, finish) {
+        postWithPin("/api/owner/removed-drivers/" + encodeURIComponent(r.id) + "/restore", pin, function (res) {
+          if (res.status === 401) { finish(true); return; }
+          finish(false);
+          if (!res.ok) {
+            if (res.status === 409) window.alert(res.j.error || "That phone or email is already registered to another driver.");
+            return;
+          }
+          loadRemovedDrivers();
+          loadDrivers();
           loadSummaryThenEnterSoft();
         });
       });

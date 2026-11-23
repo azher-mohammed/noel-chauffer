@@ -2331,6 +2331,38 @@ class DocumentFlag(db.Model):
     detail = db.Column(db.String(255), nullable=False, default="")
 
 
+class RemovedDriver(db.Model):
+    """Snapshot of a driver at the moment the owner removed him
+    (owner decision 2026-11-23, voice call): \"if I remove drivers,
+    removed drivers should be there in [the] removed driver list\" —
+    plus a Restore button. Removal itself still hard-deletes the
+    Driver row and every document (the snapshot is the only record
+    left), so a removed driver can be brought back with the same
+    name, phone, email and car. A new table, so create_all()
+    creates it on the live database too. Drivers removed before
+    this shipped have no snapshot and stay gone — nothing is
+    invented for them."""
+    __tablename__ = "removed_drivers"
+    id = db.Column(db.Integer, primary_key=True)
+    # The Driver.id the snapshot was taken from (plain integer, no
+    # foreign key — the driver row is deleted, so an FK could never
+    # point at it again).
+    original_driver_id = db.Column(db.Integer, nullable=True)
+    removed_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+    # "single" (one driver removed) or "bulk" (Remove all drivers).
+    removed_via = db.Column(db.String(10), nullable=False, default="single")
+    name = db.Column(db.String(120), nullable=False, default="")
+    phone = db.Column(db.String(40), nullable=False, default="")
+    email = db.Column(db.String(200), nullable=False, default="")
+    state = db.Column(db.String(40), nullable=True)
+    city = db.Column(db.String(80), nullable=True)
+    car_model = db.Column(db.String(120), nullable=False, default="")
+    car_year = db.Column(db.Integer, nullable=True)
+    vehicle_class = db.Column(db.String(10), nullable=True)
+    car_colour = db.Column(db.String(60), nullable=False, default="")
+    plate = db.Column(db.String(40), nullable=False, default="")
+
+
 class Booking(db.Model):
     __tablename__ = "bookings"
     id = db.Column(db.Integer, primary_key=True)
@@ -8767,6 +8799,54 @@ def owner_clear_rides():
 # state selector. It must never be called automatically. Ride history
 # is KEPT — only the driver links are detached — because driver ride
 # records are retained for a minimum of one year.
+def _snapshot_removed_driver(driver, via):
+    """Record a removed driver BEFORE his row is deleted (owner
+    decision 2026-11-23): the snapshot is the only record left once
+    the Driver row and every document are gone, and it is what the
+    dashboard \"Removed drivers\" list shows and what Restore rebuilds
+    from. Callers add it to the session and commit with the delete —
+    the snapshot must land in the same transaction as the removal.
+    No documents, photos, bank details or password are snapshotted:
+    a restored driver re-uploads documents and sets a new password.
+    """
+    snap = RemovedDriver(
+        original_driver_id=driver.id,
+        removed_via=via,
+        name=driver.name or "",
+        phone=driver.phone or "",
+        email=driver.email or "",
+        state=driver.state,
+        city=driver.city,
+        car_model=driver.car_model or "",
+        car_year=driver.car_year,
+        vehicle_class=driver.vehicle_class,
+        car_colour=driver.car_colour or "",
+        plate=driver.plate or "",
+    )
+    db.session.add(snap)
+    return snap
+
+
+def _removed_driver_row(r):
+    return {
+        "id": r.id,
+        "original_driver_id": r.original_driver_id,
+        "removed_at": iso(r.removed_at),
+        "removed_via": r.removed_via,
+        "name": r.name,
+        "phone": r.phone,
+        "email": r.email,
+        "state": r.state,
+        "city": r.city,
+        "car": f"{r.car_model} ({r.car_colour})" if r.car_model else "",
+        "car_model": r.car_model,
+        "car_year": r.car_year,
+        "vehicle_class": r.vehicle_class,
+        "car_colour": r.car_colour,
+        "plate": r.plate,
+    }
+
+
 @app.route("/api/owner/clear-drivers", methods=["POST"])
 def owner_clear_drivers():
     """Owner-only MANUAL test reset: remove ALL driver registrations
@@ -8812,6 +8892,11 @@ def owner_clear_drivers():
     documents = DriverDocument.query.count()
     drivers = Driver.query.all()
     for driver in drivers:
+        # Snapshot first: once the row is gone the only record of
+        # this driver is the RemovedDriver snapshot (owner decision
+        # 2026-11-23) — it feeds the dashboard "Removed drivers"
+        # list and Restore.
+        _snapshot_removed_driver(driver, "bulk")
         db.session.delete(driver)
     db.session.commit()
     removed = {
@@ -8862,6 +8947,11 @@ def owner_remove_driver(driver_id):
     ).delete(synchronize_session=False)
     documents = DriverDocument.query.filter_by(driver_id=driver.id).count()
     name = driver.name
+    # Snapshot first: once the row is gone the only record of this
+    # driver is the RemovedDriver snapshot (owner decision
+    # 2026-11-23) — it feeds the dashboard "Removed drivers" list
+    # and Restore.
+    _snapshot_removed_driver(driver, "single")
     db.session.delete(driver)
     db.session.commit()
     removed = {
@@ -8963,6 +9053,86 @@ def owner_drivers():
                          for doc in d.documents},
         "bank_masked": bank_masked(d),
     } for d in drivers])
+
+
+@app.route("/api/owner/removed-drivers", methods=["GET"])
+def owner_removed_drivers():
+    """Read-only list of removed drivers for the owner dashboard
+    (owner decision 2026-11-23): every driver removed from now on
+    leaves a snapshot here, newest first. Drivers removed before
+    this shipped left no snapshot and do not appear."""
+    error = require_owner()
+    if error:
+        return error
+    removed = (RemovedDriver.query
+               .order_by(RemovedDriver.removed_at.desc(),
+                         RemovedDriver.id.desc()).all())
+    return jsonify([_removed_driver_row(r) for r in removed])
+
+
+@app.route("/api/owner/removed-drivers/<int:removed_id>/restore", methods=["POST"])
+def owner_restore_removed_driver(removed_id):
+    """Restore one removed driver (owner decision 2026-11-23):
+    re-create the Driver row from the removal snapshot with the
+    same name, phone, email and car.
+
+    PIN re-confirmation (same as removal): the request must carry
+    the owner PIN in its JSON body ("pin"), checked server-side by
+    require_owner_pin() — a signed-in session alone is not enough.
+
+    Conflicts fail cleanly, never overwrite: if that phone or email
+    is registered to another driver by now, restore returns 409 and
+    nothing changes.
+
+    Documents were deleted at removal and CANNOT come back: the
+    restored driver has NO documents and NO password — he must
+    re-upload all documents (the compulsory-document gate blocks
+    him from going available until then) and set a new password
+    via the forgot-password flow. Bookings stay unlinked; the
+    snapshot row is deleted on a successful restore.
+    """
+    error = require_owner()
+    if error:
+        return error
+    error = require_owner_pin()
+    if error:
+        return error
+    snap = db.session.get(RemovedDriver, removed_id)
+    if not snap:
+        return err("Removed driver not found.", 404)
+    if Driver.query.filter_by(phone=snap.phone).first():
+        return err("A driver with this phone number is already registered.", 409)
+    email = (snap.email or "").strip().lower()
+    if email and Driver.query.filter(func.lower(Driver.email) == email).first():
+        return err("A driver with this email address is already registered.", 409)
+    driver = Driver(
+        name=snap.name,
+        phone=snap.phone,
+        email=email,
+        password_hash=None,
+        state=snap.state,
+        city=snap.city,
+        # Fresh referral code and session token: the old ones died
+        # with the driver row, and a code minted since could
+        # collide — a restored driver is re-registered, so he gets
+        # new ones, same as a new driver.
+        referral_code=generate_driver_referral_code(),
+        referred_by_driver_id=None,
+        car_model=snap.car_model,
+        car_year=snap.car_year,
+        vehicle_class=snap.vehicle_class,
+        car_colour=snap.car_colour,
+        plate=snap.plate,
+        available=False,
+        token=secrets.token_urlsafe(32),
+    )
+    db.session.add(driver)
+    db.session.delete(snap)
+    db.session.commit()
+    log.info("owner restored removed driver %s (%s) as driver %s",
+             removed_id, snap.name, driver.id)
+    return jsonify({"restored": True, "driver_id": driver.id,
+                    "name": driver.name})
 
 
 @app.route("/api/owner/document-flags", methods=["GET"])

@@ -24,10 +24,11 @@ looked dull/grey to him. The word "Noel" stays its normal colour
 No layout or position changes.
 
 Driver-app button exceptions (owner 2026-11-21 ~21:05 EST): the
-offer-card Decline button is LIGHT RED and the Go online / Go
-offline toggle is BLACK — deliberate exceptions to the never-black
-rule (see test_driver_colours_slide.py). Accept and every other
-button stay very light blue.
+offer-card Decline button is LIGHT RED — a deliberate exception to
+the never-black rule (see test_driver_colours_slide.py). The Go
+online / Go offline toggle is WHITE since 2026-11-23 ~05:38 EST
+("White mein kardo"), so the black-button exception is gone. Accept
+and every other button stay very light blue.
 
 Notes:
 - The class name `.btn-gold` and the variable `var(--gold)` still
@@ -117,9 +118,9 @@ class NoGoldCase(unittest.TestCase):
 
     def test_driver_accept_and_toggle_blue(self):
         # Accept stays very light blue. The Go online / Go offline
-        # toggle is BLACK (owner 2026-11-21 ~21:05 EST) — a
-        # deliberate exception to the never-black-buttons rule, for
-        # this button only (see test_driver_colours_slide.py).
+        # toggle is WHITE (owner 2026-11-23 ~05:38 EST, "White mein
+        # kardo") — pinned in test_driver_colours_slide.py; the
+        # 2026-11-21 black-button exception is gone.
         css = _read("static/css/driver.css")
         body = _rule(css, ".btn-accept")
         self.assertIn("background: var(--blue);", body)

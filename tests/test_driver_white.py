@@ -180,8 +180,8 @@ class DriverWhiteCase(unittest.TestCase):
     def test_buttons_still_blue_on_white(self):
         css = _read(CSS)
         # The Go online / Go offline toggle is NOT in this list: it
-        # is BLACK (owner 2026-11-21 ~21:05 EST exception — see
-        # test_driver_colours_slide.py).
+        # is WHITE (owner 2026-11-23 ~05:38 EST "White mein kardo"
+        # — see test_driver_colours_slide.py).
         for selector in (".btn-primary", ".btn-gold", ".btn-accept"):
             body = _rule(css, selector)
             self.assertIn("background: var(--blue);", body, selector)

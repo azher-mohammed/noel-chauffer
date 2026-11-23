@@ -6,9 +6,12 @@ and voice call 2026-11-22 ~03:29 EST (slide buttons, Uber-style):
 1. COLOURS (driver app only, except the wordmark):
    - Decline button (offer card) is LIGHT RED (#f5c6c2 bg,
      #e8a49e border, dark ink text). Accept stays very light blue.
-   - Go online / Go offline toggle button is BLACK — a deliberate
-     exception to the standing never-black-buttons rule, for this
-     button only. Both states black, white text, never green.
+   - Go online / Go offline toggle button is WHITE — white
+     background, dark ink text, clearly visible border (owner
+     2026-11-23 ~05:38 EST, "White mein kardo"). Offline has a grey
+     border, online a black border, so the two states read apart.
+     Never green. This supersedes the 2026-11-21 black button: the
+     black exception is gone, no black buttons remain.
    - Premium wordmark — TEXT ONLY, no logo: "Noel" plain,
      "Chauffeur" in bright gold #D4AF37 with a subtle sheen, clean Georgia serif with
      wider tracking (0.06–0.07em) and medium weight, the SAME style
@@ -70,23 +73,32 @@ class DriverColoursCase(unittest.TestCase):
         self.assertIn("background: var(--blue);", body)
         self.assertIn("color: var(--white);", body)
 
-    def test_go_online_offline_button_is_black(self):
+    def test_go_online_offline_button_is_white(self):
         css = _read(DRIVER_CSS)
+        # White background, dark ink text, clearly visible border —
+        # both states (owner 2026-11-23 ~05:38 EST "White mein
+        # kardo"). Offline has the grey border; online takes the
+        # black border so the two states still read apart. Never
+        # green, never a black button.
         for selector in (".toggle-btn",
                          "#screen-home .toggle-btn"):
             body = _rule(css, selector)
-            self.assertIn("background: var(--black);", body, selector)
-            self.assertIn("color: var(--white);", body, selector)
+            self.assertIn("background: var(--white);", body, selector)
+            self.assertIn("color: var(--ink);", body, selector)
+            self.assertIn("border: 1px solid #888888;", body, selector)
             self.assertNotIn("var(--blue)", body, selector)
+            self.assertNotIn("background: var(--black);", body, selector)
         for selector in (".toggle-btn.on",
                          "#screen-home .toggle-btn.on"):
             body = _rule(css, selector)
-            self.assertIn("background: var(--black);", body, selector)
-            self.assertIn("color: var(--white);", body, selector)
+            self.assertIn("background: var(--white);", body, selector)
+            self.assertIn("color: var(--ink);", body, selector)
+            self.assertIn("var(--black)", body, selector)
+            self.assertNotIn("background: var(--black);", body, selector)
             self.assertNotIn("--ok", body, selector)
             self.assertNotIn("#1e7a4c", body, selector)
-        # The black toggle is the ONLY black button in the driver
-        # app: every other button stays very light blue.
+        # No black button remains in the driver app: every other
+        # button stays very light blue.
         self.assertIn("background: var(--blue);",
                       _rule(css, ".btn-primary"))
         self.assertIn("background: var(--blue);",

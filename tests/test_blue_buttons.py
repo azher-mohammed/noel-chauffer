@@ -17,9 +17,10 @@ Gold stays OUT everywhere EXCEPT the brand name: only the word
 (#D4AF37 with a subtle sheen, owner order 2026-11-22 ~06:49 EST,
 superseding the 2026-11-21 light gold #e8cf8f); see test_no_gold.py.
 Applies on the website, the customer app (/app) AND the driver app
-(/driver). Two driver-app button exceptions (owner 2026-11-21
-~21:05 EST): Decline is light red and the Go online / Go offline
-toggle is black — see test_driver_colours_slide.py.
+(/driver). One driver-app button exception (owner 2026-11-21
+~21:05 EST): Decline is light red — see test_driver_colours_slide.py.
+The Go online / Go offline toggle is WHITE since 2026-11-23 ~05:38 EST
+("White mein kardo"), so no black-button exception remains.
 
 These are static pins on the three stylesheets only: the change is
 CSS-only, so the shipped stylesheets are the whole change.

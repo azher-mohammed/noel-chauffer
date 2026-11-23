@@ -174,17 +174,20 @@ input, select { font: inherit; }
 .photo-tips li { margin: 2px 0; }
 
 /* Availability toggle: bare button only, no card (owner 2026-11-21).
-   BLACK (owner 2026-11-21 ~21:05 EST) — a deliberate exception to
-   the never-black-buttons rule, for this button only. */
+   WHITE (owner 2026-11-23 ~05:38 EST, "White mein kardo") — white
+   background, dark ink text and a clearly visible grey border, so
+   the button reads on the white driver-app background. This
+   supersedes the 2026-11-21 black button: the black exception is
+   gone, no black buttons remain in the driver app. */
 .toggle-btn {
-  border: 0; border-radius: 999px; padding: 14px 32px; font-size: 17px; font-weight: 600;
-  background: var(--black); color: var(--white);
+  border: 1px solid #888888; border-radius: 999px; padding: 14px 32px; font-size: 17px; font-weight: 600;
+  background: var(--white); color: var(--ink);
 }
-/* Online state is black with white text and a grey border, never
-   green (owner 2026-11-21: "I don't like green colors"). Offline is
-   the plain black button; online adds the grey border so the two
-   states still read apart. */
-.toggle-btn.on { background: var(--black); color: var(--white); border: 1px solid #888888; }
+/* Online state is white with dark ink text and a black border, never
+   green (owner 2026-11-21: "I don't like green colors"). Offline has
+   the grey border; online takes the black border so the two states
+   still read apart. */
+.toggle-btn.on { background: var(--white); color: var(--ink); border: 1px solid var(--black); }
 
 /* Offers */
 .offer {
@@ -615,15 +618,15 @@ input, select { font: inherit; }
   margin: 16px auto 0;
 }
 #screen-home .toggle-btn {
-  background: var(--black);
-  color: var(--white);
-  border: 1px solid var(--black);
+  background: var(--white);
+  color: var(--ink);
+  border: 1px solid #888888;
   box-shadow: none;
 }
 #screen-home .toggle-btn.on {
-  background: var(--black);
-  border-color: #888888;
-  color: var(--white);
+  background: var(--white);
+  border-color: var(--black);
+  color: var(--ink);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 #screen-home .toggle-btn:active { transform: translateY(1px); }

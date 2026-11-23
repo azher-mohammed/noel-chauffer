@@ -121,15 +121,26 @@
     el.classList.toggle("zero", !n);
   }
 
-  /* ---------- Session check + PIN login ---------- */
-  function checkSession() {
-    fetch("/api/owner/summary", { credentials: "same-origin" })
-      .then(function (r) {
-        if (r.ok) return r.json().then(function (j) { enterDashboard(j); });
-        show($("pin-gate"));
-        hide($("dashboard"));
-      })
-      .catch(function () { show($("pin-gate")); hide($("dashboard")); });
+  /* ---------- PIN login: fresh PIN check on every visit ----------
+     Owner decision 2026-11-23: the dashboard used to auto-log-in on
+     page load (checkSession fetched /api/owner/summary and opened
+     the dashboard whenever a session cookie existed), so a browser
+     that had logged in once showed the full dashboard without a
+     PIN. That is gone: every visit starts at the PIN gate and the
+     dashboard only opens after the PIN is typed here and checked
+     server-side. There is no cached dashboard data to render
+     before then — the dashboard starts hidden in the HTML. */
+
+  /* The PIN session expired while the dashboard was open (the
+     server caps it at 8 hours): hide the dashboard, show the PIN
+     gate, and say so — the owner types the PIN again. */
+  function backToPinGate(message) {
+    hide($("dashboard"));
+    show($("pin-gate"));
+    var err = $("pin-error");
+    if (err) err.textContent = message || "Your session expired. Please enter your PIN again.";
+    var input = $("pin-input");
+    if (input) { input.value = ""; input.focus(); }
   }
 
   $("pin-form").addEventListener("submit", function (e) {
@@ -166,9 +177,12 @@
 
   function loadSummaryThenEnter() {
     fetch("/api/owner/summary", { credentials: "same-origin" })
-      .then(function (r) { return r.json(); })
-      .then(function (j) { enterDashboard(j); })
-      .catch(function () { enterDashboard({}); });
+      .then(function (r) {
+        if (!r.ok) { backToPinGate(); return null; }
+        return r.json();
+      })
+      .then(function (j) { if (j) enterDashboard(j); })
+      .catch(function () { backToPinGate(); });
   }
 
   function enterDashboard(summary) {
@@ -481,8 +495,12 @@
 
   function loadBookings() {
     fetch(bookingsUrl(), { credentials: "same-origin" })
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (r.status === 401) { backToPinGate(); return null; }
+        return r.json();
+      })
       .then(function (j) {
+        if (!j) return;
         var list = asList(j, "bookings");
         /* The Dashboard tab shows the newest rides; a search only
            changes the Rides tab, never the overview. */
@@ -586,8 +604,11 @@
   }
   function loadSummaryThenEnterSoft() {
     fetch("/api/owner/summary", { credentials: "same-origin" })
-      .then(function (r) { return r.json(); })
-      .then(function (j) { renderSummary(j); })
+      .then(function (r) {
+        if (r.status === 401) { backToPinGate(); return null; }
+        return r.json();
+      })
+      .then(function (j) { if (j) renderSummary(j); })
       .catch(function () { /* ignore */ });
   }
 
@@ -1225,5 +1246,7 @@
     if (e.target === $("viewer-backdrop")) hide($("viewer-backdrop"));
   });
 
-  checkSession();
+  /* No auto-login on page load (owner decision 2026-11-23): the
+     PIN gate is visible by default and the dashboard stays hidden
+     until the PIN is typed and checked server-side. */
 })();

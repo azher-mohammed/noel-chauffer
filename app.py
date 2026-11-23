@@ -127,6 +127,15 @@ if not SECRET_KEY:
 app.config["SECRET_KEY"] = SECRET_KEY
 
 OWNER_PIN = os.environ.get("OWNER_PIN", "1234")
+# Owner PIN session lifetime (owner decision 2026-11-23): the owner
+# session used to live forever — session["owner"] = True with no
+# timestamp and no expiry, so a browser that had logged in once
+# stayed logged in and the dashboard opened without a PIN (found
+# by a browser live-check 2026-11-23 ~03:33 EST). The session now
+# expires OWNER_SESSION_MAX_AGE_SECONDS after login (default 8
+# hours, absolute — no sliding refresh, so an open tab cannot stay
+# live forever). After expiry the owner types the PIN again.
+OWNER_SESSION_MAX_AGE_SECONDS = int(os.environ.get("OWNER_SESSION_MAX_AGE_SECONDS", "28800"))
 if os.environ.get("OWNER_PIN") is None:
     log.warning("OWNER_PIN is not set; using default PIN 1234. Set OWNER_PIN in production.")
 
@@ -3532,8 +3541,22 @@ def require_driver():
 
 
 def require_owner():
+    """Every owner data endpoint requires a valid PIN session,
+    server-side (owner decision 2026-11-23): the session is
+    timestamped at login and expires OWNER_SESSION_MAX_AGE_SECONDS
+    later. A session with no timestamp (from before the expiry was
+    added) no longer counts — the owner types the PIN once and gets
+    a fresh, timestamped session."""
     if not session.get("owner"):
         return err("Owner login required.", 401)
+    authed_at = session.get("owner_authed_at")
+    if not isinstance(authed_at, (int, float)):
+        session.pop("owner", None)
+        return err("Owner login required.", 401)
+    if datetime.now(timezone.utc).timestamp() - authed_at > OWNER_SESSION_MAX_AGE_SECONDS:
+        session.pop("owner", None)
+        session.pop("owner_authed_at", None)
+        return err("Owner login expired. Please enter your PIN again.", 401)
     return None
 
 
@@ -7768,12 +7791,14 @@ def owner_login():
     if str(data.get("pin")) != OWNER_PIN:
         return err("Wrong PIN.", 401)
     session["owner"] = True
+    session["owner_authed_at"] = int(datetime.now(timezone.utc).timestamp())
     return jsonify({"ok": True})
 
 
 @app.route("/api/owner/logout", methods=["POST"])
 def owner_logout():
     session.pop("owner", None)
+    session.pop("owner_authed_at", None)
     return jsonify({"ok": True})
 
 

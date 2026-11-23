@@ -43,7 +43,7 @@
   /* ---------- Tabs (owner decision 2026-11-23): the dashboard is
      one screen per section — Dashboard / Rides / Drivers / Money /
      More. No long scrolling; every section lives behind its tab. */
-  var TABS = ["dashboard", "rides", "drivers", "money", "more"];
+  var TABS = ["dashboard", "rides", "drivers", "money", "profit", "more"];
   function showTab(name) {
     if (TABS.indexOf(name) === -1) name = "dashboard";
     TABS.forEach(function (t) {
@@ -194,6 +194,7 @@
     runPickupReminders();
     loadBookings();
     loadPayouts();
+    loadProfit();
     loadAlerts();
     loadOutbox();
     loadSupportMessages();
@@ -611,6 +612,126 @@
       .then(function (j) { if (j) renderSummary(j); })
       .catch(function () { /* ignore */ });
   }
+
+  /* ---------- Profit tab (owner decision 2026-11-23) ----------
+     A dedicated Profit section, separate from Money and Dashboard:
+     four sub-tabs — Daily / Weekly / Monthly / Till date. Whichever
+     sub-tab is open shows that period's profit plus that period's
+     rides (customer paid, driver got, profit). Every money figure
+     comes from GET /api/owner/profit; nothing is calculated here.
+     The per-ride table pages 10 at a time, like the Rides tab. */
+  var profitPeriod = "tilldate";
+  var profitPage = 1;
+  var profitTotalPages = 1;
+  var profitTotal = 0;
+  var PROFIT_PER_PAGE = 10;
+  var PROFIT_LABELS = { daily: "Daily", weekly: "Weekly", monthly: "Monthly", tilldate: "Till date" };
+
+  function profitPeriodLabel(j, period) {
+    if (period === "daily") return "Today";
+    if (period === "weekly") return (j.week_start || "") + " – " + (j.week_end || "");
+    if (period === "monthly") return j.month_label || "This month";
+    return "All time";
+  }
+
+  function renderProfit(j) {
+    var periods = j.periods || {};
+    var active = periods[j.period] || periods.tilldate || {};
+    var label = profitPeriodLabel(j, j.period || "tilldate");
+    $("profit-total").textContent = money(pick(active, ["profit"]));
+    $("profit-total-hint").textContent = label;
+    $("profit-paid").textContent = money(pick(active, ["customer_paid"]));
+    $("profit-paid-hint").textContent = "Customer payments · " + label;
+    $("profit-driver").textContent = money(pick(active, ["driver_pay"]));
+    $("profit-rides").textContent = String(pick(active, ["rides"]) || 0);
+    $("profit-rides-heading").textContent = "Rides · " + (PROFIT_LABELS[j.period] || "Till date");
+    var list = asList(j, "rides");
+    var body = $("profit-body");
+    body.innerHTML = "";
+    if (!list.length) {
+      show($("profit-empty"));
+      renderProfitPager();
+      return;
+    }
+    hide($("profit-empty"));
+    list.forEach(function (r) {
+      var route = r.route ? esc(r.route) : "—";
+      var classBit = r.vehicle_class_label ? " · " + esc(r.vehicle_class_label) : "";
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td>" + route + '<div class="sub">#' + esc(String(r.id)) + classBit + "</div></td>" +
+        "<td>" + esc(r.customer_name || "—") + "</td>" +
+        "<td>" + esc(r.date || "") + "</td>" +
+        '<td class="num">' + esc(money(r.customer_paid)) + "</td>" +
+        '<td class="num">' + esc(money(r.driver_earnings)) + "</td>" +
+        '<td class="num">' + esc(money(r.profit)) + "</td>";
+      body.appendChild(tr);
+    });
+    renderProfitPager();
+  }
+
+  function renderProfitPager() {
+    var pager = $("profit-pager");
+    if (!pager) return;
+    if (profitTotal === 0) { hide(pager); return; }
+    show(pager);
+    $("profit-page-info").textContent =
+      "Page " + profitPage + " of " + Math.max(profitTotalPages, 1) +
+      " · " + profitTotal + " ride" + (profitTotal === 1 ? "" : "s");
+    $("profit-prev").disabled = profitPage <= 1;
+    $("profit-next").disabled = profitPage >= profitTotalPages;
+  }
+
+  function loadProfit() {
+    fetch("/api/owner/profit?period=" + encodeURIComponent(profitPeriod) +
+      "&page=" + profitPage + "&per_page=" + PROFIT_PER_PAGE,
+      { credentials: "same-origin" })
+      .then(function (r) {
+        if (r.status === 401) { backToPinGate(); return null; }
+        return r.json();
+      })
+      .then(function (j) {
+        if (!j) return;
+        if (j && typeof j === "object") {
+          profitTotal = Number(j.total_rides) || 0;
+          profitTotalPages = Number(j.pages) || 1;
+          if (j.page && Number(j.page) !== profitPage) profitPage = Number(j.page);
+          if (j.period) profitPeriod = j.period;
+        }
+        renderProfit(j);
+      })
+      .catch(function () {
+        $("profit-body").innerHTML = "";
+        show($("profit-empty"));
+        $("profit-empty").textContent = "Could not load profit.";
+        renderProfitPager();
+      });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-profit-period]"), function (btn) {
+    btn.addEventListener("click", function () {
+      var period = btn.getAttribute("data-profit-period");
+      if (!PROFIT_LABELS[period] || period === profitPeriod) return;
+      profitPeriod = period;
+      profitPage = 1;
+      Array.prototype.forEach.call(document.querySelectorAll("[data-profit-period]"), function (b) {
+        var active = b.getAttribute("data-profit-period") === period;
+        b.classList.toggle("active", active);
+        b.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      loadProfit();
+    });
+  });
+  $("profit-prev").addEventListener("click", function () {
+    if (profitPage <= 1) return;
+    profitPage -= 1;
+    loadProfit();
+  });
+  $("profit-next").addEventListener("click", function () {
+    if (profitPage >= profitTotalPages) return;
+    profitPage += 1;
+    loadProfit();
+  });
 
   /* ---------- Driver payouts (weekly tallies, each due 7 days after its week starts) ---------- */
   function loadPayouts() {

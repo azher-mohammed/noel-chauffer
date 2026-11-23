@@ -41,6 +41,7 @@
         <button type="button" class="tab-btn" data-tab="rides" aria-selected="false">Rides</button>
         <button type="button" class="tab-btn" data-tab="drivers" aria-selected="false">Drivers</button>
         <button type="button" class="tab-btn" data-tab="money" aria-selected="false">Money</button>
+        <button type="button" class="tab-btn" data-tab="profit" aria-selected="false">Profit</button>
         <button type="button" class="tab-btn" data-tab="more" aria-selected="false">More</button>
       </div>
     </nav>
@@ -153,6 +154,53 @@
       <h2>Driver referrals</h2>
       <p class="section-note">Drivers who registered through another driver's referral link, and the $5 earned per completed ride (first 15 rides each). Tracking only — no money moves here.</p>
       <div class="feed" id="referrals-feed"><div class="empty">Loading…</div></div>
+    </section>
+
+    <!-- ============ PROFIT TAB (owner decision 2026-11-23) ============
+         Dedicated Profit section — separate from Money and Dashboard.
+         Four sub-tabs: Daily / Weekly / Monthly / Till date. Whichever
+         sub-tab is open shows that period's profit plus that period's
+         rides (customer paid, driver got, profit). Only completed rides
+         whose payment actually landed count — pending, unpaid and
+         cancelled rides earn nothing yet. Toll is collected from the
+         customer and paid to the driver, so it never counts as profit. -->
+    <section class="tab-panel hidden" id="tab-profit" data-panel="profit" aria-label="Profit">
+      <h2>Profit</h2>
+      <p class="section-note">Only completed rides with a payment that succeeded count here — pending, unpaid and cancelled rides earn nothing yet. Toll is collected from the customer and paid to the driver, so it never counts as profit.</p>
+      <div class="sub-tabs" role="tablist" aria-label="Profit period">
+        <button type="button" class="sub-tab-btn" data-profit-period="daily" role="tab" aria-selected="false">Daily</button>
+        <button type="button" class="sub-tab-btn" data-profit-period="weekly" role="tab" aria-selected="false">Weekly</button>
+        <button type="button" class="sub-tab-btn" data-profit-period="monthly" role="tab" aria-selected="false">Monthly</button>
+        <button type="button" class="sub-tab-btn active" data-profit-period="tilldate" role="tab" aria-selected="true">Till date</button>
+      </div>
+      <div class="cards">
+        <div class="card"><div class="label">Profit</div><div class="value" id="profit-total">—</div><div class="hint" id="profit-total-hint"></div></div>
+        <div class="card"><div class="label">Customer paid</div><div class="value" id="profit-paid">—</div><div class="hint" id="profit-paid-hint"></div></div>
+        <div class="card"><div class="label">Driver got</div><div class="value" id="profit-driver">—</div><div class="hint">Driver share of these rides</div></div>
+        <div class="card"><div class="label">Rides</div><div class="value" id="profit-rides">—</div><div class="hint" id="profit-rides-hint">Completed &amp; paid rides</div></div>
+      </div>
+      <h3 id="profit-rides-heading">Rides</h3>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Ride</th>
+              <th>Customer</th>
+              <th>Date</th>
+              <th class="num">Customer paid</th>
+              <th class="num">Driver got</th>
+              <th class="num">Profit</th>
+            </tr>
+          </thead>
+          <tbody id="profit-body"></tbody>
+        </table>
+        <div class="empty hidden" id="profit-empty">No completed &amp; paid rides in this period yet.</div>
+      </div>
+      <div class="bookings-pager hidden" id="profit-pager">
+        <button type="button" class="row-btn" id="profit-prev">← Newer</button>
+        <span id="profit-page-info"></span>
+        <button type="button" class="row-btn" id="profit-next">Older →</button>
+      </div>
     </section>
 
     <!-- ============ MORE TAB ============ -->

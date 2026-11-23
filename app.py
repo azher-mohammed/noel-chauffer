@@ -7858,6 +7858,140 @@ def owner_summary():
     })
 
 
+# --- Profit tab (owner decision 2026-11-23, voice call) ----------------------
+# "owner dashboard mein ek profit wala hissa banao... khali profit ka
+# hissa... to mere ko idea ho jaye na, main kitna bana raha hoon" — a
+# DEDICATED Profit tab, separate from Money and Dashboard (owner
+# 2026-11-23 ~06:06 EST: "profit alag, profit ke alag hisse mein na").
+# Inside it, four sub-tabs (owner 2026-11-23 ~06:07 EST): DAILY,
+# WEEKLY, MONTHLY and TILL-DATE ("ELD") — whichever sub-tab is open
+# shows that period's profit plus that period's rides (customer paid,
+# driver got, profit). "Today at a glance" on the Dashboard tab is
+# untouched.
+#
+# Only completed rides whose payment actually landed count: status
+# "completed" + a payment with status "succeeded" (test mode) or
+# "captured" (live Stripe) + not refunded. Pending, awaiting-payment
+# and cancelled rides earn nothing yet, so they are left out.
+# Per ride, profit reuses booking_profit(): fare_total + waiting -
+# driver_earnings - stored tax. Toll never counts as profit: it is
+# inside BOTH the customer total and the driver earnings (slab pay +
+# toll), so it cancels out. Rides are bucketed on their completion
+# date (America/New_York, same rule as the daily summary and the
+# payout weeks): daily = today, weekly = the current payout week
+# (Mon-Sun, anchored 2026-11-16), monthly = the current calendar
+# month, till-date = everything.
+
+def _profit_paid_booking_ids():
+    return {p.booking_id for p in Payment.query.filter(
+        Payment.status.in_(("succeeded", "captured"))).all()}
+
+
+def _profit_bucket(eligible):
+    """Totals for a list of eligible (completed + paid) bookings."""
+    customer_paid = sum((money(b.fare_total) + money(b.waiting_charge)
+                         for b in eligible), Decimal("0.00"))
+    driver_pay = sum((money(b.driver_earnings) for b in eligible),
+                     Decimal("0.00"))
+    profit = sum((booking_profit(b) for b in eligible), Decimal("0.00"))
+    return {
+        "profit": num(profit),
+        "customer_paid": num(customer_paid),
+        "driver_pay": num(driver_pay),
+        "rides": len(eligible),
+    }
+
+
+def _profit_ride_row(b, done_date):
+    return {
+        "id": b.id,
+        "date": done_date.isoformat(),
+        "route": f"{b.pickup} to {b.dropoff}" if b.dropoff else b.pickup,
+        "customer_name": b.customer_name,
+        "vehicle_class_label": class_label(booking_vehicle_class(b)),
+        "customer_paid": num(money(b.fare_total) + money(b.waiting_charge)),
+        "driver_earnings": num(b.driver_earnings),
+        "profit": num(booking_profit(b)),
+        "status": b.status,
+    }
+
+
+PROFIT_PERIODS = ("daily", "weekly", "monthly", "tilldate")
+
+
+@app.route("/api/owner/profit", methods=["GET"])
+def owner_profit():
+    error = require_owner()
+    if error:
+        return error
+    period = (request.args.get("period") or "tilldate").strip().lower()
+    if period not in PROFIT_PERIODS:
+        period = "tilldate"
+    paid_ids = _profit_paid_booking_ids()
+    eligible = [b for b in _payout_eligible(Booking.query.all())
+                if b.id in paid_ids]
+    # Newest completion first; a ride with no completion timestamp
+    # (pre-timestamp rows) falls back to its creation time.
+    dated = []
+    for b in eligible:
+        try:
+            done = completion_date(b.completed_at, b.created_at)
+        except ValueError:
+            continue
+        dated.append((done, b))
+    dated.sort(key=lambda item: (item[0], item[1].id), reverse=True)
+    today = _today_ny()
+    week = week_for(today)
+    periods = {
+        "daily": _profit_bucket([b for d, b in dated if d == today]),
+        "weekly": _profit_bucket([b for d, b in dated
+                                  if week["start"] <= d <= week["end"]]),
+        "monthly": _profit_bucket([b for d, b in dated
+                                   if d.year == today.year
+                                   and d.month == today.month]),
+        "tilldate": _profit_bucket([b for _, b in dated]),
+    }
+    if period == "daily":
+        active = [(d, b) for d, b in dated if d == today]
+    elif period == "weekly":
+        active = [(d, b) for d, b in dated
+                  if week["start"] <= d <= week["end"]]
+    elif period == "monthly":
+        active = [(d, b) for d, b in dated
+                  if d.year == today.year and d.month == today.month]
+    else:
+        active = dated
+    # Per-ride rows, 10 per page like the Rides tab.
+    try:
+        page = int(request.args.get("page") or 1)
+    except (TypeError, ValueError):
+        page = 1
+    page = max(page, 1)
+    try:
+        per_page = int(request.args.get("per_page") or 10)
+    except (TypeError, ValueError):
+        per_page = 10
+    per_page = min(max(per_page, 1), 100)
+    total_rides = len(active)
+    pages = (total_rides + per_page - 1) // per_page if total_rides else 0
+    if pages and page > pages:
+        page = pages
+    rows = [_profit_ride_row(b, d)
+            for d, b in active[(page - 1) * per_page:page * per_page]]
+    return jsonify({
+        "period": period,
+        "periods": periods,
+        "week_start": week["start"].isoformat(),
+        "week_end": week["end"].isoformat(),
+        "month_label": today.strftime("%B %Y"),
+        "rides": rows,
+        "page": page,
+        "per_page": per_page,
+        "total_rides": total_rides,
+        "pages": pages,
+    })
+
+
 def _owner_booking_row(b):
     row = {
         "id": b.id,

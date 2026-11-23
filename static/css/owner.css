@@ -1,6 +1,6 @@
 /* Noel Chauffer — owner dashboard. Clean, private, owner-only.
    Tabbed layout (owner decision 2026-11-23): one screen per section —
-   Dashboard / Rides / Drivers / Money / More — no long scrolling.
+   Dashboard / Rides / Drivers / Money / Profit / More — no long scrolling.
    Style follows the site's standing rules: light blue #5b9bd5 buttons
    (hover #4a8ac2), white/black, bright gold #D4AF37 ONLY on the word
    "Chauffeur" in the brand name. No gradients, no glow, no green. */
@@ -57,6 +57,13 @@ input, select { font: inherit; }
 .tab-btn { background: none; border: 0; border-bottom: 3px solid transparent; padding: 12px 16px; font-size: 15px; color: var(--grey); white-space: nowrap; }
 .tab-btn:hover { color: var(--ink); }
 .tab-btn.active { color: var(--ink); font-weight: 600; border-bottom-color: var(--blue); }
+
+/* Profit sub-tabs (owner decision 2026-11-23): Daily / Weekly /
+   Monthly / Till date inside the dedicated Profit tab. */
+.sub-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+.sub-tab-btn { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 16px; font-size: 15px; color: var(--grey); white-space: nowrap; }
+.sub-tab-btn:hover { color: var(--ink); }
+.sub-tab-btn.active { color: var(--ink); font-weight: 600; border-bottom-color: var(--blue); }
 
 .wrap { max-width: 1180px; margin: 0 auto; padding: 8px 20px 60px; }
 .wrap h2 { font-family: Georgia, serif; font-weight: 400; font-size: 24px; margin: 26px 0 12px; }

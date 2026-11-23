@@ -164,7 +164,7 @@ class TestFooterColumns(unittest.TestCase):
         self.assertNotIn("180 Green Acres Road", footer)
         self.assertNotIn("East Valley Stream", footer)
         self.assertIn("929-385-7597", INDEX)
-        self.assertIn("support@noelchauffer.com", INDEX)
+        self.assertIn("info@noelchauffer.com", INDEX)
 
     def test_dropped_city_pages_still_live(self):
         client = app_module.app.test_client()

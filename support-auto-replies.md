@@ -1,6 +1,6 @@
-# Noel Chauffer — support@noelchauffer.com auto-reply bank
+# Noel Chauffer — info@noelchauffer.com auto-reply bank
 
-Question-based auto-replies for mail arriving at support@noelchauffer.com
+Question-based auto-replies for mail arriving at info@noelchauffer.com
 (which forwards to the owner's Gmail). Same answers as the website's
 "Chat with us" widget + homepage FAQ, so email, widget and app all say
 the same thing.
@@ -73,6 +73,6 @@ Keywords: human, person, agent, support, help
 
 ## How it runs
 Gmail itself cannot do this (no vacation reply / filter access from here),
-so a scheduled checker reads new mail to support@noelchauffer.com, picks
-the matching answer above, and sends the reply from support@noelchauffer.com.
+so a scheduled checker reads new mail to info@noelchauffer.com, picks
+the matching answer above, and sends the reply from info@noelchauffer.com.
 Anything the bank cannot answer goes to the owner, not to the customer.

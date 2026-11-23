@@ -10,7 +10,7 @@ Design (same pattern as translation.py):
   ONLY — never hardcoded, never logged. Without a key, send_email
   returns "not_configured" and makes ZERO HTTP calls.
 * The sender address comes from RESEND_FROM, defaulting to
-  "Noel Chauffer <support@noelchauffer.com>".
+  "Noel Chauffer <info@noelchauffer.com>".
 * Fail-soft everywhere: missing key, HTTP error, timeout, or a
   malformed response all return a non-sent status. send_email
   NEVER raises into the caller.
@@ -38,7 +38,7 @@ from urllib.request import Request, urlopen
 log = logging.getLogger("noel-chauffer.email")
 
 RESEND_API_URL = "https://api.resend.com/emails"
-DEFAULT_FROM = "Noel Chauffer <support@noelchauffer.com>"
+DEFAULT_FROM = "Noel Chauffer <info@noelchauffer.com>"
 # 10s keeps a send from hanging the caller's request; a timeout
 # fails soft and the message simply stays queued.
 REQUEST_TIMEOUT = 10

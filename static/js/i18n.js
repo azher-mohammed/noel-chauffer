@@ -1697,14 +1697,14 @@ NOEL_I18N["app.support_heading"] = {
   "ur": "Hum kaise madad kar sakte hain?", "hi": "हम कैसे मदद कर सकते हैं?", "bn": "আমরা কীভাবে সাহায্য করতে পারি?"
 };
 NOEL_I18N["app.support_text"] = {
-  "en": "Email us at support@noelchauffer.com or send us a message below.",
-  "es": "Escríbenos a support@noelchauffer.com o envíanos un mensaje abajo.",
-  "fr": "Écrivez-nous à support@noelchauffer.com ou envoyez-nous un message ci-dessous.",
-  "ar": "راسلنا على support@noelchauffer.com أو أرسل لنا رسالة أدناه.",
-  "pt": "Envie um e-mail para support@noelchauffer.com ou envie-nos uma mensagem abaixo.",
-  "ur": "Hamein support@noelchauffer.com par email karen ya neeche message bhejen.",
-  "hi": "हमें support@noelchauffer.com पर ईमेल करें या नीचे संदेश भेजें।",
-  "bn": "support@noelchauffer.com-এ ইমেইল করুন বা নিচে বার্তা পাঠান।"
+  "en": "Email us at info@noelchauffer.com or send us a message below.",
+  "es": "Escríbenos a info@noelchauffer.com o envíanos un mensaje abajo.",
+  "fr": "Écrivez-nous à info@noelchauffer.com ou envoyez-nous un message ci-dessous.",
+  "ar": "راسلنا على info@noelchauffer.com أو أرسل لنا رسالة أدناه.",
+  "pt": "Envie um e-mail para info@noelchauffer.com ou envie-nos uma mensagem abaixo.",
+  "ur": "Hamein info@noelchauffer.com par email karen ya neeche message bhejen.",
+  "hi": "हमें info@noelchauffer.com पर ईमेल करें या नीचे संदेश भेजें।",
+  "bn": "info@noelchauffer.com-এ ইমেইল করুন বা নিচে বার্তা পাঠান।"
 };
 NOEL_I18N["app.chat_placeholder"] = {
   "en": "Type a message…", "es": "Escribe un mensaje…", "fr": "Écrivez un message…",

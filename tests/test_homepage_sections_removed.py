@@ -55,7 +55,7 @@ REMOVED = {
     "/contacts": (
         "contacts.html",
         ["Contacts",
-         "support@noelchauffer.com",
+         "info@noelchauffer.com",
          "We reply within 24 hours."],
     ),
 }

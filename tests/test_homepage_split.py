@@ -97,7 +97,7 @@ PAGES = {
     "/contacts": (
         "contacts.html",
         "Contacts",
-        "support@noelchauffer.com",
+        "info@noelchauffer.com",
     ),
     "/your-ride-history": (
         "your-ride-history.html",

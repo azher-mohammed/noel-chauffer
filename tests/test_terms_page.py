@@ -123,7 +123,7 @@ class TermsPageTest(unittest.TestCase):
         self.assertNotIn("180 Green Acres Road", html)
         self.assertNotIn("East Valley Stream", html)
         self.assertIn("Siahsolutions Inc", html)
-        self.assertIn("support@noelchauffer.com", html)
+        self.assertIn("info@noelchauffer.com", html)
         self.assertIn("929-385-7597", html)
 
     def test_homepage_footer_links_to_terms(self):

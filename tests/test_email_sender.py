@@ -166,7 +166,7 @@ class EmailSenderCase(unittest.TestCase):
         url, headers, payload = request_parts(mock_urlopen)
         self.assertEqual(url, "https://api.resend.com/emails")
         self.assertEqual(headers.get("Authorization"), "Bearer " + FAKE_KEY)
-        self.assertEqual(payload["from"], "Noel Chauffer <support@noelchauffer.com>")
+        self.assertEqual(payload["from"], "Noel Chauffer <info@noelchauffer.com>")
         self.assertEqual(payload["to"], ["a@test.com"])
         self.assertEqual(payload["subject"], "Noel Chauffer")
         self.assertEqual(payload["text"], "hello body")

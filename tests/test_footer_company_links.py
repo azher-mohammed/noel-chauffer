@@ -137,7 +137,7 @@ class TestFooterCompanyLinksEverywhere(unittest.TestCase):
         self.assertNotIn("180 Green Acres Road", INDEX)
         self.assertNotIn("East Valley Stream", INDEX)
         self.assertIn("929-385-7597", INDEX)
-        self.assertIn("support@noelchauffer.com", INDEX)
+        self.assertIn("info@noelchauffer.com", INDEX)
 
 
 class TestUntouchedLinks(unittest.TestCase):

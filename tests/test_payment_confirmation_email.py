@@ -12,7 +12,7 @@ queued no email at all. Only the earlier "booking received" message
 Rules pinned here:
 - On a successful payment (test-mode /pay, live /pay, live
   /pay/confirm after 3-D Secure), exactly ONE confirmation email is
-  queued to the customer's booking email (from support@noelchauffer.com
+  queued to the customer's booking email (from info@noelchauffer.com
   via the existing Resend path), with pickup, drop-off, date/time,
   class and total paid. Only facts already on the booking.
 - The payment adds NO SMS row: SMS stays outbox-only and the owner

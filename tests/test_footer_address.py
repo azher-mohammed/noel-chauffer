@@ -3,7 +3,7 @@
 
 - The home address "180 Green Acres Road, East Valley Stream, NY 11581"
   is OUT of every footer on the site (homepage + all section pages).
-- The phone number (929-385-7597) and email (support@noelchauffer.com)
+- The phone number (929-385-7597) and email (info@noelchauffer.com)
   STAY in the footer exactly as before.
 
 SUPERSEDED scope, owner order voice call 2026-11-23 ~02:52-02:54 EST
@@ -74,7 +74,7 @@ class TestFooterAddressRemoved(unittest.TestCase):
             with self.subTest(page=str(path.relative_to(STATIC))):
                 footer = _footer_block(html)
                 self.assertIn("929-385-7597", footer)
-                self.assertIn("support@noelchauffer.com", footer)
+                self.assertIn("info@noelchauffer.com", footer)
 
     def test_contacts_page_live_has_no_address(self):
         client = app_module.app.test_client()
@@ -85,7 +85,7 @@ class TestFooterAddressRemoved(unittest.TestCase):
         self.assertNotIn("East Valley Stream", html)
         self.assertNotIn("11581", html)
         self.assertIn("929-385-7597", html)
-        self.assertIn("support@noelchauffer.com", html)
+        self.assertIn("info@noelchauffer.com", html)
 
     def test_homepage_footer_live_has_no_address(self):
         client = app_module.app.test_client()
@@ -94,7 +94,7 @@ class TestFooterAddressRemoved(unittest.TestCase):
         html = r.get_data(as_text=True)
         self.assertNotIn("180 Green Acres", _footer_block(html))
         self.assertIn("929-385-7597", _footer_block(html))
-        self.assertIn("support@noelchauffer.com", _footer_block(html))
+        self.assertIn("info@noelchauffer.com", _footer_block(html))
 
     def test_no_address_anywhere_live(self):
         # Owner order 2026-11-23 ~02:52 EST: the address is nowhere —
@@ -135,7 +135,7 @@ class TestAddressRemovedOutsideFooter(unittest.TestCase):
                 local = local[0]
                 self.assertNotIn("address", local)
                 self.assertEqual(local["telephone"], "+1-929-385-7597")
-                self.assertEqual(local["email"], "support@noelchauffer.com")
+                self.assertEqual(local["email"], "info@noelchauffer.com")
 
     def test_privacy_body_address_removed(self):
         # The privacy page body no longer names the address; phone and
@@ -144,7 +144,7 @@ class TestAddressRemovedOutsideFooter(unittest.TestCase):
         self.assertNotIn(ADDRESS, html)
         self.assertNotIn("180 Green Acres", html)
         self.assertIn("929-385-7597", html)
-        self.assertIn("support@noelchauffer.com", html)
+        self.assertIn("info@noelchauffer.com", html)
 
     def test_fares_unchanged(self):
         # JFK -> Times Square, 17.9 mi, $7.46 toll: the footer change

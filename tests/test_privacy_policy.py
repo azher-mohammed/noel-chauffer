@@ -50,7 +50,7 @@ class PrivacyPolicyPageTest(unittest.TestCase):
         self.assertNotIn("180 Green Acres Road", html)
         self.assertNotIn("East Valley Stream", html)
         self.assertIn("929-385-7597", html)
-        self.assertIn("support@noelchauffer.com", html)
+        self.assertIn("info@noelchauffer.com", html)
         self.assertIn("What we collect from customers", html)
         self.assertIn("What we collect from drivers", html)
         self.assertIn("How we use your information", html)

@@ -31,107 +31,157 @@
         <div class="brand">Noel <span>Chauffer</span> — Owner</div>
         <div class="sub">Private dashboard. Breakdowns shown here come from the booking records.</div>
       </div>
-      <!-- TEMPORARY TEST-ONLY buttons (owner decisions 2026-11-17): remove before real launch. -->
-      <button type="button" id="clear-rides-btn" class="danger-btn">Clear all rides</button>
-      <button type="button" id="clear-drivers-btn" class="danger-btn">Remove all drivers</button>
       <button type="button" id="logout-btn">Log out</button>
     </div>
+    <!-- Tabs (owner decision 2026-11-23): one screen per section, no long
+         scrolling — everything lives behind its tab. -->
+    <nav class="tabs" aria-label="Dashboard sections">
+      <div class="tabs-inner">
+        <button type="button" class="tab-btn active" data-tab="dashboard" aria-selected="true">Dashboard</button>
+        <button type="button" class="tab-btn" data-tab="rides" aria-selected="false">Rides</button>
+        <button type="button" class="tab-btn" data-tab="drivers" aria-selected="false">Drivers</button>
+        <button type="button" class="tab-btn" data-tab="money" aria-selected="false">Money</button>
+        <button type="button" class="tab-btn" data-tab="more" aria-selected="false">More</button>
+      </div>
+    </nav>
   </header>
 
   <main class="wrap">
-    <h2>Summary</h2>
-    <div class="cards">
-      <div class="card"><div class="label">Gross</div><div class="value" id="sum-gross">—</div><div class="hint" id="sum-gross-hint">Customer payments</div></div>
-      <div class="card"><div class="label">Profit</div><div class="value" id="sum-profit">—</div><div class="hint">After driver share and tolls</div></div>
-      <div class="card"><div class="label">Driver owed</div><div class="value" id="sum-owed">—</div><div class="hint">Unpaid driver earnings</div></div>
-      <div class="card"><div class="label">Rides</div><div class="value" id="sum-rides">—</div><div class="hint" id="sum-rides-hint"></div></div>
-    </div>
 
-    <h2>Bookings</h2>
-    <p class="section-note">Full per-ride breakdown, as recorded. Tolls are entered by you per ride.</p>
-    <input id="bookings-search" type="search" class="bookings-search" placeholder="Search rides — customer, phone, pickup, drop-off, driver, booking #, date, status…" aria-label="Search bookings" autocomplete="off">
-    <div class="panel">
-      <table>
-        <thead>
-          <tr>
-            <th>Ride</th>
-            <th>Customer</th>
-            <th>Driver</th>
-            <th>Status</th>
-            <th class="num">Customer paid</th>
-            <th class="num">Fare</th>
-            <th class="num">Driver share</th>
-            <th class="num">Toll</th>
-            <th class="num">Waiting</th>
-            <th class="num">Extra dist.</th>
-            <th class="num">Profit</th>
-            <th>Toll entry</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="bookings-body"></tbody>
-      </table>
-      <div class="empty hidden" id="bookings-empty">No bookings yet.</div>
-    </div>
-    <div class="bookings-pager hidden" id="bookings-pager">
-      <button type="button" class="row-btn" id="bookings-prev">← Newer</button>
-      <span id="bookings-page-info"></span>
-      <button type="button" class="row-btn" id="bookings-next">Older →</button>
-    </div>
-    <div class="detail-panel hidden" id="booking-detail"></div>
-
-    <h2>Driver payouts</h2>
-    <p class="section-note">Completed rides grouped by week (7 days each). Each week's payout comes due 7 days after the week starts — the Nov 16–22 week is due Nov 23, the Nov 23–29 week is due Nov 30, the Nov 30–Dec 6 week is due Dec 7. Mark a week paid once the driver has been paid.</p>
-    <div class="panel">
-      <table>
-        <thead>
-          <tr>
-            <th>Driver</th>
-            <th>Pay period</th>
-            <th>Due</th>
-            <th class="num">Rides</th>
-            <th class="num">Total earnings</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="payouts-body"></tbody>
-      </table>
-      <div class="empty hidden" id="payouts-empty">No completed rides yet.</div>
-    </div>
-
-    <div class="cols">
-      <div>
-        <h2>Alerts</h2>
-        <p class="section-note">Booking, accept, drop-off and cancel events.</p>
-        <div class="feed" id="alerts-feed"><div class="empty">Loading…</div></div>
+    <!-- ============ DASHBOARD TAB: today at a glance ============ -->
+    <section class="tab-panel" id="tab-dashboard" data-panel="dashboard" aria-label="Dashboard">
+      <h2>Today at a glance</h2>
+      <div class="cards">
+        <div class="card"><div class="label">Gross</div><div class="value" id="sum-gross">—</div><div class="hint" id="sum-gross-hint">Customer payments</div></div>
+        <div class="card"><div class="label">Profit</div><div class="value" id="sum-profit">—</div><div class="hint">After driver share and tolls</div></div>
+        <div class="card"><div class="label">Driver owed</div><div class="value" id="sum-owed">—</div><div class="hint">Unpaid driver earnings</div></div>
+        <div class="card"><div class="label">Rides</div><div class="value" id="sum-rides">—</div><div class="hint" id="sum-rides-hint"></div></div>
       </div>
-      <div>
-        <h2>Messages outbox</h2>
-        <p class="section-note">Outbox — messages are recorded here. Email rows show Sent once delivered, otherwise Queued.</p>
-        <div class="feed" id="outbox-feed"><div class="empty">Loading…</div></div>
+
+      <div class="dash-grid">
+        <div>
+          <h3>Latest rides</h3>
+          <div class="panel compact-list" id="today-list"><div class="empty">Loading…</div></div>
+          <button type="button" class="link-btn" data-goto-tab="rides">View all rides →</button>
+        </div>
+        <div>
+          <h3>Needs attention</h3>
+          <div class="panel compact-list" id="attention-list"><div class="empty">Loading…</div></div>
+          <h3>Latest alerts</h3>
+          <div class="panel compact-list" id="dash-alerts"><div class="empty">Loading…</div></div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <h2>Support messages</h2>
-    <p class="section-note">Typed messages from the 'Chat with us' box on the website — sent before booking, no booking needed. Flagged messages mention a problem or a lost item and need your attention first.</p>
-    <div class="feed" id="support-feed"><div class="empty">Loading…</div></div>
+    <!-- ============ RIDES TAB ============ -->
+    <section class="tab-panel hidden" id="tab-rides" data-panel="rides" aria-label="Rides">
+      <h2>Bookings</h2>
+      <p class="section-note">Full per-ride breakdown, as recorded. Tolls are entered by you per ride.</p>
+      <input id="bookings-search" type="search" class="bookings-search" placeholder="Search rides — customer, phone, pickup, drop-off, driver, booking #, date, status…" aria-label="Search bookings" autocomplete="off">
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Ride</th>
+              <th>Customer</th>
+              <th>Driver</th>
+              <th>Status</th>
+              <th class="num">Customer paid</th>
+              <th class="num">Fare</th>
+              <th class="num">Driver share</th>
+              <th class="num">Toll</th>
+              <th class="num">Waiting</th>
+              <th class="num">Extra dist.</th>
+              <th class="num">Profit</th>
+              <th>Toll entry</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="bookings-body"></tbody>
+        </table>
+        <div class="empty hidden" id="bookings-empty">No bookings yet.</div>
+      </div>
+      <div class="bookings-pager hidden" id="bookings-pager">
+        <button type="button" class="row-btn" id="bookings-prev">← Newer</button>
+        <span id="bookings-page-info"></span>
+        <button type="button" class="row-btn" id="bookings-next">Older →</button>
+      </div>
+      <div class="detail-panel hidden" id="booking-detail"></div>
+    </section>
 
-    <h2>Drivers</h2>
-    <p class="section-note">Documents, statuses and masked bank details. Select a document to view it.</p>
-    <div id="drivers-list"><div class="empty">Loading…</div></div>
+    <!-- ============ DRIVERS TAB ============ -->
+    <section class="tab-panel hidden" id="tab-drivers" data-panel="drivers" aria-label="Drivers">
+      <h2>Drivers</h2>
+      <p class="section-note">Documents, statuses and masked bank details. Select a document to view it.</p>
+      <div id="drivers-list"><div class="empty">Loading…</div></div>
 
-    <h2>Driver referrals</h2>
-    <p class="section-note">Drivers who registered through another driver's referral link, and the $5 earned per completed ride (first 15 rides each). Tracking only — no money moves here.</p>
-    <div class="feed" id="referrals-feed"><div class="empty">Loading…</div></div>
+      <details class="sub-block" id="expiry-block">
+        <summary>Documents expiring soon <span class="count-badge zero" id="expiry-count">0</span></summary>
+        <p class="section-note">Every driver document expiring within the next 10 days, plus expired ones — expired means that driver's registration is paused until they upload a new document. Read-only.</p>
+        <div class="feed" id="expiry-feed"><div class="empty">Loading…</div></div>
+      </details>
 
-    <h2>Flagged documents</h2>
-    <p class="section-note">Registration attempts rejected by the document checks — a photo already used on another driver account, the same photo in two document slots, a blank or too-small photo, or an expired document. Read-only; nothing is stored for these attempts.</p>
-    <div class="feed" id="flags-feed"><div class="empty">Loading…</div></div>
+      <details class="sub-block" id="flags-block">
+        <summary>Flagged documents <span class="count-badge zero" id="flags-count">0</span></summary>
+        <p class="section-note">Registration attempts rejected by the document checks — a photo already used on another driver account, the same photo in two document slots, a blank or too-small photo, or an expired document. Read-only; nothing is stored for these attempts.</p>
+        <div class="feed" id="flags-feed"><div class="empty">Loading…</div></div>
+      </details>
+    </section>
 
-    <h2>Documents expiring soon</h2>
-    <p class="section-note">Every driver document expiring within the next 10 days, plus expired ones — expired means that driver's registration is paused until they upload a new document. Read-only.</p>
-    <div class="feed" id="expiry-feed"><div class="empty">Loading…</div></div>
+    <!-- ============ MONEY TAB ============ -->
+    <section class="tab-panel hidden" id="tab-money" data-panel="money" aria-label="Money">
+      <h2>Driver payouts</h2>
+      <p class="section-note">Completed rides grouped by week (7 days each). Each week's payout comes due 7 days after the week starts — the Nov 16–22 week is due Nov 23, the Nov 23–29 week is due Nov 30, the Nov 30–Dec 6 week is due Dec 7. Mark a week paid once the driver has been paid.</p>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Driver</th>
+              <th>Pay period</th>
+              <th>Due</th>
+              <th class="num">Rides</th>
+              <th class="num">Total earnings</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="payouts-body"></tbody>
+        </table>
+        <div class="empty hidden" id="payouts-empty">No completed rides yet.</div>
+      </div>
+
+      <h2>Driver referrals</h2>
+      <p class="section-note">Drivers who registered through another driver's referral link, and the $5 earned per completed ride (first 15 rides each). Tracking only — no money moves here.</p>
+      <div class="feed" id="referrals-feed"><div class="empty">Loading…</div></div>
+    </section>
+
+    <!-- ============ MORE TAB ============ -->
+    <section class="tab-panel hidden" id="tab-more" data-panel="more" aria-label="More">
+      <div class="cols">
+        <div>
+          <h2>Alerts</h2>
+          <p class="section-note">Booking, accept, drop-off and cancel events.</p>
+          <div class="feed" id="alerts-feed"><div class="empty">Loading…</div></div>
+        </div>
+        <div>
+          <h2>Messages outbox</h2>
+          <p class="section-note">Outbox — messages are recorded here. Email rows show Sent once delivered, otherwise Queued.</p>
+          <div class="feed" id="outbox-feed"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <h2>Support messages</h2>
+      <p class="section-note">Typed messages from the 'Chat with us' box on the website — sent before booking, no booking needed. Flagged messages mention a problem or a lost item and need your attention first.</p>
+      <div class="feed" id="support-feed"><div class="empty">Loading…</div></div>
+
+      <h2>Test only</h2>
+      <p class="section-note">Temporary test-only buttons (owner decisions 2026-11-17) — remove before real launch.</p>
+      <div class="danger-zone">
+        <button type="button" id="clear-rides-btn" class="danger-btn">Clear all rides</button>
+        <button type="button" id="clear-drivers-btn" class="danger-btn">Remove all drivers</button>
+      </div>
+    </section>
+
   </main>
 </div>
 

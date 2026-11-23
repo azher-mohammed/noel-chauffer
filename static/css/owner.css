@@ -1,15 +1,23 @@
-/* Noel Chauffer — owner dashboard. Clean, private, owner-only. */
+/* Noel Chauffer — owner dashboard. Clean, private, owner-only.
+   Tabbed layout (owner decision 2026-11-23): one screen per section —
+   Dashboard / Rides / Drivers / Money / More — no long scrolling.
+   Style follows the site's standing rules: light blue #5b9bd5 buttons
+   (hover #4a8ac2), white/black, bright gold #D4AF37 ONLY on the word
+   "Chauffeur" in the brand name. No gradients, no glow, no green. */
 :root {
   --black: #0b0b0c;
   --ink: #161617;
-  --gold: #c9a227;
-  --gold-soft: #e8d9a0;
+  --blue: #5b9bd5;
+  --blue-dark: #4a8ac2;
+  --gold-word: #d4af37;
   --white: #ffffff;
   --paper: #f7f5f0;
   --grey: #6b6b6b;
   --line: #e6e2d8;
-  --ok: #1e7a4c;
+  --field-border: #cfccc2;
   --bad: #a83232;
+  --bad-border: #c0392b;
+  --bad-soft: #fdf6f5;
 }
 * { box-sizing: border-box; }
 body {
@@ -25,37 +33,58 @@ input, select { font: inherit; }
 
 /* PIN gate */
 .pin-wrap { max-width: 400px; margin: 90px auto 0; padding: 0 20px; }
-.pin-card { background: var(--white); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 8px; padding: 30px; text-align: center; box-shadow: 0 14px 34px rgba(0,0,0,0.08); }
+.pin-card { background: var(--white); border: 1px solid var(--line); border-top: 3px solid var(--blue); border-radius: 8px; padding: 30px; text-align: center; box-shadow: 0 14px 34px rgba(0,0,0,0.08); }
 .pin-card h1 { font-family: Georgia, serif; font-weight: 400; margin: 0 0 6px; font-size: 28px; }
-.pin-card h1 span { color: var(--gold); }
+.pin-card h1 span { color: var(--gold-word); }
 .pin-card p { color: var(--grey); font-size: 14.5px; margin: 0 0 18px; }
-.pin-card input { width: 100%; padding: 13px; border: 1px solid #cfccc2; border-radius: 4px; text-align: center; font-size: 20px; letter-spacing: 0.3em; }
-.pin-card button { width: 100%; background: var(--black); color: var(--white); border: 0; padding: 13px; border-radius: 4px; margin-top: 12px; font-size: 16px; }
+.pin-card input { width: 100%; padding: 13px; border: 1px solid var(--field-border); border-radius: 4px; text-align: center; font-size: 20px; letter-spacing: 0.3em; }
+.pin-card button { width: 100%; background: var(--blue); color: var(--white); border: 0; padding: 13px; border-radius: 4px; margin-top: 12px; font-size: 16px; }
+.pin-card button:hover { background: var(--blue-dark); }
 .pin-error { color: var(--bad); font-size: 14px; min-height: 1.2em; margin-top: 10px; }
 
 /* Dashboard shell */
 .dash-head { background: var(--black); color: var(--white); }
 .dash-head-inner { max-width: 1180px; margin: 0 auto; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
 .dash-head .brand { font-family: Georgia, serif; font-size: 24px; }
-.dash-head .brand span { color: var(--gold); }
+.dash-head .brand span { color: var(--gold-word); }
 .dash-head .sub { font-size: 13px; color: #cfcfcf; }
-.dash-head button { background: transparent; color: var(--white); border: 1px solid #555; border-radius: 4px; padding: 9px 16px; }
-.dash-head button:hover { border-color: var(--gold); }
-/* TEMPORARY TEST-ONLY (remove with the Clear all rides button, before real launch). */
-.dash-head button.danger-btn { border-color: #c0392b; color: #f5c6c0; margin-right: 8px; }
-.dash-head button.danger-btn:hover { border-color: #e74c3c; }
-.dash-head button:disabled { opacity: 0.5; cursor: default; }
-.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }
-.wrap h2 { font-family: Georgia, serif; font-weight: 400; font-size: 26px; margin: 34px 0 12px; }
-.wrap h2:first-child { margin-top: 6px; }
+#logout-btn { background: var(--blue); color: var(--white); border: 0; border-radius: 4px; padding: 9px 16px; }
+#logout-btn:hover { background: var(--blue-dark); }
+
+/* Tabs — sticky, so the owner never loses his place. */
+.tabs { position: sticky; top: 0; z-index: 20; background: var(--white); border-bottom: 1px solid var(--line); display: flex; gap: 2px; padding: 0 12px; overflow-x: auto; }
+.tabs-inner { max-width: 1180px; margin: 0 auto; display: flex; gap: 2px; width: 100%; }
+.tab-btn { background: none; border: 0; border-bottom: 3px solid transparent; padding: 12px 16px; font-size: 15px; color: var(--grey); white-space: nowrap; }
+.tab-btn:hover { color: var(--ink); }
+.tab-btn.active { color: var(--ink); font-weight: 600; border-bottom-color: var(--blue); }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 8px 20px 60px; }
+.wrap h2 { font-family: Georgia, serif; font-weight: 400; font-size: 24px; margin: 26px 0 12px; }
+.wrap h2:first-child { margin-top: 16px; }
+.wrap h3 { font-family: Georgia, serif; font-weight: 400; font-size: 19px; margin: 22px 0 10px; }
 .section-note { color: var(--grey); font-size: 14px; margin: -6px 0 14px; }
 
 /* Summary cards */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
-.card { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+.card { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
 .card .label { font-size: 12.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--grey); }
-.card .value { font-family: Georgia, serif; font-size: 30px; margin-top: 4px; }
+.card .value { font-family: Georgia, serif; font-size: 28px; margin-top: 4px; }
 .card .hint { font-size: 13px; color: var(--grey); }
+
+/* Dashboard two-column overview */
+.dash-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+@media (max-width: 860px) { .dash-grid { grid-template-columns: 1fr; } }
+
+/* Compact lists (Dashboard overview rows) */
+.compact-list { padding: 2px 0; }
+.mini-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; width: 100%; padding: 11px 14px; border-bottom: 1px solid var(--line); font-size: 14.5px; text-align: left; background: none; }
+.mini-row:last-child { border-bottom: 0; }
+.mini-row .sub { color: var(--grey); font-size: 13px; margin-top: 2px; }
+button.mini-row:hover { background: #fbfaf7; }
+.link-btn { background: none; border: 0; color: var(--blue); font-weight: 600; padding: 10px 2px; font-size: 14.5px; }
+.link-btn:hover { color: var(--blue-dark); }
+.count-badge { display: inline-block; min-width: 22px; text-align: center; background: var(--blue); color: var(--white); border-radius: 999px; font-size: 12.5px; font-weight: 600; padding: 1px 7px; }
+.count-badge.zero { background: #d8d8d8; color: #555555; }
 
 /* Tables */
 .panel { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 6px 0; overflow-x: auto; }
@@ -65,37 +94,50 @@ th { font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; color
 tr:last-child td { border-bottom: 0; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 td .sub { color: var(--grey); font-size: 13px; }
-.pill { display: inline-block; font-size: 12.5px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--gold); color: #6b5510; background: #fffdf4; text-transform: capitalize; white-space: nowrap; }
-.row-btn { background: var(--white); border: 1px solid #cfccc2; border-radius: 4px; padding: 7px 12px; font-size: 13.5px; }
-.row-btn:hover { border-color: var(--gold); }
-.toll-input { width: 84px; padding: 7px 9px; border: 1px solid #cfccc2; border-radius: 4px; font-variant-numeric: tabular-nums; }
-.toll-save { background: var(--black); color: var(--white); border: 0; border-radius: 4px; padding: 7px 12px; font-size: 13.5px; margin-left: 6px; }
+.pill { display: inline-block; font-size: 12.5px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--field-border); color: var(--ink); background: var(--paper); text-transform: capitalize; white-space: nowrap; }
+.pill-alert { color: var(--bad); border-color: #e0b4b0; background: var(--bad-soft); }
+.row-btn { background: var(--white); border: 1px solid var(--field-border); border-radius: 4px; padding: 7px 12px; font-size: 13.5px; }
+.row-btn:hover { border-color: var(--blue); }
+.toll-input { width: 84px; padding: 7px 9px; border: 1px solid var(--field-border); border-radius: 4px; font-variant-numeric: tabular-nums; }
+.toll-save { background: var(--blue); color: var(--white); border: 0; border-radius: 4px; padding: 7px 12px; font-size: 13.5px; margin-left: 6px; }
+.toll-save:hover { background: var(--blue-dark); }
 .empty { padding: 18px; color: var(--grey); }
 
-/* Two-column lists */
+/* Two-column lists (More tab) */
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
 .feed { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 8px 16px; max-height: 420px; overflow-y: auto; }
 .feed-item { border-bottom: 1px solid var(--line); padding: 12px 0; font-size: 14.5px; }
 .feed-item:last-child { border-bottom: 0; }
 .feed-item .t { color: var(--grey); font-size: 13px; }
-.feed-item .ch { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #6b5510; }
+.feed-item .ch { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--blue); }
 .feed-item .body { white-space: pre-wrap; word-break: break-word; }
 
 /* Drivers */
 .driver-card { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin-bottom: 14px; }
 .driver-card h3 { margin: 0 0 4px; font-family: Georgia, serif; font-weight: 400; font-size: 20px; }
 .driver-card .meta { color: var(--grey); font-size: 14px; }
-.driver-card img { width: 64px; height: 80px; border-radius: 6px; object-fit: cover; border: 2px solid var(--gold); background: #ddd; }
-.doc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.driver-card img { width: 64px; height: 80px; border-radius: 6px; object-fit: cover; border: 2px solid var(--blue); background: #ddd; }
+.driver-docs { margin-top: 12px; }
+.driver-docs summary { cursor: pointer; font-weight: 600; font-size: 14.5px; color: var(--blue); padding: 6px 0; }
+.doc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .doc-chip { font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; background: var(--paper); }
 .doc-chip button { background: none; border: 0; color: var(--ink); font-weight: 600; padding: 0; text-decoration: underline; }
-.doc-chip .st-done { color: var(--ok); font-weight: 600; }
-.doc-chip .st-todo { color: #6b5510; font-weight: 600; }
+.doc-chip .st-done { color: var(--ink); font-weight: 600; }
+.doc-chip .st-todo { color: var(--blue); font-weight: 600; }
+.doc-chip .st-bad { color: var(--bad); font-weight: 600; }
+
+/* Collapsible sub-sections inside the Drivers tab */
+.sub-block { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; margin-bottom: 14px; }
+.sub-block summary { cursor: pointer; font-family: Georgia, serif; font-size: 19px; }
+.sub-block summary .count-badge { margin-left: 6px; vertical-align: middle; }
+.sub-block .section-note { margin: 8px 0 12px; }
+.sub-block .feed { border: 0; border-radius: 0; padding: 0; max-height: 360px; }
 
 /* Detail + viewer */
-.detail-panel { background: var(--white); border: 1px solid var(--gold); border-radius: 8px; padding: 20px 22px; margin-top: 14px; }
+.detail-panel { background: var(--white); border: 1px solid var(--blue); border-radius: 8px; padding: 20px 22px; margin-top: 14px; }
 .detail-panel h3 { margin: 0 0 8px; font-family: Georgia, serif; font-weight: 400; font-size: 21px; }
+.detail-close { float: right; }
 .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 24px; font-size: 15px; }
 @media (max-width: 700px) { .detail-grid { grid-template-columns: 1fr 1fr; } }
 .detail-grid .k { color: var(--grey); font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -108,8 +150,8 @@ td .sub { color: var(--grey); font-size: 13px; }
 
 /* Bookings search (owner decision 2026-11-19): find one trip without
    checking every ride one by one. */
-.bookings-search { width: 100%; max-width: 560px; padding: 11px 14px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 15px; margin: 0 0 14px; background: var(--white); }
-.bookings-search:focus { outline: none; border-color: var(--gold); }
+.bookings-search { width: 100%; max-width: 560px; padding: 11px 14px; border: 1px solid var(--field-border); border-radius: 6px; font-size: 15px; margin: 0 0 14px; background: var(--white); }
+.bookings-search:focus { outline: none; border-color: var(--blue); }
 .bookings-pager { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; }
 .bookings-pager span { color: var(--grey); font-size: 14px; }
 .bookings-pager .row-btn:disabled { opacity: 0.45; cursor: default; }
@@ -117,27 +159,35 @@ td .sub { color: var(--grey); font-size: 13px; }
 /* PIN re-confirmation modal (owner decision 2026-11-19): every
    clear/remove action asks for the PIN again at that moment. */
 .pin-confirm-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 20px; }
-.pin-confirm-card { background: var(--white); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 8px; padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 14px 34px rgba(0,0,0,0.25); }
+.pin-confirm-card { background: var(--white); border: 1px solid var(--line); border-top: 3px solid var(--blue); border-radius: 8px; padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 14px 34px rgba(0,0,0,0.25); }
 .pin-confirm-card h3 { margin: 0 0 8px; font-family: Georgia, serif; font-weight: 400; font-size: 22px; }
 .pin-confirm-card p { color: var(--grey); font-size: 14.5px; margin: 0 0 16px; }
-.pin-confirm-card input { width: 100%; padding: 13px; border: 1px solid #cfccc2; border-radius: 4px; text-align: center; font-size: 20px; letter-spacing: 0.3em; }
+.pin-confirm-card input { width: 100%; padding: 13px; border: 1px solid var(--field-border); border-radius: 4px; text-align: center; font-size: 20px; letter-spacing: 0.3em; }
 .pin-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
 .pin-confirm-actions button { padding: 10px 18px; border-radius: 4px; font-size: 15px; }
-#pin-confirm-submit { background: var(--black); color: var(--white); border: 0; }
-#pin-confirm-cancel { background: transparent; border: 1px solid #cfccc2; }
+#pin-confirm-submit { background: var(--blue); color: var(--white); border: 0; }
+#pin-confirm-submit:hover { background: var(--blue-dark); }
+#pin-confirm-cancel { background: transparent; border: 1px solid var(--field-border); }
 
 /* Per-row Remove buttons (owner decision 2026-11-19): one driver, one
    ride at a time — each guarded by the same PIN prompt. */
-.row-btn.danger-row-btn { border-color: #c0392b; color: #a83232; margin-left: 6px; }
+.row-btn.danger-row-btn { border-color: var(--bad-border); color: var(--bad); margin-left: 6px; }
 .row-btn.danger-row-btn:hover { border-color: #e74c3c; }
 .driver-remove-btn { margin-top: 12px; }
 
 /* Dispatcher-lite assign control in the booking detail panel */
 .assign-box { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); align-items: center; }
-.assign-box select { padding: 9px 10px; border: 1px solid #cfccc2; border-radius: 6px; font-size: 15px; min-width: 240px; background: var(--white); }
+.assign-box select { padding: 9px 10px; border: 1px solid var(--field-border); border-radius: 6px; font-size: 15px; min-width: 240px; background: var(--white); }
 
 /* Emergency-cancel records in the booking detail panel (owner
    decision 2026-11-18): read-only information, no actions. */
 .emergency-cancels { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .emergency-cancels h4 { margin: 0 0 10px; font-size: 16px; }
-.emergency-cancel { font-size: 14.5px; line-height: 1.5; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--line); border-left: 4px solid var(--gold); border-radius: 8px; background: var(--white); }
+.emergency-cancel { font-size: 14.5px; line-height: 1.5; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 8px; background: var(--white); }
+
+/* Test-only danger zone (More tab): the two clear/remove-all buttons
+   live here now, away from the everyday sections. */
+.danger-zone { border: 1px solid #e0b4b0; background: var(--bad-soft); border-radius: 8px; padding: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+.danger-btn { background: var(--white); border: 1px solid var(--bad-border); color: var(--bad); border-radius: 4px; padding: 9px 16px; }
+.danger-btn:hover { border-color: #e74c3c; }
+.danger-btn:disabled { opacity: 0.5; cursor: default; }

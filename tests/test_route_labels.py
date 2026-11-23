@@ -1,4 +1,4 @@
-"""Tests for the driver route 'Pick up' / 'Drop off' side labels.
+"""Tests for the driver route 'Pick up' / 'Drop off' labels.
 
 Owner decision 2026-11-17 (voice call): looking at a job card showing
 'Terminal 1 Arrivals, Queens ... -> Stamford...', the owner asked for
@@ -6,6 +6,12 @@ small labels written beside each address inside the app so pickup vs
 drop-off is obvious at a glance. Explicitly NOT a pickup note — just
 the words beside the addresses, on the offer card and the trip screen.
 Hourly rides have no drop-off, so only the pickup label shows.
+
+Owner decision 2026-11-23 (voice call, with a screenshot of the
+offers list): the two addresses still ran together on one line
+('Pick up <addr> -> Drop off <addr>'), so pickup and drop-off are
+now two separate blocks — each leg its own block with a down arrow
+on its own line between them. Full address text is kept for both.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -44,11 +50,16 @@ class RouteLabelsCase(unittest.TestCase):
         self.assertLess(helper.index("Pick up"), helper.index("if (dropoff)"))
         self.assertLess(helper.index("if (dropoff)"), helper.index("Drop off"))
 
-    def test_route_separator_kept_and_addresses_escaped(self):
+    def test_route_legs_are_separate_blocks_with_arrow_between(self):
         driver_js = read("static/js/driver.js")
         helper = driver_js[driver_js.index("function routeHtml"):]
         helper = helper[:helper.index("}\n", helper.index("if (dropoff)")) + 2]
-        self.assertIn("→", helper)
+        # Each leg is its own block; the inline '->' separator is gone.
+        self.assertIn('<div class="route-leg">', helper)
+        self.assertIn('<div class="route-sep"', helper)
+        self.assertIn("↓", helper)
+        self.assertNotIn("→", helper)
+        # Addresses are still escaped, full text kept.
         self.assertIn('esc(pickup || "")', helper)
         self.assertIn("esc(dropoff)", helper)
 
@@ -59,6 +70,17 @@ class RouteLabelsCase(unittest.TestCase):
         rule = rule[:rule.index("}")]
         self.assertIn("font-size: 12px", rule)
         self.assertNotIn("text-transform", rule)
+
+    def test_route_legs_and_separator_have_block_css(self):
+        css = read("static/css/driver.css")
+        self.assertIn(".route-leg", css)
+        self.assertIn(".route-sep", css)
+        leg_rule = css[css.index(".route-leg"):]
+        leg_rule = leg_rule[:leg_rule.index("}")]
+        self.assertIn("display: block", leg_rule)
+        sep_rule = css[css.index(".route-sep"):]
+        sep_rule = sep_rule[:sep_rule.index("}")]
+        self.assertIn("display: block", sep_rule)
 
 
 if __name__ == "__main__":

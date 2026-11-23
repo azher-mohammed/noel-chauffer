@@ -200,6 +200,15 @@ input, select { font: inherit; }
 .offer .route .route-label, .trip-card .route .route-label {
   font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--grey);
 }
+/* Pickup and drop-off on separate blocks (owner 2026-11-23): the two
+   addresses used to run together on one line. Each leg is its own
+   block, with a down arrow on its own line between them. Shared by
+   the offer card and the trip screen. */
+.offer .route .route-leg, .trip-card .route .route-leg { display: block; }
+.offer .route .route-sep, .trip-card .route .route-sep {
+  display: block; font-size: 14px; font-weight: 700; line-height: 1.2;
+  color: var(--grey); margin: 1px 0;
+}
 .offer .when { color: var(--grey); font-size: 14.5px; margin-top: 3px; }
 .offer .earnings {
   margin-top: 12px; background: #f7f7f7; border: 1px solid var(--gold); border-radius: 8px;

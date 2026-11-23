@@ -1833,13 +1833,16 @@
       .catch(function () { /* keep the current list on a failed check */ });
   }
   function offerId(o) { return o.booking_id || o.id; }
-  /* Route line with small side labels: 'Pick up' beside the pickup
-     address and 'Drop off' beside the drop-off address, so the driver
-     can tell them apart at a glance. Hourly rides have no drop-off,
-     so only the pickup label shows. Addresses stay escaped. */
+  /* Route as two separate blocks (owner 2026-11-23): 'Pick up' and
+     'Drop off' used to run together on one line, so the two addresses
+     were hard to tell apart at a glance. Each leg is now its own
+     block, with a down arrow on its own line between them. Hourly
+     rides have no drop-off, so only the pickup block shows.
+     Addresses stay escaped. */
   function routeHtml(pickup, dropoff) {
-    var html = '<span class="route-label">Pick up</span> ' + esc(pickup || "");
-    if (dropoff) html += '  →  <span class="route-label">Drop off</span> ' + esc(dropoff);
+    var html = '<div class="route-leg"><span class="route-label">Pick up</span> ' + esc(pickup || "") + '</div>';
+    if (dropoff) html += '<div class="route-sep" aria-hidden="true">↓</div>' +
+      '<div class="route-leg"><span class="route-label">Drop off</span> ' + esc(dropoff) + '</div>';
     return html;
   }
   function renderOffers(list) {

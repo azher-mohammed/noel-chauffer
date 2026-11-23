@@ -560,12 +560,10 @@ input, select { font: inherit; }
 .class-breakdown .breakdown-row span:last-child { order: 3; }
 .class-breakdown .breakdown-total::after { border-bottom: 0; }
 
-/* Sticky bottom bar on the class page: total + Select button. */
-#ca-class-step .class-actions {
-  position: sticky; bottom: 0; z-index: 20;
-  display: flex; align-items: center; gap: 14px;
-  background: var(--black); padding: 12px 0; border-top: 1px solid var(--card-line);
-  margin-top: 16px;
+/* Class page, narrow screens (owner decision 2026-11-22): phone and
+   email stack FULL-WIDTH, one under the other, so a long email
+   never truncates the way it did side by side. */
+@media (max-width: 560px) {
+  #ca-class-step .field-row { grid-template-columns: 1fr; }
+  #ca-class-step .field-row .field { min-width: 0; }
 }
-#ca-class-step .class-actions .btn-primary { flex: 1; margin-top: 0; }
-.class-sticky-total { font-family: Georgia, serif; font-size: 22px; color: var(--white); white-space: nowrap; }

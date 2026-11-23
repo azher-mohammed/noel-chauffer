@@ -450,19 +450,23 @@ class BlacklaneFormCase(unittest.TestCase):
             self.assertIn("capacities must be respected", notes)
             self.assertIn("vehicle images above are examples", notes)
 
-    def test_sticky_bar_and_no_footer_on_booking_page(self):
-        self.assertIn('id="class-sticky-total"', self.html)
-        self.assertIn("#class-step .class-actions {", self.css)
-        self.assertIn("position: sticky; bottom: 0;", self.css)
+    def test_no_sticky_bar_and_no_footer_on_booking_page(self):
+        # Owner 2026-11-22: the sticky Select bar is GONE from the
+        # one-way class page — Continue below the email does the job.
+        self.assertNotIn('id="class-sticky-total"', self.html)
+        self.assertNotIn('id="class-continue"', self.html)
+        self.assertNotIn("#class-step .class-actions {", self.css)
+        self.assertNotIn("position: sticky; bottom: 0;", self.css)
         self.assertIn("body.class-step-open .site-footer { display: none; }",
                       self.css)
         show = block(self.js, "function showClassStep(booking, phone)", 3200)
         self.assertIn('document.body.classList.add("class-step-open")', show)
         back = block(self.js, '$("class-back").addEventListener', 500)
         self.assertIn('document.body.classList.remove("class-step-open")', back)
-        self.assertIn('id="ca-class-sticky-total"', self.app_html)
-        self.assertIn("#ca-class-step .class-actions {", self.app_css)
-        self.assertIn("position: sticky; bottom: 0;", self.app_css)
+        self.assertNotIn('id="ca-class-sticky-total"', self.app_html)
+        self.assertNotIn('id="ca-class-continue"', self.app_html)
+        self.assertNotIn("#ca-class-step .class-actions {", self.app_css)
+        self.assertNotIn("position: sticky; bottom: 0;", self.app_css)
 
     def test_business_preselected(self):
         self.assertIn('selectedClass: "sedan"', self.js)
@@ -474,14 +478,22 @@ class BlacklaneFormCase(unittest.TestCase):
         for js in (self.js, self.app_js):
             self.assertNotIn("login.blacklane", js)
             self.assertNotIn("Auth0", js)
-        cont = block(self.js, '$("class-continue").addEventListener', 3600)
+        # Owner 2026-11-22: ONE Continue button below the email does
+        # both jobs — it signs in (no code) and then saves the contact
+        # and proceeds to payment with the selected class. There is no
+        # separate two-step "sign in first" gate any more.
+        cont = block(self.js, '$("class-signin-continue").addEventListener', 8000)
+        self.assertIn("/api/customers/signin", cont,
+                      "Continue signs in with the email + phone above")
         self.assertIn("saveContact", cont,
-                      "class continue saves contact, then pays — no sign-in")
+                      "Continue saves contact, then pays — no sign-in")
         self.assertIn("proceedWith", cont)
+        self.assertNotIn("Please sign in first", self.js)
+        self.assertNotIn("Please sign in first", self.app_js)
         # Compulsory NOEL sign-in (owner 2026-11-22, live on main since
-        # 72ff305): the class continue is gated on the customer's own
-        # email+Continue sign-in — this is Noel's gate, not Blacklane's.
-        self.assertIn("Please sign in first", cont)
+        # 72ff305) is still enforced server-side on /contact and /pay —
+        # this is Noel's gate, not Blacklane's.
+        self.assertIn("/api/customers/signin", self.app_js)
 
     # ---- 8. View options button colour check -----------------------------
     def test_view_options_button_is_light_blue_not_black(self):

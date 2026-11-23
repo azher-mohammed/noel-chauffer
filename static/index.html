@@ -381,26 +381,21 @@
             <input id="class-email" type="email" autocomplete="email" placeholder="you@example.com">
           </div>
         </div>
-        <!-- Sign in (owner decision 2026-11-22, corrected same
-             day: NO CODES): compulsory before the booking can
-             proceed to payment. Email only — no password, no
-             Google/Apple/Facebook. The customer types their email
-             and taps Continue — no code is emailed, no code is
-             typed back. The phone number is compulsory too.
-             Signed-in customers stay signed in for later bookings. -->
+        <!-- Sign in + Continue (owner decision 2026-11-22, corrected
+             same day: NO CODES): one Continue button directly below
+             the email field. It signs the customer in with the email
+             + phone above (no password, no Google/Apple/Facebook, no
+             code) AND continues to payment with the selected class —
+             no separate sign-in lines and no sticky Select bar
+             below. Signed-in customers stay signed in for later
+             bookings (server session). -->
         <div class="class-signin" id="class-signin">
-          <p class="form-note">Sign in to continue — just your email and phone number above, no code.</p>
-          <button type="button" class="btn-ghost" id="class-signin-continue">Continue</button>
-          <p class="form-note hidden" id="class-signedin-note">Signed in as <b id="class-signedin-email"></b> · <button type="button" class="btn-text" id="class-signout">Use a different email</button></p>
+          <button type="button" class="btn-primary" id="class-signin-continue">Continue</button>
           <p class="form-error" id="class-signin-error" role="alert"></p>
         </div>
       </div>
       <p class="form-note hidden" id="class-discount-note">Referral discount applied — 5% off your first ride.</p>
             <p class="form-error" id="class-error" role="alert"></p>
-      <div class="class-actions">
-        <span class="class-sticky-total" id="class-sticky-total"></span>
-        <button type="button" class="btn-primary" id="class-continue">Select Business Class</button>
-      </div>
       <button type="button" class="btn-text" id="class-back">← Back to booking form</button>
     </div>
   </section>

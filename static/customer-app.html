@@ -278,26 +278,21 @@
             <input id="ca-class-email" type="email" autocomplete="email" placeholder="you@example.com">
           </div>
         </div>
-        <!-- Sign in (owner decision 2026-11-22, corrected same
-             day: NO CODES): compulsory before the booking can
-             proceed to payment. Email only — no password, no
-             Google/Apple/Facebook. The customer types their email
-             and taps Continue — no code is emailed, no code is
-             typed back. The phone number is compulsory too.
-             Signed-in customers stay signed in for later bookings. -->
+        <!-- Sign in + Continue (owner decision 2026-11-22, corrected
+             same day: NO CODES): one Continue button directly below
+             the email field. It signs the customer in with the email
+             + phone above (no password, no Google/Apple/Facebook, no
+             code) AND continues to payment with the selected class —
+             no separate sign-in lines and no sticky Select bar
+             below. Signed-in customers stay signed in for later
+             bookings (server session). -->
         <div class="class-signin" id="ca-signin">
-          <p class="form-note">Sign in to continue — just your email and phone number above, no code.</p>
-          <button type="button" class="btn-ghost" id="ca-signin-continue">Continue</button>
-          <p class="form-note hidden" id="ca-signedin-note">Signed in as <b id="ca-signedin-email"></b> · <button type="button" class="btn-text" id="ca-signout">Use a different email</button></p>
+          <button type="button" class="btn-primary btn-gold" id="ca-signin-continue">Continue</button>
           <p class="form-error" id="ca-signin-error" role="alert"></p>
         </div>
       </div>
       <p class="form-note hidden" id="ca-class-discount-note">Referral discount applied — 5% off your first ride.</p>
             <p class="form-error" id="ca-class-error" role="alert"></p>
-      <div class="class-actions">
-        <span class="class-sticky-total" id="ca-class-sticky-total"></span>
-        <button type="button" class="btn-primary btn-gold" id="ca-class-continue">Select Business Class</button>
-      </div>
       <button type="button" class="btn-text" id="ca-class-back">← Back to booking form</button>
     </div>
     <p id="ca-powered-by">Powered by <span class="brand">Noel <span>Chauffer</span></span></p>

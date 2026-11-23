@@ -838,7 +838,6 @@
       opt.classList.toggle("selected", selected);
       opt.setAttribute("aria-checked", selected ? "true" : "false");
     });
-    $("ca-class-continue").textContent = "Select " + (CLASS_LABELS[state.selectedClass] || "Business Class");
     paintClassBreakdown();
     paintClassDetails();
   }
@@ -847,7 +846,7 @@
      "Explore <Class> details" line, 5-slide highlights carousel
      (first slide: the class photo + "Clean, quiet, and
      executive-level comfort."; the rest are Noel's own short
-     lines), Capacity tabs, and the sticky total. No pricing
+     lines) and Capacity tabs. No pricing
      changed here — the breakdown values are the existing ones. */
   var CLASS_PHOTOS = { sedan: "/static/img/car-business.jpg", suv: "/static/img/car-suv.jpg", first: "/static/img/car-first.jpg" };
   var CLASS_CAPACITY = { sedan: { bags: 2, seats: 3 }, suv: { bags: 5, seats: 5 }, first: { bags: 2, seats: 3 } };
@@ -890,11 +889,6 @@
           paintClassDetails();
         });
       });
-    }
-    var sticky = $("ca-class-sticky-total");
-    if (sticky) {
-      var b = (state.classBreakdowns || {})[state.selectedClass];
-      sticky.textContent = b ? money(b.total) : "";
     }
   }
   var hlPrev = $("ca-class-hl-prev");
@@ -1000,23 +994,16 @@
     });
   });
 
-  /* ---------- Compulsory customer sign-in (owner 2026-11-22) ----------
+  /* ---------- Customer sign-in + Continue (owner 2026-11-22) ----------
      Email only — no password, no Google/Apple/Facebook. NO CODES
-     (owner correction 2026-11-22): the customer types their email
-     and phone above and taps Continue — that is the whole sign-in.
-     Signed-in customers stay signed in (server session) for later
-     bookings, and the email/phone pre-fill from it. */
-  function setSigninUi(signedIn, email) {
-    if (signedIn) {
-      hide($("ca-signin-continue"));
-      $("ca-signedin-email").textContent = email || "";
-      show($("ca-signedin-note"));
-    } else {
-      show($("ca-signin-continue"));
-      hide($("ca-signedin-note"));
-    }
-    $("ca-signin-error").textContent = "";
-  }
+     (owner correction 2026-11-22). ONE Continue button below the
+     email field does both jobs: it signs the customer in with the
+     email + phone above, then saves the contact and continues to
+     payment with the selected class. No sign-in lines are shown on
+     the page (owner 2026-11-22): no separate sign-in lines and no
+     sticky Select bar below. Signed-in customers stay signed
+     in (server session) for later bookings, and the email/phone
+     pre-fill from it. */
   function refreshCustomerSignin() {
     return fetch("/api/customers/me")
       .then(function (r) { return r.json(); })
@@ -1025,63 +1012,21 @@
           state.customerSignedIn = { email: j.email, phone: j.phone };
           if (j.email) $("ca-class-email").value = j.email;
           if (j.phone) $("ca-class-phone").value = j.phone;
-          setSigninUi(true, j.email);
         } else {
           state.customerSignedIn = null;
-          setSigninUi(false);
         }
+        $("ca-signin-error").textContent = "";
       })
       .catch(function () {
         state.customerSignedIn = null;
-        setSigninUi(false);
       });
   }
   $("ca-signin-continue").addEventListener("click", function () {
-    var email = $("ca-class-email").value.trim();
-    var phone = $("ca-class-phone").value.trim();
-    var err = $("ca-signin-error");
-    err.textContent = "";
-    if (!email || email.indexOf("@") === -1 || !phone) {
-      err.textContent = "Please fill in your email and phone number first.";
-      return;
-    }
-    var btn = $("ca-signin-continue");
-    btn.disabled = true;
-    fetch("/api/customers/signin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email, phone: phone })
-    })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        btn.disabled = false;
-        if (!res.ok) {
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "Sign-in did not work. Please try again.";
-          return;
-        }
-        state.customerSignedIn = { email: res.j.email || email, phone: res.j.phone || phone };
-        setSigninUi(true, state.customerSignedIn.email);
-      })
-      .catch(function () {
-        btn.disabled = false;
-        err.textContent = "Could not reach the booking service. Please try again.";
-      });
-  });
-  $("ca-signout").addEventListener("click", function () {
-    fetch("/api/customers/signout", { method: "POST" })
-      .catch(function () { /* Signing out is best-effort. */ })
-      .finally(function () {
-        state.customerSignedIn = null;
-        setSigninUi(false);
-      });
-  });
-
-  $("ca-class-continue").addEventListener("click", function () {
     var booking = state.classBooking;
     if (!booking) return;
-    var err = $("ca-class-error");
+    var err = $("ca-signin-error");
     err.textContent = "";
-    var btn = $("ca-class-continue");
+    var btn = $("ca-signin-continue");
     /* Contact (Blacklane-style): name, phone and email are asked on
        this page, after the class is picked. They are saved first —
        the invoice and driver messages need them, and saving the
@@ -1092,16 +1037,6 @@
     var contactEmail = $("ca-class-email").value.trim();
     if (!contactName || !contactPhone || !contactEmail || contactEmail.indexOf("@") === -1) {
       err.textContent = "Please fill in your name, phone and email.";
-      return;
-    }
-    /* Compulsory sign-in gate (owner 2026-11-22): the booking may
-       only proceed once the customer has signed in with the SAME
-       email as the booking. The server enforces the same rule on
-       /contact and /pay, so this is the friendly early stop. */
-    var signedIn = state.customerSignedIn;
-    if (!signedIn || (signedIn.email || "").toLowerCase() !== contactEmail.toLowerCase()) {
-      err.textContent = "Please sign in first — enter your email and phone above and tap Continue.";
-      $("ca-signin").scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     function proceedWith(updated) {
@@ -1122,10 +1057,9 @@
             btn.disabled = false;
             if (res.status === 401) {
               /* Sign-in expired or changed since the page loaded —
-                 the gate is server-side, so sign in again. */
+                 the gate is server-side, so tap Continue again. */
               state.customerSignedIn = null;
-              setSigninUi(false);
-              err.textContent = "Your sign-in expired — please sign in again with your email, then try again.";
+              err.textContent = "Your sign-in expired — please tap Continue again.";
               return;
             }
             err.textContent = (res.j && (res.j.error || res.j.message)) || "Your details could not be saved. Please try again.";
@@ -1139,31 +1073,57 @@
           err.textContent = "Could not reach the booking service. Please try again.";
         });
     }
-    btn.disabled = true;
-    saveContact(function (withContact) {
-      if (state.selectedClass === (withContact.vehicle_class || "sedan")) {
-        proceedWith(withContact);
-        return;
-      }
-      fetch("/api/bookings/" + encodeURIComponent(withContact.id) + "/vehicle-class", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vehicle_class: state.selectedClass })
-      })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-        .then(function (res) {
-          btn.disabled = false;
-          if (!res.ok || !res.j.booking) {
-            err.textContent = (res.j && (res.j.error || res.j.message)) || "That class could not be selected. Please try again.";
-            return;
-          }
-          proceedWith(res.j.booking);
+    function continueToPayment() {
+      saveContact(function (withContact) {
+        if (state.selectedClass === (withContact.vehicle_class || "sedan")) {
+          proceedWith(withContact);
+          return;
+        }
+        fetch("/api/bookings/" + encodeURIComponent(withContact.id) + "/vehicle-class", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vehicle_class: state.selectedClass })
         })
-        .catch(function () {
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            btn.disabled = false;
+            if (!res.ok || !res.j.booking) {
+              err.textContent = (res.j && (res.j.error || res.j.message)) || "That class could not be selected. Please try again.";
+              return;
+            }
+            proceedWith(res.j.booking);
+          })
+          .catch(function () {
+            btn.disabled = false;
+            err.textContent = "Could not reach the booking service. Please try again.";
+          });
+      });
+    }
+    /* One tap signs in AND continues (owner 2026-11-22): the sign-in
+       is just the email + phone above — no code, no password — and
+       signing in again with the same (or a changed) email simply
+       replaces the session, so the server-side gate on /contact
+       always sees the email the customer just typed. */
+    btn.disabled = true;
+    fetch("/api/customers/signin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: contactEmail, phone: contactPhone })
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) {
           btn.disabled = false;
-          err.textContent = "Could not reach the booking service. Please try again.";
-        });
-    });
+          err.textContent = (res.j && (res.j.error || res.j.message)) || "Sign-in did not work. Please try again.";
+          return;
+        }
+        state.customerSignedIn = { email: res.j.email || contactEmail, phone: res.j.phone || contactPhone };
+        continueToPayment();
+      })
+      .catch(function () {
+        btn.disabled = false;
+        err.textContent = "Could not reach the booking service. Please try again.";
+      });
   });
 
   $("ca-class-back").addEventListener("click", function () {

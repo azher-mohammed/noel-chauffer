@@ -52,10 +52,13 @@ class SigninUiTest(unittest.TestCase):
         # Inside the class step, after the class options.
         self.assertGreater(html.index('id="class-signin"'),
                            html.index('id="class-step"'))
-        for ident in ("class-signin-continue",
-                      "class-signedin-note", "class-signedin-email",
-                      "class-signout", "class-signin-error"):
+        # ONE Continue button below the email field (owner 2026-11-22):
+        # it signs in AND continues to payment. No sign-in lines.
+        for ident in ("class-signin-continue", "class-signin-error"):
             self.assertIn('id="%s"' % ident, html, ident)
+        for gone in ("class-signedin-note", "class-signedin-email",
+                     "class-signout"):
+            self.assertNotIn('id="%s"' % gone, html, gone)
         # Email only: no password field and no social buttons anywhere
         # near the sign-in panel.
         panel = html[html.index('id="class-signin"'):
@@ -65,6 +68,10 @@ class SigninUiTest(unittest.TestCase):
         self.assertNotIn("Apple", panel)
         self.assertNotIn("Facebook", panel)
         self.assertIn("Continue", panel)
+        # The removed sign-in lines are gone from the panel.
+        self.assertNotIn("Sign in to continue", panel)
+        self.assertNotIn("Signed in as", panel)
+        self.assertNotIn("Use a different email", panel)
         # NO CODES (owner 2026-11-22): no code field, no code button,
         # no code wording anywhere in the panel.
         self.assertNotIn("code-field", panel)
@@ -77,10 +84,11 @@ class SigninUiTest(unittest.TestCase):
         html = _read("static/customer-app.html")
         self.assertGreater(html.index('id="ca-signin"'),
                            html.index('id="ca-class-step"'))
-        for ident in ("ca-signin-continue",
-                      "ca-signedin-note", "ca-signedin-email",
-                      "ca-signout", "ca-signin-error"):
+        for ident in ("ca-signin-continue", "ca-signin-error"):
             self.assertIn('id="%s"' % ident, html, ident)
+        for gone in ("ca-signedin-note", "ca-signedin-email",
+                     "ca-signout"):
+            self.assertNotIn('id="%s"' % gone, html, gone)
         panel = html[html.index('id="ca-signin"'):
                      html.index('id="ca-class-discount-note"')]
         self.assertNotIn("password", panel.lower())
@@ -88,6 +96,9 @@ class SigninUiTest(unittest.TestCase):
         self.assertNotIn("Apple", panel)
         self.assertNotIn("Facebook", panel)
         self.assertIn("Continue", panel)
+        self.assertNotIn("Sign in to continue", panel)
+        self.assertNotIn("Signed in as", panel)
+        self.assertNotIn("Use a different email", panel)
         self.assertNotIn("code-field", panel)
         self.assertNotIn("signin-code", panel)
         self.assertNotIn("Verify code", panel)
@@ -97,16 +108,25 @@ class SigninUiTest(unittest.TestCase):
     def test_website_signin_wiring(self):
         js = _read("static/js/customer.js")
         for endpoint in ("/api/customers/me",
-                         "/api/customers/signin",
-                         "/api/customers/signout"):
+                         "/api/customers/signin"):
             self.assertIn('"%s"' % endpoint, js, endpoint)
+        # No sign-out is wired on the class step any more (owner
+        # 2026-11-22 removed the "Use a different email" link); the
+        # server endpoint itself stays for other uses.
+        self.assertNotIn("/api/customers/signout", js)
         # NO CODES: the old code endpoints are gone entirely.
         self.assertNotIn("/api/customers/signin/request", js)
         self.assertNotIn("/api/customers/signin/verify", js)
-        # The gate: Select cannot proceed unless signed in with the
-        # same email as the booking.
+        # ONE Continue does both jobs (owner 2026-11-22): the
+        # sign-in-continue handler signs in, then saves the contact
+        # and proceeds to payment with the selected class. There is
+        # no separate two-step gate any more.
         self.assertIn("state.customerSignedIn", js)
-        self.assertIn("Please sign in first", js)
+        self.assertNotIn("Please sign in first", js)
+        cont = js[js.index('$("class-signin-continue").addEventListener'):]
+        self.assertIn("/api/customers/signin", cont)
+        self.assertIn("saveContact", cont)
+        self.assertIn("proceedWith", cont)
         # A 401 from /contact re-opens the sign-in step.
         self.assertIn("res.status === 401", js)
         self.assertIn("Your sign-in expired", js)
@@ -116,14 +136,19 @@ class SigninUiTest(unittest.TestCase):
     def test_app_signin_wiring(self):
         js = _read("static/js/customer-app.js")
         for endpoint in ("/api/customers/me",
-                         "/api/customers/signin",
-                         "/api/customers/signout"):
+                         "/api/customers/signin"):
             self.assertIn('"%s"' % endpoint, js, endpoint)
+        self.assertNotIn("/api/customers/signout", js)
         self.assertNotIn("/api/customers/signin/request", js)
         self.assertNotIn("/api/customers/signin/verify", js)
         self.assertIn("state.customerSignedIn", js)
-        self.assertIn("Please sign in first", js)
+        self.assertNotIn("Please sign in first", js)
+        cont = js[js.index('$("ca-signin-continue").addEventListener'):]
+        self.assertIn("/api/customers/signin", cont)
+        self.assertIn("saveContact", cont)
+        self.assertIn("proceedWith", cont)
         self.assertIn("res.status === 401", js)
+        self.assertIn("Your sign-in expired", js)
         self.assertIn("refreshCustomerSignin()", js)
 
 

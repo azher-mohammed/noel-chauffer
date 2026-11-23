@@ -940,6 +940,12 @@
         return '<div class="hl-slide"><div class="hl-slide-text"><h4>' + esc(T("class.hl" + i + "_title", h.title)) + '</h4><p>' + esc(T("class.hl" + i + "_text", h.text)) + '</p></div></div>';
       }).join("");
       track.style.transform = "translateX(-" + (hlIndex * 100) + "%)";
+      /* Size the track to the active slide (owner 2026-11-23): the
+         track mixes tall photo slides with short text slides; a
+         flex track stays as tall as the tallest slide, so a text
+         slide left a big dead gap above the dots. */
+      var activeSlide = track.children[hlIndex];
+      if (activeSlide) track.style.height = activeSlide.offsetHeight + "px";
     }
     var dots = $("ca-class-hl-dots");
     if (dots) {
@@ -963,6 +969,12 @@
   if (hlNext) hlNext.addEventListener("click", function () {
     hlIndex = (hlIndex + 1) % HIGHLIGHTS.length;
     paintClassDetails();
+  });
+  /* Keep the track sized to the active slide when the viewport
+     changes (text reflows, slide heights change). */
+  window.addEventListener("resize", function () {
+    var tr = $("ca-class-highlights-track");
+    if (tr && tr.children[hlIndex]) tr.style.height = tr.children[hlIndex].offsetHeight + "px";
   });
   document.querySelectorAll("#ca-class-step .cap-tab").forEach(function (tab) {
     tab.addEventListener("click", function () {

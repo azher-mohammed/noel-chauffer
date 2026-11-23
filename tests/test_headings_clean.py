@@ -128,20 +128,39 @@ class TestHeadingsClean(unittest.TestCase):
         self.assertIn("margin: 0 0 18px;", _rule(".section .intro"))
 
     def test_heading_texts_and_links_unchanged(self):
-        # (The app-band heading "Your rides, in your pocket." was
-        # removed from the homepage by owner order 2026-11-22; its
-        # separate page keeps it. The Cancellation, FAQ and Contacts
-        # headings were removed the same day, and "Your ride history"
-        # the same evening (~19:32 EST) — those sections are off
-        # the homepage entirely and live only on their own pages.
-        # The "Our company" heading was removed the same way by
-        # owner order 2026-11-22 ~19:51 EST — the section is off
-        # the homepage and a short business line lives in the
-        # footer "Company" column instead; the /our-company page
-        # keeps the full text.)
+        # (Merged 2026-11-22 rebase: the homepage below the booking
+        # form has the owner's screenshot sections — plain-text
+        # headings, no links — AND the retained Why / Three ways
+        # sections, whose heading links to the separate pages stay.
+        # The app-band heading "Your rides, in your pocket." was
+        # removed by owner order 2026-11-22; the Cancellation, FAQ,
+        # Contacts and "Your ride history" headings were removed
+        # the same day/evening — those sections are off the homepage
+        # entirely and live only on their own pages; see
+        # test_homepage_split. The "Our company" heading went the
+        # same way by owner order 2026-11-22 ~19:51 EST (commit
+        # 0152e58): the section is off the homepage and a short
+        # business line lives in the footer "Company" column
+        # instead; the /our-company page keeps the full text.)
+        for text in [
+            "Travel on your own terms.",
+            "We move with you",
+            "The gold standard of private travel.",
+        ]:
+            self.assertIn(f"<h2>{text}</h2>", INDEX)
+        # "Punctual. Professional." is one heading on two lines.
+        self.assertIn("<h2>Punctual.<br>Professional.</h2>", INDEX)
+        # Airport pickups / Experience heading links went with the
+        # screenshot rebuild; Why / Three ways heading links stay
+        # (sections retained on the homepage). The "Our company"
+        # heading link is gone with its section.
+        self.assertNotIn('<h2><a href="/our-company">Our company</a></h2>', INDEX)
         for text, href in [
             ("Airport pickups, without the rush.", "/airport-pickups"),
             ("Sit back and enjoy the ride.", "/experience"),
+        ]:
+            self.assertNotIn(f'<h2><a href="{href}">{text}</a></h2>', INDEX)
+        for text, href in [
             ("Why ride with Noel Chauffer", "/why-ride-with-noel-chauffer"),
             ("Three ways to ride", "/three-ways-to-ride"),
         ]:

@@ -10,12 +10,15 @@ Fixes pinned here:
    flex row, vertically centred — the badges never stack or sit
    at different heights (before, the two badges were bare inline
    images with no layout rule at all, so they staggered on the
-   text baseline). Since owner order 2026-11-22 the band carries
-   NO heading, NO paragraph and NO "Open the app" button — just
-   the "Noel Chauffer app" label and the two badges.
-2. Ride-type cards: equal-height flex columns; the "Learn more" link
-   is pushed to the bottom of its card, so all three links sit on
-   one straight line despite different text lengths.
+   text baseline). Since owner order 2026-11-22 ~20:09 EST the
+   band is the screenshot's "We move with you" band: heading plus
+   the two badges, NO "Open the app" button, NO paragraph.
+2. Ride-type cards: RETAINED on the homepage by the 2026-11-22
+   rebase (the "Three ways to ride" section stays until the
+   separate homepage work lands); the equal-height flex-column
+   card CSS keeps the three "Learn more" links bottom-aligned on
+   one line, which is what the owner's "sab ek ek line mein hi
+   aana chahiye" order was about.
 3. Section headings: tight line-height (1.25) so a heading wrapping
    to two lines still reads as one clean block.
 4. Footer columns: all headings start on one straight baseline on
@@ -86,6 +89,11 @@ class TestHomepageAlignment(unittest.TestCase):
         self.assertIn('height="48"', INDEX)
 
     def test_ride_type_links_bottom_aligned(self):
+        # The ride-type cards are RETAINED on the homepage (2026-11-22
+        # rebase): exactly three "Learn more" links, one per card,
+        # bottom-aligned by the equal-height flex-column card CSS
+        # (margin-top: auto) — the owner's "sab ek ek line mein hi
+        # aana chahiye" order.
         self.assertEqual(INDEX.count('class="card-link"'), 3)
         card = _rule(".exp-card")
         self.assertIn("display: flex", card)
@@ -126,14 +134,15 @@ class TestHomepageAlignment(unittest.TestCase):
         self.assertIn("#25D366", CSS)  # WhatsApp-green Chat with us
         self.assertNotIn("Refer a friend", INDEX)
         self.assertNotIn("referral-box", INDEX)
-        # Section pages still linked from the homepage headings.
-        # (The app-band heading link is gone by owner order
-        # 2026-11-22; its separate page still exists.)
+        # Section pages still linked from the homepage (top nav /
+        # hamburger menu). /three-ways-to-ride has no nav entry —
+        # its only homepage link was its section heading, removed
+        # by owner order 2026-11-22 ~20:09 EST; the page itself
+        # still exists.
         for href in [
             "/airport-pickups",
             "/experience",
             "/why-ride-with-noel-chauffer",
-            "/three-ways-to-ride",
             "/cancellation-and-waiting",
             "/frequently-asked-questions",
             "/our-company",

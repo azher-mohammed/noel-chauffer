@@ -1,18 +1,20 @@
-"""App band: badges only, no text, no button (owner order, voice call
-2026-11-22 ~06:47 EST).
+"""App band: "We move with you" (owner order, voice call 2026-11-22
+~20:09 EST — homepage below the booking form matches the owner's
+screenshot exactly).
 
-The owner said the "Your rides, in your pocket" band looked messy
-("kitna galeez dikh raha") and ordered the text out:
+The screenshot's app band is a pale-blue band with the heading
+"We move with you" and the two store badges (Google Play + App
+Store), SAME SIZE (equal height, 48px), on one straight horizontal
+row, both still linking to /app. This supersedes the 2026-11-22
+~06:47 EST badges-only order (no heading) — the image is the
+latest clear order and it carries the heading.
+
+Still true from the earlier order:
 - NO "Open the app" button
 - NO "Your rides, in your pocket" heading
 - NO "Book your ride, follow your chauffeur..." paragraph
-- KEEP the two store badges (Google Play + App Store), SAME SIZE
-  (equal height, 48px), on one straight horizontal row, both still
-  linking to /app, with the small "Noel Chauffer app" label above
-  them and the cabin photo beside them.
-- The same tan-leather cabin photo must appear only ONCE on the
-  homepage: the repeated large banner above "Sit back and enjoy
-  the ride" was removed (that section keeps its heading + text).
+- NO cabin photo in the band (the cabin photo lives beside
+  "Punctual. Professional." now — exactly once on the homepage).
 
 The separate page static/your-rides-in-your-pocket.html is untouched
 and still carries its own heading, paragraph and button.
@@ -38,13 +40,13 @@ def _rule(selector):
 
 
 class TestAppBandBadgesOnly(unittest.TestCase):
-    def test_no_button_heading_or_paragraph_in_band(self):
+    def test_no_button_old_heading_or_paragraph_in_band(self):
         self.assertNotIn("Open the app", INDEX)
         self.assertNotIn("Your rides, in your pocket", INDEX)
         self.assertNotIn("Book your ride, follow your chauffeur", INDEX)
 
-    def test_label_badges_and_photo_kept(self):
-        self.assertIn('<p class="eyebrow">Noel Chauffer app</p>', INDEX)
+    def test_heading_and_badges_kept(self):
+        self.assertIn("<h2>We move with you</h2>", INDEX)
         self.assertIn('href="/app"><img src="/static/img/google-play-badge.png"', INDEX)
         self.assertIn('href="/app"><img src="/static/img/app-store-badge.svg"', INDEX)
         self.assertIn('src="/static/img/cabin.jpg"', INDEX)
@@ -61,9 +63,8 @@ class TestAppBandBadgesOnly(unittest.TestCase):
     def test_cabin_photo_appears_exactly_once(self):
         self.assertEqual(INDEX.count("cabin.jpg"), 1)
 
-    def test_experience_section_keeps_heading_and_text(self):
-        self.assertIn("Sit back and enjoy the ride.", INDEX)
-        self.assertIn("From booking to arrival, every detail is looked after.", INDEX)
+    def test_band_is_pale_blue(self):
+        self.assertIn("var(--sky-soft)", _rule(".move-band"))
 
     def test_separate_app_page_untouched(self):
         self.assertIn("Your rides, in your pocket.", APP_PAGE)

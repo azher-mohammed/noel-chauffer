@@ -133,14 +133,22 @@ class HomepageRestoreTest(unittest.TestCase):
                 self.assertNotIn("top-strip", html, route)
 
     def test_homepage_links_to_all_ten_pages_by_heading(self):
-        # (The app-band heading link to /your-rides-in-your-pocket
-        # was removed by owner order 2026-11-22 — the band carries
-        # only the label and the two badges now. The Cancellation,
-        # FAQ and Contacts heading links were removed the same day —
-        # those sections are off the homepage entirely and live only
-        # on their own pages, reached from the top nav. The "Your
-        # ride history" heading link was removed the same evening
-        # (~19:32 EST) the same way. The pages
+        # (Merged 2026-11-22 rebase: the homepage below the booking
+        # form has the owner's screenshot sections AND the retained
+        # Why / Three ways sections, whose heading links stay. The
+        # "Our company" heading link went with its section (owner
+        # order 2026-11-22 ~19:51 EST, commit 0152e58) — only the
+        # top-nav link stays; see the second loop below. The
+        # app-band heading link to
+        # /your-rides-in-your-pocket was removed by owner order
+        # 2026-11-22 — the band carries only the label and the two
+        # badges now. The Cancellation, FAQ and Contacts heading
+        # links were removed the same day — those sections are off
+        # the homepage entirely and live only on their own pages,
+        # reached from the top nav. The "Your ride history" heading
+        # link was removed the same evening (~19:32 EST) the same
+        # way. The Airport pickups and Experience heading links
+        # went with the screenshot rebuild (~20:09 EST). The pages
         # themselves still exist; see
         # test_each_section_page_still_returns_200.)
         skipped = {
@@ -149,35 +157,62 @@ class HomepageRestoreTest(unittest.TestCase):
             "/frequently-asked-questions",
             "/contacts",
             "/your-ride-history",
+            "/airport-pickups",
+            "/experience",
+            "/our-company",
         }
         for route, (_file, heading, _fragment) in PAGES.items():
             if route in skipped:
                 continue
             with self.subTest(route=route):
                 self.assertIn(f'<a href="{route}">{heading}</a>', self.home, route)
+        # The top nav still links to every section page except
+        # /your-rides-in-your-pocket (the app-band heading link was
+        # removed by owner order 2026-11-22 and the page has no nav
+        # entry). The other pages still exist; see
+        # test_each_section_page_still_returns_200.
+        for route in PAGES:
+            if route in ("/your-rides-in-your-pocket",):
+                continue
+            with self.subTest(route=route):
+                self.assertIn(f'href="{route}"', self.home, route)
 
     def test_homepage_carries_all_ten_section_bodies(self):
-        # The restore: the bodies are back on the homepage, verbatim.
-        # (Except the app-band body "No download, just open and go." —
-        # removed with the band's text by owner order 2026-11-22. It
-        # still lives on the separate page. And except the whole
-        # Cancellation, FAQ and Contacts section bodies — those
-        # sections were taken off the homepage entirely the same day
-        # by owner order; they live only on their own pages. And
-        # except the "Your ride history" body — taken off the
-        # homepage the same evening (~19:32 EST) by owner order;
-        # it lives only on /your-ride-history. And except the
-        # "Our company" body — that section was taken off the
-        # homepage by owner order 2026-11-22 ~19:51 EST; a short
-        # business line lives in the footer "Company" column
-        # instead, and the full text lives on /our-company.)
+        # (Merged 2026-11-22 rebase: the screenshot's sections are
+        # on the homepage in the image's order, AND the retained
+        # Why / Three ways bodies are back too. The Airport
+        # pickups, Experience and "Your ride history" bodies are
+        # off the homepage — they live only on their own pages —
+        # as are the Cancellation, FAQ and Contacts bodies removed
+        # earlier by owner order. The "Our company" body is off
+        # the homepage too (owner order 2026-11-22 ~19:51 EST,
+        # commit 0152e58): a short business line lives in the
+        # footer "Company" column instead, and the full text lives
+        # on /our-company.)
         for body in [
             "Professional chauffeurs",
             "Flying in or out of JFK, LaGuardia, Newark, LAX, ORD or MIA?",
-            "at the right terminal at JFK, LaGuardia or Newark",
-            "Your chauffeur opens the door, greets you by name",
         ]:
             self.assertIn(body, self.home, body)
+        for body in [
+            "at the right terminal at JFK, LaGuardia or Newark",
+            "Enter the phone number you booked with to see your past rides.",
+            "Your chauffeur opens the door, greets you by name",
+            "Noel Chauffer is a premium chauffeur service",
+        ]:
+            self.assertNotIn(body, self.home, body)
+        for marker in [
+            "Travel on your own terms.",
+            "Premium service, absolute privacy and seamless journeys.",
+            "Punctual.",
+            "Professional.",
+            "We move with you",
+            "The gold standard of private travel.",
+            "Available 24/7",
+            "Flight number",
+            "Diverse Fleet",
+        ]:
+            self.assertIn(marker, self.home, marker)
         # Homepage still has the booking form, the chat widget and the
         # footer — the sections came back below the form.
         self.assertIn('id="booking-form"', self.home)

@@ -545,54 +545,23 @@
     </div>
   </div>
 
-<!-- AIRPORT TRANSFERS -->
-  <section class="section" id="airports">
-    <div class="airport-card">
-      <img class="card-photo" src="/static/img/airport.jpg" alt="Chauffeur holding a name sign beside a black sedan at an airport curb with luggage" loading="lazy" decoding="async">
-      <div class="airport-body">
-        <p class="eyebrow">Airport transfers</p>
-        <h2><a href="/airport-pickups">Airport pickups, without the rush.</a></h2>
-        <p>Add your flight number when you book. Your chauffeur will meet you at the right terminal at JFK, LaGuardia or Newark. You get 60 minutes of free waiting time.</p>
-        <p><a href="/jfk-airport-transfers">Learn more about JFK airport transfers</a></p>
-      </div>
+<!-- TRAVEL ON YOUR OWN TERMS (owner 2026-11-22: homepage below the
+     booking form matches the owner's screenshot exactly) -->
+  <section class="app-band travel-terms" id="travel-terms">
+    <div class="travel-terms-inner">
+      <h2>Travel on your own terms.</h2>
+      <p>Premium service, absolute privacy and seamless journeys.</p>
     </div>
   </section>
 
-<!-- APP BAND: your rides in your pocket (store badges link to the browser app at /app until the native apps are listed) -->
-  <section class="app-band" id="app-band">
-    <div class="app-band-inner">
-      <div>
-        <p class="eyebrow">Noel Chauffer app</p>
-        <!-- Store badges in ONE straight flex row (owner 2026-11-22):
-             the two badges must sit on one horizontal line, level
-             with each other — never stacked or staggered. No heading,
-             no paragraph, no button here (owner 2026-11-22): just
-             the label and the two badges. -->
-        <div class="app-actions">
-          <div class="store-badges">
-            <!-- Store badges link to the browser app at /app for now: the
-                 native apps are not on either store yet (owner 2026-11-21). -->
-            <a href="/app"><img src="/static/img/google-play-badge.png" alt="Get it on Google Play" height="48"></a>
-            <a href="/app"><img src="/static/img/app-store-badge.svg" alt="Download on the App Store" height="48"></a>
-          </div>
-        </div>
-      </div>
+<!-- PUNCTUAL. PROFESSIONAL. -->
+  <section class="section punctual" id="punctual">
+    <div class="airport-card punctual-card">
       <img class="card-photo" src="/static/img/cabin.jpg" alt="Premium rear cabin with tan leather seats in soft warm light" loading="lazy" decoding="async">
-    </div>
-  </section>
-
-<!-- SANCTUARY: sit back and enjoy the ride (calm + experience copy, merged) -->
-  <section class="section calm-section" id="experience">
-    <div class="airport-card">
       <div class="airport-body">
-        <p class="eyebrow">The experience</p>
-        <h2><a href="/experience">Sit back and enjoy the ride.</a></h2>
-        <p>From booking to arrival, every detail is looked after.</p>
-        <ul>
-          <li><b>A welcome at the door.</b> Your chauffeur opens the door, greets you by name, and carries your luggage at pickup and drop-off.</li>
-          <li><b>The cabin, your way.</b> Music and temperature set the way you like them. Just say the word.</li>
-          <li><b>Arrive fully charged.</b> Phone chargers in every car, so your phone is full when you arrive.</li>
-        </ul>
+        <h2>Punctual.<br>Professional.</h2>
+        <p>Our hand-selected chauffeurs prioritise your schedule, route and comfort, ensuring you arrive refreshed for what matters.</p>
+        <p><a class="btn-ghost" href="/why-ride-with-noel-chauffer">Learn more</a></p>
       </div>
     </div>
   </section>
@@ -626,6 +595,44 @@
        (voice call 2026-11-22 ~19:32 EST): the lookup lives only on
        its own page /your-ride-history now; the top-nav "Ride history"
        link stays. -->
+<!-- WE MOVE WITH YOU (app band: store badges link to the browser app
+     at /app until the native apps are listed, owner 2026-11-21) -->
+  <section class="app-band move-band" id="app-band">
+    <div class="app-band-inner move-band-inner">
+      <h2>We move with you</h2>
+      <div class="app-actions">
+        <div class="store-badges">
+          <a href="/app"><img src="/static/img/google-play-badge.png" alt="Get it on Google Play" height="48"></a>
+          <a href="/app"><img src="/static/img/app-store-badge.svg" alt="Download on the App Store" height="48"></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+<!-- THE GOLD STANDARD OF PRIVATE TRAVEL -->
+  <section class="section gold-standard" id="gold-standard">
+    <img class="gold-banner" src="/static/img/airport.jpg" alt="Chauffeur greeting travellers with luggage at the airport" loading="lazy" decoding="async">
+    <h2>The gold standard of private travel.</h2>
+    <p class="intro">Our hand-selected chauffeurs prioritise your schedule, route, and comfort, ensuring you arrive refreshed for what matters.</p>
+    <div class="gold-grid">
+      <div class="gold-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <h3>Available 24/7</h3>
+        <p>Book anytime, anywhere.</p>
+      </div>
+      <div class="gold-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+        <h3>Flight number</h3>
+        <p>We adjust to your schedule.</p>
+      </div>
+      <div class="gold-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 15.5 6 10.8A2 2 0 0 1 7.9 9.5h8.2a2 2 0 0 1 1.9 1.3l1.5 4.7"/><path d="M3 15.5h18"/><path d="M5.5 15.5v2M18.5 15.5v2"/><circle cx="8" cy="17.5" r="1.8"/><circle cx="16" cy="17.5" r="1.8"/></svg>
+        <h3>Diverse Fleet</h3>
+        <p>From executive sedans to spacious SUVs.</p>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!-- "Powered by" line below the booking flow (owner 2026-11-22):

@@ -64,25 +64,39 @@ def _painter_body(js, name):
 
 
 class BreakdownUiCase(unittest.TestCase):
-    # -- homepage headings: links, clean text, no underline -------------
+    # -- homepage headings: plain text now, no links --------------------
     def test_homepage_headings_are_links_with_clean_text(self):
+        # Owner order 2026-11-22 ~20:09 EST: the homepage below the
+        # booking form matches the owner's screenshot exactly — the
+        # old section heading links are gone; the new headings are
+        # plain text. The clean-heading CSS rule stays (separate
+        # pages still use heading links).
         html = _read("static/index.html")
-        # ("our-company", "Our company") was in this list until
-        # owner order 2026-11-22 ~19:51 EST removed the homepage
-        # section; a short business line lives in the footer
+        # (Merged 2026-11-22 rebase: the screenshot's plain-text
+        # headings are on the homepage; Why / Three ways heading
+        # links stay. The "Our company" heading link is gone with
+        # its section — owner order 2026-11-22 ~19:51 EST, commit
+        # 0152e58: a short business line lives in the footer
         # "Company" column instead, and /our-company keeps the
-        # full text.
+        # full text.)
+        for text in (
+                "Travel on your own terms.",
+                "We move with you",
+                "The gold standard of private travel."):
+            self.assertIn("<h2>%s</h2>" % text, html, text)
+        self.assertIn("<h2>Punctual.<br>Professional.</h2>", html)
         for slug, text in (
                 ("why-ride-with-noel-chauffer", "Why ride with Noel Chauffer"),
-                ("three-ways-to-ride", "Three ways to ride"),
-                ("airport-pickups", "Airport pickups, without the rush."),
-                ("experience", "Sit back and enjoy the ride.")):
-            # ("your-ride-history" was removed from this list by owner
-            # order 2026-11-22 ~19:32 EST: the "Your ride history"
-            # section is off the homepage; it lives only on its own
-            # page /your-ride-history.)
+                ("three-ways-to-ride", "Three ways to ride")):
             self.assertIn('<h2><a href="/%s">%s</a></h2>' % (slug, text),
                           html, slug)
+        for slug, text in (
+                ("airport-pickups", "Airport pickups, without the rush."),
+                ("experience", "Sit back and enjoy the ride."),
+                ("our-company", "Our company"),
+                ("your-ride-history", "Your ride history")):
+            self.assertNotIn('<h2><a href="/%s">%s</a></h2>' % (slug, text),
+                             html, slug)
         css = _read("static/css/customer.css")
         m = re.search(r"\.section h2 a, \.app-band h2 a\s*\{([^}]*)\}", css)
         self.assertIsNotNone(m, "missing heading-link rule")

@@ -301,6 +301,10 @@ class MyRidesByEmailTest(unittest.TestCase):
             # on its own page now.)
             html = _read(rel)
             self.assertIn('id="history-signedin"', html, rel)
+        # Owner order 2026-11-22 ~20:09 EST: the history section is
+        # off the homepage entirely; signed-in history lives only on
+        # the separate page now.
+        self.assertNotIn('id="history-signedin"', _read("static/index.html"))
 
     def test_app_my_rides_by_email(self):
         js = _read("static/js/customer-app.js")

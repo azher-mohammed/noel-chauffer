@@ -105,7 +105,7 @@ class CustomerAppPageCase(unittest.TestCase):
         # order 2026-11-22: no 'Book' wording on the homepage).
         self.assertIn("Your ride", home)
         self.assertNotIn("Book your ride", home)
-        self.assertIn("Three ways to ride", home)
+        self.assertIn("Travel on your own terms.", home)
         resp = self.client.get("/driver")
         self.assertEqual(resp.status_code, 200)
         driver = resp.get_data(as_text=True)

@@ -101,7 +101,12 @@
       })
       .catch(function () { /* Not signed in — phone lookup stays. */ });
   })();
-  $("history-form").addEventListener("submit", function (e) {
+  /* The form lives only on the ride-history page (owner 2026-11-22:
+     the homepage section was removed); guard so this file stays
+     silent on pages without it. */
+  var historyForm = $("history-form");
+  if (!historyForm) return;
+  historyForm.addEventListener("submit", function (e) {
     e.preventDefault();
     var phone = $("history-phone").value.trim();
     var err = $("history-error");

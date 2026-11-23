@@ -649,6 +649,41 @@ input, select, textarea { font: inherit; }
 /* Calm section: three feature cards, Noel's own words and photos. */
 .calm-section { background: var(--white); }
 
+/* Homepage sections from the owner's screenshot (owner 2026-11-22):
+   "Travel on your own terms." / "Punctual. Professional." /
+   "We move with you" / "The gold standard of private travel."
+   Pale-blue bands use --sky-soft, the same pale blue as the image. */
+.travel-terms { background: var(--sky-soft); }
+.travel-terms-inner { max-width: 1100px; margin: 0 auto; padding: 44px 20px; text-align: center; }
+.travel-terms h2 { font-size: 29px; font-weight: 500; margin: 0 0 8px; }
+.travel-terms p { color: #3c3c3c; font-size: 17px; margin: 0 auto; max-width: 640px; }
+.punctual-card { display: grid; grid-template-columns: 1fr 1fr; }
+.punctual-card .card-photo { height: 100%; min-height: 300px; }
+.punctual-card .airport-body { display: flex; flex-direction: column; justify-content: center; padding: 32px; }
+.punctual-card .airport-body h2 { font-size: 30px; line-height: 1.2; }
+.punctual-card .airport-body p { margin: 0 0 12px; }
+.punctual-card .airport-body p:last-child { margin: 8px 0 0; }
+@media (max-width: 860px) {
+  .punctual-card { grid-template-columns: 1fr; }
+  .punctual-card .card-photo { height: 220px; min-height: 0; }
+}
+.move-band { background: var(--sky-soft); }
+.move-band-inner { display: block; text-align: center; padding: 44px 20px; }
+.move-band h2 { margin: 0 0 20px; }
+.move-band .app-actions { justify-content: center; }
+.move-band .store-badges { justify-content: center; }
+.gold-standard { text-align: center; }
+.gold-standard .gold-banner { display: block; width: 100%; height: 320px; object-fit: cover; border-radius: 10px; }
+@media (max-width: 860px) { .gold-standard .gold-banner { height: 220px; } }
+.gold-standard h2 { font-size: 30px; font-weight: 500; margin: 28px 0 8px; }
+.gold-standard .intro { margin: 0 auto 26px; max-width: 680px; text-align: center; }
+.gold-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; text-align: center; }
+@media (max-width: 860px) { .gold-grid { grid-template-columns: 1fr; } }
+.gold-card { background: var(--sky-soft); border-radius: 10px; padding: 28px 18px; }
+.gold-card svg { width: 52px; height: 52px; color: var(--ink); }
+.gold-card h3 { font-size: 19px; font-weight: 600; margin: 12px 0 6px; }
+.gold-card p { margin: 0; color: #3c3c3c; font-size: 15.5px; }
+
 /* Stats strip: true Noel facts only, no numbers, no ratings. */
 .stats-strip { background: var(--black); color: var(--white); margin-top: 56px; border-top: 3px solid var(--gold); }
 .stats-inner { max-width: 1100px; margin: 0 auto; padding: 44px 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }

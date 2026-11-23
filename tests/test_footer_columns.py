@@ -13,8 +13,11 @@ invented). Westchester, New Jersey, Connecticut and Hamptons are
 dropped from the footer list per the owner's dictation — their
 pages stay live at their URLs, only the footer links go.
 
-Airport transfers, Guides, Services and Company columns are
-unchanged. The footer address/phone/email line is unchanged.
+Airport transfers, Guides, Services columns are unchanged. The
+Company column changed per owner order (voice call 2026-11-23
+~00:21-00:24 EST): "Drive with us" link removed, "App" now points at
+the homepage app band (/#app-band), and the "Company" heading is a
+link to /our-company. The footer address/phone/email line is unchanged.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -53,8 +56,11 @@ FOOTER = re.sub(r' data-i18n="[^"]*"', "", FOOTER)
 
 
 def _col_block(heading):
+    # The Company heading is a link to /our-company (owner 2026-11-23),
+    # so the heading text may sit inside an <a>.
     m = re.search(
-        r"<h3[^>]*>" + re.escape(heading) + r"</h3>\s*<ul>(.*?)</ul>",
+        r"<h3[^>]*>(?:<a[^>]*>)?" + re.escape(heading)
+        + r"(?:</a>)?</h3>\s*<ul>(.*?)</ul>",
         FOOTER,
         re.S,
     )
@@ -65,10 +71,12 @@ def _col_block(heading):
 class TestFooterColumns(unittest.TestCase):
     def test_footer_column_order(self):
         headings = re.findall(r"<h3[^>]*>(.*?)</h3>", FOOTER)
+        # The Company heading is a link (owner 2026-11-23); the
+        # data-i18n attribute was stripped from FOOTER above.
         self.assertEqual(
             headings,
             ["Airport transfers", "Where we drive", "Guides",
-             "Services", "Company"],
+             "Services", '<a href="/our-company">Company</a>'],
         )
 
     def test_where_we_drive_list_exact(self):
@@ -110,8 +118,11 @@ class TestFooterColumns(unittest.TestCase):
                      "/wedding-car-service", "/point-to-point-car-service"):
             self.assertIn(f'href="{href}"', services)
         company = _col_block("Company")
-        for href in ("/driver", "/app", "/privacy"):
-            self.assertIn(f'href="{href}"', company)
+        # Owner order 2026-11-23: "Drive with us" removed from the
+        # footer; "App" now points at the homepage app band.
+        self.assertNotIn('href="/driver"', company)
+        self.assertIn('href="/#app-band"', company)
+        self.assertIn('href="/privacy"', company)
 
     def test_footer_nap_line_unchanged(self):
         self.assertIn(

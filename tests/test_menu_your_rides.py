@@ -6,7 +6,9 @@ bhai, your chauffeur ke first chauffeur ke badla your rides lagana hai").
   exact spot "For chauffeurs" used to sit (between "For business" and
   "Help"). Nothing else in the menu changes.
 - "For chauffeurs" is gone from the menu. The /driver page itself stays
-  live and working, and the footer "Drive with us" link stays as-is.
+  live and working. The footer "Drive with us" link was REMOVED by a later
+  owner order (voice call 2026-11-23 ~00:21 EST); the top-nav "Drive with
+  us" link on the other pages stays.
 - Clicking "Your rides" opens /your-ride-history, which shows the
   customer's FULL rides (phone lookup, plus auto-load for signed-in
   customers) with completed rides shown as completed
@@ -73,11 +75,15 @@ class TestMenuYourRides(unittest.TestCase):
                          "menu language item is now the working picker slot")
         self.assertIn("Sign in", menu)
 
-    def test_driver_page_and_footer_drive_link_untouched(self):
+    def test_driver_page_still_live_and_footer_drive_link_removed(self):
         client = app_module.app.test_client()
         res = client.get("/driver")
         self.assertEqual(res.status_code, 200)
-        self.assertRegex(INDEX, r'href="/driver"[^>]*>Drive with us</a>')
+        # Owner order 2026-11-23 ~00:21 EST: the footer "Drive with us"
+        # link is gone. The homepage carried it ONLY in the footer, so
+        # the phrase is gone from the homepage entirely; the /driver
+        # page itself (and the top-nav link on the other pages) stays.
+        self.assertNotIn("Drive with us", INDEX)
         # The top-nav "Ride history" link (kept by the earlier removal)
         # still points at the same separate page.
         self.assertIn('href="/your-ride-history"', INDEX)

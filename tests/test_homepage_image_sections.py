@@ -152,8 +152,13 @@ class TestHomepageImageSections(unittest.TestCase):
         self.assertIn('id="bk-pickup"', INDEX)
         self.assertIn('id="class-signin"', INDEX)
         self.assertIn("site-footer", INDEX)
-        # Live footer column order (commit ed4ce3e) stands.
-        cols = re.findall(r"<h3[^>]*>([^<]+)</h3>", INDEX.split("footer-cols")[1])
+        # Live footer column order (commit ed4ce3e) stands. The Company
+        # heading is a link to /our-company (owner 2026-11-23), so the
+        # heading text may sit inside an <a>.
+        cols = re.findall(
+            r"<h3[^>]*>(?:<a[^>]*>)?([^<]+)(?:</a>)?</h3>",
+            INDEX.split("footer-cols")[1],
+        )
         self.assertEqual(
             cols,
             ["Airport transfers", "Where we drive", "Guides", "Services", "Company"],

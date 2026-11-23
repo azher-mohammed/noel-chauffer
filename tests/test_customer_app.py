@@ -104,7 +104,16 @@ class CustomerAppPageCase(unittest.TestCase):
         # "Book your ride" became "Your ride" (Blacklane batch, owner
         # order 2026-11-22: no 'Book' wording on the homepage).
         self.assertIn("Your ride", home)
-        self.assertNotIn("Book your ride", home)
+        # Carve-out: the phone mockup in the app band is a decorative
+        # replica of the /app screen, which legitimately says
+        # "Book your ride" (the app's own heading). The no-'Book' rule
+        # covers the homepage's own copy, so the phrase must be absent
+        # everywhere EXCEPT inside the mockup — and pinned to the mockup.
+        start = home.index('class="phone-mockup"')
+        end = home.index('class="app-actions"', start)
+        self.assertIn("Book your ride", home[start:end])
+        home_without_mockup = home[:start] + home[end:]
+        self.assertNotIn("Book your ride", home_without_mockup)
         self.assertIn("Travel on your own terms.", home)
         resp = self.client.get("/driver")
         self.assertEqual(resp.status_code, 200)

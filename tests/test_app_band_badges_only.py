@@ -9,6 +9,11 @@ row, both still linking to /app. This supersedes the 2026-11-22
 ~06:47 EST badges-only order (no heading) — the image is the
 latest clear order and it carries the heading.
 
+A phone mockup of the /app booking screen was added to the band by
+a later owner order (voice call 2026-11-22 ~21:52 EST) — see
+tests/test_app_band_badges_mockup.py. It sits between the heading
+and the badges, NOT inside the badge row.
+
 Still true from the earlier order:
 - NO "Open the app" button
 - NO "Your rides, in your pocket" heading

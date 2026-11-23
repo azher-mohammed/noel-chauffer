@@ -16,7 +16,10 @@ exists on the website):
    screenshot, larger than the text card itself). Fix: the track is
    sized to the ACTIVE slide in JS (paintClassDetails + a resize
    listener), with `align-items: flex-start` so slides keep their
-   natural height. Carousel content, dots and list items unchanged.
+   natural height. Carousel content and dots unchanged. (The
+   "What's included", Capacity and "Please note" sections below the
+   carousel were removed entirely by owner order 2026-11-23 —
+   see RemovedSectionsAbsentCase below.)
 
 Pinned here (website + customer app):
 - `.class-option-car` uses `object-fit: cover` (no `contain` left in
@@ -28,6 +31,10 @@ Pinned here (website + customer app):
 - Carousel content untouched (5 highlights, first caption, text-slide
   min-heights).
 - Fares untouched (JFK -> Times Square Business driver $102.46).
+- The removed sections are ABSENT from the served class page
+  (website + /app): no "What's included", Capacity or "Please note"
+  blocks at all (owner order 2026-11-23). The capacity SYMBOLS under
+  the car photos stay (pinned in test_hourly_blacklane.py).
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -128,6 +135,47 @@ class ClassPageGapsCase(unittest.TestCase):
         self.assertIn(".hl-slide-text { padding: 18px; background: var(--paper); "
                       "border-radius: 10px; min-height: 120px; }", self.css)
         self.assertIn("min-height: 110px;", self.app_css)
+
+
+class RemovedSectionsAbsentCase(unittest.TestCase):
+    """Owner orders 2026-11-23 ~01:18 EST: "Yeh jo halka jo likha hai wo
+    kuch bhi nahi likha hua rehna" (remove the faint text entirely) and
+    "luggage seating ka bhi hata do" (remove the Capacity section too).
+    The "What's included", Capacity (Luggage/Seating tabs + carry-on
+    line + note) and "Please note" sections are REMOVED ENTIRELY from
+    the class page — nothing is written there. The capacity SYMBOLS
+    under the car photos (person/bag icons + 3/2, 5/5, 3/2 numbers)
+    stay — they are pinned in test_hourly_blacklane.py, not here."""
+
+    ABSENT = ('class="class-included"', 'class="class-capacity"',
+              'class="class-notes"', 'data-cap-tab=', 'cap-panel',
+              "What's included", "Please note", "2 x Carry-on",
+              "Personal meet &amp; greet",
+              "Includes up to 15 minutes of free wait time",
+              "Free to cancel up to 1 hour before pickup",
+              "iOS and Android chargers onboard",
+              "Assistance with luggage at pickup and drop-off",
+              "Based on standard luggage sizes",
+              "final fare may change",
+              "capacities must be respected",
+              "vehicle images above are examples")
+
+    def test_removed_sections_absent_from_served_class_page(self):
+        client = app_module.app.test_client()
+        for path, name in (("/", "website"), ("/app", "customer app")):
+            resp = client.get(path)
+            self.assertEqual(resp.status_code, 200, path)
+            html = resp.data.decode("utf-8")
+            for marker in self.ABSENT:
+                self.assertNotIn(marker, html,
+                                 "%s: removed text still served on %s"
+                                 % (marker, name))
+        # And in the source files themselves (the served pages read them).
+        for rel in ("static/index.html", "static/customer-app.html"):
+            html = read(rel)
+            for marker in self.ABSENT:
+                self.assertNotIn(marker, html,
+                                 "%s: removed text still in %s" % (marker, rel))
 
 
 class TestFaresUnchanged(unittest.TestCase):

@@ -11,8 +11,10 @@
   Continue signs in AND proceeds to payment with the selected class.
 - ALSO FIX (standing form-fix order): stack Phone and Email
   FULL-WIDTH on narrow screens so a long email never truncates.
-- KEEP: the "Please note" bullets, the class cards + price breakdown,
+- KEEP: the class cards + price breakdown,
   and the "← Back to booking form" link.
+- REMOVED (owner order 2026-11-23): the "Please note" bullets, the
+  "What's included" list and the Capacity tabs — nothing written there.
 - The sign-in session logic itself is unchanged — only the display
   lines are gone. The hourly class step keeps its own Select button
   (it has no details fields, so Continue-under-email does not apply).
@@ -107,9 +109,10 @@ class ClassContinueButtonTest(unittest.TestCase):
 
     def test_kept_sections(self):
         for step in (self.step, self.app_step):
-            # Please note bullets above the details.
-            self.assertIn("Please note", step)
-            self.assertIn("final fare may change", step)
+            # Removed sections stay gone (owner order 2026-11-23).
+            self.assertNotIn("Please note", step)
+            self.assertNotIn("What's included", step)
+            self.assertNotIn('class="class-capacity"', step)
             # Class cards + price breakdown.
             self.assertIn("class-option-sedan", step)
             self.assertIn("class-option-suv", step)

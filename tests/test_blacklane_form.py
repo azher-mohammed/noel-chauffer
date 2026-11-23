@@ -35,11 +35,11 @@ Rules pinned here (website + customer app, unless noted):
 7. "Choose your experience": side-by-side class cards (swipeable on
    narrow widths), Business pre-selected; Explore details line;
    5-slide highlights carousel (first slide: class photo +
-   "Clean, quiet, and executive-level comfort."); "What's included"
-   with the 5 items ONLY — NO complimentary water (owner decided);
-   Capacity Luggage / Seating tabs ("2 x Carry-on"); price-breakdown
-   card with dotted leader lines (existing values, no pricing
-   change); "Please note" items; sticky bottom bar with the total +
+   "Clean, quiet, and executive-level comfort."); NO "What's
+   included", Capacity or "Please note" sections at all — removed
+   entirely by owner order 2026-11-23, nothing written there;
+   price-breakdown card with dotted leader lines (existing values,
+   no pricing change); sticky bottom bar with the total +
    blue "Select <Class>"; NO footer on the booking page. After class
    selection the flow continues into Noel's EXISTING contact +
    card-payment steps — no sign-in gate, no new account step.
@@ -420,23 +420,40 @@ class BlacklaneFormCase(unittest.TestCase):
         self.assertRegex(self.app_html, r'id="ca-class-explore"[^>]*>Explore Business Class details<')
         self.assertIn('"Clean, quiet, and executive-level comfort."', self.app_js)
 
-    def test_whats_included_five_items_no_water(self):
+    def test_included_capacity_notes_removed(self):
+        # Owner order 2026-11-23 ~01:18 EST: the faint "What's
+        # included", Capacity and "Please note" sections are REMOVED
+        # ENTIRELY — nothing is written there. (This replaces the old
+        # 5-items pin: the list itself is gone, water included.)
         for html in (self.html, self.app_html):
-            self.assertNotIn("Complimentary water", html,
-                             "owner decided NO complimentary water, never add it")
-            included = block(html, "What's included", 600)
-            for item in ("Personal meet &amp; greet",
-                         "Includes up to 15 minutes of free wait time",
-                         "Free to cancel up to 1 hour before pickup",
-                         "iOS and Android chargers onboard",
-                         "Assistance with luggage at pickup and drop-off"):
-                self.assertIn(item, included)
+            for marker in ('class="class-included"',
+                           'class="class-capacity"',
+                           'class="class-notes"',
+                           'data-cap-tab=', 'cap-panel',
+                           "What's included", "Please note",
+                           "2 x Carry-on", "Complimentary water",
+                           "Personal meet &amp; greet",
+                           "Includes up to 15 minutes of free wait time",
+                           "Free to cancel up to 1 hour before pickup",
+                           "iOS and Android chargers onboard",
+                           "Assistance with luggage at pickup and drop-off",
+                           "Based on standard luggage sizes",
+                           "final fare may change",
+                           "vehicle images above are examples"):
+                self.assertNotIn(marker, html,
+                                 "removed section still present: %r" % marker)
 
-    def test_capacity_tabs(self):
+    def test_capacity_tabs_removed_symbols_stay(self):
+        # Owner order 2026-11-23: the Capacity Luggage/Seating tabs are
+        # GONE from the class page. CLASS_CAPACITY stays in the JS —
+        # it drives the capacity SYMBOLS (person/bag icons + numbers)
+        # under the car photos, which the owner did NOT order removed
+        # (pinned in test_hourly_blacklane.py).
         for html in (self.html, self.app_html):
-            self.assertIn('data-cap-tab="luggage"', html)
-            self.assertIn('data-cap-tab="seating"', html)
-            self.assertIn("2 x Carry-on", html)
+            self.assertNotIn('data-cap-tab="luggage"', html)
+            self.assertNotIn('data-cap-tab="seating"', html)
+            self.assertNotIn("2 x Carry-on", html)
+            self.assertNotIn('class="class-capacity"', html)
         for js in (self.js, self.app_js):
             self.assertIn("sedan: { bags: 2, seats: 3 }", js)
             self.assertIn("suv: { bags: 5, seats: 5 }", js)
@@ -447,12 +464,14 @@ class BlacklaneFormCase(unittest.TestCase):
             self.assertIn(".class-breakdown .breakdown-row::after", css)
             self.assertIn("border-bottom: 1px dotted", css)
 
-    def test_please_note_items(self):
+    def test_please_note_removed(self):
+        # Owner order 2026-11-23 ~01:18 EST: the whole "Please note"
+        # section is gone — heading + all three bullets.
         for html in (self.html, self.app_html):
-            notes = block(html, "Please note", 900)
-            self.assertIn("final fare may change", notes)
-            self.assertIn("capacities must be respected", notes)
-            self.assertIn("vehicle images above are examples", notes)
+            self.assertNotIn("Please note", html)
+            self.assertNotIn("final fare may change", html)
+            self.assertNotIn("capacities must be respected", html)
+            self.assertNotIn("vehicle images above are examples", html)
 
     def test_no_sticky_bar_and_no_footer_on_booking_page(self):
         # Owner 2026-11-22: the sticky Select bar is GONE from the

@@ -165,10 +165,11 @@ class CustomerAppPageCase(unittest.TestCase):
                       "ca-chat-messages", "ca-map"):
             self.assertIn('id="%s"' % field, html)
 
-    def test_app_class_step_shows_included_and_breakdown(self):
+    def test_app_class_step_shows_breakdown(self):
         # Blacklane-style options page (owner decision 2026-11-20),
-        # same as the website: what's included + the selected
-        # class's fare breakdown.
+        # same as the website: the selected class's fare breakdown.
+        # The "What's included", Capacity and "Please note" sections
+        # were removed by owner order 2026-11-23.
         html = read("static/customer-app.html")
         for text in ("Price breakdown", 'id="ca-class-breakdown"',
                      "car-business.jpg", "car-suv.jpg", "car-first.jpg",

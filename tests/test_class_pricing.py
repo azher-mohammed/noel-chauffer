@@ -705,11 +705,12 @@ class ClassApiCase(unittest.TestCase):
         self.assertNotIn("Book a ride", index)
         self.assertNotIn("Book a ride", customer_js)
 
-    def test_class_step_shows_included_and_breakdown(self):
+    def test_class_step_shows_breakdown(self):
         # Blacklane-style options page (owner decision 2026-11-20):
-        # what's included under every class, and the selected
-        # class's fare breakdown (base fare + fees + tax). No
-        # per-mile rates, no driver pay, no miles anywhere in it.
+        # the selected class's fare breakdown (base fare + fees + tax).
+        # The "What's included", Capacity and "Please note" sections
+        # were removed by owner order 2026-11-23. No per-mile rates,
+        # no driver pay, no miles anywhere in it.
         with open(os.path.join(REPO_DIR, "static", "index.html"),
                   encoding="utf-8") as fh:
             index = fh.read()

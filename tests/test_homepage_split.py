@@ -166,11 +166,14 @@ class HomepageRestoreTest(unittest.TestCase):
         # by owner order; they live only on their own pages. And
         # except the "Your ride history" body — taken off the
         # homepage the same evening (~19:32 EST) by owner order;
-        # it lives only on /your-ride-history.)
+        # it lives only on /your-ride-history. And except the
+        # "Our company" body — that section was taken off the
+        # homepage by owner order 2026-11-22 ~19:51 EST; a short
+        # business line lives in the footer "Company" column
+        # instead, and the full text lives on /our-company.)
         for body in [
             "Professional chauffeurs",
             "Flying in or out of JFK, LaGuardia, Newark, LAX, ORD or MIA?",
-            "Noel Chauffer is a premium chauffeur service",
             "at the right terminal at JFK, LaGuardia or Newark",
             "Your chauffeur opens the door, greets you by name",
         ]:

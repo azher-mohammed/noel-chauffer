@@ -67,12 +67,16 @@ class BreakdownUiCase(unittest.TestCase):
     # -- homepage headings: links, clean text, no underline -------------
     def test_homepage_headings_are_links_with_clean_text(self):
         html = _read("static/index.html")
+        # ("our-company", "Our company") was in this list until
+        # owner order 2026-11-22 ~19:51 EST removed the homepage
+        # section; a short business line lives in the footer
+        # "Company" column instead, and /our-company keeps the
+        # full text.
         for slug, text in (
                 ("why-ride-with-noel-chauffer", "Why ride with Noel Chauffer"),
                 ("three-ways-to-ride", "Three ways to ride"),
                 ("airport-pickups", "Airport pickups, without the rush."),
-                ("experience", "Sit back and enjoy the ride."),
-                ("our-company", "Our company")):
+                ("experience", "Sit back and enjoy the ride.")):
             # ("your-ride-history" was removed from this list by owner
             # order 2026-11-22 ~19:32 EST: the "Your ride history"
             # section is off the homepage; it lives only on its own

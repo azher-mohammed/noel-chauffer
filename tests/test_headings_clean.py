@@ -133,13 +133,17 @@ class TestHeadingsClean(unittest.TestCase):
         # separate page keeps it. The Cancellation, FAQ and Contacts
         # headings were removed the same day, and "Your ride history"
         # the same evening (~19:32 EST) — those sections are off
-        # the homepage entirely and live only on their own pages.)
+        # the homepage entirely and live only on their own pages.
+        # The "Our company" heading was removed the same way by
+        # owner order 2026-11-22 ~19:51 EST — the section is off
+        # the homepage and a short business line lives in the
+        # footer "Company" column instead; the /our-company page
+        # keeps the full text.)
         for text, href in [
             ("Airport pickups, without the rush.", "/airport-pickups"),
             ("Sit back and enjoy the ride.", "/experience"),
             ("Why ride with Noel Chauffer", "/why-ride-with-noel-chauffer"),
             ("Three ways to ride", "/three-ways-to-ride"),
-            ("Our company", "/our-company"),
         ]:
             self.assertIn(f'<h2><a href="{href}">{text}</a></h2>', INDEX)
 

@@ -4185,6 +4185,11 @@ def privacy_page():
     return _serve_page("privacy.html", "privacy policy")
 
 
+@app.route("/terms")
+def terms_page():
+    return _serve_page("terms.html", "terms and conditions")
+
+
 @app.route("/jfk-airport-transfers")
 def jfk_airport_transfers_page():
     return _serve_page("jfk-airport-transfers.html", "JFK airport transfers")

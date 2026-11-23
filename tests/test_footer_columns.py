@@ -2,9 +2,9 @@
 "abhi to kar do phir dekhta hoon main kya karna hai").
 
 Column order (DOM order, desktop and mobile): Airport transfers,
-Where we drive, Guides, Services, Company. On the mobile
+Where we drive, Guides, Services, Company, Terms. On the mobile
 two-column grid: row 1 Airport transfers | Where we drive,
-row 2 Guides | Services, row 3 Company.
+row 2 Guides | Services, row 3 Company | Terms.
 
 Where we drive lists EXACTLY: Manhattan, Brooklyn, Queens,
 Long Island, Rochester, New York — first four linked, Rochester
@@ -17,7 +17,11 @@ Airport transfers, Guides, Services columns are unchanged. The
 Company column changed per owner order (voice call 2026-11-23
 ~00:21-00:24 EST): "Drive with us" link removed, "App" now points at
 the homepage app band (/#app-band), and the "Company" heading is a
-link to /our-company. The footer phone/email line is unchanged; the
+link to /our-company. SUPERSEDED 2026-11-23 ~04:53-04:57 EST: the
+"App" link is REMOVED from the Company column entirely, and a new
+"Terms" column (heading links to /terms) carries "Privacy Policy"
+under it. The Company column is now just the heading link, with no
+list under it. The footer phone/email line is unchanged; the
 footer ADDRESS was removed per owner order 2026-11-23 ~01:36 EST
 ("Footer se address nikal do") — it stays only on /contacts.
 
@@ -70,6 +74,20 @@ def _col_block(heading):
     return m.group(1)
 
 
+def _col_raw(heading):
+    # Column content up to the next <h3> or the end of the footer.
+    # Used for the Company column, which has no list under its
+    # heading since the 2026-11-23 Terms change.
+    m = re.search(
+        r"<h3[^>]*>(?:<a[^>]*>)?" + re.escape(heading)
+        + r"(?:</a>)?</h3>(.*?)(?:<h3[^>]*>|$)",
+        FOOTER,
+        re.S,
+    )
+    assert m, f"footer column {heading!r} not found"
+    return m.group(1)
+
+
 class TestFooterColumns(unittest.TestCase):
     def test_footer_column_order(self):
         headings = re.findall(r"<h3[^>]*>(.*?)</h3>", FOOTER)
@@ -78,7 +96,8 @@ class TestFooterColumns(unittest.TestCase):
         self.assertEqual(
             headings,
             ["Airport transfers", "Where we drive", "Guides",
-             "Services", '<a href="/our-company">Company</a>'],
+             "Services", '<a href="/our-company">Company</a>',
+             '<a href="/terms">Terms</a>'],
         )
 
     def test_where_we_drive_list_exact(self):
@@ -119,12 +138,21 @@ class TestFooterColumns(unittest.TestCase):
         for href in ("/hourly-chauffeur-service", "/corporate-car-service",
                      "/wedding-car-service", "/point-to-point-car-service"):
             self.assertIn(f'href="{href}"', services)
-        company = _col_block("Company")
-        # Owner order 2026-11-23: "Drive with us" removed from the
-        # footer; "App" now points at the homepage app band.
+        company = _col_raw("Company")
+        # Owner order 2026-11-23 ~04:53 EST: "Drive with us" removed
+        # from the footer, and the "App" link is now gone from the
+        # Company column entirely. The Company column is just the
+        # heading link — no list, no links under it.
         self.assertNotIn('href="/driver"', company)
-        self.assertIn('href="/#app-band"', company)
-        self.assertIn('href="/privacy"', company)
+        self.assertNotIn('href="/#app-band"', company)
+        self.assertNotIn(">App</a>", company)
+        self.assertNotIn("<ul>", company)
+        # The "Privacy Policy" link moved under the new "Terms"
+        # column (owner order 2026-11-23 ~04:54 EST).
+        terms = _col_block("Terms")
+        self.assertIn('href="/privacy"', terms)
+        self.assertNotIn('href="/#app-band"', terms)
+        self.assertNotIn(">App</a>", terms)
 
     def test_footer_nap_line_address_removed(self):
         # Owner order 2026-11-23 ~01:36 EST: the home address is out

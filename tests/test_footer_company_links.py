@@ -4,18 +4,23 @@
 - "Drive with us" is gone from EVERY footer that carried it (11 pages
   with the full footer). The /driver page itself stays live, and the
   top-nav "Drive with us" link on the other pages stays untouched.
-- The footer "App" link points at the homepage app band (/#app-band),
-  not /app — the app-band badges and the hamburger "Chauffeur hailing"
-  link still point at /app and must NOT have moved.
+- The footer "App" link is GONE from every footer (owner order
+  2026-11-23 ~04:53 EST) — the app-band badges and the hamburger
+  "Chauffeur hailing" link still point at /app and must NOT have
+  moved.
+- A new "Terms" column (heading links to /terms) carries the
+  "Privacy Policy" link under it (owner order 2026-11-23 ~04:54 EST).
+  The "Company" column is now just its heading link, with no list
+  under it.
 - The footer about-line is gone (homepage only; other footers never
   carried it).
 - The "Company" heading is a link to /our-company on every footer
   that has it.
-- i18n: the "foot.drive_with_us" and "foot.about" dictionary keys are
-  intentionally LEFT in static/js/i18n.js. The dictionary tests only
-  require every key to have all eight languages and every used key to
-  exist; unused keys are allowed, and leaving them keeps the dictionary
-  complete if the links ever come back.
+- i18n: the "foot.drive_with_us", "foot.about" and "foot.app"
+  dictionary keys are intentionally LEFT in static/js/i18n.js. The
+  dictionary tests only require every key to have all eight languages
+  and every used key to exist; unused keys are allowed, and leaving
+  them keeps the dictionary complete if the links ever come back.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -45,7 +50,7 @@ STATIC = REPO_DIR / "static"
 INDEX = (STATIC / "index.html").read_text()
 I18N_JS = (STATIC / "js" / "i18n.js").read_text()
 
-# The pages whose footer carries the full five-column block.
+# The pages whose footer carries the full six-column block.
 FULL_FOOTERS = [
     "index.html",
     "airport-pickups.html",
@@ -54,6 +59,7 @@ FULL_FOOTERS = [
     "experience.html",
     "frequently-asked-questions.html",
     "our-company.html",
+    "terms.html",
     "three-ways-to-ride.html",
     "why-ride-with-noel-chauffer.html",
     "your-ride-history.html",
@@ -75,14 +81,36 @@ class TestFooterCompanyLinksEverywhere(unittest.TestCase):
                 self.assertNotIn("Drive with us", footer)
                 self.assertNotIn('href="/driver"', footer)
 
-    def test_footer_app_link_goes_to_homepage_app_band(self):
+    def test_footer_app_link_gone_everywhere(self):
+        # Owner order 2026-11-23 ~04:53 EST: the "App" link is
+        # removed from the Company column of every footer.
         for name in FULL_FOOTERS:
             footer = _footer_block((STATIC / name).read_text())
             with self.subTest(page=name):
-                self.assertIn('href="/#app-band"', footer)
-                self.assertRegex(footer, r'href="/#app-band"[^>]*>App</a>')
-                # No footer "App" link still points at /app.
-                self.assertNotRegex(footer, r'href="/app"[^>]*>App</a>')
+                self.assertNotIn(">App</a>", footer)
+                self.assertNotIn('href="/#app-band"', footer)
+
+    def test_footer_terms_column_with_privacy_under_it(self):
+        # Owner order 2026-11-23 ~04:54 EST: "Terms" is written in
+        # the footer and links to /terms; "Privacy Policy" sits
+        # under it. The Company column keeps only its heading.
+        for name in FULL_FOOTERS:
+            footer = _footer_block((STATIC / name).read_text())
+            with self.subTest(page=name):
+                self.assertRegex(footer, r'href="/terms"[^>]*>Terms</a>')
+                self.assertIn('href="/privacy"', footer)
+                self.assertLess(
+                    footer.index('href="/terms"'),
+                    footer.index('href="/privacy"'),
+                )
+                company = re.search(
+                    r'<h3><a href="/our-company"[^>]*>Company</a></h3>'
+                    r"(.*?)(?:<h3[^>]*>|$)",
+                    footer, re.S,
+                )
+                assert company, f"Company column not found in {name}"
+                self.assertNotIn("<ul>", company.group(1))
+                self.assertNotIn(">App</a>", company.group(1))
 
     def test_company_heading_links_to_our_company(self):
         for name in FULL_FOOTERS:
@@ -126,7 +154,9 @@ class TestUntouchedLinks(unittest.TestCase):
 
     def test_app_band_badges_still_point_at_app(self):
         # The "We move with you" badges are the downloader; they keep
-        # opening /app. Only the footer text link was retargeted.
+        # opening /app. The footer "App" text link is gone entirely
+        # (owner order 2026-11-23 ~04:53 EST) — only the badges and
+        # the hamburger "Chauffeur hailing" link still go to /app.
         self.assertIn(
             'href="/app"><img src="/static/img/google-play-badge.png"',
             INDEX,
@@ -155,6 +185,8 @@ class TestUntouchedLinks(unittest.TestCase):
         # keeps the dictionary complete.
         self.assertIn('"foot.drive_with_us"', I18N_JS)
         self.assertIn('"foot.about"', I18N_JS)
+        self.assertIn('"foot.app"', I18N_JS)
+        self.assertIn('"foot.terms"', I18N_JS)
 
 
 if __name__ == "__main__":

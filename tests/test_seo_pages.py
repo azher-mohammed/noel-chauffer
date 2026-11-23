@@ -16,7 +16,7 @@ These tests pin:
   JFK/LaGuardia/Newark pages (owner order 2026-11-20: all prices
   removed, bookings paused). No invented reviews or ratings.
 - The guides are long (800+ words of body text each).
-- sitemap.xml lists 41 URLs; the homepage links to the airport,
+- sitemap.xml lists 42 URLs; the homepage links to the airport,
   area and guide pages; /owner stays noindexed and out of the sitemap.
 
 Run:  python -m unittest tests.test_seo_pages tests.test_bookings_paused -v
@@ -305,11 +305,12 @@ class SeoPagesTest(unittest.TestCase):
         root = ET.fromstring(resp.get_data(as_text=True))
         ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
         locs = [el.text for el in root.findall("s:url/s:loc", ns)]
-        self.assertEqual(len(locs), 41)
+        self.assertEqual(len(locs), 42)
         for path in list(PAGES) + [
             "/jfk-airport-transfers",
             "/laguardia-airport-transfers",
             "/newark-airport-transfers",
+            "/terms",
         ]:
             self.assertIn("https://noelchauffer.com" + path, locs, path)
         for old in ("https://noelchauffer.com/",

@@ -152,16 +152,18 @@ class TestHomepageImageSections(unittest.TestCase):
         self.assertIn('id="bk-pickup"', INDEX)
         self.assertIn('id="class-signin"', INDEX)
         self.assertIn("site-footer", INDEX)
-        # Live footer column order (commit ed4ce3e) stands. The Company
-        # heading is a link to /our-company (owner 2026-11-23), so the
-        # heading text may sit inside an <a>.
+        # Live footer column order (commit ed4ce3e) stands, plus the Terms
+        # column added after Company (footer + /terms page, owner
+        # 2026-11-23: "Terms" links to /terms, "Privacy Policy" under it).
+        # The Company heading is a link to /our-company (owner
+        # 2026-11-23), so the heading text may sit inside an <a>.
         cols = re.findall(
             r"<h3[^>]*>(?:<a[^>]*>)?([^<]+)(?:</a>)?</h3>",
             INDEX.split("footer-cols")[1],
         )
         self.assertEqual(
             cols,
-            ["Airport transfers", "Where we drive", "Guides", "Services", "Company"],
+            ["Airport transfers", "Where we drive", "Guides", "Services", "Company", "Terms"],
         )
         # Top-nav Ride history link stays.
         self.assertRegex(INDEX, r'<a href="/your-ride-history"[^>]*>Ride history</a>')

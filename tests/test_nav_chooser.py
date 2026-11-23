@@ -15,6 +15,14 @@ driver's only navigation route; the embedded map stays removed.
 Owner order 2026-11-23 (voice call, "Not now nahi rehna"): the
 chooser has NO "Not now" button — the driver picks Google Maps
 or Waze (tapping outside the card still dismisses it).
+Owner order 2026-11-23 ~13:25 EST ("Chooser pe X button daal
+do"): a VISIBLE close (×) button sits top-right of the card and
+dismisses the chooser without opening any map — the owner
+reported tapping outside the card does not dismiss it on his
+phone, so the close is a real button, not only a backdrop tap.
+The overlay also carries cursor: pointer in CSS (iOS Safari only
+delivers tap events to a plain div reliably when it looks
+clickable, the likely cause of the dead backdrop tap).
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -118,12 +126,23 @@ class NavChooserCase(unittest.TestCase):
     def test_chooser_dismiss_wiring(self):
         driver_js = read("static/js/driver.js")
         # Owner order 2026-11-23 ("Not now nahi rehna"): NO "Not
-        # now" button and no wiring for it. Tapping outside the
-        # card still dismisses, without touching the trip.
+        # now" button and no wiring for it — the old close id must
+        # stay gone, and the chooser must never carry that label.
         self.assertNotIn("nav-chooser-close", driver_js)
         self.assertNotIn(
             '$("nav-chooser-close").addEventListener("click", hideNavChooser);',
             driver_js)
+        self.assertNotIn(">Not now<", driver_js)
+        # Owner order 2026-11-23 ~13:25 EST ("Chooser pe X button
+        # daal do"): a VISIBLE close (×) dismisses the chooser
+        # WITHOUT opening any map — the X handler only hides.
+        helper = extract_function(driver_js, "function showNavChooser(dest, title)")
+        self.assertIn(
+            '$("nav-chooser-x").onclick = function () { hideNavChooser(); };',
+            helper)
+        # Only the two map buttons may open an external URL.
+        self.assertEqual(helper.count("window.open"), 2)
+        # Backdrop tap-outside dismiss stays wired as a second path.
         self.assertIn(
             '$("nav-chooser-overlay").addEventListener("click", function (e) {',
             driver_js)
@@ -143,12 +162,27 @@ class NavChooserCase(unittest.TestCase):
         self.assertIn('id="nav-chooser-waze"', html)
         self.assertIn(">Google Maps<", html)
         self.assertIn(">Waze<", html)
+        # Owner order 2026-11-23 ~13:25 EST: a VISIBLE close (×)
+        # button, top-right of the card, 44×44px tap target.
+        self.assertIn('id="nav-chooser-x"', html)
+        self.assertIn('class="nav-chooser-x"', html)
+        self.assertIn('aria-label="Close"', html)
+        self.assertIn("&times;", html)
         # Owner order 2026-11-23: no "Not now" button anywhere.
         self.assertNotIn('id="nav-chooser-close"', html)
         self.assertNotIn(">Not now<", html)
         css = read("static/css/driver.css")
         self.assertIn(".nav-chooser-overlay", css)
         self.assertIn(".nav-chooser-card", css)
+        self.assertIn(".nav-chooser-x", css)
+        # The card is the close button's positioning context, and
+        # the overlay looks clickable so iOS Safari delivers the
+        # backdrop tap (the likely cause of the dead backdrop tap
+        # the owner reported).
+        self.assertIn("position: relative;", css)
+        overlay = css[css.index(".nav-chooser-overlay {"):]
+        overlay = overlay[:overlay.index("}")]
+        self.assertIn("cursor: pointer;", overlay)
         # The trip-screen top links are gone (owner 2026-11-20):
         # no container element in the page, no renderer in the JS.
         self.assertNotIn('id="trip-route-link"', html)

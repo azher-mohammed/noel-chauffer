@@ -1951,11 +1951,19 @@
      already advanced. Owner order 2026-11-23 ("Not now nahi
      rehna"): there is NO "Not now" button — the driver picks
      Google Maps or Waze; tapping outside the card still dismisses
-     it without changing the trip. The destination reuses
-     tripNavDestination, so hourly rides (no drop-off) never get a
-     drop-off chooser. The external URL opens from the chooser
-     button's own tap handler, a direct user gesture, so mobile
-     browsers do not block it. */
+     it without changing the trip. Owner order 2026-11-23 ~13:25
+     EST ("Chooser pe X button daal do"): a VISIBLE close (×)
+     button sits top-right of the card and dismisses the chooser
+     without opening any map — the owner reported tapping outside
+     the card does not dismiss it on his phone, so the close must
+     be a real button, not only a backdrop tap. The overlay also
+     carries cursor: pointer in CSS: iOS Safari only delivers tap
+     (click) events to a plain div reliably when it looks clickable,
+     which is the likely cause of the dead backdrop tap. The
+     destination reuses tripNavDestination, so hourly rides (no
+     drop-off) never get a drop-off chooser. The external URL opens
+     from the chooser button's own tap handler, a direct user
+     gesture, so mobile browsers do not block it. */
   function navChooserUrls(dest) {
     return {
       google: "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest),
@@ -1969,6 +1977,7 @@
     $("nav-chooser-dest").textContent = dest;
     $("nav-chooser-google").onclick = function () { hideNavChooser(); window.open(urls.google, "_blank", "noopener"); };
     $("nav-chooser-waze").onclick = function () { hideNavChooser(); window.open(urls.waze, "_blank", "noopener"); };
+    $("nav-chooser-x").onclick = function () { hideNavChooser(); };
     show($("nav-chooser-overlay"));
   }
   function hideNavChooser() {

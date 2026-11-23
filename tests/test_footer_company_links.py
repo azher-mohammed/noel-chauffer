@@ -102,10 +102,12 @@ class TestFooterCompanyLinksEverywhere(unittest.TestCase):
                     "Premium chauffeur service across the USA", html
                 )
 
-    def test_footer_nap_line_intact_on_homepage(self):
-        self.assertIn(
-            "180 Green Acres Road, East Valley Stream, NY 11581", INDEX
-        )
+    def test_footer_nap_line_address_removed_homepage(self):
+        # Owner order 2026-11-23 ~01:36 EST ("Footer se address nikal
+        # do"): the home address is out of the footer. Phone and email
+        # stay in the footer exactly as before.
+        self.assertNotIn("180 Green Acres Road", INDEX)
+        self.assertNotIn("East Valley Stream", INDEX)
         self.assertIn("929-385-7597", INDEX)
         self.assertIn("support@noelchauffer.com", INDEX)
 

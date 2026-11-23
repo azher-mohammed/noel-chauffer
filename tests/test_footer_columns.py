@@ -17,7 +17,9 @@ Airport transfers, Guides, Services columns are unchanged. The
 Company column changed per owner order (voice call 2026-11-23
 ~00:21-00:24 EST): "Drive with us" link removed, "App" now points at
 the homepage app band (/#app-band), and the "Company" heading is a
-link to /our-company. The footer address/phone/email line is unchanged.
+link to /our-company. The footer phone/email line is unchanged; the
+footer ADDRESS was removed per owner order 2026-11-23 ~01:36 EST
+("Footer se address nikal do") — it stays only on /contacts.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -124,11 +126,15 @@ class TestFooterColumns(unittest.TestCase):
         self.assertIn('href="/#app-band"', company)
         self.assertIn('href="/privacy"', company)
 
-    def test_footer_nap_line_unchanged(self):
-        self.assertIn(
-            "180 Green Acres Road, East Valley Stream, NY 11581",
-            INDEX,
-        )
+    def test_footer_nap_line_address_removed(self):
+        # Owner order 2026-11-23 ~01:36 EST: the home address is out
+        # of the footer (it stays only on /contacts). Phone and email
+        # stay in the footer exactly as before.
+        footer = re.search(
+            r"<footer[^>]*>(.*?)</footer>", INDEX, re.S
+        ).group(1)
+        self.assertNotIn("180 Green Acres Road", footer)
+        self.assertNotIn("East Valley Stream", footer)
         self.assertIn("929-385-7597", INDEX)
         self.assertIn("support@noelchauffer.com", INDEX)
 

@@ -726,7 +726,8 @@ check("driver page carries the nav chooser overlay",
       and b"nav-chooser-overlay" in resp.data
       and b"nav-chooser-google" in resp.data
       and b"nav-chooser-waze" in resp.data
-      and b"nav-chooser-close" in resp.data,
+      and b"nav-chooser-close" not in resp.data
+      and b"Not now" not in resp.data,
       str(resp.status_code))
 resp = client.get("/static/css/driver.css")
 check("served driver.css styles route labels",

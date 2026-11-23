@@ -1948,11 +1948,14 @@
      drop-off without the driver hunting for the links. It appears
      ONLY on those two stage advances — never on "arrived" or on
      completion — and dismissing it changes nothing: the stage has
-     already advanced. The destination reuses tripNavDestination,
-     so hourly rides (no drop-off) never get a drop-off chooser.
-     The external URL opens from the chooser button's own tap
-     handler, a direct user gesture, so mobile browsers do not
-     block it. */
+     already advanced. Owner order 2026-11-23 ("Not now nahi
+     rehna"): there is NO "Not now" button — the driver picks
+     Google Maps or Waze; tapping outside the card still dismisses
+     it without changing the trip. The destination reuses
+     tripNavDestination, so hourly rides (no drop-off) never get a
+     drop-off chooser. The external URL opens from the chooser
+     button's own tap handler, a direct user gesture, so mobile
+     browsers do not block it. */
   function navChooserUrls(dest) {
     return {
       google: "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest),
@@ -1981,7 +1984,6 @@
       showNavChooser(dest, "Navigate to drop-off");
     }
   }
-  $("nav-chooser-close").addEventListener("click", hideNavChooser);
   $("nav-chooser-overlay").addEventListener("click", function (e) {
     if (e.target === $("nav-chooser-overlay")) hideNavChooser();
   });

@@ -12,6 +12,9 @@ stage has already advanced), and hourly rides never get a drop-off
 chooser because they have no drop-off. The trip-screen top links
 were removed (owner 2026-11-20), so this chooser is now the
 driver's only navigation route; the embedded map stays removed.
+Owner order 2026-11-23 (voice call, "Not now nahi rehna"): the
+chooser has NO "Not now" button — the driver picks Google Maps
+or Waze (tapping outside the card still dismisses it).
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -114,9 +117,11 @@ class NavChooserCase(unittest.TestCase):
 
     def test_chooser_dismiss_wiring(self):
         driver_js = read("static/js/driver.js")
-        # Close button and tap-outside both dismiss, without touching
-        # the trip.
-        self.assertIn(
+        # Owner order 2026-11-23 ("Not now nahi rehna"): NO "Not
+        # now" button and no wiring for it. Tapping outside the
+        # card still dismisses, without touching the trip.
+        self.assertNotIn("nav-chooser-close", driver_js)
+        self.assertNotIn(
             '$("nav-chooser-close").addEventListener("click", hideNavChooser);',
             driver_js)
         self.assertIn(
@@ -136,9 +141,11 @@ class NavChooserCase(unittest.TestCase):
         self.assertIn('id="nav-chooser-dest"', html)
         self.assertIn('id="nav-chooser-google"', html)
         self.assertIn('id="nav-chooser-waze"', html)
-        self.assertIn('id="nav-chooser-close"', html)
         self.assertIn(">Google Maps<", html)
         self.assertIn(">Waze<", html)
+        # Owner order 2026-11-23: no "Not now" button anywhere.
+        self.assertNotIn('id="nav-chooser-close"', html)
+        self.assertNotIn(">Not now<", html)
         css = read("static/css/driver.css")
         self.assertIn(".nav-chooser-overlay", css)
         self.assertIn(".nav-chooser-card", css)

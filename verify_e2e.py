@@ -1085,7 +1085,8 @@ check("driver page carries the nav chooser overlay",
       "nav-chooser-overlay" in r.text
       and "nav-chooser-google" in r.text
       and "nav-chooser-waze" in r.text
-      and "nav-chooser-close" in r.text,
+      and "nav-chooser-close" not in r.text
+      and "Not now" not in r.text,
       "nav chooser overlay missing from served driver page")
 check("driver page states all documents are required, no count shown",
       "All items are required" in r.text

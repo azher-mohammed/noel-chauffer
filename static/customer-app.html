@@ -20,6 +20,10 @@
   <header class="app-head">
     <div class="brand">Noel <span>Chauffer</span></div>
     <div class="tag" data-i18n="app.tag">Luxury Chauffeur Rides Across USA</div>
+    <!-- Signed-in state (owner decision 2026-11-23, permanent login):
+         same display as the website menu — "Signed in as <email>"
+         with Sign out — shown whenever the customer is signed in. -->
+    <p class="app-signedin hidden" id="ca-header-signedin"><span data-i18n="app.signed_in_as">Signed in as</span> <b id="ca-header-signedin-email"></b> <button type="button" class="app-signout-btn" id="ca-header-signout" data-i18n="menu.sign_out">Sign out</button></p>
     <span class="app-lang-slot" id="app-lang-slot"></span>
   </header>
 

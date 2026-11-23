@@ -83,6 +83,21 @@ NOEL_I18N["menu.sign_in"] = {
   "ar": "تسجيل الدخول", "pt": "Entrar",
   "ur": "Sign in", "hi": "साइन इन करें", "bn": "সাইন ইন করুন"
 };
+NOEL_I18N["menu.sign_out"] = {
+  "en": "Sign out", "es": "Cerrar sesión", "fr": "Se déconnecter",
+  "ar": "تسجيل الخروج", "pt": "Sair",
+  "ur": "Sign out", "hi": "साइन आउट करें", "bn": "সাইন আউট করুন"
+};
+NOEL_I18N["menu.signin_fill"] = {
+  "en": "Please enter your email and phone number.",
+  "es": "Introduce tu correo electrónico y tu número de teléfono.",
+  "fr": "Veuillez saisir votre e-mail et votre numéro de téléphone.",
+  "ar": "يرجى إدخال بريدك الإلكتروني ورقم هاتفك.",
+  "pt": "Informe seu e-mail e número de telefone.",
+  "ur": "Apna email aur phone number likhen.",
+  "hi": "कृपया अपना ईमेल और फ़ोन नंबर दर्ज करें।",
+  "bn": "আপনার ইমেইল এবং ফোন নম্বর লিখুন।"
+};
 NOEL_I18N["menu.open"] = {
   "en": "Open menu", "es": "Abrir menú", "fr": "Ouvrir le menu",
   "ar": "افتح القائمة", "pt": "Abrir menu",

@@ -902,6 +902,18 @@ body.in-booking-flow .footer-cols { display: none; }
 .menu-sub { list-style: none; margin: 0; padding: 0 0 8px 16px; }
 .menu-sub a { display: block; color: #cfcfcf; font-size: 16px; text-decoration: none; padding: 9px 4px; }
 .menu-plain { color: #cfcfcf; }
+.menu-signin-btn { cursor: pointer; font-family: inherit; }
+.menu-signin-btn #menu-signin-label { overflow-wrap: anywhere; }
+
+/* Customer sign-in dialog (owner 2026-11-23, permanent login):
+   opened from the menu "Sign in" item. Dark overlay + white card,
+   same business look as the booking form. */
+.signin-dialog { position: fixed; inset: 0; z-index: 300; background: rgba(11, 11, 12, 0.7); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.signin-dialog-card { position: relative; background: var(--white); color: #111; border-radius: 12px; padding: 28px 24px 24px; width: 100%; max-width: 420px; }
+.signin-dialog-card h2 { font-size: 22px; margin: 0 0 18px; }
+.signin-dialog-close { position: absolute; top: 8px; right: 12px; background: none; border: 0; color: #666; font-size: 22px; padding: 8px; line-height: 1; cursor: pointer; }
+.signin-dialog .btn-primary { width: 100%; }
+.signin-signedin-line { font-size: 15px; margin: 0 0 16px; overflow-wrap: anywhere; }
 
 /* Field-required error (Blacklane-style): red message under the
    field + red underline on the input. */

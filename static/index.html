@@ -63,9 +63,11 @@
          a circular button with three LINES, shown only at narrow
          width where the full nav hides. Opens a full-screen dark
          overlay. Every item links to the closest EXISTING Noel page
-         — no new pages. "Sign in" is a plain item (no customer
-         accounts to link to yet). The language item opens the
-         language picker, which switches the whole site language. -->
+         — no new pages. "Sign in" opens the customer sign-in
+         dialog (owner decision 2026-11-23, permanent login); when
+         signed in it reads "Signed in as <email>". The language
+         item opens the language picker, which switches the whole
+         site language. -->
     <button class="menu-btn" type="button" id="menu-btn" aria-label="Open menu" data-i18n-aria="menu.open" aria-expanded="false" aria-controls="mobile-menu">
       <span></span><span></span><span></span>
     </button>
@@ -101,8 +103,40 @@
     <a class="menu-link" href="/your-ride-history" data-i18n="menu.your_rides">Your rides</a>
     <a class="menu-link" href="/frequently-asked-questions" data-i18n="menu.help">Help</a>
     <span class="menu-link menu-lang-slot" id="menu-lang-slot"></span>
-    <span class="menu-link menu-plain" data-i18n="menu.sign_in">Sign in</span>
+    <button type="button" class="menu-link menu-signin-btn" id="menu-signin-btn"><span id="menu-signin-label">Sign in</span></button>
   </nav>
+</div>
+
+<!-- Customer sign-in dialog (owner decision 2026-11-23, permanent
+     login): opened from the menu "Sign in" item. Email + phone,
+     BOTH compulsory, no code, no password, no Google/Apple/
+     Facebook. Once signed in, the customer stays signed in on
+     this browser (~365 days) until Sign out; the menu item then
+     reads "Signed in as <email>" and this dialog shows Sign out.
+     The label span carries no data-i18n: its text is set by JS
+     from the live sign-in state (i18n.js would overwrite a
+     data-i18n label on every language switch). -->
+<div class="signin-dialog hidden" id="menu-signin-dialog" role="dialog" aria-modal="true" aria-labelledby="menu-signin-title">
+  <div class="signin-dialog-card">
+    <button class="signin-dialog-close" type="button" id="menu-signin-close" aria-label="Close" data-i18n-aria="menu.close">&#10005;</button>
+    <h2 id="menu-signin-title" data-i18n="menu.sign_in">Sign in</h2>
+    <div id="menu-signin-form">
+      <div class="field">
+        <label for="menu-signin-email" data-i18n="class.email">Email</label>
+        <input id="menu-signin-email" type="email" autocomplete="email" placeholder="you@example.com" data-i18n-ph="class.email_ph">
+      </div>
+      <div class="field">
+        <label for="menu-signin-phone" data-i18n="class.phone">Phone number</label>
+        <input id="menu-signin-phone" type="tel" autocomplete="tel" placeholder="+1 929-385-7597" data-i18n-ph="class.phone_ph">
+      </div>
+      <button type="button" class="btn-primary" id="menu-signin-submit" data-i18n="menu.sign_in">Sign in</button>
+      <p class="form-error" id="menu-signin-error" role="alert"></p>
+    </div>
+    <div id="menu-signedin-view" class="hidden">
+      <p class="signin-signedin-line"><span data-i18n="app.signed_in_as">Signed in as</span> <b id="menu-signedin-email"></b></p>
+      <button type="button" class="btn-primary" id="menu-signout" data-i18n="menu.sign_out">Sign out</button>
+    </div>
+  </div>
 </div>
 
 <main id="top">

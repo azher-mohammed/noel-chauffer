@@ -173,7 +173,12 @@ class BlacklaneFormCase(unittest.TestCase):
         self.assertRegex(menu, r'href="/frequently-asked-questions"[^>]*>Help<')
         self.assertIn('id="menu-lang-slot"', menu,
                          "menu language item is now the working picker slot")
-        self.assertRegex(menu, r'class="menu-link menu-plain"[^>]*>Sign in<')
+        # "Sign in" is now a WIRED button, not a plain item (owner
+        # order 2026-11-23, permanent login): tapping it opens the
+        # sign-in dialog; signed in, its label reads
+        # "Signed in as <email>".
+        self.assertRegex(menu, r'<button[^>]*id="menu-signin-btn"[^>]*><span id="menu-signin-label">Sign in</span></button>')
+        self.assertIn('id="menu-signin-dialog"', self.html)
 
     def test_menu_links_are_existing_pages(self):
         menu = block(self.html, 'id="mobile-menu"', 4000)

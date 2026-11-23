@@ -175,10 +175,11 @@
 /* ---------- Hamburger menu (Blacklane-style, owner 2026-11-22) ---------- */
   /* Circular three-lines button, narrow width only; opens a
      full-screen dark overlay. Only one accordion section stays open
-     at a time. "Sign in" is a plain item; the language is a working
-     scroll-down picker (owner decision 2026-11-22) — the button
-     shows the current language, the dropdown lists every language
-     and filters as you type. */
+     at a time. "Sign in" opens the sign-in dialog (owner decision
+     2026-11-23, permanent login) — see initMenuSignin below; the
+     language is a working scroll-down picker (owner decision
+     2026-11-22) — the button shows the current language, the
+     dropdown lists every language and filters as you type. */
   (function initMenu() {
     var menuBtn = $("menu-btn");
     var mobileMenu = $("mobile-menu");
@@ -218,6 +219,110 @@
       var langSlot = $("menu-lang-slot");
       if (langSlot) window.NoelI18n.buildPicker(langSlot);
     }
+  })();
+  /* ---------- Menu "Sign in" + permanent login (owner 2026-11-23) ------
+     The menu item opens the sign-in dialog: email + phone, BOTH
+     compulsory, no code, no password, no Google/Apple/Facebook.
+     Once signed in, the customer stays signed in on this browser
+     (~365 days, permanent session cookie) until Sign out — the
+     menu item then reads "Signed in as <email>" and the dialog
+     shows Sign out instead of the form. The label is set by JS
+     (no data-i18n on it) and re-set on every language change, so
+     a language switch never wipes the signed-in email. */
+  (function initMenuSignin() {
+    var btn = $("menu-signin-btn");
+    var label = $("menu-signin-label");
+    var dialog = $("menu-signin-dialog");
+    if (!btn || !label || !dialog) return;
+    var formView = $("menu-signin-form");
+    var signedView = $("menu-signedin-view");
+    var emailInput = $("menu-signin-email");
+    var phoneInput = $("menu-signin-phone");
+    var err = $("menu-signin-error");
+    var submitBtn = $("menu-signin-submit");
+    var signoutBtn = $("menu-signout");
+    var signedEmail = $("menu-signedin-email");
+    function openDialog() {
+      show(dialog);
+      document.body.style.overflow = "hidden";
+    }
+    function closeDialog() {
+      hide(dialog);
+      document.body.style.overflow = "";
+    }
+    function refresh() {
+      return fetch("/api/customers/me")
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j.signed_in && j.email) {
+            label.textContent = T("app.signed_in_as", "Signed in as") + " " + j.email;
+            if (signedEmail) signedEmail.textContent = j.email;
+            show(signedView);
+            hide(formView);
+          } else {
+            label.textContent = T("menu.sign_in", "Sign in");
+            show(formView);
+            hide(signedView);
+          }
+          if (err) err.textContent = "";
+        })
+        .catch(function () {
+          label.textContent = T("menu.sign_in", "Sign in");
+        });
+    }
+    btn.addEventListener("click", function () {
+      /* Close the mobile menu first, then open the dialog. */
+      var mobileMenu = $("mobile-menu");
+      if (mobileMenu) hide(mobileMenu);
+      document.body.style.overflow = "";
+      refresh().then(openDialog, openDialog);
+    });
+    var closeBtn = $("menu-signin-close");
+    if (closeBtn) closeBtn.addEventListener("click", closeDialog);
+    dialog.addEventListener("click", function (e) {
+      if (e.target === dialog) closeDialog();
+    });
+    if (submitBtn) submitBtn.addEventListener("click", function () {
+      var email = emailInput.value.trim();
+      var phone = phoneInput.value.trim();
+      var digits = phone.replace(/\D/g, "");
+      if (!email || email.indexOf("@") === -1 || !phone || digits.length < 7) {
+        err.textContent = T("menu.signin_fill", "Please enter your email and phone number.");
+        return;
+      }
+      submitBtn.disabled = true;
+      fetch("/api/customers/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, phone: phone })
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          submitBtn.disabled = false;
+          if (!res.ok) {
+            err.textContent = (res.j && (res.j.error || res.j.message)) || T("class.signin_failed", "Sign-in did not work. Please try again.");
+            return;
+          }
+          /* Stay in the dialog, now showing the signed-in view —
+             the menu label updates with it. */
+          refresh();
+        })
+        .catch(function () {
+          submitBtn.disabled = false;
+          err.textContent = T("status.reach_booking", "Could not reach the booking service. Please try again.");
+        });
+    });
+    if (signoutBtn) signoutBtn.addEventListener("click", function () {
+      fetch("/api/customers/signout", { method: "POST" })
+        .then(function () { refresh(); })
+        .catch(function () { refresh(); });
+    });
+    document.addEventListener("noel-language-changed", refresh);
+    /* Let the class-step sign-in refresh the menu label too (after
+       a class-page sign-in the menu must read "Signed in as…"
+       without waiting for the next menu open). */
+    window.NoelMenuSignin = { refresh: refresh };
+    refresh();
   })();
   /* Bookings are LIVE (owner decision 2026-11-20: Blacklane prices
      + slab driver pay, "Driver aur customer dono live kar do").
@@ -1226,6 +1331,7 @@
           return;
         }
         state.customerSignedIn = { email: res.j.email || contactEmail, phone: res.j.phone || contactPhone };
+        if (window.NoelMenuSignin) window.NoelMenuSignin.refresh();
         continueToPayment();
       })
       .catch(function () {

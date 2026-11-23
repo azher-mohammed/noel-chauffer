@@ -70,6 +70,11 @@ input, select { font: inherit; }
   -webkit-text-fill-color: transparent;
 }
 .app-head .tag { font-size: 13px; color: #cfcfcf; margin-top: 2px; }
+/* Signed-in line in the app header (owner 2026-11-23, permanent
+   login): "Signed in as <email>" + Sign out, same as the website
+   menu. Hidden while signed out. */
+.app-signedin { font-size: 13px; color: #cfcfcf; margin: 6px 0 0; overflow-wrap: anywhere; }
+.app-signout-btn { background: none; border: 0; padding: 0; color: #5b9bd5; text-decoration: underline; cursor: pointer; font-size: 13px; }
 
 /* "Powered by" line at the bottom of the Book screen (owner
    2026-11-22): "Noel" dark on the white screen, "Chauffer" the

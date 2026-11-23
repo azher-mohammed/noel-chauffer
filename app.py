@@ -126,6 +126,13 @@ if not SECRET_KEY:
     log.warning("SECRET_KEY is not set; using a generated key (sessions will not survive restarts).")
 app.config["SECRET_KEY"] = SECRET_KEY
 
+# Permanent customer login (owner decision 2026-11-23): once a
+# customer signs in they stay signed in on that browser for ~365
+# days, until they sign out. Only sessions explicitly marked
+# permanent (customer sign-in below) get the long lifetime; the
+# browser-session default still applies everywhere else.
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=365)
+
 OWNER_PIN = os.environ.get("OWNER_PIN", "1234")
 # Owner PIN session lifetime (owner decision 2026-11-23): the owner
 # session used to live forever — session["owner"] = True with no
@@ -5476,9 +5483,11 @@ def customer_signin():
     corrected same day: NO CODES). The customer types their email
     (and phone number, compulsory) and taps Continue — that is the
     whole sign-in. No code is emailed, no code is typed back, and
-    nothing is stored except the Flask session: the browser session
-    carries the email + phone, so the customer stays signed in for
-    later bookings on the same browser."""
+    nothing is stored except the Flask session.
+    PERMANENT LOGIN (owner decision 2026-11-23): the session is
+    marked permanent, so the browser keeps the customer signed in
+    for ~365 days across visits, until they sign out — the customer
+    is never asked to sign in again on that browser."""
     data = request.get_json(silent=True) or {}
     email = _normalize_customer_email(data.get("email"))
     phone = (data.get("phone") or "").strip()
@@ -5487,6 +5496,7 @@ def customer_signin():
     digits = "".join(ch for ch in phone if ch.isdigit())
     if not phone or len(digits) < 7:
         return err("Please enter a valid phone number.")
+    session.permanent = True
     session["customer_email"] = email
     session["customer_phone"] = phone
     return jsonify({"signed_in": True, "email": email, "phone": phone})

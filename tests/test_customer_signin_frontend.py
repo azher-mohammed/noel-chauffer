@@ -110,10 +110,14 @@ class SigninUiTest(unittest.TestCase):
         for endpoint in ("/api/customers/me",
                          "/api/customers/signin"):
             self.assertIn('"%s"' % endpoint, js, endpoint)
-        # No sign-out is wired on the class step any more (owner
-        # 2026-11-22 removed the "Use a different email" link); the
-        # server endpoint itself stays for other uses.
-        self.assertNotIn("/api/customers/signout", js)
+        # Sign-out IS wired now — but only in the menu sign-in
+        # dialog (owner 2026-11-23, permanent login: the menu shows
+        # "Signed in as <email>" + Sign out). It is still NOT on the
+        # class step: the 2026-11-22 removal of the "Use a different
+        # email" link from the class step stands.
+        self.assertIn("/api/customers/signout", js)
+        cont = js[js.index('$("class-signin-continue").addEventListener'):js.index('});\n\n  $("class-back")')]
+        self.assertNotIn("/api/customers/signout", cont)
         # NO CODES: the old code endpoints are gone entirely.
         self.assertNotIn("/api/customers/signin/request", js)
         self.assertNotIn("/api/customers/signin/verify", js)
@@ -138,7 +142,13 @@ class SigninUiTest(unittest.TestCase):
         for endpoint in ("/api/customers/me",
                          "/api/customers/signin"):
             self.assertIn('"%s"' % endpoint, js, endpoint)
-        self.assertNotIn("/api/customers/signout", js)
+        # Sign-out IS wired now — but only for the app-header
+        # signed-in line (owner 2026-11-23, permanent login: the
+        # header shows "Signed in as <email>" + Sign out). It is
+        # still NOT in the class-step Continue handler.
+        self.assertIn("/api/customers/signout", js)
+        _cont = js[js.index('$("ca-signin-continue").addEventListener'):js.index('});\n\n  $("ca-class-back")')]
+        self.assertNotIn("/api/customers/signout", _cont)
         self.assertNotIn("/api/customers/signin/request", js)
         self.assertNotIn("/api/customers/signin/verify", js)
         self.assertIn("state.customerSignedIn", js)

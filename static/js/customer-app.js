@@ -1096,6 +1096,36 @@
         state.customerSignedIn = null;
       });
   }
+  /* ---------- Header signed-in line + Sign out (owner 2026-11-23) -------
+     Permanent login, same display as the website menu: "Signed in
+     as <email>" with Sign out, shown in the app header whenever
+     the customer is signed in. Sign-out clears the permanent
+     session; the line hides again. */
+  function refreshAppHeaderSignin() {
+    return fetch("/api/customers/me")
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.signed_in && j.email) {
+          $("ca-header-signedin-email").textContent = j.email;
+          show($("ca-header-signedin"));
+        } else {
+          hide($("ca-header-signedin"));
+        }
+      })
+      .catch(function () {
+        hide($("ca-header-signedin"));
+      });
+  }
+  (function initAppHeaderSignout() {
+    var signoutBtn = $("ca-header-signout");
+    if (!signoutBtn) return;
+    signoutBtn.addEventListener("click", function () {
+      fetch("/api/customers/signout", { method: "POST" })
+        .then(function () { refreshAppHeaderSignin(); })
+        .catch(function () { refreshAppHeaderSignin(); });
+    });
+    refreshAppHeaderSignin();
+  })();
   $("ca-signin-continue").addEventListener("click", function () {
     var booking = state.classBooking;
     if (!booking) return;
@@ -1193,6 +1223,7 @@
           return;
         }
         state.customerSignedIn = { email: res.j.email || contactEmail, phone: res.j.phone || contactPhone };
+        refreshAppHeaderSignin();
         continueToPayment();
       })
       .catch(function () {

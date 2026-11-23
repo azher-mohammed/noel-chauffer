@@ -165,7 +165,7 @@ class HomepageRestoreTest(unittest.TestCase):
             if route in skipped:
                 continue
             with self.subTest(route=route):
-                self.assertIn(f'<a href="{route}">{heading}</a>', self.home, route)
+                self.assertRegex(self.home, rf'<a href="{re.escape(route)}"[^>]*>{re.escape(heading)}</a>', route)
         # The top nav still links to every section page except
         # /your-rides-in-your-pocket (the app-band heading link was
         # removed by owner order 2026-11-22 and the page has no nav
@@ -242,7 +242,7 @@ class HomepageRestoreTest(unittest.TestCase):
         res = self.client.get("/your-ride-history")
         self.assertEqual(res.status_code, 200)
         page = res.get_data(as_text=True)
-        self.assertIn("<h2>Your ride history</h2>", page)
+        self.assertIn(">Your ride history</h2>", page)  # h2 carries data-i18n now
         self.assertIn('id="history-form"', page)
 
     def test_faq_json_ld_lives_on_the_faq_page(self):

@@ -694,7 +694,7 @@ class ClassApiCase(unittest.TestCase):
         with open(os.path.join(REPO_DIR, "static", "js", "customer.js"),
                   encoding="utf-8") as fh:
             customer_js = fh.read()
-        self.assertIn('id="book-submit">View options<', index)
+        self.assertRegex(index, r'id="book-submit"[^>]*>View options<')
         self.assertIn("Choose your experience", index)
         self.assertIn("Business Class", index)
         self.assertIn("Business SUV", index)

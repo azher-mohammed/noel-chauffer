@@ -82,15 +82,13 @@ class ClassContinueButtonTest(unittest.TestCase):
         # inside the Your-details block, before the Back link.
         self.assertLess(self.step.index('id="class-email"'),
                         self.step.index('id="class-signin-continue"'))
-        self.assertIn('id="class-signin-continue">Continue<',
-                      self.step)
+        self.assertRegex(self.step, r'id="class-signin-continue"[^>]*>Continue<')
         self.assertLess(self.step.index('id="class-signin-continue"'),
                         self.step.index('id="class-back"'))
         # Customer app: same, with the app's ids.
         self.assertLess(self.app_step.index('id="ca-class-email"'),
                         self.app_step.index('id="ca-signin-continue"'))
-        self.assertIn('id="ca-signin-continue">Continue<',
-                      self.app_step)
+        self.assertRegex(self.app_step, r'id="ca-signin-continue"[^>]*>Continue<')
         # The Continue button is the prominent primary button, not a
         # ghost button.
         self.assertIn('class="btn-primary" id="class-signin-continue"',

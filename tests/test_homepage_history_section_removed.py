@@ -52,14 +52,15 @@ class TestHomepageHistorySectionRemoved(unittest.TestCase):
 
     def test_nav_link_to_separate_page_stays(self):
         nav = INDEX.split("</nav>")[0]
-        self.assertIn('<a href="/your-ride-history">Ride history</a>', nav)
+        self.assertIn('href="/your-ride-history"', nav)
+        self.assertIn('>Ride history</a>', nav)  # link carries data-i18n="menu.ride_history" now
 
     def test_separate_page_still_returns_200_with_lookup(self):
         client = app_module.app.test_client()
         res = client.get("/your-ride-history")
         self.assertEqual(res.status_code, 200)
         html = res.get_data(as_text=True)
-        self.assertIn("<h2>Your ride history</h2>", html)
+        self.assertIn(">Your ride history</h2>", html)  # h2 carries data-i18n now
         self.assertIn('id="history-form"', html)
         self.assertIn('id="history-phone"', html)
         self.assertIn('id="history-results"', html)

@@ -67,6 +67,43 @@
 
   /* Customer-facing class names. Internal keys stay "sedan"/"suv". */
   var CLASS_LABELS = { sedan: "Business Class", suv: "Business SUV", first: "First Class" };
+  /* Language switcher (owner decision 2026-11-22): T() translates a
+     customer-facing string through /static/js/i18n.js when it is
+     loaded, and falls back to the English literal otherwise — so the
+     site behaves exactly as before with no dictionary present. */
+  function T(key, fallback, vars) {
+    try {
+      if (window.NoelI18n && window.NoelI18n.t) {
+        var out = window.NoelI18n.t(key, vars);
+        if (out && out !== key) return out;
+      }
+    } catch (e) { /* fall through to the English literal */ }
+    return fallback;
+  }
+
+  /* Language picker (owner decision 2026-11-22): the /app header
+     carries its own picker slot — the app has no hamburger menu. */
+  (function initAppLangPicker() {
+    if (!(window.NoelI18n && window.NoelI18n.buildPicker)) return;
+    var slot = $("app-lang-slot");
+    if (slot) window.NoelI18n.buildPicker(slot);
+  })();
+
+  /* Language switcher: when the language changes, re-paint every
+     JS-driven string (the static HTML is rewritten by i18n.js). */
+  document.addEventListener("noel-language-changed", function () {
+    try { paintClassDetails(); } catch (e) {}
+    try { paintClassBreakdown(); } catch (e) {}
+    try { paintHourlyTotals(); } catch (e) {}
+    try { paintHourlyClassSelection(); } catch (e) {}
+    if (state.booking) { try { renderBooking(state.booking); } catch (e) {} }
+    if (state.dateIso) {
+      var d = $("ca-date");
+      if (d) d.value = fmtDateDisplay(state.dateIso);
+    }
+    var dp = $("ca-date-picker");
+    if (dp && !dp.classList.contains("hidden")) { try { renderDatePicker(); } catch (e) {} }
+  });
   /* Blacklane-style hourly rates, in cents (owner decision 2026-11-20,
      "same same Blacklane jaisa"): per-class totals from the live
      Blacklane quote 2026-11-20 (2-hour totals Business $218.32, SUV
@@ -89,7 +126,7 @@
       if (el) el.textContent = "$" + (hourlyTotalCents(cls, h) / 100).toFixed(2);
     });
     var note = $("ca-hr-miles-note");
-    if (note) note.textContent = "Includes " + (h * HOURLY_MILES_PER_HOUR) + " miles of travel (" + HOURLY_MILES_PER_HOUR + " miles per hour) — taxes and tolls included.";
+    if (note) note.textContent = T("class.hourly_miles_note", "Includes " + (h * HOURLY_MILES_PER_HOUR) + " miles of travel (" + HOURLY_MILES_PER_HOUR + " miles per hour) — taxes and tolls included.", { miles: h * HOURLY_MILES_PER_HOUR, mph: HOURLY_MILES_PER_HOUR });
     paintHourlyBreakdown();
   }
   /* Hourly price breakdown (owner decision 2026-11-21 ~18:56 EST:
@@ -103,8 +140,8 @@
     if (isNaN(h) || h < 2) h = 2;
     if (h > 24) h = 24;
     var total = hourlyTotalCents(state.hourlyClass, h) / 100;
-    box.innerHTML = '<div class="breakdown-row"><span>Base fare</span><span>' + esc(money(total)) + '</span></div>'
-      + '<div class="breakdown-row breakdown-total"><span>Total</span><span>' + esc(money(total)) + '</span></div>';
+    box.innerHTML = '<div class="breakdown-row"><span>' + T("class.base_fare", "Base fare") + '</span><span>' + esc(money(total)) + '</span></div>'
+      + '<div class="breakdown-row breakdown-total"><span>' + T("class.total", "Total") + '</span><span>' + esc(money(total)) + '</span></div>';
   }
   function paintHourlyClassSelection() {
     ["sedan", "suv", "first"].forEach(function (cls) {
@@ -115,7 +152,7 @@
       opt.setAttribute("aria-checked", selected ? "true" : "false");
     });
     var cont = $("ca-hourly-class-continue");
-    if (cont) cont.textContent = "Select " + (CLASS_LABELS[state.hourlyClass] || "Business Class");
+    if (cont) cont.textContent = T("class.select_class", "Select " + (CLASS_LABELS[state.hourlyClass] || "Business Class"), { label: CLASS_LABELS[state.hourlyClass] || "Business Class" });
     paintHourlyBreakdown();
   }
   function classLabelFor(b) {
@@ -150,8 +187,8 @@
   function rideLabel(b) {
     if (!b) return "";
     if (b.ride_type === "hourly") {
-      return "By the hour" + (b.hours ? " · " + b.hours + " hour(s)" : "") +
-        " · Pickup: " + (b.pickup || "");
+      return T("form.by_hour", "By the hour") + (b.hours ? " · " + b.hours + T("class.hour_suffix", " hour(s)") : "") +
+        T("status.pickup_prefix", " · Pickup: ") + (b.pickup || "");
     }
     return (b.pickup || "") + "  →  " + (b.dropoff || "");
   }
@@ -160,9 +197,9 @@
      must display as "Return trip", never "One way". */
   function rideTypeLabel(b) {
     if (!b) return "";
-    if (b.ride_type === "hourly") return "By the hour";
-    if (b.is_return) return "Return trip";
-    return "One way";
+    if (b.ride_type === "hourly") return T("form.by_hour", "By the hour");
+    if (b.is_return) return T("status.return_trip_label", "Return trip");
+    return T("status.one_way_label", "One way");
   }
   function whenLabel(b) {
     if (!b) return "";
@@ -173,18 +210,18 @@
   }
   function statusLabel(status) {
     var map = {
-      awaiting_payment: "Payment needed to confirm your ride",
-      offered: "Finding your chauffeur…",
-      accepted: "Chauffeur confirmed",
-      en_route: "Your chauffeur is on the way",
-      arrived: "Your chauffeur has arrived",
-      started: "Your ride is under way",
-      on_trip: "Your ride is under way",
-      in_progress: "Your ride is under way",
-      completed: "Ride completed — thank you",
-      cancelled: "This booking was cancelled",
-      canceled: "This booking was cancelled",
-      no_show: "Marked as a no-show"
+      awaiting_payment: T("status.awaiting_payment", "Payment needed to confirm your ride"),
+      offered: T("status.offered", "Finding your chauffeur…"),
+      accepted: T("status.accepted", "Chauffeur confirmed"),
+      en_route: T("status.en_route", "Your chauffeur is on the way"),
+      arrived: T("status.arrived", "Your chauffeur has arrived"),
+      started: T("status.started", "Your ride is under way"),
+      on_trip: T("status.on_trip", "Your ride is under way"),
+      in_progress: T("status.in_progress", "Your ride is under way"),
+      completed: T("status.completed", "Ride completed — thank you"),
+      cancelled: T("status.cancelled", "This booking was cancelled"),
+      canceled: T("status.cancelled", "This booking was cancelled"),
+      no_show: T("status.no_show", "Marked as a no-show")
     };
     return map[status] || String(status || "");
   }
@@ -274,13 +311,15 @@
      (every 10 minutes, 12:00 AM–11:50 PM, 144 options). The server
      still blocks past dates/times on submit, and the time field is
      full width like the Date field. */
-  var MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  var MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  var DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  /* Language switcher: month/day names follow the site language
+     (window.NOEL_CAL in i18n.js); English when i18n.js is absent. */
+  function monthsFull() { var t = (window.NoelI18n && window.NoelI18n.cal) ? window.NoelI18n.cal("months_full") : null; return t || ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]; }
+  function monthsShort() { var t = (window.NoelI18n && window.NoelI18n.cal) ? window.NoelI18n.cal("months_short") : null; return t || ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]; }
+  function daysShort() { var t = (window.NoelI18n && window.NoelI18n.cal) ? window.NoelI18n.cal("days_short") : null; return t || ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]; }
   function fmtDateDisplay(iso) {
     var p = iso.split("-");
     var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
-    return DAYS_SHORT[d.getDay()] + ", " + MONTHS_SHORT[d.getMonth()] + " " + d.getDate();
+    return daysShort()[d.getDay()] + ", " + monthsShort()[d.getMonth()] + " " + d.getDate();
   }
   function isoParts(iso) {
     var p = (iso || "").split("-");
@@ -296,11 +335,11 @@
     var daysInMonth = new Date(dateView.y, dateView.m + 1, 0).getDate();
     var prevDisabled = dateView.y === tp.y && dateView.m === tp.m;
     var html = '<div class="dp-head">'
-      + '<button type="button" class="dp-nav" id="ca-dp-prev" aria-label="Previous month"' + (prevDisabled ? " disabled" : "") + '>&#8249;</button>'
-      + '<span class="dp-title">' + MONTHS_FULL[dateView.m] + " " + dateView.y + '</span>'
-      + '<button type="button" class="dp-nav" id="ca-dp-next" aria-label="Next month">&#8250;</button></div>';
+      + '<button type="button" class="dp-nav" id="ca-dp-prev" aria-label="' + T("form.prev_month", "Previous month") + '"' + (prevDisabled ? " disabled" : "") + '>&#8249;</button>'
+      + '<span class="dp-title">' + monthsFull()[dateView.m] + " " + dateView.y + '</span>'
+      + '<button type="button" class="dp-nav" id="ca-dp-next" aria-label="' + T("form.next_month", "Next month") + '">&#8250;</button></div>';
     html += '<div class="dp-grid">';
-    ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].forEach(function (d) { html += '<span class="dp-dow">' + d + '</span>'; });
+    daysShort().map(function (d) { return d.slice(0, 2); }).forEach(function (d) { html += '<span class="dp-dow">' + d + '</span>'; });
     var i;
     for (i = 0; i < first.getDay(); i++) html += '<span class="dp-day empty"></span>';
     for (i = 1; i <= daysInMonth; i++) {
@@ -457,7 +496,7 @@
     paintHourlyTotals();
     $("ca-booking-error").textContent = "";
     var btn = $("ca-book-submit");
-    if (btn) { btn.disabled = false; btn.textContent = "View options"; }
+    if (btn) { btn.disabled = false; btn.textContent = T("form.view_options", "View options"); }
     tabs.forEach(function (t) {
       var active = t.getAttribute("data-ride-type") === "one_way";
       t.classList.toggle("active", active);
@@ -677,7 +716,7 @@
     /* Bookings are PAUSED while prices are being updated (owner
        decision 2026-11-20): nothing is submitted. */
     if (BOOKINGS_PAUSED) {
-      err.textContent = "Bookings are paused while we update our prices. Please check back soon.";
+      err.textContent = T("form.paused_msg", "Bookings are paused while we update our prices. Please check back soon.");
       return;
     }
     var payload = {
@@ -705,7 +744,7 @@
          View options (owner decision 2026-11-21), not here. */
       var h = parseInt($("ca-hours").value, 10);
       if (isNaN(h) || h < 2 || h > 24) {
-        err.textContent = "Hourly bookings need 2 to 24 hours.";
+        err.textContent = T("form.hourly_hours_error", "Hourly bookings need 2 to 24 hours.");
         return;
       }
       payload.hours = h;
@@ -739,7 +778,7 @@
     if (!pickupPicked) { $("ca-pickup").focus(); return; }
     if (!dropoffPicked) { $("ca-dropoff").focus(); return; }
     if (!payload.date || !payload.time) {
-      err.textContent = "Please choose a date and time.";
+      err.textContent = T("form.choose_date_time", "Please choose a date and time.");
       return;
     }
     /* Past dates and times cannot be booked (owner decision
@@ -747,15 +786,15 @@
        is refused here, before anything is sent. */
     var today = todayNY();
     if (payload.date < today) {
-      err.textContent = "Please choose a date from today onwards. Past dates cannot be booked.";
+      err.textContent = T("form.past_date", "Please choose a date from today onwards. Past dates cannot be booked.");
       return;
     }
     if (payload.date === today && payload.time <= nowTimeNY()) {
-      err.textContent = "Please choose a time later than now. Past times cannot be booked.";
+      err.textContent = T("form.past_time", "Please choose a time later than now. Past times cannot be booked.");
       return;
     }
     if (state.rideType === "hourly" && (!payload.customer_name || !payload.phone || !payload.email)) {
-      err.textContent = "Please fill in your name, phone and email.";
+      err.textContent = T("class.fill_details", "Please fill in your name, phone and email.");
       return;
     }
     /* Flight number: BACK in the booking form by owner order
@@ -778,11 +817,11 @@
   function showFlightStep(sides, payload) {
     state.pendingPayload = payload;
     if (sides.pickup) {
-      $("ca-flight-step-title").textContent = "Add your flight number";
-      $("ca-flight-step-text").textContent = "Your chauffeur will meet you at the right terminal.";
+      $("ca-flight-step-title").textContent = T("form.flight_title", "Add your flight number");
+      $("ca-flight-step-text").textContent = T("form.flight_text_pickup", "Your chauffeur will meet you at the right terminal.");
     } else {
-      $("ca-flight-step-title").textContent = "Add your flight number (optional)";
-      $("ca-flight-step-text").textContent = "This helps your chauffeur take you to the right departure terminal.";
+      $("ca-flight-step-title").textContent = T("form.flight_title_optional", "Add your flight number (optional)");
+      $("ca-flight-step-text").textContent = T("form.flight_text_dropoff", "This helps your chauffeur take you to the right departure terminal.");
     }
     $("ca-flight-step-airport").textContent = sides.pickup ? payload.pickup : (payload.dropoff || "");
     $("ca-flight-number").value = state.flightNumber || "";
@@ -826,7 +865,7 @@
   function showHourlyClassStep(payload) {
     state.pendingPayload = payload;
     $("ca-hourly-class-trip-summary").textContent =
-      "By the hour · " + payload.hours + " hour(s) · Pickup: " + payload.pickup;
+      T("form.by_hour", "By the hour") + " · " + payload.hours + T("class.hour_suffix", " hour(s)") + T("status.pickup_prefix", " · Pickup: ") + payload.pickup;
     $("ca-hourly-class-error").textContent = "";
     paintHourlyTotals();
     paintHourlyClassSelection();
@@ -885,27 +924,27 @@
   function paintClassDetails() {
     var label = CLASS_LABELS[state.selectedClass] || "Business Class";
     var explore = $("ca-class-explore");
-    if (explore) explore.textContent = "Explore " + label + " details";
+    if (explore) explore.textContent = T("class.explore_class", "Explore " + label + " details", { label: label });
     var cap = CLASS_CAPACITY[state.selectedClass] || CLASS_CAPACITY.sedan;
     var bags = $("ca-class-cap-luggage-count");
-    if (bags) bags.textContent = cap.bags + " x Carry-on";
+    if (bags) bags.textContent = T("class.carry_on", cap.bags + " x Carry-on", { n: cap.bags });
     var seats = $("ca-class-cap-seating-count");
-    if (seats) seats.textContent = cap.seats + " passengers";
+    if (seats) seats.textContent = T("class.passengers_count", cap.seats + " passengers", { n: cap.seats });
     var track = $("ca-class-highlights-track");
     if (track) {
       var photo = CLASS_PHOTOS[state.selectedClass] || CLASS_PHOTOS.sedan;
-      track.innerHTML = HIGHLIGHTS.map(function (h) {
+      track.innerHTML = HIGHLIGHTS.map(function (h, i) {
         if (h.photo) {
-          return '<div class="hl-slide"><figure><img src="' + esc(photo) + '" alt="' + esc(label) + ' car"><figcaption>' + esc(h.caption) + '</figcaption></figure></div>';
+          return '<div class="hl-slide"><figure><img src="' + esc(photo) + '" alt="' + esc(label) + ' car"><figcaption>' + esc(T("class.hl" + i + "_caption", h.caption)) + '</figcaption></figure></div>';
         }
-        return '<div class="hl-slide"><div class="hl-slide-text"><h4>' + esc(h.title) + '</h4><p>' + esc(h.text) + '</p></div></div>';
+        return '<div class="hl-slide"><div class="hl-slide-text"><h4>' + esc(T("class.hl" + i + "_title", h.title)) + '</h4><p>' + esc(T("class.hl" + i + "_text", h.text)) + '</p></div></div>';
       }).join("");
       track.style.transform = "translateX(-" + (hlIndex * 100) + "%)";
     }
     var dots = $("ca-class-hl-dots");
     if (dots) {
       dots.innerHTML = HIGHLIGHTS.map(function (h, i) {
-        return '<button type="button" class="hl-dot' + (i === hlIndex ? " active" : "") + '" data-hl="' + i + '" role="tab" aria-label="Highlight ' + (i + 1) + '"></button>';
+        return '<button type="button" class="hl-dot' + (i === hlIndex ? " active" : "") + '" data-hl="' + i + '" role="tab" aria-label="' + T("class.highlight_n", "Highlight " + (i + 1), { n: i + 1 }) + '"></button>';
       }).join("");
       dots.querySelectorAll(".hl-dot").forEach(function (d) {
         d.addEventListener("click", function () {
@@ -951,18 +990,18 @@
     if (!box) return;
     var b = (state.classBreakdowns || {})[state.selectedClass];
     if (!b) { box.innerHTML = ""; return; }
-    var rows = [["Base fare", money(b.base)]];
-    if (Number(b.airport_access) > 0) rows.push(["Airport access fee", money(b.airport_access)]);
-    if (Number(b.black_car_fee) > 0) rows.push(["Black car fee", money(b.black_car_fee)]);
-    if (Number(b.sales_tax) > 0) rows.push(["Sales tax", money(b.sales_tax)]);
-    if (Number(b.ny_congestion) > 0) rows.push(["NY State congestion surcharge", money(b.ny_congestion)]);
-    if (Number(b.mta_congestion) > 0) rows.push(["MTA congestion surcharge", money(b.mta_congestion)]);
-    if (Number(b.toll) > 0) rows.push(["Toll", money(b.toll)]);
-    if (Number(b.referral_discount) > 0) rows.push(["Referral discount", "−" + money(b.referral_discount)]);
+    var rows = [[T("class.base_fare", "Base fare"), money(b.base)]];
+    if (Number(b.airport_access) > 0) rows.push([T("class.airport_fee", "Airport access fee"), money(b.airport_access)]);
+    if (Number(b.black_car_fee) > 0) rows.push([T("class.black_car_fee", "Black car fee"), money(b.black_car_fee)]);
+    if (Number(b.sales_tax) > 0) rows.push([T("class.sales_tax", "Sales tax"), money(b.sales_tax)]);
+    if (Number(b.ny_congestion) > 0) rows.push([T("class.ny_congestion", "NY State congestion surcharge"), money(b.ny_congestion)]);
+    if (Number(b.mta_congestion) > 0) rows.push([T("class.mta_congestion", "MTA congestion surcharge"), money(b.mta_congestion)]);
+    if (Number(b.toll) > 0) rows.push([T("class.toll", "Toll"), money(b.toll)]);
+    if (Number(b.referral_discount) > 0) rows.push([T("class.referral_discount_row", "Referral discount"), "−" + money(b.referral_discount)]);
     var html = rows.map(function (r) {
       return '<div class="breakdown-row"><span>' + esc(r[0]) + '</span><span>' + esc(r[1]) + '</span></div>';
     }).join("");
-    html += '<div class="breakdown-row breakdown-total"><span>Total</span><span>' + esc(money(b.total)) + '</span></div>';
+    html += '<div class="breakdown-row breakdown-total"><span>' + T("class.total", "Total") + '</span><span>' + esc(money(b.total)) + '</span></div>';
     box.innerHTML = html;
   }
 
@@ -1060,7 +1099,7 @@
     var contactPhone = $("ca-class-phone").value.trim();
     var contactEmail = $("ca-class-email").value.trim();
     if (!contactName || !contactPhone || !contactEmail || contactEmail.indexOf("@") === -1) {
-      err.textContent = "Please fill in your name, phone and email.";
+      err.textContent = T("class.fill_details", "Please fill in your name, phone and email.");
       return;
     }
     function proceedWith(updated) {
@@ -1083,10 +1122,10 @@
               /* Sign-in expired or changed since the page loaded —
                  the gate is server-side, so tap Continue again. */
               state.customerSignedIn = null;
-              err.textContent = "Your sign-in expired — please tap Continue again.";
+              err.textContent = T("class.signin_expired", "Your sign-in expired — please tap Continue again.");
               return;
             }
-            err.textContent = (res.j && (res.j.error || res.j.message)) || "Your details could not be saved. Please try again.";
+            err.textContent = (res.j && (res.j.error || res.j.message)) || T("class.details_save_failed", "Your details could not be saved. Please try again.");
             return;
           }
           state.classPhone = contactPhone;
@@ -1094,7 +1133,7 @@
         })
         .catch(function () {
           btn.disabled = false;
-          err.textContent = "Could not reach the booking service. Please try again.";
+          err.textContent = T("status.reach_booking", "Could not reach the booking service. Please try again.");
         });
     }
     function continueToPayment() {
@@ -1112,14 +1151,14 @@
           .then(function (res) {
             btn.disabled = false;
             if (!res.ok || !res.j.booking) {
-              err.textContent = (res.j && (res.j.error || res.j.message)) || "That class could not be selected. Please try again.";
+              err.textContent = (res.j && (res.j.error || res.j.message)) || T("class.select_failed", "That class could not be selected. Please try again.");
               return;
             }
             proceedWith(res.j.booking);
           })
           .catch(function () {
             btn.disabled = false;
-            err.textContent = "Could not reach the booking service. Please try again.";
+            err.textContent = T("status.reach_booking", "Could not reach the booking service. Please try again.");
           });
       });
     }
@@ -1138,7 +1177,7 @@
       .then(function (res) {
         if (!res.ok) {
           btn.disabled = false;
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "Sign-in did not work. Please try again.";
+          err.textContent = (res.j && (res.j.error || res.j.message)) || T("class.signin_failed", "Sign-in did not work. Please try again.");
           return;
         }
         state.customerSignedIn = { email: res.j.email || contactEmail, phone: res.j.phone || contactPhone };
@@ -1146,7 +1185,7 @@
       })
       .catch(function () {
         btn.disabled = false;
-        err.textContent = "Could not reach the booking service. Please try again.";
+        err.textContent = T("status.reach_booking", "Could not reach the booking service. Please try again.");
       });
   });
 
@@ -1175,7 +1214,7 @@
     var err = $("ca-booking-error");
     var btn = $("ca-book-submit");
     btn.disabled = true;
-    btn.textContent = "Sending your request…";
+    btn.textContent = T("form.sending", "Sending your request…");
     fetch("/api/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1184,9 +1223,9 @@
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         btn.disabled = false;
-        btn.textContent = "View options";
+        btn.textContent = T("form.view_options", "View options");
         if (!res.ok || !res.j.booking || !res.j.booking.id) {
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "Something went wrong. Please try again.";
+          err.textContent = (res.j && (res.j.error || res.j.message)) || T("form.something_wrong", "Something went wrong. Please try again.");
           /* The error lives on the booking form: if the customer
              came from the hourly class step, bring the form back so
              the error is visible. (One-way failures already show
@@ -1207,8 +1246,8 @@
       })
       .catch(function () {
         btn.disabled = false;
-        btn.textContent = "View options";
-        err.textContent = "Could not reach the booking service. Please check your connection and try again.";
+        btn.textContent = T("form.view_options", "View options");
+        err.textContent = T("status.reach_payment_check", "Could not reach the booking service. Please check your connection and try again.");
         hide($("ca-hourly-class-step"));
         show($("ca-booking-card"));
       });
@@ -1278,7 +1317,7 @@
     $("ca-status-summary").textContent = summaryText(b);
     var flightEl = $("ca-status-flight");
     if (b.flight_number) {
-      var flightText = "Flight: " + b.flight_number;
+      var flightText = T("status.flight_prefix", "Flight: ") + b.flight_number;
       if (b.airline_name) flightText += " · " + b.airline_name;
       if (b.terminal) flightText += " · " + b.terminal;
       flightEl.textContent = flightText;
@@ -1313,11 +1352,11 @@
       show($("ca-status-finding"));
       hide($("ca-driver-block"));
       if (st === "awaiting_payment") {
-        $("ca-status-heading").textContent = "Your total is ready";
-        $("ca-status-message").textContent = "Please pay by card below — your chauffeur will be assigned right after payment.";
+        $("ca-status-heading").textContent = T("status.total_ready", "Your total is ready");
+        $("ca-status-message").textContent = T("status.pay_below", "Please pay by card below — your chauffeur will be assigned right after payment.");
       } else {
-        $("ca-status-heading").textContent = "Finding your chauffeur…";
-        $("ca-status-message").textContent = statusLabel(st) || "Your request is with us. Please keep this page open.";
+        $("ca-status-heading").textContent = T("status.finding", "Finding your chauffeur…");
+        $("ca-status-message").textContent = statusLabel(st) || T("status.request_with_us", "Your request is with us. Please keep this page open.");
       }
     }
 
@@ -1375,8 +1414,8 @@
       hide($("ca-status-actions"));
       hide($("ca-pay-panel"));
       hide($("ca-total-box"));
-      $("ca-status-heading").textContent = "Booking cancelled";
-      $("ca-status-message").textContent = "This booking was cancelled.";
+      $("ca-status-heading").textContent = T("status.booking_cancelled", "Booking cancelled");
+      $("ca-status-message").textContent = T("status.cancelled", "This booking was cancelled.");
       show($("ca-status-finding"));
     }
     if (st === "completed") {
@@ -1451,14 +1490,14 @@
     var box = $("ca-chat-messages");
     box.innerHTML = "";
     if (!messages.length) {
-      box.innerHTML = '<p class="chat-empty">No messages yet. Your chauffeur can read your messages here.</p>';
+      box.innerHTML = '<p class="chat-empty">' + esc(T("status.chat_empty", "No messages yet. Your chauffeur can read your messages here.")) + '</p>';
       return;
     }
     messages.forEach(function (m) {
       var div = document.createElement("div");
       var mine = m.sender === "customer";
       div.className = "chat-msg " + (mine ? "mine" : "theirs");
-      div.innerHTML = '<span class="who">' + (mine ? "You" : "Chauffeur") + "</span>" +
+      div.innerHTML = '<span class="who">' + (mine ? T("status.you", "You") : T("status.chauffeur_word", "Chauffeur")) + "</span>" +
         '<span class="txt">' + esc(m.text) + "</span>";
       box.appendChild(div);
     });
@@ -1586,7 +1625,7 @@
         }
         if (!state.stripe) {
           hide(loading);
-          err.textContent = "Could not start the secure payment form. Please try again.";
+          err.textContent = T("status.pay_start_failed", "Could not start the secure payment form. Please try again.");
           return;
         }
         if (!state.cardElement) {
@@ -1618,7 +1657,7 @@
       .catch(function () {
         if (state.payMode === false) return; /* not-set-up message already shown */
         hide(loading);
-        err.textContent = "Could not reach the payment service. Please try again.";
+        err.textContent = T("status.reach_payment", "Could not reach the payment service. Please try again.");
         submit.disabled = true;
       });
   }
@@ -1672,11 +1711,11 @@
           var remove = document.createElement("button");
           remove.type = "button";
           remove.className = "remove-saved-card";
-          remove.textContent = "Remove";
+          remove.textContent = T("status.remove", "Remove");
           remove.addEventListener("click", function (e) {
             e.preventDefault();
             e.stopPropagation();
-            if (!window.confirm("Remove this saved card?")) return;
+            if (!window.confirm(T("status.remove_card_confirm", "Remove this saved card?"))) return;
             fetch("/api/customers/cards/" + encodeURIComponent(c.id) + "?phone=" +
                   encodeURIComponent(state.bookingPhone), { method: "DELETE" })
               .then(function (r) {
@@ -1684,13 +1723,13 @@
               })
               .then(function (res) {
                 if (!res.ok) {
-                  $("ca-pay-error").textContent = (res.j && (res.j.error || res.j.message)) || "That card could not be removed.";
+                  $("ca-pay-error").textContent = (res.j && (res.j.error || res.j.message)) || T("status.remove_card_failed", "That card could not be removed.");
                   return;
                 }
                 loadSavedCards();
               })
               .catch(function () {
-                $("ca-pay-error").textContent = "Could not reach the payment service. Please try again.";
+                $("ca-pay-error").textContent = T("status.reach_payment", "Could not reach the payment service. Please try again.");
               });
           });
           label.appendChild(remove);
@@ -1720,20 +1759,20 @@
     if (res.j && res.j.needs_action && res.j.client_secret && !alreadyConfirmed) {
       if (!res.j.payment_intent_id) {
         btn.disabled = false;
-        btn.textContent = "Pay";
-        err.textContent = "Payment needs confirmation, but no confirmation was provided. Please try again.";
+        btn.textContent = T("status.pay", "Pay");
+        err.textContent = T("status.pay_confirm_missing", "Payment needs confirmation, but no confirmation was provided. Please try again.");
         return Promise.resolve();
       }
-      btn.textContent = "Confirming…";
+      btn.textContent = T("status.confirming", "Confirming…");
       return state.stripe.confirmCardPayment(res.j.client_secret)
         .then(function (result) {
           if (result.error) {
             btn.disabled = false;
-            btn.textContent = "Pay";
-            err.textContent = result.error.message || "Your card could not be confirmed. Please try again.";
+            btn.textContent = T("status.pay", "Pay");
+            err.textContent = result.error.message || T("status.card_confirm_failed", "Your card could not be confirmed. Please try again.");
             return;
           }
-          btn.textContent = "Processing…";
+          btn.textContent = T("status.processing", "Processing…");
           return fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/pay/confirm", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1745,22 +1784,22 @@
             .then(function (res2) { return handlePayResponse(res2, true); })
             .catch(function () {
               btn.disabled = false;
-              btn.textContent = "Pay";
-              err.textContent = "Could not reach the payment service. Please try again.";
+              btn.textContent = T("status.pay", "Pay");
+              err.textContent = T("status.reach_payment", "Could not reach the payment service. Please try again.");
             });
         })
         .catch(function () {
           btn.disabled = false;
-          btn.textContent = "Pay";
-          err.textContent = "Could not reach the payment service. Please try again.";
+          btn.textContent = T("status.pay", "Pay");
+          err.textContent = T("status.reach_payment", "Could not reach the payment service. Please try again.");
         });
     }
     btn.disabled = false;
-    btn.textContent = "Pay";
+    btn.textContent = T("status.pay", "Pay");
     if (!res.ok || !res.j || !res.j.payment) {
       /* Decline / Stripe error: the server's message, verbatim. The
          booking stays awaiting_payment and is never sent to drivers. */
-      err.textContent = (res.j && (res.j.error || res.j.message)) || "Payment could not be completed. Please try again.";
+      err.textContent = (res.j && (res.j.error || res.j.message)) || T("status.pay_failed", "Payment could not be completed. Please try again.");
       return Promise.resolve();
     }
     state.paid = true;
@@ -1802,18 +1841,18 @@
       card_name: $("ca-pay-name").value.trim()
     };
     if (!payload.card_number || !payload.card_exp || !payload.card_cvc || !payload.card_name) {
-      err.textContent = "Please fill in all card fields.";
+      err.textContent = T("status.fill_card_fields", "Please fill in all card fields.");
       return;
     }
     var btn = $("ca-pay-submit");
     btn.disabled = true;
-    btn.textContent = "Processing (test mode)…";
+    btn.textContent = T("status.processing_test", "Processing (test mode)…");
     postPay(payload)
       .then(function (res) { return handlePayResponse(res, false); })
       .catch(function () {
         btn.disabled = false;
-        btn.textContent = "Pay";
-        err.textContent = "Could not reach the payment service. Please try again.";
+        btn.textContent = T("status.pay", "Pay");
+        err.textContent = T("status.reach_payment", "Could not reach the payment service. Please try again.");
       });
   }
 
@@ -1831,16 +1870,16 @@
       return;
     }
     if (state.payMode !== "stripe") {
-      err.textContent = "The secure payment form is still loading. Please wait a moment and try again.";
+      err.textContent = T("status.pay_loading_wait", "The secure payment form is still loading. Please wait a moment and try again.");
       return;
     }
     if (!state.stripe || !state.cardElement) {
-      err.textContent = "The secure payment form is still loading. Please wait a moment and try again.";
+      err.textContent = T("status.pay_loading_wait", "The secure payment form is still loading. Please wait a moment and try again.");
       return;
     }
     var btn = $("ca-pay-submit");
     btn.disabled = true;
-    btn.textContent = "Processing…";
+    btn.textContent = T("status.processing", "Processing…");
     var savedId = selectedSavedCardId();
     if (savedId) {
       /* A saved card: only its server-side id is sent — never any
@@ -1849,8 +1888,8 @@
         .then(function (res) { return handlePayResponse(res, false); })
         .catch(function () {
           btn.disabled = false;
-          btn.textContent = "Pay";
-          err.textContent = "Could not reach the payment service. Please try again.";
+          btn.textContent = T("status.pay", "Pay");
+          err.textContent = T("status.reach_payment", "Could not reach the payment service. Please try again.");
         });
       return;
     }
@@ -1865,8 +1904,8 @@
       .then(function (result) {
         if (result.error) {
           btn.disabled = false;
-          btn.textContent = "Pay";
-          err.textContent = result.error.message || "Please check your card details and try again.";
+          btn.textContent = T("status.pay", "Pay");
+          err.textContent = result.error.message || T("status.check_card", "Please check your card details and try again.");
           return;
         }
         return postPay({
@@ -1876,21 +1915,21 @@
           .then(function (res) { return handlePayResponse(res, false); })
           .catch(function () {
             btn.disabled = false;
-            btn.textContent = "Pay";
-            err.textContent = "Could not reach the payment service. Please try again.";
+            btn.textContent = T("status.pay", "Pay");
+            err.textContent = T("status.reach_payment", "Could not reach the payment service. Please try again.");
           });
       })
       .catch(function () {
         btn.disabled = false;
-        btn.textContent = "Pay";
-        err.textContent = "Could not reach the payment service. Please try again.";
+        btn.textContent = T("status.pay", "Pay");
+        err.textContent = T("status.reach_payment", "Could not reach the payment service. Please try again.");
       });
   });
 
   /* ---------- Cancel ---------- */
   $("ca-cancel-booking-btn").addEventListener("click", function () {
     if (!state.bookingId) return;
-    if (!window.confirm("Cancel this booking? The cancellation rules apply.")) return;
+    if (!window.confirm(T("status.cancel_confirm_app", "Cancel this booking? The cancellation rules apply."))) return;
     fetch("/api/bookings/" + encodeURIComponent(state.bookingId) + "/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1901,7 +1940,7 @@
         var line = $("ca-cancel-result");
         show(line);
         if (!res.ok) {
-          line.textContent = (res.j && (res.j.error || res.j.message)) || "Cancellation could not be completed.";
+          line.textContent = (res.j && (res.j.error || res.j.message)) || T("status.cancel_failed", "Cancellation could not be completed.");
           return;
         }
         stopPolling();
@@ -1915,7 +1954,7 @@
         hide($("ca-total-box"));
         hide($("ca-thankyou-block"));
         show($("ca-status-finding"));
-        $("ca-status-message").textContent = "This booking was cancelled.";
+        $("ca-status-message").textContent = T("status.cancelled", "This booking was cancelled.");
         /* No ride is live any more: the Book tab form is emptied and
            the submit guard no longer blocks a fresh booking. */
         state.bookingId = null;
@@ -1926,7 +1965,7 @@
       .catch(function () {
         var line = $("ca-cancel-result");
         show(line);
-        line.textContent = "Could not reach the booking service. Please try again.";
+        line.textContent = T("status.reach_booking", "Could not reach the booking service. Please try again.");
       });
   });
 
@@ -2010,8 +2049,7 @@
     if (typeof window.L === "undefined") {
       mapEl.classList.add("hidden");
       show(fallback);
-      fallback.textContent = "Live map is unavailable right now. Your chauffeur is on the way to " +
-        (booking.pickup || "your pickup point") + ".";
+      fallback.textContent = T("status.map_unavailable", "Live map is unavailable right now. Your chauffeur is on the way to {place}.", { place: booking.pickup || T("status.your_pickup_point", "your pickup point") });
       return;
     }
     hide(fallback);
@@ -2036,7 +2074,7 @@
         attribution: "© OpenStreetMap contributors © CARTO"
       }).addTo(state.map);
       state.marker = window.L.marker([lat, lng]).addTo(state.map);
-      state.marker.bindPopup("Your chauffeur").openPopup();
+      state.marker.bindPopup(T("status.chauffeur_word", "Your chauffeur")).openPopup();
       state.mapReady = true;
     } else {
       state.marker.setLatLng([lat, lng]);
@@ -2065,7 +2103,7 @@
       var viewBtn = document.createElement("button");
       viewBtn.type = "button";
       viewBtn.className = "btn-ghost h-view";
-      viewBtn.textContent = "View this ride";
+      viewBtn.textContent = T("status.view_ride", "View this ride");
       viewBtn.addEventListener("click", function () { openRide(b.id, phone); });
       item.appendChild(viewBtn);
       box.appendChild(item);
@@ -2076,7 +2114,7 @@
     var box = $("ca-history-results");
     err.textContent = "";
     box.innerHTML = "";
-    if (!phone) { err.textContent = "Please enter your phone number."; return; }
+    if (!phone) { err.textContent = T("status.enter_phone", "Please enter your phone number."); return; }
     state.historyPhone = phone;
     box.innerHTML = "<p>Looking up your rides…</p>";
     fetch("/api/bookings?phone=" + encodeURIComponent(phone))
@@ -2084,7 +2122,7 @@
       .then(function (res) {
         if (!res.ok) {
           box.innerHTML = "";
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "Could not look up rides for that number.";
+          err.textContent = (res.j && (res.j.error || res.j.message)) || T("status.lookup_failed", "Could not look up rides for that number.");
           return;
         }
         var list = Array.isArray(res.j) ? res.j : (res.j.bookings || res.j.rides || []);
@@ -2092,7 +2130,7 @@
       })
       .catch(function () {
         box.innerHTML = "";
-        err.textContent = "Could not reach the booking service. Please try again.";
+        err.textContent = T("status.reach_booking", "Could not reach the booking service. Please try again.");
       });
   }
   /* Signed-in customers see their own rides by email (owner
@@ -2108,7 +2146,7 @@
       .then(function (res) {
         if (!res.ok) {
           box.innerHTML = "";
-          err.textContent = (res.j && (res.j.error || res.j.message)) || "Could not look up rides for that email.";
+          err.textContent = (res.j && (res.j.error || res.j.message)) || T("status.lookup_failed_email", "Could not look up rides for that email.");
           return;
         }
         var list = Array.isArray(res.j) ? res.j : (res.j.bookings || res.j.rides || []);
@@ -2116,7 +2154,7 @@
       })
       .catch(function () {
         box.innerHTML = "";
-        err.textContent = "Could not reach the booking service. Please try again.";
+        err.textContent = T("status.reach_booking", "Could not reach the booking service. Please try again.");
       });
   }
   function refreshHistorySignin() {
@@ -2148,7 +2186,7 @@
         startTracking(res.j.booking, phone);
       })
       .catch(function () {
-        $("ca-history-error").textContent = "Could not reach the booking service. Please try again.";
+        $("ca-history-error").textContent = T("status.reach_booking", "Could not reach the booking service. Please try again.");
       });
   }
 
@@ -2177,7 +2215,7 @@
   function supportGreet() {
     if (supportOpened) return;
     supportOpened = true;
-    supportAddMsg("bot", "Hello, and welcome to Noel Chauffer. How can I help — booking, cancellation, waiting time, or something about a ride?");
+    supportAddMsg("bot", T("chat.greeting_app", "Hello, and welcome to Noel Chauffer. How can I help — booking, cancellation, waiting time, or something about a ride?"));
   }
   function supportAnswer(text) {
     var t = text.toLowerCase();
@@ -2188,48 +2226,48 @@
       return false;
     };
     if (has("paus")) {
-      return "No — bookings are open. Enter your pickup and drop-off in the booking form to see your fare.";
+      return T("chat.ans_paused", "No — bookings are open. Enter your pickup and drop-off in the booking form to see your fare.");
     }
     if (has("cancel", "refund")) {
-      return "Cancellation is free if you cancel more than 1 hour before pickup. If you cancel 1 hour or less before pickup, the cancellation is not refundable.";
+      return T("chat.ans_cancel", "Cancellation is free if you cancel more than 1 hour before pickup. If you cancel 1 hour or less before pickup, the cancellation is not refundable.");
     }
     if (has("wait", "airport", "late", "delay")) {
-      return "Waiting is free for 60 minutes at airports and 15 minutes at other pickups. After that, waiting charges apply.";
+      return T("chat.ans_wait", "Waiting is free for 60 minutes at airports and 15 minutes at other pickups. After that, waiting charges apply.");
     }
     if (has("price", "cost", "much", "total", "charge", "pay", "payment")) {
-      return "Enter your pickup and drop-off in the Book tab, choose your experience, and you will see the total for each class before you pay.";
+      return T("chat.ans_price_app", "Enter your pickup and drop-off in the Book tab, choose your experience, and you will see the total for each class before you pay.");
     }
     if (has("lost", "left", "forgot", "belonging", "item")) {
-      return "I am sorry to hear that. Please report it here as soon as you can, and within 7 days. The driver checks the car after every ride. Unclaimed items go to the police station after one week.";
+      return T("chat.ans_lost", "I am sorry to hear that. Please report it here as soon as you can, and within 7 days. The driver checks the car after every ride. Unclaimed items go to the police station after one week.");
     }
     if (has("problem", "complaint", "issue", "unhappy", "escalat", "manager", "owner")) {
-      return "I am sorry about that. I will escalate this to the owner, who will look into it personally. Please tell me your pickup date and time and what happened.";
+      return T("chat.ans_problem", "I am sorry about that. I will escalate this to the owner, who will look into it personally. Please tell me your pickup date and time and what happened.");
     }
     if (has("driver", "chauffeur", "phone", "email", "detail", "contact")) {
-      return "As soon as your chauffeur accepts, you will see their name, phone number, car, colour and plate number in the My Rides tab — and the same details are sent to your phone and email.";
+      return T("chat.ans_driver_app", "As soon as your chauffeur accepts, you will see their name, phone number, car, colour and plate number in the My Rides tab — and the same details are sent to your phone and email.");
     }
     if (has("car", "vehicle", "sedan", "suv", "type", "class")) {
-      return "Our rides come in three classes — Business Class, Business SUV and First Class — recent high-end cars, clean, comfortable, and prepared for every ride, with phone chargers on board.";
+      return T("chat.ans_car", "Our rides come in three classes — Business Class, Business SUV and First Class — recent high-end cars, clean, comfortable, and prepared for every ride, with phone chargers on board.");
     }
     if (has("return", "round trip", "back", "come back")) {
-      return "For a return journey, simply book a second one-way ride. After you pay for your first ride, the app offers you a return booking with the addresses already swapped for you.";
+      return T("chat.ans_return_app", "For a return journey, simply book a second one-way ride. After you pay for your first ride, the app offers you a return booking with the addresses already swapped for you.");
     }
     if (has("hour", "hourly", "by the hour")) {
-      return "Choose the “By the hour” tab in the booking form, pick a vehicle class and how many hours you need (minimum 2 hours). Your chauffeur stays with you for the hours you book, with 25 miles of travel included per hour.";
+      return T("chat.ans_hourly", "Choose the “By the hour” tab in the booking form, pick a vehicle class and how many hours you need (minimum 2 hours). Your chauffeur stays with you for the hours you book, with 25 miles of travel included per hour.");
     }
     if (has("refer", "friend", "code")) {
-      return "If a friend referred you, open their referral link — it takes you to the booking form with their code already filled in, and your first booking gets 5% off.";
+      return T("chat.ans_refer", "If a friend referred you, open their referral link — it takes you to the booking form with their code already filled in, and your first booking gets 5% off.");
     }
     if (has("book", "reserve", "ride", "pickup", "how")) {
-      return "Enter your pickup and drop-off, date and time in the Book tab, choose your experience, and pay by card — your chauffeur is assigned right after payment.";
+      return T("chat.ans_book_app", "Enter your pickup and drop-off, date and time in the Book tab, choose your experience, and pay by card — your chauffeur is assigned right after payment.");
     }
     if (has("hello", "hi", "hey", "salam")) {
-      return "Hello, and welcome to Noel Chauffer. Bookings are open — enter your pickup and drop-off in the booking form to see your fare. I can still help with prices, cancellation, waiting time, lost items, or a problem with a ride.";
+      return T("chat.ans_hello", "Hello, and welcome to Noel Chauffer. Bookings are open — enter your pickup and drop-off in the booking form to see your fare. I can still help with prices, cancellation, waiting time, lost items, or a problem with a ride.");
     }
     if (has("human", "person", "agent", "support", "help")) {
-      return "You are chatting with the Noel Chauffer team here. The team replies within 24 hours. If your matter is urgent, please describe it here and we will escalate it to the owner.";
+      return T("chat.ans_human", "You are chatting with the Noel Chauffer team here. The team replies within 24 hours. If your matter is urgent, please describe it here and we will escalate it to the owner.");
     }
-    return "Happy to help. Bookings are open. I can answer questions about prices, cancellation, waiting time, your chauffeur's details, cars, return trips, by-the-hour rides, or lost items — just ask.";
+    return T("chat.ans_default", "Happy to help. Bookings are open. I can answer questions about prices, cancellation, waiting time, your chauffeur's details, cars, return trips, by-the-hour rides, or lost items — just ask.");
   }
   function supportHandleQuestion(q) {
     if (!q) return;

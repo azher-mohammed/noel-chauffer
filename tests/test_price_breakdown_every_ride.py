@@ -83,13 +83,12 @@ class BreakdownUiCase(unittest.TestCase):
                 "Travel on your own terms.",
                 "We move with you",
                 "The gold standard of private travel."):
-            self.assertIn("<h2>%s</h2>" % text, html, text)
-        self.assertIn("<h2>Punctual.<br>Professional.</h2>", html)
+            self.assertIn(">%s</h2>" % text, html, text)
+        self.assertIn(">Punctual.</span><br><span data-i18n=\"home.professional\">Professional.</span></h2>", html)
         for slug, text in (
                 ("why-ride-with-noel-chauffer", "Why ride with Noel Chauffer"),
                 ("three-ways-to-ride", "Three ways to ride")):
-            self.assertIn('<h2><a href="/%s">%s</a></h2>' % (slug, text),
-                          html, slug)
+            self.assertRegex(html, '<h2><a href="/%s"[^>]*>%s</a></h2>' % (slug, text), slug)
         for slug, text in (
                 ("airport-pickups", "Airport pickups, without the rush."),
                 ("experience", "Sit back and enjoy the ride."),
@@ -137,8 +136,8 @@ class BreakdownUiCase(unittest.TestCase):
             js = _read(rel)
             self.assertIn("function paintHourlyBreakdown", js, rel)
             body = _painter_body(js, "paintHourlyBreakdown")
-            self.assertIn(">Base fare<", body, rel)
-            self.assertIn(">Total<", body, rel)
+            self.assertIn('T("class.base_fare", "Base fare")', body, rel)
+            self.assertIn('T("class.total", "Total")', body, rel)
 
 
 class BreakdownApiCase(unittest.TestCase):

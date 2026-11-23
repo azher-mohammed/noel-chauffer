@@ -149,9 +149,9 @@ class ReturnLabelClientCase(unittest.TestCase):
     def test_label_helper_distinguishes_return_from_one_way(self):
         for name, js in (("website", self.web), ("app", self.app_js)):
             body = block(js, "function rideTypeLabel", 400)
-            self.assertIn('if (b.is_return) return "Return trip";', body, name)
-            self.assertIn('return "One way";', body, name)
-            self.assertIn('return "By the hour";', body, name)
+            self.assertIn('if (b.is_return) return T("status.return_trip_label", "Return trip");', body, name)
+            self.assertIn('return T("status.one_way_label", "One way");', body, name)
+            self.assertIn('return T("form.by_hour", "By the hour");', body, name)
 
     def test_return_button_marks_next_booking_as_return(self):
         for name, js, pickup in (("website", self.web, "bk-pickup"),

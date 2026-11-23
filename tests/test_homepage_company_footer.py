@@ -55,7 +55,7 @@ def _col_block(heading):
     # FOOTER is the nav's inner HTML (no </nav> inside it), so the
     # column runs to the next <h3> or the end of the footer.
     m = re.search(
-        r"<h3>" + re.escape(heading) + r"</h3>(.*?)(?:<h3>|$)",
+        r"<h3[^>]*>" + re.escape(heading) + r"</h3>(.*?)(?:<h3[^>]*>|$)",
         FOOTER,
         re.S,
     )
@@ -87,7 +87,7 @@ class TestHomepageCompanyFooter(unittest.TestCase):
             self.assertIn(f'href="{href}"', company)
 
     def test_footer_column_order_unchanged(self):
-        headings = re.findall(r"<h3>(.*?)</h3>", FOOTER)
+        headings = re.findall(r"<h3[^>]*>(.*?)</h3>", FOOTER)
         self.assertEqual(
             headings,
             ["Airport transfers", "Where we drive", "Guides",
@@ -96,7 +96,7 @@ class TestHomepageCompanyFooter(unittest.TestCase):
 
     def test_nav_company_link_stays(self):
         nav = INDEX.split("</nav>")[0]
-        self.assertIn('<a href="/our-company">Our company</a>', nav)
+        self.assertRegex(nav, r'<a href="/our-company"[^>]*>Our company</a>')
 
     def test_footer_about_styled(self):
         self.assertIn(".footer-col .footer-about", CSS)

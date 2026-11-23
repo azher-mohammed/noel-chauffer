@@ -46,11 +46,15 @@ INDEX = (REPO_DIR / "static" / "index.html").read_text()
 FOOTER = re.search(
     r'<nav class="footer-cols"[^>]*>(.*?)</nav>', INDEX, re.S
 ).group(1)
+# Footer links/headings now carry data-i18n="foot.*" (language switcher,
+# owner decision 2026-11-22). The comparisons below pin link text + href,
+# so strip the translation attributes from this fixture.
+FOOTER = re.sub(r' data-i18n="[^"]*"', "", FOOTER)
 
 
 def _col_block(heading):
     m = re.search(
-        r"<h3>" + re.escape(heading) + r"</h3>\s*<ul>(.*?)</ul>",
+        r"<h3[^>]*>" + re.escape(heading) + r"</h3>\s*<ul>(.*?)</ul>",
         FOOTER,
         re.S,
     )
@@ -60,7 +64,7 @@ def _col_block(heading):
 
 class TestFooterColumns(unittest.TestCase):
     def test_footer_column_order(self):
-        headings = re.findall(r"<h3>(.*?)</h3>", FOOTER)
+        headings = re.findall(r"<h3[^>]*>(.*?)</h3>", FOOTER)
         self.assertEqual(
             headings,
             ["Airport transfers", "Where we drive", "Guides",

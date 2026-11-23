@@ -51,7 +51,7 @@ class TestAppBandBadgesOnly(unittest.TestCase):
         self.assertNotIn("Book your ride, follow your chauffeur", INDEX)
 
     def test_heading_and_badges_kept(self):
-        self.assertIn("<h2>We move with you</h2>", INDEX)
+        self.assertIn(">We move with you</h2>", INDEX)  # h2 carries data-i18n="home.move" now
         self.assertIn('href="/app"><img src="/static/img/google-play-badge.png"', INDEX)
         self.assertIn('href="/app"><img src="/static/img/app-store-badge.svg"', INDEX)
         self.assertIn('src="/static/img/cabin.jpg"', INDEX)

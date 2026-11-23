@@ -567,3 +567,48 @@ input, select { font: inherit; }
   #ca-class-step .field-row { grid-template-columns: 1fr; }
   #ca-class-step .field-row .field { min-width: 0; }
 }
+
+/* Language switcher (owner decision 2026-11-22): scroll-down dropdown
+   under the language button in the app header, with a type-to-filter
+   search at the top. The choice persists in localStorage
+   ("noel-language") and applies to the website and the customer app. */
+.app-lang-slot { display: block; margin-top: 12px; }
+.noel-lang-picker { position: relative; width: 100%; }
+.noel-lang-btn {
+  display: flex; align-items: center; justify-content: space-between; width: auto;
+  background: none; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 8px;
+  color: var(--white); font-size: 15px; text-align: left; padding: 10px 12px; cursor: pointer;
+}
+.noel-lang-btn-label { flex: 1; text-align: left; }
+.noel-lang-caret { font-size: 13px; color: #cfcfcf; margin-inline-start: 8px; }
+.noel-lang-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 240px; z-index: 210;
+  background: #17181a; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); overflow: hidden;
+}
+.noel-lang-search {
+  width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px;
+  background: #101112; color: var(--white); border: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.15); outline: none;
+}
+.noel-lang-search::placeholder { color: #9a9a9a; }
+.noel-lang-list { max-height: 264px; overflow-y: auto; }
+.noel-lang-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: 0; padding: 12px 14px; cursor: pointer;
+  color: var(--white); font-size: 16px; text-align: left;
+}
+.noel-lang-item:hover, .noel-lang-item:focus { background: rgba(255, 255, 255, 0.08); outline: none; }
+.noel-lang-item.is-selected { background: rgba(255, 255, 255, 0.1); }
+.noel-lang-native { font-weight: 600; }
+.noel-lang-eng { color: #cfcfcf; font-size: 14px; }
+.noel-lang-check { margin-inline-start: auto; color: var(--wordmark-gold); font-weight: 700; }
+.noel-lang-empty { padding: 14px; color: #cfcfcf; font-size: 15px; text-align: center; }
+
+/* Right-to-left (Arabic): mirror text alignment. Flex rows and the
+   dropdown edge follow dir="rtl" on their own. */
+html[dir="rtl"] .noel-lang-btn, html[dir="rtl"] .noel-lang-item,
+html[dir="rtl"] .field label, html[dir="rtl"] .field input,
+html[dir="rtl"] .field select, html[dir="rtl"] .field textarea,
+html[dir="rtl"] input, html[dir="rtl"] select, html[dir="rtl"] textarea { text-align: right; }
+html[dir="rtl"] .noel-lang-btn-label { text-align: right; }
+html[dir="rtl"] .noel-lang-search { text-align: right; }

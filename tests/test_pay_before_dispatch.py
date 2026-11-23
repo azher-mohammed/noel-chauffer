@@ -507,7 +507,7 @@ class PayBeforeDispatchCase(unittest.TestCase):
         self.assertNotIn('st === "paid"', customer_js)
         # Options page: "View options" opens the class page; the old
         # "Book a ride" label is gone everywhere user-visible.
-        self.assertIn('id="book-submit">View options<', index)
+        self.assertRegex(index, r'id="book-submit"[^>]*>View options<')
         self.assertIn("Choose your experience", index)
         self.assertIn("Business Class", index)
         self.assertIn("Business SUV", index)

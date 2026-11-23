@@ -49,7 +49,7 @@ class TestMenuYourRides(unittest.TestCase):
     def test_menu_has_your_rides_in_place_of_for_chauffeurs(self):
         menu = _menu_block()
         self.assertIn(
-            '<a class="menu-link" href="/your-ride-history">Your rides</a>',
+            '<a class="menu-link" href="/your-ride-history" data-i18n="menu.your_rides">Your rides</a>',
             menu,
         )
         self.assertNotIn("For chauffeurs", menu)
@@ -58,7 +58,7 @@ class TestMenuYourRides(unittest.TestCase):
         self.assertLess(menu.index("For business"), menu.index("Your rides"))
         self.assertLess(
             menu.index("Your rides"),
-            menu.index('href="/frequently-asked-questions">Help</a>'),
+            menu.index('href="/frequently-asked-questions"'),  # Help link carries data-i18n now
         )
 
     def test_rest_of_menu_unchanged(self):
@@ -69,17 +69,19 @@ class TestMenuYourRides(unittest.TestCase):
         self.assertIn("Hourly hire", menu)
         self.assertIn("For business", menu)
         self.assertIn("Help", menu)
-        self.assertIn("English (US)", menu)
+        self.assertIn('id="menu-lang-slot"', menu,
+                         "menu language item is now the working picker slot")
         self.assertIn("Sign in", menu)
 
     def test_driver_page_and_footer_drive_link_untouched(self):
         client = app_module.app.test_client()
         res = client.get("/driver")
         self.assertEqual(res.status_code, 200)
-        self.assertIn('href="/driver">Drive with us</a>', INDEX)
+        self.assertRegex(INDEX, r'href="/driver"[^>]*>Drive with us</a>')
         # The top-nav "Ride history" link (kept by the earlier removal)
         # still points at the same separate page.
-        self.assertIn('<a href="/your-ride-history">Ride history</a>', INDEX)
+        self.assertIn('href="/your-ride-history"', INDEX)
+        self.assertIn('>Ride history</a>', INDEX)  # link carries data-i18n="menu.ride_history" now
 
     def test_your_rides_page_returns_200_with_lookup(self):
         client = app_module.app.test_client()
@@ -131,7 +133,7 @@ class TestMenuYourRides(unittest.TestCase):
         self.assertIn("completed", statuses)
         self.assertIn("offered", statuses)
         # The history view renders a completed ride as completed.
-        self.assertIn('completed: "Ride completed', RIDE_HISTORY_JS)
+        self.assertIn('completed: T("status.completed", "Ride completed', RIDE_HISTORY_JS)
 
 
 if __name__ == "__main__":

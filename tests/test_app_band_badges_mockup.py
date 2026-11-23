@@ -93,7 +93,7 @@ class TestBadgesEqualSize(unittest.TestCase):
 class TestPhoneMockup(unittest.TestCase):
     def test_mockup_present_in_band_between_heading_and_badges(self):
         band = _band()
-        self.assertIn('<h2>We move with you</h2>', band)
+        self.assertIn('>We move with you</h2>', band)  # h2 carries data-i18n="home.move" now
         self.assertIn('class="phone-mockup"', band)
         self.assertLess(
             band.index('class="phone-mockup"'),

@@ -168,11 +168,12 @@ class BlacklaneFormCase(unittest.TestCase):
         # "For chauffeurs" was REPLACED by "Your rides" in the same
         # spot (owner order, voice call 2026-11-22 ~21:14 EST); the
         # /driver page itself stays live, reached directly.
-        self.assertIn('href="/your-ride-history">Your rides<', menu)
+        self.assertRegex(menu, r'href="/your-ride-history"[^>]*>Your rides<')
         self.assertNotIn("For chauffeurs", menu)
-        self.assertIn('href="/frequently-asked-questions">Help<', menu)
-        self.assertIn('class="menu-link menu-plain">English (US)<', menu)
-        self.assertIn('class="menu-link menu-plain">Sign in<', menu)
+        self.assertRegex(menu, r'href="/frequently-asked-questions"[^>]*>Help<')
+        self.assertIn('id="menu-lang-slot"', menu,
+                         "menu language item is now the working picker slot")
+        self.assertRegex(menu, r'class="menu-link menu-plain"[^>]*>Sign in<')
 
     def test_menu_links_are_existing_pages(self):
         menu = block(self.html, 'id="mobile-menu"', 4000)
@@ -203,13 +204,13 @@ class BlacklaneFormCase(unittest.TestCase):
                          "sr-only heading must not say Book")
         self.assertNotIn('id="new-booking-btn">Book another ride<', self.html)
         self.assertNotIn('id="return-trip-btn">Book your return trip<', self.html)
-        self.assertIn('id="new-booking-btn">Another ride<', self.html)
-        self.assertIn('id="return-trip-btn">Your return trip<', self.html)
-        self.assertIn('href="#book">Your ride<', self.html)
+        self.assertRegex(self.html, r'id="new-booking-btn"[^>]*>Another ride<')
+        self.assertRegex(self.html, r'id="return-trip-btn"[^>]*>Your return trip<')
+        self.assertRegex(self.html, r'href="#book"[^>]*>Your ride<')
 
     def test_booking_button_stays_view_options(self):
-        self.assertIn('id="book-submit">View options<', self.html)
-        self.assertIn('id="ca-book-submit">View options<', self.app_html)
+        self.assertRegex(self.html, r'id="book-submit"[^>]*>View options<')
+        self.assertRegex(self.app_html, r'id="ca-book-submit"[^>]*>View options<')
 
     # ---- 3. Suggestions: Blacklane look, Photon source, must-select -----
     def test_suggestion_box_is_dark_with_blacklane_font_sizes(self):
@@ -264,10 +265,8 @@ class BlacklaneFormCase(unittest.TestCase):
             self.assertIn('setFieldError("%s-dropoff", "%s-dropoff-error"' % (prefix, prefix),
                           submit)
         for html, prefix in ((self.html, "bk"), (self.app_html, "ca")):
-            self.assertIn('id="%s-pickup-error" role="alert">This field is required<' % prefix,
-                          html)
-            self.assertIn('id="%s-dropoff-error" role="alert">This field is required<' % prefix,
-                          html)
+            self.assertRegex(html, r'id="%s-pickup-error" role="alert"[^>]*>This field is required<' % prefix)
+            self.assertRegex(html, r'id="%s-dropoff-error" role="alert"[^>]*>This field is required<' % prefix)
         self.assertIn(".field-error { color: var(--bad);", self.css)
         self.assertIn(".field input.field-invalid { border-color: var(--bad); }",
                       self.css)
@@ -325,10 +324,12 @@ class BlacklaneFormCase(unittest.TestCase):
 
     def test_calendar_structure_and_past_rules(self):
         for js in (self.js, self.app_js):
-            self.assertIn('"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"', js,
-                          "weekday header must be Sunday-first")
+            self.assertIn('["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]', js,
+                          "weekday fallback must be Sunday-first")
+            self.assertIn('daysShort().map(function (d) { return d.slice(0, 2); })', js,
+                          "weekday header derives 2-letter forms from the day names")
             self.assertIn('"November"', js)
-            self.assertIn('DAYS_SHORT[d.getDay()] + ", " + MONTHS_SHORT[d.getMonth()]',
+            self.assertIn('daysShort()[d.getDay()] + ", " + monthsShort()[d.getMonth()]',
                           js, "picked date must read like 'Tue, Nov 24'")
             self.assertIn('cls += " past"', js)
             self.assertIn('(iso < today ? " disabled" : "")', js,
@@ -416,8 +417,7 @@ class BlacklaneFormCase(unittest.TestCase):
         self.assertIn('"Clean, quiet, and executive-level comfort."', self.js)
         self.assertIn("CLASS_PHOTOS[state.selectedClass]", self.js,
                       "first slide uses the selected class photo")
-        self.assertIn('id="ca-class-explore">Explore Business Class details<',
-                      self.app_html)
+        self.assertRegex(self.app_html, r'id="ca-class-explore"[^>]*>Explore Business Class details<')
         self.assertIn('"Clean, quiet, and executive-level comfort."', self.app_js)
 
     def test_whats_included_five_items_no_water(self):

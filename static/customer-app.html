@@ -19,59 +19,60 @@
 <div class="phone">
   <header class="app-head">
     <div class="brand">Noel <span>Chauffer</span></div>
-    <div class="tag">Luxury Chauffeur Rides Across USA</div>
+    <div class="tag" data-i18n="app.tag">Luxury Chauffeur Rides Across USA</div>
+    <span class="app-lang-slot" id="app-lang-slot"></span>
   </header>
 
   <!-- ============ BOOK ============ -->
   <section class="screen" id="screen-book">
     <div id="ca-booking-card">
-      <h2>Book your ride</h2>
+      <h2 data-i18n="app.book_ride">Book your ride</h2>
 
-      <div class="ride-tabs" role="tablist" aria-label="Ride type">
-        <button type="button" class="ride-tab active" id="ca-tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true">One way</button>
-        <button type="button" class="ride-tab" id="ca-tab-hourly" data-ride-type="hourly" role="tab" aria-selected="false">By the hour</button>
+      <div class="ride-tabs" role="tablist" data-i18n-aria="form.ride_type" aria-label="Ride type">
+        <button type="button" class="ride-tab active" id="ca-tab-oneway" data-ride-type="one_way" role="tab" aria-selected="true"><span data-i18n="form.one_way">One way</span></button>
+        <button type="button" class="ride-tab" id="ca-tab-hourly" data-ride-type="hourly" role="tab" aria-selected="false"><span data-i18n="form.by_hour">By the hour</span></button>
       </div>
 
       <form id="ca-booking-form" novalidate>
         <div class="field field-places">
-          <label for="ca-pickup">Pickup address</label>
-          <input id="ca-pickup" name="pickup" type="text" required autocomplete="off" placeholder="Street address, airport, or hotel" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="ca-pickup-list">
-          <ul class="places-list hidden" id="ca-pickup-list" role="listbox" aria-label="Pickup address suggestions"></ul>
-          <p class="field-error hidden" id="ca-pickup-error" role="alert">This field is required</p>
+          <label for="ca-pickup" data-i18n="form.pickup">Pickup address</label>
+          <input id="ca-pickup" name="pickup" type="text" required autocomplete="off" placeholder="Street address, airport, or hotel" data-i18n-ph="form.pickup_ph" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="ca-pickup-list">
+          <ul class="places-list hidden" id="ca-pickup-list" role="listbox" data-i18n-aria="form.pickup" aria-label="Pickup address suggestions"></ul>
+          <p class="field-error hidden" id="ca-pickup-error" role="alert" data-i18n="form.required">This field is required</p>
         </div>
         <div class="field field-places" id="ca-field-dropoff">
-          <label for="ca-dropoff">Drop-off address</label>
-          <input id="ca-dropoff" name="dropoff" type="text" autocomplete="off" placeholder="Where are you going?" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="ca-dropoff-list">
-          <ul class="places-list hidden" id="ca-dropoff-list" role="listbox" aria-label="Drop-off address suggestions"></ul>
-          <p class="field-error hidden" id="ca-dropoff-error" role="alert">This field is required</p>
+          <label for="ca-dropoff" data-i18n="form.dropoff">Drop-off address</label>
+          <input id="ca-dropoff" name="dropoff" type="text" autocomplete="off" placeholder="Where are you going?" data-i18n-ph="form.dropoff_ph" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="ca-dropoff-list">
+          <ul class="places-list hidden" id="ca-dropoff-list" role="listbox" data-i18n-aria="form.dropoff" aria-label="Drop-off address suggestions"></ul>
+          <p class="field-error hidden" id="ca-dropoff-error" role="alert" data-i18n="form.required">This field is required</p>
         </div>
         <div class="field-row">
           <div class="field field-wide field-date">
-            <label for="ca-date">Date</label>
-            <input id="ca-date" name="date" type="text" required readonly autocomplete="off" placeholder="Select a date">
-            <div class="date-picker hidden" id="ca-date-picker" role="dialog" aria-label="Choose a date"></div>
+            <label for="ca-date" data-i18n="form.date">Date</label>
+            <input id="ca-date" name="date" type="text" required readonly autocomplete="off" placeholder="Select a date" data-i18n-ph="form.select_date">
+            <div class="date-picker hidden" id="ca-date-picker" role="dialog" data-i18n-aria="form.choose_date" aria-label="Choose a date"></div>
           </div>
         </div>
         <!-- Flight number (Blacklane-style, owner decision
              2026-11-22): shown between Date and Pickup time only
              when an airport is picked (pickup or drop-off). -->
         <div class="field hidden" id="ca-field-flight">
-          <label for="ca-flight">Flight number</label>
-          <input id="ca-flight" name="flight_number" type="text" autocomplete="off" placeholder="e.g. LH202, BA2490" maxlength="20">
+          <label for="ca-flight" data-i18n="form.flight">Flight number</label>
+          <input id="ca-flight" name="flight_number" type="text" autocomplete="off" placeholder="e.g. LH202, BA2490" data-i18n-ph="form.flight_ph" maxlength="20">
         </div>
         <div class="field-row">
           <div class="field field-wide field-time">
-            <label for="ca-time">Pickup time</label>
-            <input id="ca-time" name="time" type="text" required readonly autocomplete="off" placeholder="Select a time">
-            <ul class="time-list hidden" id="ca-time-list" role="listbox" aria-label="Pickup time"></ul>
+            <label for="ca-time" data-i18n="form.time">Pickup time</label>
+            <input id="ca-time" name="time" type="text" required readonly autocomplete="off" placeholder="Select a time" data-i18n-ph="form.select_time">
+            <ul class="time-list hidden" id="ca-time-list" role="listbox" data-i18n-aria="form.time" aria-label="Pickup time"></ul>
           </div>
         </div>
         <!-- Passengers field removed (owner, 2026-11-20): the class
              cards already show each class's capacity. -->
         <div class="field hidden" id="ca-field-hours">
-          <label for="ca-hours">Hours</label>
+          <label for="ca-hours" data-i18n="form.hours">Hours</label>
           <input id="ca-hours" name="hours" type="number" min="2" max="24" step="1" value="2">
-          <div class="hint">Minimum 2 hours, maximum 24. Your chauffeur stays with you for the hours you book.</div>
+          <div class="hint" data-i18n="form.hours_hint">Minimum 2 hours, maximum 24. Your chauffeur stays with you for the hours you book.</div>
         </div>
         <!-- Contact is asked on the options page for one-way rides
              (Blacklane-style); hourly rides ask it here on the form
@@ -80,40 +81,40 @@
         <div id="ca-field-contact" class="hidden">
         <div class="field">
           <label for="ca-name">Your name</label>
-          <input id="ca-name" name="customer_name" type="text" autocomplete="name" placeholder="Full name">
+          <input id="ca-name" name="customer_name" type="text" autocomplete="name" placeholder="Full name" data-i18n-ph="class.name_ph">
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="ca-phone">Phone number</label>
-            <input id="ca-phone" name="phone" type="tel" autocomplete="tel" placeholder="Your phone number">
+            <label for="ca-phone" data-i18n="class.phone">Phone number</label>
+            <input id="ca-phone" name="phone" type="tel" autocomplete="tel" placeholder="Your phone number" data-i18n-ph="class.phone_ph">
           </div>
           <div class="field">
-            <label for="ca-email">Email</label>
-            <input id="ca-email" name="email" type="email" autocomplete="email" placeholder="you@example.com">
+            <label for="ca-email" data-i18n="class.email">Email</label>
+            <input id="ca-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" data-i18n-ph="class.email_ph">
           </div>
         </div>
         </div>
         <input type="hidden" id="ca-referral" name="referral_code" value="">
-        <button class="btn-primary btn-gold" type="submit" id="ca-book-submit">View options</button>
+        <button class="btn-primary btn-gold" type="submit" id="ca-book-submit" data-i18n="form.view_options">View options</button>
         <p class="form-error" id="ca-booking-error" role="alert"></p>
       </form>
     </div>
 
     <!-- FLIGHT NUMBER (separate step after the booking form, airport rides only) -->
     <div class="hidden" id="ca-flight-step" aria-live="polite">
-      <h2 id="ca-flight-step-title">Add your flight number</h2>
-      <p class="intro" id="ca-flight-step-text">Your chauffeur will meet you at the right terminal.</p>
+      <h2 id="ca-flight-step-title" data-i18n="form.flight_title">Add your flight number</h2>
+      <p class="intro" id="ca-flight-step-text" data-i18n="form.flight_text">Your chauffeur will meet you at the right terminal.</p>
       <p class="flight-airport" id="ca-flight-step-airport"></p>
       <div class="field">
-        <label for="ca-flight-number">Flight number</label>
-        <input id="ca-flight-number" type="text" autocomplete="off" placeholder="e.g. EK215" maxlength="20">
+        <label for="ca-flight-number" data-i18n="form.flight">Flight number</label>
+        <input id="ca-flight-number" type="text" autocomplete="off" placeholder="e.g. EK215" data-i18n-ph="form.flight_ph2" maxlength="20">
       </div>
-      <p class="form-note">You can skip this — your booking will still go through.</p>
+      <p class="form-note" data-i18n="form.flight_skip_note">You can skip this — your booking will still go through.</p>
       <div class="flight-actions">
-        <button type="button" class="btn-primary btn-gold" id="ca-flight-continue">Continue</button>
-        <button type="button" class="btn-ghost" id="ca-flight-skip">Skip</button>
+        <button type="button" class="btn-primary btn-gold" id="ca-flight-continue" data-i18n="class.continue">Continue</button>
+        <button type="button" class="btn-ghost" id="ca-flight-skip" data-i18n="form.skip">Skip</button>
       </div>
-      <button type="button" class="btn-text" id="ca-flight-back">← Back to booking form</button>
+      <button type="button" class="btn-text" id="ca-flight-back"><span data-i18n="class.back_form">← Back to booking form</span></button>
     </div>
 
     <!-- CHOOSE YOUR VEHICLE CLASS, HOURLY (separate step after View
@@ -125,10 +126,10 @@
          one-way options page, each showing its total for the booked
          hours.) -->
     <div class="hidden" id="ca-hourly-class-step" aria-live="polite">
-      <h2>Choose your vehicle class</h2>
+      <h2 data-i18n="class.choose_vehicle_class">Choose your vehicle class</h2>
       <p class="intro" id="ca-hourly-class-trip-summary"></p>
       <div id="ca-field-hourly-class">
-        <div class="class-options" role="radiogroup" aria-label="Choose your vehicle class">
+        <div class="class-options" role="radiogroup" data-i18n-aria="class.choose_vehicle_class" aria-label="Choose your vehicle class">
           <button type="button" class="class-option selected" id="ca-hr-class-sedan" data-vehicle-class="sedan" role="radio" aria-checked="true">
             <span class="class-option-media">
               <img class="class-option-car" src="/static/img/car-business.jpg" alt="Business Class car, front view">
@@ -167,21 +168,21 @@
            — taxes and tolls are inside the per-hour rate — so the
            breakdown is Base fare + Total. -->
       <div class="class-details">
-        <h3>Price breakdown</h3>
+        <h3 data-i18n="class.price_breakdown">Price breakdown</h3>
         <div class="class-breakdown" id="ca-hourly-class-breakdown"></div>
       </div>
       <p class="form-error" id="ca-hourly-class-error" role="alert"></p>
       <div class="class-actions">
-        <button type="button" class="btn-primary btn-gold" id="ca-hourly-class-continue">Select Business Class</button>
+        <button type="button" class="btn-primary btn-gold" id="ca-hourly-class-continue" data-i18n="class.select_business_class">Select Business Class</button>
       </div>
-      <button type="button" class="btn-text" id="ca-hourly-class-back">← Back to booking form</button>
+      <button type="button" class="btn-text" id="ca-hourly-class-back"><span data-i18n="class.back_form">← Back to booking form</span></button>
     </div>
 
     <!-- CHOOSE YOUR EXPERIENCE (separate options page after the booking form) -->
     <div class="hidden" id="ca-class-step" aria-live="polite">
-      <h2>Choose your experience</h2>
+      <h2 data-i18n="class.choose_experience">Choose your experience</h2>
       <p class="intro" id="ca-class-trip-summary"></p>
-      <div class="class-options" role="radiogroup" aria-label="Choose your vehicle class">
+      <div class="class-options" role="radiogroup" data-i18n-aria="class.choose_vehicle_class" aria-label="Choose your vehicle class">
         <button type="button" class="class-option selected" id="ca-class-option-sedan" data-vehicle-class="sedan" role="radio" aria-checked="true">
           <span class="class-option-media">
             <img class="class-option-car" src="/static/img/car-business.jpg" alt="Business Class car, front view">
@@ -217,65 +218,65 @@
            explore line, 5-slide highlights, what's included (the 5
            items only — NO complimentary water, owner decided), Capacity
            tabs, then the price breakdown. No pricing changed here. -->
-      <p class="class-explore" id="ca-class-explore">Explore Business Class details</p>
+      <p class="class-explore" id="ca-class-explore" data-i18n="class.explore">Explore Business Class details</p>
       <div class="class-highlights" id="ca-class-highlights">
         <div class="highlights-track" id="ca-class-highlights-track"></div>
-        <button type="button" class="hl-arrow hl-prev" id="ca-class-hl-prev" aria-label="Previous highlight">&#8249;</button>
-        <button type="button" class="hl-arrow hl-next" id="ca-class-hl-next" aria-label="Next highlight">&#8250;</button>
-        <div class="hl-dots" id="ca-class-hl-dots" role="tablist" aria-label="Highlights"></div>
+        <button type="button" class="hl-arrow hl-prev" id="ca-class-hl-prev" data-i18n-aria="class.prev_highlight" aria-label="Previous highlight">&#8249;</button>
+        <button type="button" class="hl-arrow hl-next" id="ca-class-hl-next" data-i18n-aria="class.next_highlight" aria-label="Next highlight">&#8250;</button>
+        <div class="hl-dots" id="ca-class-hl-dots" role="tablist" data-i18n-aria="class.highlights" aria-label="Highlights"></div>
       </div>
       <div class="class-included">
-        <h3>What's included</h3>
+        <h3 data-i18n="class.whats_included">What's included</h3>
         <ul>
-          <li>Personal meet &amp; greet</li>
-          <li>Includes up to 15 minutes of free wait time</li>
-          <li>Free to cancel up to 1 hour before pickup</li>
-          <li>iOS and Android chargers onboard</li>
-          <li>Assistance with luggage at pickup and drop-off</li>
+          <li data-i18n="class.included_meet">Personal meet &amp; greet</li>
+          <li data-i18n="class.included_wait">Includes up to 15 minutes of free wait time</li>
+          <li data-i18n="class.included_cancel">Free to cancel up to 1 hour before pickup</li>
+          <li data-i18n="class.included_chargers">iOS and Android chargers onboard</li>
+          <li data-i18n="class.included_luggage">Assistance with luggage at pickup and drop-off</li>
         </ul>
       </div>
       <div class="class-capacity">
-        <h3>Capacity</h3>
-        <div class="cap-tabs" role="tablist" aria-label="Capacity">
-          <button type="button" class="cap-tab active" data-cap-tab="luggage" role="tab" aria-selected="true">Luggage</button>
-          <button type="button" class="cap-tab" data-cap-tab="seating" role="tab" aria-selected="false">Seating</button>
+        <h3 data-i18n="class.capacity">Capacity</h3>
+        <div class="cap-tabs" role="tablist" data-i18n-aria="class.capacity" aria-label="Capacity">
+          <button type="button" class="cap-tab active" data-cap-tab="luggage" role="tab" aria-selected="true"><span data-i18n="class.capacity_luggage">Luggage</span></button>
+          <button type="button" class="cap-tab" data-cap-tab="seating" role="tab" aria-selected="false"><span data-i18n="class.capacity_seating">Seating</span></button>
         </div>
-        <p class="cap-panel" id="ca-class-cap-luggage">Based on standard luggage sizes, which may differ from yours. <strong id="ca-class-cap-luggage-count">2 x Carry-on</strong></p>
-        <p class="cap-panel hidden" id="ca-class-cap-seating"><strong id="ca-class-cap-seating-count">3 passengers</strong> — please respect the seating capacity for safety.</p>
+        <p class="cap-panel" id="ca-class-cap-luggage"><span data-i18n="class.cap_luggage_intro">Based on standard luggage sizes, which may differ from yours.</span> <strong id="ca-class-cap-luggage-count">2 x Carry-on</strong></p>
+        <p class="cap-panel hidden" id="ca-class-cap-seating"><strong id="ca-class-cap-seating-count">3 passengers</strong> <span data-i18n="class.cap_seating_note">— please respect the seating capacity for safety.</span></p>
       </div>
       <!-- Price breakdown (owner decision 2026-11-20): the breakdown
            follows the selected class. The included-items list above
            is back by owner order 2026-11-22 (Blacklane-style, 5 items
            only, no complimentary water). -->
       <div class="class-details">
-        <h3>Price breakdown</h3>
+        <h3 data-i18n="class.price_breakdown">Price breakdown</h3>
         <div class="class-breakdown" id="ca-class-breakdown"></div>
       </div>
       <div class="class-notes">
-        <h3>Please note</h3>
+        <h3 data-i18n="class.please_note">Please note</h3>
         <ul>
-          <li>Your estimated total fare is based on the trip details shown above. The final fare may change if you change the pickup or drop-off location, change the vehicle type, or a different route is taken.</li>
-          <li>Guest and luggage capacities must be respected for safety reasons. If you are unsure, select a larger class.</li>
-          <li>The vehicle images above are examples. You may get a different vehicle of similar quality.</li>
+          <li data-i18n="class.note_fare">Your estimated total fare is based on the trip details shown above. The final fare may change if you change the pickup or drop-off location, change the vehicle type, or a different route is taken.</li>
+          <li data-i18n="class.note_capacity">Guest and luggage capacities must be respected for safety reasons. If you are unsure, select a larger class.</li>
+          <li data-i18n="class.note_images">The vehicle images above are examples. You may get a different vehicle of similar quality.</li>
         </ul>
       </div>
       <!-- Contact (Blacklane-style): name, phone and email are asked
            here, on the options page, after the customer picks a class
            — not on the booking form. -->
       <div class="class-contact">
-        <h3>Your details</h3>
+        <h3 data-i18n="class.your_details">Your details</h3>
         <div class="field">
-          <label for="ca-class-name">Your name</label>
-          <input id="ca-class-name" type="text" autocomplete="name" placeholder="Full name">
+          <label for="ca-class-name" data-i18n="class.name">Your name</label>
+          <input id="ca-class-name" type="text" autocomplete="name" placeholder="Full name" data-i18n-ph="class.name_ph">
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="ca-class-phone">Phone number</label>
-            <input id="ca-class-phone" type="tel" autocomplete="tel" placeholder="Your phone number">
+            <label for="ca-class-phone" data-i18n="class.phone">Phone number</label>
+            <input id="ca-class-phone" type="tel" autocomplete="tel" placeholder="Your phone number" data-i18n-ph="class.phone_ph">
           </div>
           <div class="field">
-            <label for="ca-class-email">Email</label>
-            <input id="ca-class-email" type="email" autocomplete="email" placeholder="you@example.com">
+            <label for="ca-class-email" data-i18n="class.email">Email</label>
+            <input id="ca-class-email" type="email" autocomplete="email" placeholder="you@example.com" data-i18n-ph="class.email_ph">
           </div>
         </div>
         <!-- Sign in + Continue (owner decision 2026-11-22, corrected
@@ -287,32 +288,32 @@
              below. Signed-in customers stay signed in for later
              bookings (server session). -->
         <div class="class-signin" id="ca-signin">
-          <button type="button" class="btn-primary btn-gold" id="ca-signin-continue">Continue</button>
+          <button type="button" class="btn-primary btn-gold" id="ca-signin-continue" data-i18n="class.continue">Continue</button>
           <p class="form-error" id="ca-signin-error" role="alert"></p>
         </div>
       </div>
-      <p class="form-note hidden" id="ca-class-discount-note">Referral discount applied — 5% off your first ride.</p>
+      <p class="form-note hidden" id="ca-class-discount-note" data-i18n="class.referral_discount">Referral discount applied — 5% off your first ride.</p>
             <p class="form-error" id="ca-class-error" role="alert"></p>
-      <button type="button" class="btn-text" id="ca-class-back">← Back to booking form</button>
+      <button type="button" class="btn-text" id="ca-class-back"><span data-i18n="class.back_form">← Back to booking form</span></button>
     </div>
-    <p id="ca-powered-by">Powered by <span class="brand">Noel <span>Chauffer</span></span></p>
+    <p id="ca-powered-by"><span data-i18n="foot.powered_by">Powered by</span> <span class="brand">Noel <span>Chauffer</span></span></p>
   </section>
 
   <!-- ============ MY RIDES ============ -->
   <section class="screen hidden" id="screen-rides">
     <div id="ca-history-block">
-      <h2>My rides</h2>
-      <p class="intro">Enter the phone number you booked with to see your rides.</p>
+      <h2 data-i18n="app.my_rides">My rides</h2>
+      <p class="intro" data-i18n="app.history_intro">Enter the phone number you booked with to see your rides.</p>
       <!-- Signed-in customers see their own rides automatically
            (owner decision 2026-11-22); the phone lookup below stays
            for rides booked before sign-in existed. -->
-      <p class="form-note hidden" id="ca-history-signedin">Signed in as <b id="ca-history-signedin-email"></b> — showing your rides.</p>
+      <p class="form-note hidden" id="ca-history-signedin"><span data-i18n="app.signed_in_as">Signed in as</span> <b id="ca-history-signedin-email"></b> <span data-i18n="app.showing_rides">— showing your rides.</span></p>
       <form id="ca-history-form" novalidate>
         <div class="field">
-          <label for="ca-history-phone">Phone number</label>
-          <input id="ca-history-phone" type="tel" required placeholder="Phone number used for booking" autocomplete="tel">
+          <label for="ca-history-phone" data-i18n="form.phone">Phone number</label>
+          <input id="ca-history-phone" type="tel" required placeholder="Phone number used for booking" data-i18n-ph="app.history_phone_ph" autocomplete="tel">
         </div>
-        <button class="btn-primary btn-gold" type="submit">Show my rides</button>
+        <button class="btn-primary btn-gold" type="submit"><span data-i18n="app.show_rides">Show my rides</span></button>
         <p class="form-error" id="ca-history-error" role="alert"></p>
       </form>
       <div id="ca-history-results"></div>
@@ -320,70 +321,70 @@
 
     <!-- LIVE RIDE STATUS (shown for the ride being followed) -->
     <div class="hidden" id="ca-status-card" aria-live="polite">
-      <button type="button" class="btn-text" id="ca-status-back">← All rides</button>
+      <button type="button" class="btn-text" id="ca-status-back"><span data-i18n="app.all_rides">← All rides</span></button>
       <div id="ca-status-finding">
-        <h2 id="ca-status-heading">Finding your chauffeur…</h2>
-        <p class="status-line"><span class="dot"></span><span id="ca-status-message">Your request is with us. Please keep this page open.</span></p>
+        <h2 id="ca-status-heading" data-i18n="status.finding">Finding your chauffeur…</h2>
+        <p class="status-line"><span class="dot"></span><span id="ca-status-message" data-i18n="status.request_with_us">Your request is with us. Please keep this page open.</span></p>
         <p class="ride-summary" id="ca-status-summary"></p>
         <p class="ride-summary hidden" id="ca-status-flight"></p>
       </div>
 
       <div id="ca-driver-block" class="hidden">
-        <h2>Your chauffeur is confirmed</h2>
-        <p class="status-line" id="ca-driver-status-line">Your chauffeur is on the way.</p>
+        <h2 data-i18n="status.confirmed">Your chauffeur is confirmed</h2>
+        <p class="status-line" id="ca-driver-status-line" data-i18n="status.on_way">Your chauffeur is on the way.</p>
         <div class="driver-card">
           <img id="ca-driver-photo" alt="Your chauffeur" src="">
           <div>
             <div class="who" id="ca-driver-name"></div>
             <div class="meta" id="ca-driver-car"></div>
-            <div class="meta">Plate: <span id="ca-driver-plate"></span></div>
-            <div class="meta">Phone: <a class="phone-link" id="ca-driver-phone" href=""></a></div>
+            <div class="meta"><span data-i18n="status.plate_label">Plate:</span> <span id="ca-driver-plate"></span></div>
+            <div class="meta"><span data-i18n="status.phone_label">Phone:</span> <a class="phone-link" id="ca-driver-phone" href=""></a></div>
           </div>
         </div>
-        <p class="ride-summary">These details were also sent to your phone and email.</p>
+        <p class="ride-summary" data-i18n="status.details_sent">These details were also sent to your phone and email.</p>
       </div>
 
       <div class="map-wrap hidden" id="ca-map-wrap">
-        <h3>Your chauffeur on the way</h3>
+        <h3 data-i18n="status.on_way_title">Your chauffeur on the way</h3>
         <div id="ca-map" aria-label="Live map"></div>
         <div class="map-fallback hidden" id="ca-map-fallback"></div>
       </div>
 
       <div class="total-box hidden" id="ca-total-box">
         <div>
-          <div class="label">Your total</div>
+          <div class="label" data-i18n="status.your_total">Your total</div>
           <div class="amount" id="ca-total-amount"></div>
         </div>
-        <p class="note">One single total for your ride. No breakdown, no hidden charges.</p>
+        <p class="note" data-i18n="status.single_total">One single total for your ride. No breakdown, no hidden charges.</p>
       </div>
 
       <div class="pay-panel hidden" id="ca-pay-panel">
-        <h3>Pay by card</h3>
+        <h3 data-i18n="status.pay_by_card">Pay by card</h3>
         <form id="ca-pay-form" novalidate>
-          <p class="form-error hidden" id="ca-pay-unavailable" role="alert">Card payments are not set up yet. Please try again later.</p>
-          <p class="form-note hidden" id="ca-pay-loading">Loading secure payment…</p>
+          <p class="form-error hidden" id="ca-pay-unavailable" role="alert" data-i18n="status.pay_unavailable">Card payments are not set up yet. Please try again later.</p>
+          <p class="form-note hidden" id="ca-pay-loading" data-i18n="status.loading_payment">Loading secure payment…</p>
           <!-- TEST MODE (used while no Stripe keys are configured — the
                owner's Stripe account is disabled, so live payments
                cannot activate yet): the old raw-card form, posting
                exactly as before. The server fakes the authorization
                and no real charge is taken. -->
           <div id="ca-pay-test-mode" class="hidden">
-            <div class="test-banner"><strong>TEST MODE — no real charge.</strong> This payment form is in test mode. No real payment will be taken from your card.</div>
+            <div class="test-banner" data-i18n="status.test_mode"><strong>TEST MODE — no real charge.</strong> This payment form is in test mode. No real payment will be taken from your card.</div>
             <div class="field">
-              <label for="ca-pay-name">Name on card</label>
+              <label for="ca-pay-name" data-i18n="status.card_name">Name on card</label>
               <input id="ca-pay-name" type="text" required autocomplete="cc-name">
             </div>
             <div class="field">
-              <label for="ca-pay-number">Card number</label>
+              <label for="ca-pay-number" data-i18n="status.card_number">Card number</label>
               <input id="ca-pay-number" type="text" inputmode="numeric" required autocomplete="cc-number" placeholder="4242 4242 4242 4242">
             </div>
             <div class="field-row">
               <div class="field">
-                <label for="ca-pay-exp">Expiry (MM/YY)</label>
+                <label for="ca-pay-exp" data-i18n="status.card_expiry">Expiry (MM/YY)</label>
                 <input id="ca-pay-exp" type="text" inputmode="numeric" required autocomplete="cc-exp" placeholder="MM/YY">
               </div>
               <div class="field">
-                <label for="ca-pay-cvc">CVC</label>
+                <label for="ca-pay-cvc" data-i18n="status.card_cvc">CVC</label>
                 <input id="ca-pay-cvc" type="text" inputmode="numeric" required autocomplete="cc-csc" placeholder="123">
               </div>
             </div>
@@ -393,50 +394,50 @@
                never sees them. Shown only when the server reports
                configured=true. -->
           <div id="ca-pay-stripe-mode" class="hidden">
-            <p class="form-note">Your card is charged as a hold when you book. Your card details go directly to Stripe — they are never typed into, or stored on, this site.</p>
+            <p class="form-note" data-i18n="status.stripe_note">Your card is charged as a hold when you book. Your card details go directly to Stripe — they are never typed into, or stored on, this site.</p>
             <div id="ca-pay-saved-cards" class="hidden">
               <div class="field">
-                <span class="field-label">Your saved cards</span>
+                <span class="field-label" data-i18n="status.saved_cards">Your saved cards</span>
                 <div id="ca-pay-saved-list"></div>
               </div>
             </div>
             <div class="field" id="ca-pay-new-card-field">
-              <span class="field-label">Card details</span>
+              <span class="field-label" data-i18n="status.card_details">Card details</span>
               <div id="ca-pay-card-element" class="stripe-card-element"></div>
             </div>
-            <label class="save-card hidden" id="ca-pay-save-card-row"><input type="checkbox" id="ca-pay-save-card" checked> Save this card for future rides</label>
+            <label class="save-card hidden" id="ca-pay-save-card-row"><input type="checkbox" id="ca-pay-save-card" checked> <span data-i18n="status.save_card">Save this card for future rides</span></label>
           </div>
-          <button class="btn-primary btn-gold" type="submit" id="ca-pay-submit">Pay <span id="ca-pay-amount-label"></span></button>
+          <button class="btn-primary btn-gold" type="submit" id="ca-pay-submit"><span data-i18n="status.pay">Pay</span> <span id="ca-pay-amount-label"></span></button>
           <p class="form-error" id="ca-pay-error" role="alert"></p>
         </form>
       </div>
 
       <div class="thankyou hidden" id="ca-thankyou-block">
-        <h2>Thank you — your ride is booked.</h2>
+        <h2 data-i18n="status.thankyou">Thank you — your ride is booked.</h2>
         <p class="status-line" id="ca-thankyou-summary"></p>
-        <p class="form-note hidden" id="ca-thankyou-test-note"><strong>Test mode — no real charge.</strong> This booking was paid in test mode; no real payment was taken.</p>
+        <p class="form-note hidden" id="ca-thankyou-test-note" data-i18n="status.thankyou_test"><strong>Test mode — no real charge.</strong> This booking was paid in test mode; no real payment was taken.</p>
         <div class="status-actions">
-          <button class="btn-primary btn-gold hidden" type="button" id="ca-return-trip-btn">Book your return trip</button>
-          <button class="btn-ghost" type="button" id="ca-new-booking-btn">Book another ride</button>
+          <button class="btn-primary btn-gold hidden" type="button" id="ca-return-trip-btn"><span data-i18n="status.return_trip">Book your return trip</span></button>
+          <button class="btn-ghost" type="button" id="ca-new-booking-btn"><span data-i18n="status.another_ride">Book another ride</span></button>
         </div>
       </div>
 
       <div class="invoice-panel hidden" id="ca-invoice-panel">
-        <h3>Your invoice</h3>
+        <h3 data-i18n="status.invoice">Your invoice</h3>
         <table>
           <tbody>
-            <tr><td>Ride total</td><td id="ca-invoice-total"></td></tr>
-            <tr id="ca-invoice-waiting-row" class="hidden"><td>Waiting charge</td><td id="ca-invoice-waiting"></td></tr>
-            <tr id="ca-invoice-extra-row" class="hidden"><td>Extra distance</td><td id="ca-invoice-extra"></td></tr>
-            <tr class="grand"><td>Amount paid</td><td id="ca-invoice-grand"></td></tr>
+            <tr><td data-i18n="status.ride_total">Ride total</td><td id="ca-invoice-total"></td></tr>
+            <tr id="ca-invoice-waiting-row" class="hidden"><td data-i18n="status.waiting_charge">Waiting charge</td><td id="ca-invoice-waiting"></td></tr>
+            <tr id="ca-invoice-extra-row" class="hidden"><td data-i18n="status.extra_distance">Extra distance</td><td id="ca-invoice-extra"></td></tr>
+            <tr class="grand"><td data-i18n="status.amount_paid">Amount paid</td><td id="ca-invoice-grand"></td></tr>
           </tbody>
         </table>
-        <p class="form-note">Your invoice has been sent to your phone and email.</p>
+        <p class="form-note" data-i18n="status.invoice_sent">Your invoice has been sent to your phone and email.</p>
       </div>
 
       <div class="chat-panel hidden" id="ca-chat-panel">
-        <h3>Chat with your chauffeur</h3>
-        <label class="chat-lang">Language:
+        <h3 data-i18n="status.chat_with_chauffeur">Chat with your chauffeur</h3>
+        <label class="chat-lang"><span data-i18n="status.language_label">Language:</span>
           <select id="ca-ride-chat-language" aria-label="Chat language">
             <option value="en">English</option>
             <option value="ur-Latn">Roman Urdu</option>
@@ -450,13 +451,13 @@
         </label>
         <div class="chat-messages" id="ca-chat-messages"></div>
         <div class="chat-input-row">
-          <input id="ca-chat-input" type="text" maxlength="500" placeholder="Write a message…" autocomplete="off">
-          <button class="btn-primary btn-gold" type="button" id="ca-chat-send">Send</button>
+          <input id="ca-chat-input" type="text" maxlength="500" placeholder="Write a message…" data-i18n-ph="chat.type_message" autocomplete="off">
+          <button class="btn-primary btn-gold" type="button" id="ca-chat-send" data-i18n="chat.send">Send</button>
         </div>
       </div>
 
       <div class="status-actions" id="ca-status-actions">
-        <button class="btn-danger" type="button" id="ca-cancel-booking-btn">Cancel this booking</button>
+        <button class="btn-danger" type="button" id="ca-cancel-booking-btn" data-i18n="status.cancel_booking">Cancel this booking</button>
       </div>
       <p class="form-note hidden" id="ca-cancel-result" role="status"></p>
     </div>
@@ -464,33 +465,34 @@
 
   <!-- ============ SUPPORT ============ -->
   <section class="screen hidden" id="screen-support">
-    <h2>Chat with us</h2>
-    <p class="intro">We reply within 24 hours. Ask about booking, cancellation, waiting time, or a ride you have already booked.</p>
+    <h2 data-i18n="app.support">Chat with us</h2>
+    <p class="intro" data-i18n="app.support_intro">We reply within 24 hours. Ask about booking, cancellation, waiting time, or a ride you have already booked.</p>
     <div class="chat-messages support-messages" id="ca-support-messages"></div>
     <div class="chat-chips" id="ca-support-chips">
-      <button type="button" data-q="How do I book a ride?">How do I book?</button>
-      <button type="button" data-q="Are bookings paused?">Are bookings paused?</button>
-      <button type="button" data-q="What is the cancellation rule?">Cancellation rules</button>
-      <button type="button" data-q="What is the waiting time rule?">Waiting time</button>
-      <button type="button" data-q="I left something in the car">Lost item</button>
+      <button type="button" data-q="How do I book a ride?"><span data-i18n="chat.q_book">How do I book?</span></button>
+      <button type="button" data-q="Are bookings paused?"><span data-i18n="chat.q_paused">Are bookings paused?</span></button>
+      <button type="button" data-q="What is the cancellation rule?"><span data-i18n="chat.q_cancel">Cancellation rules</span></button>
+      <button type="button" data-q="What is the waiting time rule?"><span data-i18n="chat.q_waiting">Waiting time</span></button>
+      <button type="button" data-q="I left something in the car"><span data-i18n="chat.q_lost">Lost item</span></button>
     </div>
     <form class="chat-form" id="ca-support-form">
-      <input id="ca-support-input" type="text" placeholder="Type your message…" autocomplete="off" aria-label="Type your message">
-      <button class="btn-primary btn-gold" type="submit" id="ca-support-send">Send</button>
+      <input id="ca-support-input" type="text" placeholder="Type your message…" data-i18n-ph="chat.type_message" autocomplete="off" data-i18n-aria="chat.type_message" aria-label="Type your message">
+      <button class="btn-primary btn-gold" type="submit" id="ca-support-send" data-i18n="chat.send">Send</button>
     </form>
-    <p class="form-note">You can also email us at <a href="mailto:support@noelchauffer.com">support@noelchauffer.com</a>.</p>
+    <p class="form-note"><span data-i18n="app.email_us">You can also email us at</span> <a href="mailto:support@noelchauffer.com">support@noelchauffer.com</a>.</p>
   </section>
 
   <!-- Bottom tabs -->
   <nav class="tabbar" id="ca-tabbar" aria-label="Customer app">
-    <button type="button" data-screen="book" class="active"><span class="ico">✦</span>Book</button>
-    <button type="button" data-screen="rides"><span class="ico">▤</span>My Rides</button>
-    <button type="button" data-screen="support"><span class="ico">💬</span>Support</button>
+    <button type="button" data-screen="book" class="active"><span class="ico">✦</span><span data-i18n="app.book">Book</span></button>
+    <button type="button" data-screen="rides"><span class="ico">▤</span><span data-i18n="app.my_rides">My Rides</span></button>
+    <button type="button" data-screen="support"><span class="ico">💬</span><span data-i18n="app.support">Support</span></button>
   </nav>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/static/js/flight.js"></script>
+<script src="/static/js/i18n.js"></script>
 <script src="/static/js/customer-app.js"></script>
 </body>
 </html>

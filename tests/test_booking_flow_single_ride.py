@@ -122,7 +122,7 @@ class WebsiteFlowCase(unittest.TestCase):
         # to it may survive in the form JS.
         self.assertNotIn("bk-passengers", form)
         self.assertNotIn("field-passengers", form)
-        self.assertIn('btn.textContent = "View options";', form)
+        self.assertIn('btn.textContent = T("form.view_options", "View options");', form)
 
     def test_no_passengers_field_in_booking_forms(self):
         # Passengers field removed (owner, 2026-11-20, from his
@@ -162,8 +162,8 @@ class WebsiteFlowCase(unittest.TestCase):
 
     def test_buttons_exist_with_exact_labels(self):
         # No "Book" wording on the homepage (owner decision 2026-11-22).
-        self.assertIn('id="new-booking-btn">Another ride<', self.html)
-        self.assertIn('id="return-trip-btn">Your return trip<', self.html)
+        self.assertRegex(self.html, r'id="new-booking-btn"[^>]*>Another ride<')
+        self.assertRegex(self.html, r'id="return-trip-btn"[^>]*>Your return trip<')
 
 
 class AppFlowCase(unittest.TestCase):
@@ -224,8 +224,10 @@ class AppFlowCase(unittest.TestCase):
         self.assertIn('hide($("ca-thankyou-block"))', body)
 
     def test_buttons_exist_with_exact_labels(self):
-        self.assertIn('id="ca-new-booking-btn">Book another ride<', self.html)
-        self.assertIn('id="ca-return-trip-btn">Book your return trip<', self.html)
+        self.assertIn('id="ca-new-booking-btn"', self.html)
+        self.assertIn('<span data-i18n="status.another_ride">Book another ride</span>', self.html)
+        self.assertIn('id="ca-return-trip-btn"', self.html)
+        self.assertIn('<span data-i18n="status.return_trip">Book your return trip</span>', self.html)
 
     def test_no_duplicate_booking_path_in_class_continue(self):
         # proceedWith in the app hands the ride to startTracking (which

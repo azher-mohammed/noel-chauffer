@@ -147,9 +147,9 @@ class TestHeadingsClean(unittest.TestCase):
             "We move with you",
             "The gold standard of private travel.",
         ]:
-            self.assertIn(f"<h2>{text}</h2>", INDEX)
+            self.assertIn(f">{text}</h2>", INDEX)
         # "Punctual. Professional." is one heading on two lines.
-        self.assertIn("<h2>Punctual.<br>Professional.</h2>", INDEX)
+        self.assertIn(">Punctual.</span><br><span data-i18n=\"home.professional\">Professional.</span></h2>", INDEX)
         # Airport pickups / Experience heading links went with the
         # screenshot rebuild; Why / Three ways heading links stay
         # (sections retained on the homepage). The "Our company"
@@ -164,7 +164,7 @@ class TestHeadingsClean(unittest.TestCase):
             ("Why ride with Noel Chauffer", "/why-ride-with-noel-chauffer"),
             ("Three ways to ride", "/three-ways-to-ride"),
         ]:
-            self.assertIn(f'<h2><a href="{href}">{text}</a></h2>', INDEX)
+            self.assertRegex(INDEX, rf'<h2><a href="{href}"[^>]*>{text}</a></h2>')
 
     def test_button_colour_and_wordmark_untouched(self):
         self.assertIn("#5b9bd5", CSS)  # very light blue buttons

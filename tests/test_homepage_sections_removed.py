@@ -76,9 +76,12 @@ class TestHomepageSectionsRemoved(unittest.TestCase):
 
     def test_nav_links_to_separate_pages_stay(self):
         nav = INDEX.split("</nav>")[0]
-        self.assertIn('<a href="/cancellation-and-waiting">Cancellation &amp; waiting</a>', nav)
-        self.assertIn('<a href="/frequently-asked-questions">FAQ</a>', nav)
-        self.assertIn('<a href="/contacts">Contacts</a>', nav)
+        self.assertIn('href="/cancellation-and-waiting"', nav)
+        self.assertIn('>Cancellation &amp; waiting</a>', nav)  # link carries data-i18n now
+        self.assertIn('href="/frequently-asked-questions"', nav)
+        self.assertIn('>FAQ</a>', nav)  # link carries data-i18n now
+        self.assertIn('href="/contacts"', nav)
+        self.assertIn('>Contacts</a>', nav)  # link carries data-i18n now
 
     def test_separate_pages_still_return_200_with_content(self):
         client = app_module.app.test_client()

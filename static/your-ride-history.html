@@ -26,29 +26,30 @@
   <div class="header-inner">
     <a class="wordmark" href="/">Noel <span>Chauffer</span></a>
     <nav class="main-nav" aria-label="Main">
-      <a href="/">Book</a>
-      <a href="/driver">Drive with us</a>
-      <a href="/app">App</a>
+      <a href="/" data-i18n="app.book">Book</a>
+      <a href="/driver" data-i18n="menu.drive_with_us">Drive with us</a>
+      <a href="/app" data-i18n="menu.app_link">App</a>
     </nav>
-    <a class="header-cta" href="/">Book</a>
+    <span class="menu-lang-slot" id="history-lang-slot"></span>
+    <a class="header-cta" href="/" data-i18n="app.book">Book</a>
   </div>
 </header>
 
 <main id="top">
-  <p class="crumbs"><a href="/">Home</a> › Your ride history</p>
+  <p class="crumbs"><a href="/" data-i18n="app.home">Home</a> › <span data-i18n="menu.ride_history">Your ride history</span></p>
   <!-- RIDE HISTORY -->
   <section class="section" id="history">
-    <h2>Your ride history</h2>
-    <p class="intro">Enter the phone number you booked with to see your past rides.</p>
+    <h2 data-i18n="menu.ride_history">Your ride history</h2>
+    <p class="intro" data-i18n="app.history_intro_past">Enter the phone number you booked with to see your past rides.</p>
     <!-- Signed-in customers see their own rides automatically
          (owner decision 2026-11-22); the phone lookup below stays
          for rides booked before sign-in existed. -->
-    <p class="form-note hidden" id="history-signedin">Signed in as <b id="history-signedin-email"></b> — showing your rides.</p>
+    <p class="form-note hidden" id="history-signedin"><span data-i18n="app.signed_in_as">Signed in as</span> <b id="history-signedin-email"></b> <span data-i18n="app.showing_rides">— showing your rides.</span></p>
     <div class="history-box">
       <form id="history-form" novalidate>
         <div class="row">
-          <input id="history-phone" type="tel" required placeholder="Phone number used for booking" autocomplete="tel">
-          <button class="btn-primary" type="submit">Show my rides</button>
+          <input id="history-phone" type="tel" required placeholder="Phone number used for booking" data-i18n-ph="app.history_phone_ph" autocomplete="tel">
+          <button class="btn-primary" type="submit"><span data-i18n="app.show_rides">Show my rides</span></button>
         </div>
         <p class="form-error" id="history-error" role="alert"></p>
       </form>
@@ -60,7 +61,7 @@
 <footer class="site-footer">
   <div class="footer-inner">
     <a class="wordmark" href="#top">Noel <span>Chauffer</span></a>
-    <p>Luxury Chauffeur Rides Across USA — premium chauffeur service, on-time pickups, clear communication.</p>
+    <p data-i18n="foot.tagline">Luxury Chauffeur Rides Across USA — premium chauffeur service, on-time pickups, clear communication.</p>
   </div>
   <nav class="footer-cols" aria-label="Footer">
     <div class="footer-col">
@@ -114,11 +115,12 @@
     </div>
   </nav>
   <div class="footer-nap">
-    <p>180 Green Acres Road, East Valley Stream, NY 11581 · Phone: <a href="tel:+19293857597">929-385-7597</a> · Email: <a href="mailto:support@noelchauffer.com">support@noelchauffer.com</a></p>
+    <p>180 Green Acres Road, East Valley Stream, NY 11581 · <span data-i18n="foot.phone_label">Phone:</span> <a href="tel:+19293857597">929-385-7597</a> · <span data-i18n="foot.email_label">Email:</span> <a href="mailto:support@noelchauffer.com">support@noelchauffer.com</a></p>
     <p>© 2026 Noel Chauffer</p>
   </div>
 </footer>
 
+<script src="/static/js/i18n.js"></script>
 <script src="/static/js/ride-history.js"></script>
 </body>
 </html>

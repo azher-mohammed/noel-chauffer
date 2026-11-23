@@ -66,7 +66,7 @@ class TestHomepageImageSections(unittest.TestCase):
             "We move with you",
             "The gold standard of private travel.",
             "Available 24/7",
-            "<h3>Flight number</h3>",
+            ">Flight number</h3>",  # h3 carries data-i18n now
             "Diverse Fleet",
         ]
         positions = [INDEX.index(m) for m in markers]
@@ -117,7 +117,7 @@ class TestHomepageImageSections(unittest.TestCase):
             "Three ways to ride",
         ]:
             self.assertIn(kept, INDEX, kept)
-        self.assertIn('<a href="/our-company">Our company</a>', INDEX)
+        self.assertRegex(INDEX, r'<a href="/our-company"[^>]*>Our company</a>')
 
     def test_photos_reused_once_each(self):
         # Interior photo beside "Punctual. Professional."; airport
@@ -128,13 +128,13 @@ class TestHomepageImageSections(unittest.TestCase):
         self.assertIn('src="/static/img/airport.jpg"', INDEX)
 
     def test_learn_more_goes_to_why_ride_page(self):
-        self.assertIn(
-            '<a class="btn-ghost" href="/why-ride-with-noel-chauffer">Learn more</a>',
+        self.assertRegex(
             INDEX,
+            r'<a class="btn-ghost" href="/why-ride-with-noel-chauffer"[^>]*>Learn more</a>',
         )
 
     def test_app_band_heading_and_badges(self):
-        self.assertIn("<h2>We move with you</h2>", INDEX)
+        self.assertIn(">We move with you</h2>", INDEX)  # h2 carries data-i18n="home.move" now
         self.assertIn('href="/app"><img src="/static/img/google-play-badge.png"', INDEX)
         self.assertIn('href="/app"><img src="/static/img/app-store-badge.svg"', INDEX)
         self.assertNotIn("Open the app", INDEX)
@@ -153,13 +153,13 @@ class TestHomepageImageSections(unittest.TestCase):
         self.assertIn('id="class-signin"', INDEX)
         self.assertIn("site-footer", INDEX)
         # Live footer column order (commit ed4ce3e) stands.
-        cols = re.findall(r"<h3>([^<]+)</h3>", INDEX.split("footer-cols")[1])
+        cols = re.findall(r"<h3[^>]*>([^<]+)</h3>", INDEX.split("footer-cols")[1])
         self.assertEqual(
             cols,
             ["Airport transfers", "Where we drive", "Guides", "Services", "Company"],
         )
         # Top-nav Ride history link stays.
-        self.assertIn('<a href="/your-ride-history">Ride history</a>', INDEX)
+        self.assertRegex(INDEX, r'<a href="/your-ride-history"[^>]*>Ride history</a>')
 
 
 if __name__ == "__main__":

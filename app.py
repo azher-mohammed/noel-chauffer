@@ -4590,6 +4590,58 @@ def booking_received_text(booking):
     )
 
 
+PAYMENT_CONFIRMATION_PREFIX = "Noel Chauffer: payment received for booking #"
+
+
+def payment_confirmation_text(booking, test=False):
+    """The "payment received" confirmation email: sent once, right
+    after a successful card payment (test mode or live authorize),
+    to the customer's booking email. Email only — no SMS row.
+    Only facts already on the booking; nothing invented. The
+    ride-end invoice email is separate and untouched."""
+    class_text = class_label(booking_vehicle_class(booking))
+    if booking.ride_type == "hourly":
+        hours_text = (f" By the hour: {booking.hours:g} hours."
+                      if booking.hours is not None else " By the hour.")
+        route_text = f"Pickup: {booking.pickup}.{hours_text}"
+    else:
+        route_text = f"Pickup: {booking.pickup}. Drop-off: {booking.dropoff}."
+    class_part = f" Class: {class_text}." if class_text else ""
+    text = (
+        f"{PAYMENT_CONFIRMATION_PREFIX}{booking.id}. "
+        "Your ride is confirmed. "
+        f"{route_text} Date: {booking.date} at {booking.time}."
+        f"{class_part} Total paid: ${booking.fare_total}. "
+        "Your chauffeur will be assigned shortly — we will message "
+        "you the chauffeur's details once a driver accepts.")
+    if test:
+        text += " This was a test payment — no real charge was made."
+    return text
+
+
+def _send_payment_confirmation_email(booking, test=False):
+    """Queue (and best-effort send via Resend) the one payment
+    confirmation email for this booking. Idempotent: a second call
+    for the same booking sends nothing, so a re-marked payment
+    never double-mails the customer. Returns the outbox row, or
+    the existing one, or None when there is no email to send to."""
+    if not booking.email:
+        return None
+    existing = (OutboxMessage.query
+                .filter_by(channel="email", booking_id=booking.id)
+                .filter(OutboxMessage.body.startswith(
+                    PAYMENT_CONFIRMATION_PREFIX))
+                .first())
+    if existing is not None:
+        return existing
+    return add_outbox(
+        "email", booking.email,
+        payment_confirmation_text(booking, test=test),
+        booking.id,
+        subject=(f"Noel Chauffer — payment received "
+                 f"(booking #{booking.id})"))
+
+
 @app.route("/api/bookings", methods=["POST"])
 def create_booking():
     if bookings_paused():
@@ -5048,6 +5100,7 @@ def _authorize_booking(booking, intent, customer_id, payment_method_id, save_car
     add_event(booking.id, "payment_received",
               f"Payment of ${booking.fare_total} authorized for booking #{booking.id} "
               f"(card ending {card.get('last4')}). Booking sent to drivers.")
+    _send_payment_confirmation_email(booking)
     return {"payment": _payment_view(payment),
             "booking": {"status": booking.status},
             "saved_card": _saved_card_view(saved_card) if saved_card else None}
@@ -5277,6 +5330,7 @@ def pay_booking(booking_id):
         add_event(booking.id, "payment_received",
                   f"Test payment of ${booking.fare_total} received for booking #{booking.id} "
                   f"(card ending {digits[-4:]}). Booking sent to drivers.")
+        _send_payment_confirmation_email(booking, test=True)
         db.session.commit()
         return jsonify({"payment": _payment_view(payment),
                         "booking": {"status": booking.status},

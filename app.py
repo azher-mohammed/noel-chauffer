@@ -4301,7 +4301,10 @@ def place_search():
     Always 200: an empty query, bad input, or an upstream failure all
     return an empty results list, so the form keeps working as plain
     text. Results carry address text + coordinates only: no fare,
-    miles, or any pricing data.
+    miles, or any pricing data. Optional lat/lon bias the ranking
+    toward the customer's location (owner 2026-11-22: nearest-first,
+    other states below); bad or missing coords fall back to the New
+    York City default inside geo.search_places.
     """
     try:
         q = (request.args.get("q") or "").strip()[:200]
@@ -4309,7 +4312,19 @@ def place_search():
             limit = int(request.args.get("limit", "5"))
         except (TypeError, ValueError):
             limit = 5
-        results = geo_module.search_places(q, limit) if q else []
+
+        def _coord(name):
+            raw = request.args.get(name)
+            if raw is None:
+                return None
+            try:
+                return float(raw)
+            except (TypeError, ValueError):
+                return None
+
+        lat = _coord("lat")
+        lon = _coord("lon")
+        results = geo_module.search_places(q, limit, lat, lon) if q else []
         return jsonify({"results": results})
     except Exception as exc:  # autocomplete must never break the page
         log.warning("place search endpoint failed: %s", exc)

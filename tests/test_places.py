@@ -387,9 +387,11 @@ class TestAirportTerminals(PlacesTestCase):
         self.assertEqual(resp.status_code, 200)
         results = resp.get_json()["results"]
         self.assertEqual(len(results), 2)
+        # Airports rank first in nearest-first ordering (owner
+        # 2026-11-22), so the airport now leads the base results.
         self.assertEqual(self._names(results),
-                         ["JFK Airport AirTrain Station",
-                          "John F. Kennedy International Airport"])
+                         ["John F. Kennedy International Airport",
+                          "JFK Airport AirTrain Station"])
 
     def test_empty_terminal_results_keep_base_results(self):
         with mock.patch.object(

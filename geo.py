@@ -204,7 +204,7 @@ _PHOTON_URL = "https://photon.komoot.io/api/"
 _USA_BBOX = "-171.79,18.91,-66.95,71.36"
 
 
-def _photon_items(query: str, limit: int = 5):
+def _photon_items(query: str, limit: int = 5, lat=None, lon=None):
     """Photon search results as Nominatim-shaped items, or [].
 
     USA-only: the request carries the USA bbox and every feature
@@ -213,6 +213,11 @@ def _photon_items(query: str, limit: int = 5):
     result into autocomplete or geocoding. Raises on any request
     failure. Never invents data: only live Photon features, with the
     airport (aeroway/aerodrome) first.
+
+    lat/lon bias the ranking toward the customer's location when
+    known (Photon's own lat/lon parameters); without them Photon
+    ranks by its own relevance. The caller (search_places) re-ranks
+    by distance afterwards, so this is a hint, not a filter.
 
     House numbers: Photon house/building features carry housenumber
     + street but usually NO name. They used to be skipped for that
@@ -227,6 +232,14 @@ def _photon_items(query: str, limit: int = 5):
         + "&limit=" + str(max(1, min(10, int(limit))))
         + "&bbox=" + _USA_BBOX
     )
+    try:
+        bias_lat = float(lat)
+        bias_lon = float(lon)
+    except (TypeError, ValueError):
+        bias_lat = bias_lon = None
+    if (bias_lat is not None and bias_lon is not None
+            and -90.0 <= bias_lat <= 90.0 and -180.0 <= bias_lon <= 180.0):
+        url += "&lat=%f&lon=%f" % (bias_lat, bias_lon)
     data = _http_get_json(url)
     features = data.get("features") if isinstance(data, dict) else None
     if not features:
@@ -631,7 +644,126 @@ def _airport_terminals(airport_lat, airport_lon):
     return terminals
 
 
-def search_places(query: str, limit: int = 5):
+# --------------------------------------------------------------------------
+# Suggestion bias (owner 2026-11-22): suggestions rank nearest-first
+# from the customer's location when the browser shares it; when it
+# does not, the bias defaults to New York City, Noel's home base.
+# "Sabse pehle New York ke aana chahiye" when the customer is in New
+# York — "agar main New Jersey pe hoon to New Jersey ka aana
+# chahiye". Other states are NEVER removed: they rank below the
+# local results ("uske baad phir doosre states ke hain neeche to chal
+# jata"). This is a ranking, NOT a state lock — the owner said
+# explicitly: "State pe lock nahi karna hai."
+# --------------------------------------------------------------------------
+
+_DEFAULT_BIAS_LAT = 40.7128  # New York City
+_DEFAULT_BIAS_LON = -74.0060
+_BIAS_VIEWBOX_LAT_DEG = 1.0
+_BIAS_VIEWBOX_LON_DEG = 1.5
+
+
+def _bias_coords(lat=None, lon=None):
+    """(lat, lon) bias point: explicit coords when valid, else NYC.
+
+    Never raises; anything unparseable or out of range falls back to
+    the New York City default.
+    """
+    try:
+        la = float(lat)
+        lo = float(lon)
+    except (TypeError, ValueError):
+        return _DEFAULT_BIAS_LAT, _DEFAULT_BIAS_LON
+    if not (-90.0 <= la <= 90.0 and -180.0 <= lo <= 180.0):
+        return _DEFAULT_BIAS_LAT, _DEFAULT_BIAS_LON
+    return la, lo
+
+
+def _bias_viewbox(lat, lon):
+    """Nominatim viewbox= string around the bias point.
+
+    A soft bias, never a hard bound: results outside the box can
+    still appear, ranked lower. Format is left,top,right,bottom
+    (minlon,maxlat,maxlon,minlat), same order as the terminal
+    lookup below.
+    """
+    left = lon - _BIAS_VIEWBOX_LON_DEG
+    right = lon + _BIAS_VIEWBOX_LON_DEG
+    top = lat + _BIAS_VIEWBOX_LAT_DEG
+    bottom = lat - _BIAS_VIEWBOX_LAT_DEG
+    return "%f,%f,%f,%f" % (left, top, right, bottom)
+
+
+def _search_cache_key(query, limit, lat=None, lon=None):
+    """Cache key for a search: the bias is part of it, because the
+    same typed query ranks differently from different locations."""
+    bias_lat, bias_lon = _bias_coords(lat, lon)
+    return (query.lower(), limit, round(bias_lat, 2), round(bias_lon, 2))
+
+
+def _dedup_key(item):
+    """Normalized display name: the same place must never appear
+    twice in one list (Nominatim returned the "180 Green Acres"
+    West Virginia entry three times as three OSM objects)."""
+    return re.sub(r"[^a-z0-9]", "", (item.get("display_name") or "").lower())
+
+
+def _place_key(item):
+    """Dedupe key for one suggestion, or None when the item has
+    nothing to key on (never deduped). Two items are the same place
+    when they share house number + road + postcode, else when their
+    display names match after normalization."""
+    address = item.get("address") or {}
+    house = str(address.get("house_number") or "").strip().lower()
+    postcode = re.sub(
+        r"[^a-z0-9]", "", str(address.get("postcode") or "").lower())
+    road = re.sub(
+        r"[^a-z0-9]", "", str(address.get("road") or "").lower())
+    road = re.sub(r"^\d+", "", road)
+    if house and postcode and road:
+        return ("addr", house, road, postcode)
+    name = _dedup_key(item)
+    return ("name", name) if name else None
+
+
+def _dedupe_places(results):
+    """The same place must never appear twice in one list.
+
+    Nominatim returns several OSM objects for one address (the "180
+    Green Acres" West Virginia entry arrived three times live), and
+    the snapshot house can duplicate an upstream result for the same
+    house under a different display string. Keeps the first
+    occurrence in the given order.
+    """
+    seen = set()
+    out = []
+    for item in results:
+        key = _place_key(item)
+        if key is not None and key in seen:
+            continue
+        if key is not None:
+            seen.add(key)
+        out.append(item)
+    return out
+
+
+def _rank_places(results, lat, lon):
+    """Airports first (existing behaviour), then nearest-first from
+    the bias point. Items without usable coords sort last. Distance
+    is rounded to whole miles so near-ties (a house and the mall
+    next door, metres apart) keep the upstream order instead of
+    flipping on sub-mile differences."""
+    def sort_key(item):
+        airport = 0 if item.get("airport") else 1
+        try:
+            dist = round(
+                haversine_miles(lat, lon, float(item["lat"]), float(item["lon"])))
+        except (KeyError, TypeError, ValueError):
+            dist = float("inf")
+        return (airport, dist)
+    return sorted(results, key=sort_key)
+
+
+def search_places(query: str, limit: int = 5, lat=None, lon=None):
     """USA-only address suggestions for booking-form autocomplete.
 
     Returns a list of {display_name, lat, lon, address} dicts, or [] on
@@ -648,6 +780,33 @@ def search_places(query: str, limit: int = 5):
     arrivals and departures entries where OpenStreetMap maps them —
     are merged in directly below the airport, from live Nominatim data.
     """
+def search_places(query: str, limit: int = 5, lat=None, lon=None):
+    """USA-only address suggestions for booking-form autocomplete.
+
+    Returns a list of {display_name, lat, lon, address} dicts, or [] on
+    any failure. Never raises. Uses Nominatim with countrycodes=us and
+    addressdetails=1; no API key. Address text + coordinates only — no
+    fare, miles, or pricing data of any kind. When Nominatim fails or
+    answers with no match, the Photon fallback is consulted (same real
+    map data, USA-only) — a Nominatim empty list is not proof the
+    address does not exist, and house numbers survive in Photon
+    results because nameless house features are named from their own
+    housenumber + street (see _photon_items).
+
+    Ranking (owner 2026-11-22): nearest-first from the bias point —
+    the browser's location when shared, else New York City. The
+    Nominatim request carries a viewbox around the bias point, and
+    results are then deduplicated and re-ranked by distance, so the
+    local match comes first and other states follow below it. The
+    same place never appears twice. A partial house address also
+    surfaces the committed snapshot house first (see
+    _snapshot_subset_match). Nothing is ever removed for being in
+    another state — this is a ranking, not a lock.
+
+    When a result is an airport, the airport's terminals — including
+    arrivals and departures entries where OpenStreetMap maps them —
+    are merged in directly below the airport, from live Nominatim data.
+    """
     q = (query or "").strip()
     if not q:
         return []
@@ -656,15 +815,16 @@ def search_places(query: str, limit: int = 5):
     except (TypeError, ValueError):
         limit = 5
     limit = max(1, min(10, limit))
-    key = (q.lower(), limit)
+    bias_lat, bias_lon = _bias_coords(lat, lon)
+    key = _search_cache_key(q, limit, bias_lat, bias_lon)
     if key in _search_cache:
         return [dict(item, address=dict(item["address"])) for item in _search_cache[key]]
     results = []
-    airport = None
     try:
         url = (
             "https://nominatim.openstreetmap.org/search?format=json"
             "&addressdetails=1&countrycodes=us&limit=" + str(limit)
+            + "&viewbox=" + _bias_viewbox(bias_lat, bias_lon)
             + "&q=" + urllib.parse.quote(q)
         )
         data = _http_get_json(url)
@@ -684,7 +844,7 @@ def search_places(query: str, limit: int = 5):
         # Valley Stream" matches nothing there), while Photon holds
         # the house. Never invents data: only live Photon features.
         try:
-            data = _photon_items(q, limit)
+            data = _photon_items(q, limit, bias_lat, bias_lon)
         except Exception as exc2:
             # never raise: autocomplete degrades to plain text
             log.warning("place search Photon failed for %r: %s", q, exc2)
@@ -695,8 +855,33 @@ def search_places(query: str, limit: int = 5):
             continue
         result, cls, typ = parsed
         results.append(result)
-        if airport is None and cls == "aeroway" and typ == "aerodrome":
-            airport = result
+    # A partial house address surfaces the committed snapshot house
+    # first (e.g. "180 green acres" -> "180 Green Acres Road, East
+    # Valley Stream, NY 11581"): Nominatim ranks by importance, not
+    # proximity, and the local house may not be in its top results
+    # at all. The snapshot holds real Nominatim data, nothing
+    # invented; ranking below still orders by distance, so from
+    # another state the snapshot house sorts below local matches.
+    # Only when live results exist: a total upstream failure still
+    # returns an empty list (fail-soft), the snapshot is a ranking
+    # boost, not an offline fallback. And only when no upstream
+    # result already covers the same house (same house+road+postcode
+    # under a different display string) — the live upstream wording
+    # wins then.
+    results = _dedupe_places(_rank_places(results, bias_lat, bias_lon))
+    snapshot_hit = _snapshot_subset_match(q) if results else None
+    if snapshot_hit is not None:
+        hit_key = _place_key(snapshot_hit)
+        existing = {_place_key(r) for r in results}
+        if hit_key is None or hit_key not in existing:
+            results.insert(0, snapshot_hit)
+            results = _rank_places(results, bias_lat, bias_lon)
+    # Nearest-first from the bias point (airports first), and the
+    # same place never twice: Nominatim returns several OSM objects
+    # for one address (the "180 Green Acres" West Virginia entry
+    # arrived three times in the live list).
+    results = results[:limit]
+    airport = next((r for r in results if r.get("airport")), None)
     if airport is not None:
         terminals = _airport_terminals(airport["lat"], airport["lon"])
         if terminals:
@@ -788,11 +973,12 @@ def load_places_snapshot():
     """Load the committed popular-places snapshot into _search_cache.
 
     No network, never raises. Safe to call repeatedly (no-op after the
-    first load). Entries use the same (query, limit=5) keys as a live
-    search, so a seeded query is indistinguishable from a cached live
-    one. Tests clear _search_cache in setUp, so they are unaffected.
-    The same entries also seed _SNAPSHOT_GEOCODE (see
-    snapshot_coords), which tests never clear.
+    first load). Entries use the same keys as a live search (see
+    _search_cache_key), so a seeded query is indistinguishable from a
+    cached live one. Tests clear _search_cache in setUp, so they are
+    unaffected. The same entries also seed _SNAPSHOT_GEOCODE (see
+    snapshot_coords), which tests never clear, and _SNAPSHOT_RESULTS
+    (see _snapshot_subset_match).
     """
     global _SNAPSHOT_LOADED
     if _SNAPSHOT_LOADED:
@@ -807,16 +993,60 @@ def load_places_snapshot():
             if not isinstance(results, list) or not results:
                 continue
             _seed_snapshot_geocode(query, results)
-            key = (str(query).strip().lower(), 5)
-            if key in _search_cache or len(_search_cache) >= _CACHE_LIMIT:
-                continue
-            _search_cache[key] = [
+            cleaned = [
                 dict(item, address=dict(item.get("address") or {}))
                 for item in results
                 if isinstance(item, dict)
             ]
+            if not cleaned:
+                continue
+            _SNAPSHOT_RESULTS[str(query).strip().lower()] = cleaned
+            key = _search_cache_key(str(query).strip().lower(), 5)
+            if key in _search_cache or len(_search_cache) >= _CACHE_LIMIT:
+                continue
+            _search_cache[key] = [dict(item, address=dict(item["address"]))
+                                  for item in cleaned]
     except Exception as exc:  # missing/corrupt file: live search still works
         log.warning("places snapshot failed to load: %s", exc)
+
+
+# Full snapshot results by query (lowercased), for the subset match
+# below. Populated by load_places_snapshot(); tests never clear it.
+_SNAPSHOT_RESULTS: dict = {}
+
+
+def _snapshot_subset_match(query):
+    """First snapshot result whose query contains every word of the
+    typed query, or None.
+
+    Only for queries carrying a house number (a digit): a partial
+    house address ("180 green acres") must surface the snapshot's
+    exact house ("180 Green Acres Road, East Valley Stream, NY
+    11581") first instead of same-named streets in other states —
+    Nominatim ranks by importance, not proximity, and the local
+    house may not be in its top results at all. Longest snapshot
+    query wins (most specific). Never invents data: only committed
+    snapshot results, and the caller still re-ranks by distance, so
+    from another state this house sorts below local matches.
+    """
+    load_places_snapshot()  # no-op after the first load
+    words = set(re.findall(r"[a-z0-9]+", (query or "").lower()))
+    if len(words) < 2 or not any(w.isdigit() for w in words):
+        return None
+    best = None
+    best_len = 0
+    for snap_query, results in _SNAPSHOT_RESULTS.items():
+        qwords = set(re.findall(r"[a-z0-9]+", snap_query))
+        if words and words <= qwords and len(qwords) > best_len:
+            best, best_len = results, len(qwords)
+    if not best:
+        return None
+    first = dict(best[0], address=dict(best[0].get("address") or {}))
+    # Snapshot entries predate the "kind" field: fill it from the
+    # airport flag so the form draws the right icon.
+    if "kind" not in first:
+        first["kind"] = "airport" if first.get("airport") else "address"
+    return first
 
 
 def snapshot_coords(address: str):
@@ -865,7 +1095,7 @@ def refresh_popular_places(search_fn=None, sleep_fn=None):
     search = search_fn or search_places
     sleep = sleep_fn or time.sleep
     for query in _POPULAR_SEARCH_QUERIES:
-        key = (query.lower(), 5)
+        key = _search_cache_key(query, 5)
         previous = _search_cache.get(key)
         _search_cache.pop(key, None)
         try:

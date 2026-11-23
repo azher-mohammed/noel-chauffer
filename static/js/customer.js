@@ -497,6 +497,26 @@
     clearBookingPlaces();
   }
 
+  /* Suggestion bias (owner 2026-11-22): nearest-first from the
+     customer's location when the browser shares it; the server
+     defaults to New York City when it does not. Asked once, on
+     first focus of an address field — denied/unavailable falls back
+     silently to the NYC default, never asked again. */
+  var userLocation = null;
+  var locationTried = false;
+  function requestUserLocation() {
+    if (locationTried || !navigator.geolocation) return;
+    locationTried = true;
+    try {
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        if (pos && pos.coords) {
+          userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        }
+      }, function () { /* denied/unavailable: server defaults to NYC */ },
+      { timeout: 5000, maximumAge: 600000 });
+    } catch (e) { /* geolocation unavailable */ }
+  }
+
   function attachPlaces(inputId, listId, kind) {
     var input = $(inputId);
     var list = $(listId);
@@ -602,8 +622,11 @@
       var mySeq = ++seq;
       if (controller) controller.abort();
       controller = new AbortController();
-      fetch("/api/places/search?q=" + encodeURIComponent(query) + "&limit=5",
-        { signal: controller.signal })
+      var url = "/api/places/search?q=" + encodeURIComponent(query) + "&limit=5";
+      if (userLocation) {
+        url += "&lat=" + userLocation.lat + "&lon=" + userLocation.lon;
+      }
+      fetch(url, { signal: controller.signal })
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (mySeq !== seq) return;
@@ -614,6 +637,7 @@
         });
     }
 
+    input.addEventListener("focus", requestUserLocation);
     input.addEventListener("input", function () {
       clearStored();
       if (timer) clearTimeout(timer);

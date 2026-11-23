@@ -252,8 +252,10 @@ class TestSnapshot(SpeedTestCase):
     def test_snapshot_seeds_jfk_without_upstream_call(self):
         geo_module._SNAPSHOT_LOADED = False
         geo_module.load_places_snapshot()
-        self.assertIn(("jfk", 5), geo_module._search_cache)
-        first = geo_module._search_cache[("jfk", 5)][0]
+        self.assertIn(geo_module._search_cache_key("jfk", 5),
+                      geo_module._search_cache)
+        first = geo_module._search_cache[
+            geo_module._search_cache_key("jfk", 5)][0]
         self.assertTrue(first["display_name"].startswith(
             "John F. Kennedy International Airport"))
         self.assertTrue(first["airport"])
@@ -269,7 +271,7 @@ class TestSnapshot(SpeedTestCase):
         geo_module._SNAPSHOT_LOADED = False
         geo_module.load_places_snapshot()
         missing = [q for q in geo_module._POPULAR_SEARCH_QUERIES
-                   if (q.lower(), 5) not in geo_module._search_cache]
+                   if geo_module._search_cache_key(q, 5) not in geo_module._search_cache]
         self.assertEqual(missing, [])
 
     def test_snapshot_endpoint_is_fast_and_complete(self):
@@ -366,7 +368,8 @@ class TestRefresh(SpeedTestCase):
     def test_refresh_replaces_on_live_and_restores_on_failure(self):
         geo_module._SNAPSHOT_LOADED = False
         geo_module.load_places_snapshot()
-        snapshot_jfk = geo_module._search_cache[("jfk", 5)]
+        snapshot_jfk = geo_module._search_cache[
+            geo_module._search_cache_key("jfk", 5)]
         sleeps = []
 
         def fake_search(query, limit):
@@ -379,13 +382,16 @@ class TestRefresh(SpeedTestCase):
         geo_module.refresh_popular_places(
             search_fn=fake_search, sleep_fn=sleeps.append)
         self.assertEqual(
-            geo_module._search_cache[("jfk", 5)][0]["display_name"],
+            geo_module._search_cache[
+            geo_module._search_cache_key("jfk", 5)][0]["display_name"],
             "Fresh JFK, New York")
         # Failed queries keep their snapshot values.
-        self.assertEqual(geo_module._search_cache[("jfk", 5)][0]["display_name"],
+        self.assertEqual(geo_module._search_cache[
+            geo_module._search_cache_key("jfk", 5)][0]["display_name"],
                          "Fresh JFK, New York")
         self.assertEqual(
-            geo_module._search_cache[("times square", 5)][0]["display_name"]
+            geo_module._search_cache[
+            geo_module._search_cache_key("times square", 5)][0]["display_name"]
             .split(",")[0], "Times Square")
         self.assertEqual(len(sleeps),
                          len(geo_module._POPULAR_SEARCH_QUERIES))

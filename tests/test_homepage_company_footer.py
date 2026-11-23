@@ -5,8 +5,12 @@ The short business line added to the footer 2026-11-22 (commit 0152e58)
 is now GONE, by the owner's word:
 - "Drive with us" link REMOVED from the footer (the /driver page stays
   live; the top-nav "Drive with us" link on the other pages stays).
-- Footer "App" link now points at the homepage app band (/#app-band),
-  not /app. The app-band badges and the /app page itself are untouched.
+- Footer "App" link REMOVED entirely (owner order 2026-11-23
+  ~04:53 EST). The app-band badges and the /app page itself are
+  untouched.
+- A new "Terms" footer column (heading links to /terms) carries the
+  "Privacy Policy" link under it (owner order 2026-11-23 ~04:54 EST).
+  The "Company" column is now just its heading link.
 - The footer about-line "Premium chauffeur service across the USA.
   On-time pickups, calm and comfortable rides." is REMOVED completely,
   with its HTML comment and its CSS rule.
@@ -92,10 +96,15 @@ class TestHomepageCompanyFooter(unittest.TestCase):
         # "Drive with us" is gone from the footer entirely.
         self.assertNotIn("Drive with us", company)
         self.assertNotIn('href="/driver"', company)
-        # "App" goes to the homepage app band now, not /app.
-        self.assertIn('href="/#app-band"', company)
-        self.assertNotIn('href="/app"', company)
-        self.assertIn('href="/privacy"', company)
+        # Owner order 2026-11-23 ~04:53 EST: the "App" link is gone
+        # from the Company column entirely, and "Privacy Policy"
+        # moved under the new "Terms" column.
+        self.assertNotIn('href="/#app-band"', company)
+        self.assertNotIn(">App</a>", company)
+        self.assertNotIn('href="/privacy"', company)
+        terms = _col_block("Terms")
+        self.assertIn('href="/privacy"', terms)
+        self.assertNotIn('href="/#app-band"', terms)
 
     def test_company_heading_links_to_our_company(self):
         self.assertRegex(
@@ -109,7 +118,8 @@ class TestHomepageCompanyFooter(unittest.TestCase):
             headings,
             ["Airport transfers", "Where we drive", "Guides",
              "Services",
-             '<a href="/our-company" data-i18n="foot.company">Company</a>'],
+             '<a href="/our-company" data-i18n="foot.company">Company</a>',
+             '<a href="/terms" data-i18n="foot.terms">Terms</a>'],
         )
 
     def test_nav_company_link_stays(self):

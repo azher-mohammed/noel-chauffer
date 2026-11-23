@@ -1427,6 +1427,11 @@ NOEL_I18N["foot.privacy"] = {
   "ar": "سياسة الخصوصية", "pt": "Política de Privacidade",
   "ur": "Privacy Policy", "hi": "गोपनीयता नीति", "bn": "গোপনীয়তা নীতি"
 };
+NOEL_I18N["foot.terms"] = {
+  "en": "Terms", "es": "Términos", "fr": "Conditions",
+  "ar": "الشروط", "pt": "Termos",
+  "ur": "Terms", "hi": "शर्तें", "bn": "শর্তাবলী"
+};
 NOEL_I18N["foot.hourly_hire"] = {
   "en": "Hourly hire", "es": "Alquiler por horas", "fr": "Location à l'heure",
   "ar": "الحجز بالساعة", "pt": "Aluguel por hora",

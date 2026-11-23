@@ -47,6 +47,7 @@ import string
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from html import escape as html_escape
 from urllib.parse import quote_plus
 
 from cryptography.fernet import Fernet
@@ -2354,6 +2355,13 @@ class Booking(db.Model):
     # live flight tracking: the airline name is derived from the IATA
     # code in flights.py.
     flight_number = db.Column(db.String(20), nullable=True)
+    # Receipt code: NC-<random 6 digits> (owner 2026-11-23, final
+    # spec — random, never sequential; one booking one code, never
+    # reused). Generated once, when the payment receipt is sent,
+    # and stored here so the same booking always shows the same
+    # code. Receipt-only — the website, apps and dashboard keep
+    # showing the plain booking number.
+    booking_code = db.Column(db.String(10), nullable=True)
     # Vehicle class: "sedan" (Business Class, the default the
     # customer sees pre-selected), "suv" (Business SUV) or "first"
     # (First Class). Hourly rides also carry a class now
@@ -2554,6 +2562,11 @@ class OutboxMessage(db.Model):
     channel = db.Column(db.String(10), nullable=False)  # sms | email
     recipient = db.Column(db.String(200), nullable=False)
     body = db.Column(db.Text, nullable=False)
+    # Optional HTML part of an email row (the plain-text `body`
+    # stays the fallback and is what the owner dashboard shows).
+    # Only the payment receipt uses it so far (owner 2026-11-23,
+    # step-by-step receipt); NULL means text-only, as before.
+    html_body = db.Column(db.Text, nullable=True)
     booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=True)
     # Set only when Resend confirms the email was sent (owner
     # decision 2026-11-18, Resend sender). NULL means queued only:
@@ -2678,6 +2691,21 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("flight_number column check failed: %s", exc)
+    # Same pattern for the receipt booking code (owner 2026-11-23).
+    # Nullable, so existing rows keep working with no code on file
+    # (one is generated when their receipt is sent).
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _cols = [c["name"] for c in _sa_inspect(db.engine).get_columns("bookings")]
+        if "booking_code" not in _cols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text("ALTER TABLE bookings ADD COLUMN booking_code VARCHAR(10)")
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("booking_code column check failed: %s", exc)
     # Same pattern for the driver car_year column (added with the
     # car-model dropdown, 2026-11-16). Nullable, so existing driver
     # rows keep working with no year on file.
@@ -2847,6 +2875,23 @@ with app.app_context():
                 )
     except Exception as exc:  # logged, never fatal at startup
         log.warning("outbox sent_at column check failed: %s", exc)
+    # Same pattern for the optional HTML part of an email row
+    # (payment receipt, owner 2026-11-23). Nullable, so existing
+    # rows keep reading as text-only.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _ocols = [c["name"] for c in _sa_inspect(db.engine).get_columns("outbox_messages")]
+        if "html_body" not in _ocols:
+            with db.engine.begin() as _conn:
+                _conn.execute(
+                    _sa_text(
+                        "ALTER TABLE outbox_messages ADD COLUMN html_body TEXT"
+                    )
+                )
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("outbox html_body column check failed: %s", exc)
     # Same pattern for the driver suspension end (added with the
     # AI-judged emergency cancel, 2026-11-18). Nullable, so existing
     # driver rows keep reading as unsuspended.
@@ -3385,14 +3430,16 @@ def _try_send_email(row, subject):
     persists with the caller's commit, like the row itself). SMS
     rows never reach here."""
     try:
-        if send_email(row.recipient, subject or DEFAULT_EMAIL_SUBJECT, row.body) == EMAIL_SENT:
+        if send_email(row.recipient, subject or DEFAULT_EMAIL_SUBJECT,
+                      row.body, html=row.html_body) == EMAIL_SENT:
             row.sent_at = utcnow()
     except Exception as exc:  # never break the caller
         log.warning("outbox email send failed: %s", exc)
 
 
-def add_outbox(channel, recipient, body, booking_id=None, subject=None):
-    row = OutboxMessage(channel=channel, recipient=recipient, body=body, booking_id=booking_id)
+def add_outbox(channel, recipient, body, booking_id=None, subject=None, html=None):
+    row = OutboxMessage(channel=channel, recipient=recipient, body=body,
+                        html_body=html, booking_id=booking_id)
     db.session.add(row)
     if channel == "email":
         _try_send_email(row, subject)
@@ -4590,56 +4637,224 @@ def booking_received_text(booking):
     )
 
 
-PAYMENT_CONFIRMATION_PREFIX = "Noel Chauffer: payment received for booking #"
+# The receipt's first line doubles as its idempotency marker: a
+# payment confirmation row is recognised by this heading.
+PAYMENT_CONFIRMATION_PREFIX = "Payment received — your ride is confirmed."
+# Rows sent before the step-by-step receipt (owner 2026-11-23)
+# start with this instead; the idempotency check honours both so
+# an old confirmation is never sent twice.
+LEGACY_PAYMENT_CONFIRMATION_PREFIX = (
+    "Noel Chauffer: payment received for booking #")
 
 
-def payment_confirmation_text(booking, test=False):
-    """The "payment received" confirmation email: sent once, right
-    after a successful card payment (test mode or live authorize),
-    to the customer's booking email. Email only — no SMS row.
-    Only facts already on the booking; nothing invented. The
-    ride-end invoice email is separate and untouched."""
-    class_text = class_label(booking_vehicle_class(booking))
+def receipt_number_for(payment):
+    """The receipt's own number: NCL-<payment year>-<payment id,
+    six digits> (e.g. NCL-2026-000035). Unique per payment, clearly
+    different from the booking number, and stable — the same
+    payment always yields the same number, so an idempotent resend
+    keeps it. The year is the payment's own year."""
+    created = getattr(payment, "created_at", None)
+    year = created.year if created is not None else datetime.now(timezone.utc).year
+    return f"NCL-{year}-{payment.id:06d}"
+
+
+def _ensure_booking_code(booking):
+    """The booking's receipt code: NC-<random 6 digits> (e.g.
+    NC-482913). Final owner spec 2026-11-23: RANDOM, never
+    sequential (the earlier 'start from 1000' idea is cancelled);
+    one booking one code, never reused. Generated once, stored on
+    the booking so the same booking always shows the same code,
+    and checked unique in the database — on a collision a new
+    number is drawn. The caller commits."""
+    if getattr(booking, "booking_code", None):
+        return booking.booking_code
+    for _ in range(50):
+        code = f"NC-{secrets.randbelow(900000) + 100000:06d}"
+        clash = Booking.query.filter_by(booking_code=code).first()
+        if clash is None:
+            booking.booking_code = code
+            return code
+    # Unreachable in practice (50 collisions in a million-number
+    # space); deterministic per booking so it still never repeats
+    # a sequential id.
+    booking.booking_code = (
+        f"NC-{(booking.id * 2654435761) % 900000 + 100000:06d}")
+    return booking.booking_code
+
+
+def booking_number_for(booking):
+    """The booking's display number in the receipt: its random
+    NC code (e.g. NC-482913). Receipt-only — the website, apps
+    and dashboard keep showing the plain booking number."""
+    return _ensure_booking_code(booking)
+
+
+def _format_pickup_datetime(booking):
+    """'Monday, November 23, 2026 at 12:00 PM' from the booking's
+    stored YYYY-MM-DD date and HH:MM time; falls back to the raw
+    values when they do not parse."""
+    try:
+        dt = datetime.strptime(f"{booking.date} {booking.time}", "%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return f"{booking.date} at {booking.time}"
+    return (dt.strftime("%A, %B ") + str(dt.day) +
+            dt.strftime(", %Y at ") + dt.strftime("%I:%M %p").lstrip("0"))
+
+
+def _payment_confirmation_rows(booking, test=False, payment=None):
+    """Receipt content, one row per detail, in order. Each row is a
+    (label, value) pair for the detail lines, or ("", text) for the
+    heading and the closing sentences. The plain-text body and the
+    HTML receipt render the same rows. Only facts already on the
+    booking (and its payment); nothing invented. The ride-end
+    invoice email is separate and untouched."""
+    rows = [("", PAYMENT_CONFIRMATION_PREFIX)]
+    if payment is not None:
+        rows.append(("Receipt No.", receipt_number_for(payment)))
+    rows.append(("Booking", booking_number_for(booking)))
+    rows.append(("Pickup", booking.pickup))
     if booking.ride_type == "hourly":
-        hours_text = (f" By the hour: {booking.hours:g} hours."
-                      if booking.hours is not None else " By the hour.")
-        route_text = f"Pickup: {booking.pickup}.{hours_text}"
+        if booking.hours is not None:
+            try:
+                hours_text = f"{float(booking.hours):g} hours"
+            except (TypeError, ValueError):
+                hours_text = f"{booking.hours} hours"
+            rows.append(("Hours", hours_text))
     else:
-        route_text = f"Pickup: {booking.pickup}. Drop-off: {booking.dropoff}."
-    class_part = f" Class: {class_text}." if class_text else ""
-    text = (
-        f"{PAYMENT_CONFIRMATION_PREFIX}{booking.id}. "
-        "Your ride is confirmed. "
-        f"{route_text} Date: {booking.date} at {booking.time}."
-        f"{class_part} Total paid: ${booking.fare_total}. "
-        "Your chauffeur will be assigned shortly — we will message "
-        "you the chauffeur's details once a driver accepts.")
+        rows.append(("Drop-off", booking.dropoff))
+    rows.append(("Date", _format_pickup_datetime(booking)))
+    class_text = class_label(booking_vehicle_class(booking))
+    if class_text:
+        rows.append(("Class", class_text))
+    rows.append(("Total paid", f"${booking.fare_total}"))
+    rows.append(("", "Your chauffeur will be assigned shortly — we will message "
+                    "you the chauffeur's details once a driver accepts."))
     if test:
-        text += " This was a test payment — no real charge was made."
-    return text
+        rows.append(("", "This was a test payment — no real charge was made."))
+    return rows
+
+
+def payment_confirmation_text(booking, test=False, payment=None):
+    """The plain-text receipt: a clean, professional layout — the
+    heading, a divider, every detail on its own line with labels
+    aligned in one column, a divider, the total on its own, then
+    the next-step and test-mode lines (owner 2026-11-23 — the old
+    single-paragraph email was rejected, 'Aisa nahi'; the receipt
+    must look like a big company's, 'ek dum professional')."""
+    rows = _payment_confirmation_rows(booking, test=test, payment=payment)
+    heading = rows[0][1]
+    fields = [(label, value) for label, value in rows[1:] if label]
+    notes = [value for label, value in rows[1:] if not label]
+    width = max(len(label) + 1 for label, _ in fields)  # +1 for the colon
+    divider = "-" * 40
+    detail = [(label, value) for label, value in fields if label != "Total paid"]
+    total = [(label, value) for label, value in fields if label == "Total paid"]
+    lines = [heading, divider]
+    lines += [f"{label}:".ljust(width) + " " + value for label, value in detail]
+    lines.append(divider)
+    lines += [f"{label}:".ljust(width) + " " + value for label, value in total]
+    lines.append("")
+    lines += notes
+    return "\n".join(lines)
+
+
+def _receipt_value_html(label, value):
+    """One receipt value as HTML. The booking number's NC prefix
+    is brand gold (owner 2026-11-23); everything else is dark."""
+    if label == "Booking":
+        prefix, _, rest = value.partition("-")
+        return (f"<span style=\"color:#D4AF37;font-weight:bold;\">"
+                f"{html_escape(prefix)}</span>-{html_escape(rest)}")
+    return html_escape(value)
+
+
+def payment_confirmation_html(booking, test=False, payment=None):
+    """The HTML receipt: the same rows as the plain text, as a
+    clean business receipt — Noel Chauffer letterhead, heading,
+    divider, label/value table with aligned columns, the total
+    set apart and bold, then the next-step and test-mode lines.
+    No gradients, no images; the only gold is the brand wordmark
+    and the booking number's NC prefix (owner 2026-11-23)."""
+    rows = _payment_confirmation_rows(booking, test=test, payment=payment)
+    heading = html_escape(rows[0][1])
+    fields = [(label, value) for label, value in rows[1:] if label]
+    notes = [value for label, value in rows[1:] if not label]
+    detail = [(label, value) for label, value in fields if label != "Total paid"]
+    total = [(label, value) for label, value in fields if label == "Total paid"]
+
+    def _row(label, value, total_row=False):
+        border = "border-top:1px solid #cccccc;" if total_row else ""
+        size = "font-size:16px;" if total_row else ""
+        rendered = _receipt_value_html(label, value)
+        if total_row:
+            rendered = f"<strong>{rendered}</strong>"
+        return (
+            "<tr>"
+            f"<td style=\"padding:5px 16px 5px 0;font-weight:bold;"
+            f"white-space:nowrap;vertical-align:top;{border}\">"
+            f"{html_escape(label)}</td>"
+            f"<td style=\"padding:5px 0;vertical-align:top;{border}{size}\">"
+            f"{rendered}</td></tr>")
+
+    detail_html = "".join(_row(label, value) for label, value in detail)
+    total_html = "".join(_row(label, value, total_row=True)
+                         for label, value in total)
+    notes_html = ""
+    for note in notes:
+        style = "margin:12px 0 0 0;"
+        if note.startswith("This was a test"):
+            style += "color:#666666;"
+        notes_html += f"<p style=\"{style}\">{html_escape(note)}</p>"
+    return (
+        "<!DOCTYPE html><html><body style=\"margin:0;padding:0;"
+        "background:#ffffff;\">"
+        "<div style=\"max-width:560px;margin:0 auto;padding:24px;"
+        "font-family:Arial,Helvetica,sans-serif;color:#222222;"
+        "font-size:15px;line-height:1.6;\">"
+        "<div style=\"font-size:22px;font-weight:600;letter-spacing:0.02em;"
+        "color:#111111;margin-bottom:12px;\">Noel "
+        "<span style=\"color:#D4AF37;\">Chauffeur</span></div>"
+        f"<h1 style=\"font-size:20px;line-height:1.4;margin:0 0 12px 0;"
+        f"color:#111111;\">{heading}</h1>"
+        "<hr style=\"border:none;border-top:1px solid #dddddd;"
+        "margin:0 0 12px 0;\">"
+        "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" "
+        "style=\"width:100%;border-collapse:collapse;\">"
+        f"{detail_html}{total_html}</table>{notes_html}"
+        "</div></body></html>")
 
 
 def _send_payment_confirmation_email(booking, test=False):
     """Queue (and best-effort send via Resend) the one payment
     confirmation email for this booking. Idempotent: a second call
     for the same booking sends nothing, so a re-marked payment
-    never double-mails the customer. Returns the outbox row, or
-    the existing one, or None when there is no email to send to."""
+    never double-mails the customer — and a resend keeps the same
+    receipt number, because it is derived from the payment row.
+    Returns the outbox row, or the existing one, or None when there
+    is no email to send to."""
     if not booking.email:
         return None
     existing = (OutboxMessage.query
                 .filter_by(channel="email", booking_id=booking.id)
-                .filter(OutboxMessage.body.startswith(
-                    PAYMENT_CONFIRMATION_PREFIX))
+                .filter(or_(OutboxMessage.body.startswith(
+                            PAYMENT_CONFIRMATION_PREFIX),
+                        OutboxMessage.body.startswith(
+                            LEGACY_PAYMENT_CONFIRMATION_PREFIX)))
                 .first())
     if existing is not None:
         return existing
+    # The receipt number comes from the payment that just succeeded
+    # (its own sequential id, not the booking number). Flush first
+    # so the new row has its id and created year; the caller commits.
+    db.session.flush()
+    payment = _latest_payment(booking.id)
     return add_outbox(
         "email", booking.email,
-        payment_confirmation_text(booking, test=test),
+        payment_confirmation_text(booking, test=test, payment=payment),
         booking.id,
         subject=(f"Noel Chauffer — payment received "
-                 f"(booking #{booking.id})"))
+                 f"(booking {booking_number_for(booking)})"),
+        html=payment_confirmation_html(booking, test=test, payment=payment))
 
 
 @app.route("/api/bookings", methods=["POST"])

@@ -171,6 +171,26 @@ class EmailSenderCase(unittest.TestCase):
         self.assertEqual(payload["subject"], "Noel Chauffer")
         self.assertEqual(payload["text"], "hello body")
 
+    def test_html_part_sent_when_given(self):
+        html = "<html><body><h1>Hi</h1></body></html>"
+        with mock.patch.dict(os.environ, {"RESEND_API_KEY": FAKE_KEY}), \
+                mock.patch.object(email_sender, "urlopen",
+                                  return_value=ok_response(200)) as mock_urlopen:
+            result = email_sender.send_email("a@test.com", "Hi", "body",
+                                             html=html)
+        self.assertEqual(result, email_sender.SENT)
+        _url, _headers, payload = request_parts(mock_urlopen)
+        self.assertEqual(payload["text"], "body")
+        self.assertEqual(payload["html"], html)
+
+    def test_no_html_key_when_not_given(self):
+        with mock.patch.dict(os.environ, {"RESEND_API_KEY": FAKE_KEY}), \
+                mock.patch.object(email_sender, "urlopen",
+                                  return_value=ok_response(200)) as mock_urlopen:
+            email_sender.send_email("a@test.com", "Hi", "body")
+        _url, _headers, payload = request_parts(mock_urlopen)
+        self.assertNotIn("html", payload)
+
     def test_custom_subject_and_from_override(self):
         with mock.patch.dict(os.environ, {"RESEND_API_KEY": FAKE_KEY,
                                           "RESEND_FROM": "Team <team@example.com>"}), \

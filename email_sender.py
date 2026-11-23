@@ -19,7 +19,9 @@ Design (same pattern as translation.py):
 
 Endpoint (Resend REST API): POST https://api.resend.com/emails
 body {"from": ..., "to": [...], "subject": ..., "text": ...}
-header Authorization: Bearer <key>. A 2xx response means sent.
+— plus an optional "html" part when the caller passes one
+(plain text stays the fallback). header Authorization: Bearer
+<key>. A 2xx response means sent.
 
 No new dependency: plain urllib, so nothing changes in
 requirements.txt and Render needs no new install.
@@ -60,20 +62,25 @@ def is_configured():
     return bool(_api_key())
 
 
-def send_email(to, subject, body):
+def send_email(to, subject, body, html=None):
     """Send one email via Resend. Returns SENT only on a confirmed
     (2xx) send, NOT_CONFIGURED when no key is set (no HTTP call at
     all), FAILED on any error. Never raises; the key is never
-    logged."""
+    logged. When `html` is given it is sent as the HTML part
+    alongside the plain-text `body` (the fallback); otherwise the
+    email is text-only, exactly as before."""
     key = _api_key()
     if not key:
         return NOT_CONFIGURED
-    payload = json.dumps({
+    payload = {
         "from": _from_address(),
         "to": [to],
         "subject": subject,
         "text": body,
-    }).encode("utf-8")
+    }
+    if html:
+        payload["html"] = html
+    payload = json.dumps(payload).encode("utf-8")
     request = Request(
         RESEND_API_URL, data=payload, method="POST",
         headers={"Authorization": "Bearer " + key,

@@ -22,11 +22,27 @@ Rules pinned here:
 - A declined / failed payment sends no confirmation email.
 - Test-mode emails say so ("no real charge was made"); live ones do
   not.
+- Receipt format (owner 2026-11-23, "ek dum professional"): a
+  step-by-step receipt, every detail on its own line, labels
+  aligned in one column, divider lines, the total set apart and
+  bold — in plain text AND as an HTML part (same rows). No
+  gradients; the only gold is the brand wordmark and the booking
+  code's NC prefix.
+- Receipt number (owner 2026-11-23, my professional judgment):
+  NCL-<payment year>-<payment id, six digits> — unique per
+  payment, different from the booking code, stable on resend.
+- Booking code (owner 2026-11-23, FINAL spec — random, never
+  sequential): NC-<random 6 digits>, generated once, stored on
+  the booking, checked unique (regenerate on collision); one
+  booking one code, never reused. The subject carries the same
+  code. Receipt-only: the website, apps and dashboard keep the
+  plain booking number.
 
 Run:  python -m unittest discover -s tests -v
 """
 
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -82,6 +98,18 @@ def outbox_counts(booking_id):
                 "sms": sum(1 for r in rows if r.channel == "sms")}
 
 
+def receipt_lines(row):
+    return row.body.split("\n")
+
+
+def field_value(lines, label):
+    """The value of the 'Label:' line (labels are padded to one column)."""
+    for line in lines:
+        if line.startswith(label + ":"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
 class _BaseCase(unittest.TestCase):
     def signin(self, email, phone):
         """Compulsory customer sign-in (owner 2026-11-22): payment
@@ -133,20 +161,172 @@ class PaymentConfirmationTestModeCase(_BaseCase):
         self.assertEqual(len(rows), 1)
         row = rows[0]
         self.assertEqual(row.recipient, EMAIL)
-        self.assertIn("JFK Airport", row.body)
-        self.assertIn("Times Square, New York", row.body)
-        self.assertIn("2030-06-01", row.body)
-        self.assertIn("12:00", row.body)
-        self.assertIn("Business Class", row.body)
+        lines = receipt_lines(row)
+        # Step-by-step, in order, every detail on its own line.
+        self.assertEqual(lines[0], "Payment received — your ride is confirmed.")
+        self.assertEqual(lines[1], "-" * 40)
+        self.assertEqual(field_value(lines, "Pickup"), "JFK Airport")
+        self.assertEqual(field_value(lines, "Drop-off"), "Times Square, New York")
+        self.assertEqual(field_value(lines, "Date"),
+                         "Saturday, June 1, 2030 at 12:00 PM")
+        self.assertEqual(field_value(lines, "Class"), "Business Class")
         # The total is the booking's own fare_total (Blacklane
         # pricing at 18 mocked miles), not a hardcoded figure.
         with app_module.app.app_context():
             total = app_module.db.session.get(
                 app_module.Booking, booking["id"]).fare_total
-        self.assertIn(f"Total paid: ${total}", row.body)
+        self.assertEqual(field_value(lines, "Total paid"), f"${total}")
         self.assertIn("no real charge was made", row.body)
+        # Labels aligned: every field value starts in the same column.
+        value_col = len("Receipt No.:") + 1
+        for line in lines:
+            if re.match(r"^(Receipt No|Booking|Pickup|Drop-off|Date|Class|Total paid):",
+                        line):
+                self.assertEqual(line[value_col - 1], " ")
+                self.assertNotEqual(line[value_col], " ")
         counts = outbox_counts(booking["id"])
         self.assertEqual(counts, {"email": 2, "sms": 1})
+
+    def test_receipt_number_and_booking_code_are_separate(self):
+        booking = self.book()
+        resp = self.client.post(f"/api/bookings/{booking['id']}/pay",
+                                json=dict(RAW_CARD))
+        self.assertEqual(resp.status_code, 200)
+        row = confirmation_rows(booking["id"])[0]
+        lines = receipt_lines(row)
+        receipt_no = field_value(lines, "Receipt No.")
+        booking_code = field_value(lines, "Booking")
+        self.assertRegex(receipt_no, r"^NCL-\d{4}-\d{6}$")
+        self.assertRegex(booking_code, r"^NC-\d{6}$")
+        self.assertNotEqual(receipt_no, booking_code)
+        # The receipt number comes from the payment row, not the booking.
+        with app_module.app.app_context():
+            payment = app_module._latest_payment(booking["id"])
+            self.assertEqual(
+                receipt_no,
+                f"NCL-{payment.created_at.year}-{payment.id:06d}")
+        # The booking code is stored on the booking, random — never
+        # the booking id in disguise.
+        with app_module.app.app_context():
+            stored = app_module.db.session.get(
+                app_module.Booking, booking["id"]).booking_code
+        self.assertEqual(stored, booking_code)
+        self.assertNotEqual(booking_code, f"NC-{booking['id']:06d}")
+        self.assertNotEqual(booking_code, f"NC-{booking['id']:05d}")
+
+    def test_booking_codes_are_random_unique_and_stable(self):
+        first = self.book()
+        second = self.book()
+        for b in (first, second):
+            resp = self.client.post(f"/api/bookings/{b['id']}/pay",
+                                    json=dict(RAW_CARD))
+            self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        first_code = field_value(
+            receipt_lines(confirmation_rows(first["id"])[0]), "Booking")
+        second_code = field_value(
+            receipt_lines(confirmation_rows(second["id"])[0]), "Booking")
+        self.assertRegex(first_code, r"^NC-\d{6}$")
+        self.assertRegex(second_code, r"^NC-\d{6}$")
+        self.assertNotEqual(first_code, second_code)
+        # A resend keeps the same code: calling the helper again
+        # sends nothing new and the stored code is unchanged.
+        with app_module.app.app_context():
+            row = app_module.db.session.get(app_module.Booking, first["id"])
+            app_module._send_payment_confirmation_email(row, test=True)
+            app_module.db.session.commit()
+        self.assertEqual(len(confirmation_rows(first["id"])), 1)
+        self.assertEqual(
+            field_value(receipt_lines(confirmation_rows(first["id"])[0]),
+                        "Booking"),
+            first_code)
+
+    def test_legacy_prefix_row_blocks_duplicate(self):
+        # A confirmation sent in the old single-paragraph format
+        # still counts: re-marking the payment must not send a
+        # second (new-format) confirmation.
+        booking = self.book()
+        with app_module.app.app_context():
+            old = app_module.OutboxMessage(
+                channel="email", recipient=EMAIL,
+                body=(f"{app_module.LEGACY_PAYMENT_CONFIRMATION_PREFIX}"
+                      f"{booking['id']}. Your ride is confirmed."),
+                booking_id=booking["id"])
+            app_module.db.session.add(old)
+            app_module.db.session.commit()
+        resp = self.client.post(f"/api/bookings/{booking['id']}/pay",
+                                json=dict(RAW_CARD))
+        self.assertEqual(resp.status_code, 200)
+        # No NEW-format confirmation row was created; the only
+        # email rows are the booking-received one and the legacy
+        # confirmation that was already there.
+        self.assertEqual(confirmation_rows(booking["id"]), [])
+        with app_module.app.app_context():
+            emails = (app_module.OutboxMessage.query
+                      .filter_by(channel="email", booking_id=booking["id"])
+                      .all())
+        self.assertEqual(len(emails), 2)
+        self.assertTrue(any(
+            r.body.startswith(app_module.LEGACY_PAYMENT_CONFIRMATION_PREFIX)
+            for r in emails))
+
+    def test_html_receipt_is_professional(self):
+        booking = self.book()
+        resp = self.client.post(f"/api/bookings/{booking['id']}/pay",
+                                json=dict(RAW_CARD))
+        self.assertEqual(resp.status_code, 200)
+        row = confirmation_rows(booking["id"])[0]
+        html = row.html_body
+        self.assertIsNotNone(html)
+        lines = receipt_lines(row)
+        booking_code = field_value(lines, "Booking")
+        receipt_no = field_value(lines, "Receipt No.")
+        # Same facts as the plain text (the booking code is split
+        # by its gold NC span in the HTML).
+        self.assertIn("JFK Airport", html)
+        self.assertIn("Times Square, New York", html)
+        self.assertIn("Saturday, June 1, 2030 at 12:00 PM", html)
+        self.assertIn(receipt_no, html)
+        self.assertIn(
+            '<span style="color:#D4AF37;font-weight:bold;">NC</span>-'
+            + booking_code.split("-", 1)[1], html)
+        self.assertIn("no real charge was made", html)
+        # Professional layout: letterhead, heading, divider, table.
+        self.assertIn("Noel", html)
+        self.assertIn("<h1", html)
+        self.assertIn("<hr", html)
+        self.assertIn("<table", html)
+        self.assertIn("<strong>$", html)  # total set apart and bold
+        # No gradients anywhere; gold only on the brand wordmark
+        # and the booking code's NC prefix.
+        self.assertNotIn("linear-gradient", html)
+        self.assertNotIn("radial-gradient", html)
+        self.assertIn(
+            '<span style="color:#D4AF37;font-weight:bold;">NC</span>-'
+            + booking_code.split("-", 1)[1], html)
+        self.assertIn(
+            '<span style="color:#D4AF37;">Chauffeur</span>', html)
+        self.assertEqual(html.count("#D4AF37"), 2)
+
+    def test_hourly_receipt_has_hours_line_and_no_dropoff(self):
+        # Hourly rides have no drop-off; the hours stay on their own line.
+        with app_module.app.app_context():
+            booking = app_module.Booking(
+                customer_name="Hourly Tester", phone="+15550140099",
+                email=EMAIL, pickup="Times Square, New York",
+                dropoff="", date="2030-06-01", time="12:00",
+                ride_type="hourly", hours=2, vehicle_class="sedan",
+                fare_total="218.32", driver_earnings=0,
+                status="awaiting_payment")
+            app_module.db.session.add(booking)
+            app_module.db.session.commit()
+            text = app_module.payment_confirmation_text(booking, test=True)
+            html = app_module.payment_confirmation_html(booking, test=True)
+        lines = text.split("\n")
+        self.assertEqual(field_value(lines, "Hours"), "2 hours")
+        self.assertNotIn("Drop-off:", text)
+        self.assertIn("Hours", html)
+        self.assertIn("2 hours", html)
+        self.assertNotIn("Drop-off", html)
 
     def test_confirmation_email_subject(self):
         booking = self.book()
@@ -159,7 +339,18 @@ class PaymentConfirmationTestModeCase(_BaseCase):
                          if c.args[0] == EMAIL
                          and "payment received" in c.args[1]]
         self.assertEqual(len(payment_calls), 1)
-        self.assertIn("booking #%d" % booking["id"], payment_calls[0].args[1])
+        # The subject carries the booking's random NC code (plain
+        # text — no colour there), the same code as the receipt body.
+        row = confirmation_rows(booking["id"])[0]
+        code = field_value(receipt_lines(row), "Booking")
+        self.assertRegex(code, r"^NC-\d{6}$")
+        self.assertIn(f"(booking {code})", payment_calls[0].args[1])
+        # The HTML part travelled with the send call — the code is
+        # there with its NC prefix in the gold span.
+        self.assertIn("html", payment_calls[0].kwargs)
+        self.assertIn(
+            '<span style="color:#D4AF37;font-weight:bold;">NC</span>-'
+            + code.split("-", 1)[1], payment_calls[0].kwargs["html"])
 
     def test_second_pay_and_second_helper_call_send_no_duplicate(self):
         booking = self.book()
@@ -216,7 +407,8 @@ class PaymentConfirmationLiveCase(_BaseCase):
         with app_module.app.app_context():
             total = app_module.db.session.get(
                 app_module.Booking, booking["id"]).fare_total
-        self.assertIn(f"Total paid: ${total}", row.body)
+        self.assertEqual(field_value(receipt_lines(row), "Total paid"),
+                         f"${total}")
         self.assertIn("Business Class", row.body)
         self.assertNotIn("no real charge", row.body)
         counts = outbox_counts(booking["id"])

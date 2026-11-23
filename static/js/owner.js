@@ -40,6 +40,87 @@
     return [b.date, b.time].filter(Boolean).join(" · ");
   }
 
+  /* ---------- Tabs (owner decision 2026-11-23): the dashboard is
+     one screen per section — Dashboard / Rides / Drivers / Money /
+     More. No long scrolling; every section lives behind its tab. */
+  var TABS = ["dashboard", "rides", "drivers", "money", "more"];
+  function showTab(name) {
+    if (TABS.indexOf(name) === -1) name = "dashboard";
+    TABS.forEach(function (t) {
+      var panel = $("tab-" + t);
+      if (panel) { if (t === name) show(panel); else hide(panel); }
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function (btn) {
+      var active = btn.getAttribute("data-tab") === name;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function (btn) {
+    btn.addEventListener("click", function () { showTab(btn.getAttribute("data-tab")); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-goto-tab]"), function (el) {
+    el.addEventListener("click", function () { showTab(el.getAttribute("data-goto-tab")); });
+  });
+
+  /* ---------- Dashboard overview: needs-attention counts ----------
+     Each loader below reports its count here; the Dashboard tab
+     shows the four numbers at a glance, each jumping to its tab. */
+  var attention = { support: 0, expiry: 0, flags: 0, payouts: 0 };
+  function renderAttention() {
+    var box = $("attention-list");
+    if (!box) return;
+    var rows = [
+      ["Support messages needing attention", attention.support, "more"],
+      ["Documents expiring soon", attention.expiry, "drivers"],
+      ["Flagged documents", attention.flags, "drivers"],
+      ["Unpaid payout weeks", attention.payouts, "money"]
+    ];
+    box.innerHTML = rows.map(function (r) {
+      var n = r[1];
+      return '<button type="button" class="mini-row" data-goto-tab="' + r[2] + '">' +
+        "<span>" + esc(r[0]) + "</span>" +
+        '<span class="count-badge' + (n ? "" : " zero") + '">' + n + "</span></button>";
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("[data-goto-tab]"), function (el) {
+      el.addEventListener("click", function () { showTab(el.getAttribute("data-goto-tab")); });
+    });
+  }
+
+  /* Dashboard "Latest rides": the 5 newest bookings, so the owner
+     sees what is happening without opening the Rides tab. */
+  function renderTodayList(list) {
+    var box = $("today-list");
+    if (!box) return;
+    if (!list.length) { box.innerHTML = '<div class="empty">No bookings yet.</div>'; return; }
+    box.innerHTML = list.slice(0, 5).map(function (b) {
+      var f = breakdownFields(b);
+      var route = b.route ? esc(b.route) : (esc(b.pickup || "") + (b.dropoff ? " → " + esc(b.dropoff) : ""));
+      return '<div class="mini-row"><div><div>' + route + '</div><div class="sub">' + esc(whenLabel(b)) + " · " + esc(b.customer_name || b.name || "") + '</div></div>' +
+        '<div style="text-align:right;white-space:nowrap;"><div><span class="pill">' + esc(b.status || "") + '</span></div>' +
+        '<div class="sub">' + esc(money(f.paid)) + "</div></div></div>";
+    }).join("");
+  }
+
+  /* Dashboard "Latest alerts": the 3 newest events. */
+  function renderDashAlerts(list) {
+    var box = $("dash-alerts");
+    if (!box) return;
+    if (!list.length) { box.innerHTML = '<div class="empty">No alerts yet.</div>'; return; }
+    box.innerHTML = list.slice(0, 3).map(function (a) {
+      var text = a.message || a.text || a.event || a.type || "";
+      var when = a.created_at || a.timestamp || a.time || "";
+      return '<div class="mini-row"><div><div>' + esc(text) + '</div><div class="sub">' + esc(when) + "</div></div></div>";
+    }).join("");
+  }
+
+  function setCountBadge(id, n) {
+    var el = $(id);
+    if (!el) return;
+    el.textContent = String(n);
+    el.classList.toggle("zero", !n);
+  }
+
   /* ---------- Session check + PIN login ---------- */
   function checkSession() {
     fetch("/api/owner/summary", { credentials: "same-origin" })
@@ -93,7 +174,9 @@
   function enterDashboard(summary) {
     hide($("pin-gate"));
     show($("dashboard"));
+    showTab("dashboard");
     renderSummary(summary);
+    renderAttention();
     runPickupReminders();
     loadBookings();
     loadPayouts();
@@ -151,6 +234,9 @@
       .then(function (j) {
         var list = asList(j, "documents");
         var feed = $("expiry-feed");
+        attention.expiry = list.length;
+        setCountBadge("expiry-count", list.length);
+        renderAttention();
         if (!list.length) { feed.innerHTML = '<div class="empty">No documents expiring in the next 10 days.</div>'; return; }
         feed.innerHTML = list.map(function (d) {
           var who = [d.driver_name, d.phone].filter(Boolean).join(" · ") || "Unknown driver";
@@ -363,7 +449,7 @@
 
   /* ---------- Bookings table: server-side search + pages ----------
      At 10,000 rides the dashboard must NOT load every booking at
-     once (owner decision 2026-11-19). The list loads 50 rows at a
+     once (owner decision 2026-11-19). The list loads 10 rows at a
      time, newest first, and the search box queries the server
      (GET /api/owner/bookings?q=…&page=…), debounced 300 ms as the
      owner types — finding one trip among thousands is instant,
@@ -373,7 +459,7 @@
   var bookingsTotalPages = 1;
   var bookingsTotal = 0;
   var bookingsSearchTimer = null;
-  var BOOKINGS_PER_PAGE = 50;
+  var BOOKINGS_PER_PAGE = 10;
 
   function bookingsUrl() {
     var url = "/api/owner/bookings?page=" + bookingsPage + "&per_page=" + BOOKINGS_PER_PAGE;
@@ -398,6 +484,9 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var list = asList(j, "bookings");
+        /* The Dashboard tab shows the newest rides; a search only
+           changes the Rides tab, never the overview. */
+        if (!bookingsQuery) renderTodayList(list);
         if (j && typeof j === "object" && !Array.isArray(j)) {
           bookingsTotal = Number(j.total) || 0;
           bookingsTotalPages = Number(j.pages) || 1;
@@ -522,7 +611,7 @@
             "<td>" + esc(p.due_date || "") + "</td>" +
             '<td class="num">' + esc(String(pick(p, ["ride_count", "rides"]) || 0)) + "</td>" +
             '<td class="num">' + esc(money(pick(p, ["total_earnings", "total", "amount"]))) + "</td>" +
-            '<td><span class="pill">' + (paid ? "Paid" : "Unpaid") + "</span></td>" +
+            '<td><span class="pill' + (paid ? "" : " pill-alert") + '">' + (paid ? "Paid" : "Unpaid") + "</span></td>" +
             "<td>" + (paid ? "" : '<button class="row-btn" type="button">Mark paid</button>') + "</td>";
           if (!paid) {
             tr.querySelector(".row-btn").addEventListener("click", function () {
@@ -531,6 +620,8 @@
           }
           body.appendChild(tr);
         });
+        attention.payouts = list.filter(function (p) { return !(p.paid === true || p.status === "paid"); }).length;
+        renderAttention();
       })
       .catch(function () {
         $("payouts-body").innerHTML = "";
@@ -659,6 +750,12 @@
           panel.appendChild(assignBox);
         }
         show(panel);
+        var closeBtn = document.createElement("button");
+        closeBtn.type = "button";
+        closeBtn.className = "row-btn detail-close";
+        closeBtn.textContent = "Close";
+        closeBtn.addEventListener("click", function () { hide(panel); });
+        panel.insertBefore(closeBtn, panel.firstChild);
         panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
       })
       .catch(function () { /* leave the previous detail view */ });
@@ -685,6 +782,7 @@
       .then(function (j) {
         var list = asList(j, "alerts");
         var feed = $("alerts-feed");
+        renderDashAlerts(list);
         if (!list.length) { feed.innerHTML = '<div class="empty">No alerts yet.</div>'; return; }
         feed.innerHTML = list.map(function (a) {
           var text = a.message || a.text || a.event || a.type || "";
@@ -726,6 +824,8 @@
       .then(function (j) {
         var list = asList(j, "messages");
         var feed = $("support-feed");
+        attention.support = list.filter(function (m) { return !!m.flagged; }).length;
+        renderAttention();
         if (!list.length) { feed.innerHTML = '<div class="empty">No support messages yet.</div>'; return; }
         feed.innerHTML = list.map(function (m) {
           var flag = m.flagged ? '<div class="ch">Needs attention</div>' : "";
@@ -779,6 +879,9 @@
       .then(function (j) {
         var list = asList(j, "flags");
         var feed = $("flags-feed");
+        attention.flags = list.length;
+        setCountBadge("flags-count", list.length);
+        renderAttention();
         if (!list.length) { feed.innerHTML = '<div class="empty">No flagged documents yet.</div>'; return; }
         var reasons = {
           duplicate_other_driver: "Same photo already used on another driver account",
@@ -1047,7 +1150,7 @@
               var isPast = expDate < todayStr;
               var daysLeft = Math.round((new Date(expDate + "T00:00:00Z") - new Date(todayStr + "T00:00:00Z")) / 86400000);
               label += ' · Expires ' + esc(expDate) +
-                (isPast ? ' — <span class="st-todo">expired</span>'
+                (isPast ? ' — <span class="st-bad">expired</span>'
                         : (daysLeft <= 10 ? ' — <span class="st-todo">expiring soon (in ' + daysLeft + (daysLeft === 1 ? ' day' : ' days') + ')</span>' : ""));
             }
             var viewUrl = null;
@@ -1069,7 +1172,22 @@
             }
             chips.appendChild(chip);
           });
-          card.appendChild(chips);
+          /* Documents stay collapsed behind one line ("Documents (5 of
+             7 complete)") — the owner opens one driver at a time
+             instead of scrolling past every document chip. */
+          var docsDone = 0, docsTotal = 0;
+          DOC_TYPES.forEach(function (spec) {
+            if (docs[spec.key] === undefined) return;
+            docsTotal += 1;
+            if (docIsComplete(docs[spec.key])) docsDone += 1;
+          });
+          var docsWrap = document.createElement("details");
+          docsWrap.className = "driver-docs";
+          var docsSummary = document.createElement("summary");
+          docsSummary.textContent = "Documents (" + docsDone + " of " + docsTotal + " complete)";
+          docsWrap.appendChild(docsSummary);
+          docsWrap.appendChild(chips);
+          card.appendChild(docsWrap);
           var removeBtn = document.createElement("button");
           removeBtn.type = "button";
           removeBtn.className = "row-btn danger-row-btn driver-remove-btn";

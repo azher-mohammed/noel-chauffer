@@ -165,7 +165,11 @@ class BlacklaneFormCase(unittest.TestCase):
         self.assertEqual(found, ["Overview", "Corporations",
                                  "Travel agencies", "Strategic partnerships"])
         menu = block(self.html, 'id="mobile-menu"', 4000)
-        self.assertIn('href="/driver">For chauffeurs<', menu)
+        # "For chauffeurs" was REPLACED by "Your rides" in the same
+        # spot (owner order, voice call 2026-11-22 ~21:14 EST); the
+        # /driver page itself stays live, reached directly.
+        self.assertIn('href="/your-ride-history">Your rides<', menu)
+        self.assertNotIn("For chauffeurs", menu)
         self.assertIn('href="/frequently-asked-questions">Help<', menu)
         self.assertIn('class="menu-link menu-plain">English (US)<', menu)
         self.assertIn('class="menu-link menu-plain">Sign in<', menu)

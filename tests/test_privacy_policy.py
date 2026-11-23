@@ -46,7 +46,9 @@ class PrivacyPolicyPageTest(unittest.TestCase):
         self.assertIn("19 November 2026", html)
         self.assertIn("Noel Chauffer", html)
         self.assertIn("Azher Mohammed", html)
-        self.assertIn("180 Green Acres Road", html)
+        # Owner order 2026-11-23 ~02:52 EST: no home address anywhere.
+        self.assertNotIn("180 Green Acres Road", html)
+        self.assertNotIn("East Valley Stream", html)
         self.assertIn("929-385-7597", html)
         self.assertIn("support@noelchauffer.com", html)
         self.assertIn("What we collect from customers", html)

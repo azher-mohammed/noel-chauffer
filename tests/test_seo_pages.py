@@ -219,7 +219,10 @@ class SeoPagesTest(unittest.TestCase):
             self.assertIn("LocalBusiness", types, path)
             local = [b for b in jsonld_blocks(html) if b.get("@type") == "LocalBusiness"][0]
             self.assertEqual(local["telephone"], "+1-929-385-7597", path)
-            self.assertIn("180 Green Acres Road", json.dumps(local), path)
+            # Owner order 2026-11-23 ~02:52 EST: no home address anywhere,
+            # including the LocalBusiness structured data.
+            self.assertNotIn("address", local, path)
+            self.assertNotIn("180 Green Acres Road", json.dumps(local), path)
 
     # -- FAQPage JSON-LD matches the visible FAQ -----------------------------
     def test_faq_jsonld_matches_visible_faq(self):

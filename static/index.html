@@ -628,27 +628,11 @@
     <p>Noel Chauffer is a premium chauffeur service in the USA. On-time pickups, clear communication, and a calm, comfortable ride — from booking to arrival. Every ride is prepared, so you can just step in and relax.</p>
   </section>
 
-<!-- RIDE HISTORY -->
-  <section class="section" id="history">
-    <h2><a href="/your-ride-history">Your ride history</a></h2>
-    <p class="intro">Enter the phone number you booked with to see your past rides.</p>
-    <!-- Signed-in customers see their own rides automatically
-         (owner decision 2026-11-22); the phone lookup below stays
-         for rides booked before sign-in existed. -->
-    <p class="form-note hidden" id="history-signedin">Signed in as <b id="history-signedin-email"></b> — showing your rides.</p>
-    <div class="history-box">
-      <form id="history-form" novalidate>
-        <div class="row">
-          <input id="history-phone" type="tel" required placeholder="Phone number used for booking" autocomplete="tel">
-          <button class="btn-primary" type="submit">Show my rides</button>
-        </div>
-        <p class="form-error" id="history-error" role="alert"></p>
-      </form>
-      <div id="history-results"></div>
-    </div>
-  </section>
 
-  
+  <!-- RIDE HISTORY section removed from the homepage by owner order
+       (voice call 2026-11-22 ~19:32 EST): the lookup lives only on
+       its own page /your-ride-history now; the top-nav "Ride history"
+       link stays. -->
 </main>
 
 <!-- "Powered by" line below the booking flow (owner 2026-11-22):
@@ -743,6 +727,5 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/static/js/flight.js"></script>
 <script src="/static/js/customer.js"></script>
-<script src="/static/js/ride-history.js"></script>
 </body>
 </html>

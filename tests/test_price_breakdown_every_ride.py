@@ -72,8 +72,11 @@ class BreakdownUiCase(unittest.TestCase):
                 ("three-ways-to-ride", "Three ways to ride"),
                 ("airport-pickups", "Airport pickups, without the rush."),
                 ("experience", "Sit back and enjoy the ride."),
-                ("our-company", "Our company"),
-                ("your-ride-history", "Your ride history")):
+                ("our-company", "Our company")):
+            # ("your-ride-history" was removed from this list by owner
+            # order 2026-11-22 ~19:32 EST: the "Your ride history"
+            # section is off the homepage; it lives only on its own
+            # page /your-ride-history.)
             self.assertIn('<h2><a href="/%s">%s</a></h2>' % (slug, text),
                           html, slug)
         css = _read("static/css/customer.css")

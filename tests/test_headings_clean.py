@@ -131,7 +131,8 @@ class TestHeadingsClean(unittest.TestCase):
         # (The app-band heading "Your rides, in your pocket." was
         # removed from the homepage by owner order 2026-11-22; its
         # separate page keeps it. The Cancellation, FAQ and Contacts
-        # headings were removed the same day — those sections are off
+        # headings were removed the same day, and "Your ride history"
+        # the same evening (~19:32 EST) — those sections are off
         # the homepage entirely and live only on their own pages.)
         for text, href in [
             ("Airport pickups, without the rush.", "/airport-pickups"),
@@ -139,7 +140,6 @@ class TestHeadingsClean(unittest.TestCase):
             ("Why ride with Noel Chauffer", "/why-ride-with-noel-chauffer"),
             ("Three ways to ride", "/three-ways-to-ride"),
             ("Our company", "/our-company"),
-            ("Your ride history", "/your-ride-history"),
         ]:
             self.assertIn(f'<h2><a href="{href}">{text}</a></h2>', INDEX)
 

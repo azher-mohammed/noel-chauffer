@@ -138,7 +138,9 @@ class HomepageRestoreTest(unittest.TestCase):
         # only the label and the two badges now. The Cancellation,
         # FAQ and Contacts heading links were removed the same day —
         # those sections are off the homepage entirely and live only
-        # on their own pages, reached from the top nav. The pages
+        # on their own pages, reached from the top nav. The "Your
+        # ride history" heading link was removed the same evening
+        # (~19:32 EST) the same way. The pages
         # themselves still exist; see
         # test_each_section_page_still_returns_200.)
         skipped = {
@@ -146,6 +148,7 @@ class HomepageRestoreTest(unittest.TestCase):
             "/cancellation-and-waiting",
             "/frequently-asked-questions",
             "/contacts",
+            "/your-ride-history",
         }
         for route, (_file, heading, _fragment) in PAGES.items():
             if route in skipped:
@@ -160,13 +163,15 @@ class HomepageRestoreTest(unittest.TestCase):
         # still lives on the separate page. And except the whole
         # Cancellation, FAQ and Contacts section bodies — those
         # sections were taken off the homepage entirely the same day
-        # by owner order; they live only on their own pages.)
+        # by owner order; they live only on their own pages. And
+        # except the "Your ride history" body — taken off the
+        # homepage the same evening (~19:32 EST) by owner order;
+        # it lives only on /your-ride-history.)
         for body in [
             "Professional chauffeurs",
             "Flying in or out of JFK, LaGuardia, Newark, LAX, ORD or MIA?",
             "Noel Chauffer is a premium chauffeur service",
             "at the right terminal at JFK, LaGuardia or Newark",
-            "Enter the phone number you booked with to see your past rides.",
             "Your chauffeur opens the door, greets you by name",
         ]:
             self.assertIn(body, self.home, body)
@@ -186,11 +191,15 @@ class HomepageRestoreTest(unittest.TestCase):
         # ...but the backend discount note for already-shared links stays.
         self.assertIn("Referral discount applied", self.home)
 
-    def test_ride_history_lookup_lives_on_the_homepage_too(self):
-        self.assertIn('id="history-form"', self.home)
-        self.assertIn('id="history-phone"', self.home)
-        self.assertIn('id="history-results"', self.home)
-        self.assertIn("/static/js/ride-history.js", self.home)
+    def test_ride_history_lookup_lives_only_on_its_own_page(self):
+        # Owner order 2026-11-22 ~19:32 EST: the "Your ride history"
+        # section is OFF the homepage; the lookup lives only on
+        # /your-ride-history (top-nav "Ride history" link stays).
+        self.assertNotIn('id="history-form"', self.home)
+        self.assertNotIn('id="history-phone"', self.home)
+        self.assertNotIn('id="history-results"', self.home)
+        self.assertNotIn("/static/js/ride-history.js", self.home)
+        self.assertNotIn("Your ride history", self.home)
         # ...and still on its own page.
         res = self.client.get("/your-ride-history")
         self.assertEqual(res.status_code, 200)

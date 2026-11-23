@@ -295,8 +295,10 @@ class MyRidesByEmailTest(unittest.TestCase):
         self.assertIn("/api/customers/me", js)
         self.assertIn("/api/bookings?email=", js)
         self.assertIn("/api/bookings?phone=", js)
-        for rel in ("static/index.html",
-                    "static/your-ride-history.html"):
+        for rel in ("static/your-ride-history.html",):
+            # (The homepage "Your ride history" section was removed by
+            # owner order 2026-11-22 ~19:32 EST; the lookup lives only
+            # on its own page now.)
             html = _read(rel)
             self.assertIn('id="history-signedin"', html, rel)
 

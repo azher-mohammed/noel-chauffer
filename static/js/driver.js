@@ -2037,10 +2037,12 @@
     /* PAUSED (owner decision 2026-11-20): no earnings shown on the
        trip screen. */
     $("trip-earnings").innerHTML = "";
-    /* Digital name sign: airport pickups only. The driver holds the
-       phone up at arrivals so the customer can spot their name. */
+    /* Digital name sign: every pickup. The driver holds the phone
+       up so the customer can spot their name. (Owner 2026-11-24:
+       "Name sign mein customer ka naam aana chaiye" — was airport
+       pickups only.) */
     var signBtn = $("trip-namesign-btn");
-    if (t.airport_pickup && t.customer_name) {
+    if (t.customer_name) {
       show(signBtn);
     } else {
       hide(signBtn);
@@ -2283,7 +2285,7 @@
     state.reminderTimer = null;
   }
 
-  /* ---------- Digital name sign (airport pickups) ---------- */
+  /* ---------- Digital name sign (every pickup) ---------- */
   $("trip-namesign-btn").addEventListener("click", function () {
     if (!state.trip || !state.trip.customer_name) return;
     $("namesign-name").textContent = state.trip.customer_name;

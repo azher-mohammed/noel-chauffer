@@ -2,8 +2,11 @@
 
 1. Digital name sign: the driver active-trip payload already exposes
    the customer name + airport_pickup flag; the trip screen shows a
-   "Name sign" button for airport pickups opening a full-screen
-   overlay with the customer's name.
+   "Name sign" button on EVERY trip that has a customer name
+   (owner 2026-11-24: "Name sign mein customer ka naam aana chaiye";
+   was airport pickups only), opening a full-screen overlay with the
+   customer's name. Without a customer name the button stays hidden
+   and the tap handler does nothing.
 2. In-app chat (no SMS, no number masking): driver and customer
    exchange plain-text messages on the trip/ride view, gated on a
    driver having accepted. Messages never carry money figures.
@@ -228,6 +231,62 @@ class FreeFeaturesCase(unittest.TestCase):
         css = read("static/css/driver.css")
         self.assertIn(".namesign-overlay", css)
         self.assertIn(".namesign-name", css)
+
+    def test_name_sign_shown_on_every_trip_with_customer_name(self):
+        # Owner 2026-11-24: the name sign is on every pickup, not only
+        # airport pickups. The button gate keys on the customer name
+        # alone — a non-airport trip still exposes the name, so the
+        # driver can hold the sign up there too.
+        js = read("static/js/driver.js")
+        gate = re.search(
+            r'var signBtn = \$\("trip-namesign-btn"\);\s*\n\s*if \(([^)]*)\) \{',
+            js)
+        self.assertIsNotNone(gate, "name-sign gate not found in driver.js")
+        self.assertEqual(gate.group(1).strip(), "t.customer_name")
+        self.assertNotIn("airport_pickup", gate.group(0))
+        # The server still sends the name on a non-airport trip, so
+        # the button has something to show.
+        _, token = self.register_driver()
+        booking = self.book(pickup="100 Main Street, White Plains")
+        self.assertEqual(self.pay(booking["id"]).status_code, 200)
+        self.assertEqual(self.accept(booking["id"], token).status_code, 200)
+        resp = self.client.get("/api/drivers/me/active-trip",
+                               headers={"X-Driver-Token": token})
+        trip = resp.get_json()["booking"]
+        self.assertFalse(trip["airport_pickup"])
+        self.assertEqual(trip["customer_name"], "Free Features Customer")
+
+    def test_name_sign_hidden_without_customer_name(self):
+        # No name, no button: the gate hides it and the tap handler
+        # does nothing without a trip or a customer name.
+        js = read("static/js/driver.js")
+        self.assertIn("if (t.customer_name) {", js)
+        self.assertIn("} else {\n      hide(signBtn);\n    }", js)
+        self.assertIn(
+            "if (!state.trip || !state.trip.customer_name) return;", js)
+
+    def test_name_sign_overlay_is_full_screen(self):
+        # Owner 2026-11-24: "Haan naam poora screen pe aana" — the
+        # name must fill the WHOLE screen, big and centred, never a
+        # small card or banner. Pin the overlay geometry in CSS.
+        css = read("static/css/driver.css")
+        overlay = re.search(r"\.namesign-overlay \{([^}]*)\}", css)
+        self.assertIsNotNone(overlay, ".namesign-overlay rule missing")
+        rules = overlay.group(1)
+        self.assertIn("position: fixed", rules)
+        self.assertIn("inset: 0", rules)
+        self.assertIn("justify-content: center", rules)
+        self.assertIn("align-items: center", rules)
+        self.assertIn("text-align: center", rules)
+        name = re.search(r"\.namesign-name \{([^}]*)\}", css)
+        self.assertIsNotNone(name, ".namesign-name rule missing")
+        name_rules = name.group(1)
+        # Big type (15vw, capped on wide screens) that wraps cleanly
+        # even for a long customer name instead of overflowing.
+        self.assertIn("font-size: 15vw", name_rules)
+        self.assertIn("word-break: break-word", name_rules)
+        self.assertIn("max-width: 100%", name_rules)
+        self.assertIn("@media (min-width: 520px) { .namesign-name { font-size: 76px; } }", css)
 
     # -- chat --------------------------------------------------------------
     def _accepted_booking(self):

@@ -246,6 +246,24 @@ def location_exempt_for(email):
     return (email or "").strip().lower() in LOCATION_EXEMPT_EMAILS
 
 
+# Owner decision 2026-11-24 (voice call, "mere ko aur sana ko nahi
+# karna pause"): the SAME two drivers — the owner (Azher Mohammed)
+# and Sana Baga — are exempt from the 48-hour fault suspension
+# after an emergency cancel: a fault cancel by either of them never
+# blocks the driver app, and a suspension already on their record
+# reads as lifted. Every other driver keeps the 48-hour block
+# exactly as it is. This shares the Model 3 / location email set so
+# the three special-cases stay consistent: all are owner + Sana
+# only, and any change to who counts as one of the two must change
+# all three together.
+SUSPENSION_EXEMPT_EMAILS = MODEL_3_ALLOWED_EMAILS
+
+
+def suspension_exempt_for(email):
+    """True only for the two drivers exempt from the fault suspension."""
+    return (email or "").strip().lower() in SUSPENSION_EXEMPT_EMAILS
+
+
 def uber_black_models():
     """The 132 transcribed Uber Black models, as 'Make Model' names."""
     models = []

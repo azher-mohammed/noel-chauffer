@@ -67,6 +67,7 @@ from car_models import (
     is_first_class_model,
     location_exempt_for,
     max_car_year,
+    suspension_exempt_for,
     validate_car_model,
     validate_car_year,
 )
@@ -3325,6 +3326,8 @@ def add_event(booking_id, event_type, message):
 # review by the owner, and NO external AI/LLM API call (no keys, no
 # cost, no driver PII sent anywhere). A fault judgment blocks the
 # driver's app for 48 hours; a genuine emergency never blocks.
+# Owner decision 2026-11-24: Azher Mohammed and Sana Baga are
+# exempt from the fault block entirely (see suspension_exempt_for).
 # DEFAULTS (flagged for the owner — he can change any of them): the
 # reason list, the keyword lists, the benefit-of-the-doubt default,
 # and the 48-hour length are all defaults picked for this build.
@@ -3385,7 +3388,16 @@ def _as_aware(dt):
 def driver_suspension_end(driver):
     """The driver's suspension end as an aware datetime, or None.
     getattr-based so a driver row read before the column existed
-    degrades to 'not suspended' instead of raising."""
+    degrades to 'not suspended' instead of raising.
+    Owner decision 2026-11-24: Azher Mohammed and Sana Baga are
+    exempt from the 48-hour fault suspension, so their suspension
+    end always reads as None here — a suspension already on their
+    record is treated as lifted everywhere this helper is read
+    (the driver app banner, go-online, offers and accept), and no
+    new one is ever stored for them (see the cancel handler)."""
+    if driver is not None and suspension_exempt_for(
+            getattr(driver, "email", None)):
+        return None
     return _as_aware(getattr(driver, "suspended_until", None))
 
 
@@ -7538,8 +7550,9 @@ def driver_trip_event(booking_id):
         # within 2 hours, the driver CAN still cancel, but MUST give
         # a reason, and the reason is judged automatically — no
         # manual review. A fault judgment blocks the driver's app
-        # for 48 hours; a genuine emergency never blocks. More than
-        # 2 hours out, cancelling works exactly as before: no reason
+        # for 48 hours, except Azher Mohammed and Sana Baga, who
+        # are exempt (owner decision 2026-11-24); a genuine
+        # emergency never blocks. More than 2 hours out, cancelling works exactly as before: no reason
         # required, no judgment, no suspension. In EVERY case the
         # job goes back to the other drivers automatically and the
         # customer is never told about the cancel or re-dispatch.
@@ -7555,8 +7568,14 @@ def driver_trip_event(booking_id):
                 return err("Please say what happened.", 409)
             judgment, flagged = judge_emergency_cancel(reason, detail)
             now = utcnow()
+            # Owner decision 2026-11-24: Azher Mohammed and Sana
+            # Baga are exempt from the 48-hour fault suspension — a
+            # fault cancel by either of them still re-dispatches
+            # the job, but no suspension is stored.
             suspended_until = (now + timedelta(hours=SUSPENSION_HOURS)
-                               if judgment == "fault" else None)
+                               if judgment == "fault"
+                               and not suspension_exempt_for(driver.email)
+                               else None)
             if suspended_until is not None:
                 driver.suspended_until = suspended_until
                 driver.available = False

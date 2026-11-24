@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Driver dashboard — Noel Chauffer</title>
+<meta name="description" content="Driver dashboard for Noel Chauffer drivers: your jobs and your earnings.">
+<link rel="canonical" href="https://noelchauffer.com/driver-dashboard">
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="/static/css/driver.css">
+<link rel="stylesheet" href="/static/css/driver-dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+  <header class="app-head">
+    <div class="brand">Noel <span>Chauffer</span></div>
+    <div class="tag">Driver dashboard</div>
+    <div class="hello hidden" id="dd-hello"></div>
+    <button class="link-btn hidden" type="button" id="dd-signout">Sign out</button>
+  </header>
+
+  <!-- ============ SIGN IN ============ -->
+  <section class="screen" id="dd-signin">
+    <h2>Sign in</h2>
+    <form id="dd-signin-form" novalidate>
+      <div class="field">
+        <label for="dd-signin-email">Email</label>
+        <input id="dd-signin-email" type="email" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="dd-signin-password">Password</label>
+        <div class="password-wrap">
+          <input id="dd-signin-password" type="password" required autocomplete="current-password">
+          <button class="password-eye" type="button" data-for="dd-signin-password" aria-label="Show password">Show</button>
+        </div>
+      </div>
+      <button class="btn-primary btn-gold" type="submit" id="dd-signin-submit">Sign in</button>
+      <p class="form-error" id="dd-signin-error" role="alert"></p>
+    </form>
+    <button class="link-btn" type="button" id="dd-forgot-link">Forgot password?</button>
+    <form id="dd-forgot-form" class="hidden" novalidate>
+      <div class="field">
+        <label for="dd-forgot-email">Email</label>
+        <input id="dd-forgot-email" type="email" required autocomplete="email">
+      </div>
+      <button class="btn-ghost" type="submit" id="dd-forgot-submit">Send link</button>
+      <p class="form-note" id="dd-forgot-message" role="status"></p>
+      <button class="link-btn" type="button" id="dd-forgot-back-link">Back to sign in</button>
+    </form>
+  </section>
+
+  <!-- ============ DASHBOARD (signed in) ============ -->
+  <main class="screen hidden" id="dd-main">
+    <section>
+      <h2>Jobs</h2>
+      <div class="suspension-banner hidden" id="dd-suspension" role="status"></div>
+      <div class="expiry-banner hidden" id="dd-expiry" role="status"></div>
+      <div class="trip-card hidden" id="dd-trip-card">
+        <div class="section-title">Current trip</div>
+        <div class="route" id="dd-trip-route"></div>
+        <div class="meta" id="dd-trip-when"></div>
+        <div class="cust" id="dd-trip-customer"></div>
+        <div style="margin-top:12px;" id="dd-trip-earnings"></div>
+        <div style="margin-top:12px;"><a class="btn-ghost" href="/driver">Open in driver app &rarr;</a></div>
+      </div>
+      <div class="section-title">Job offers</div>
+      <div id="dd-offers"></div>
+      <div class="empty-state" id="dd-offers-empty">
+        <div class="big">&#10022;</div>
+        <p>No job offers right now.<br>New jobs will appear here when you are available.</p>
+      </div>
+      <button class="toggle-btn" type="button" id="dd-avail-toggle">Go online</button>
+    </section>
+
+    <section>
+      <h2>Earnings</h2>
+      <p class="intro">Your earnings from completed rides.</p>
+      <div class="earn-sum">
+        <div class="label">Your earnings so far</div>
+        <div class="amount" id="dd-earnings-sum">&mdash;</div>
+      </div>
+      <div class="section-title">Pay weeks</div>
+      <p class="intro">Earnings are grouped by week (7 days each). Each week's pay comes due 7 days after the week starts.</p>
+      <div id="dd-weeks"></div>
+      <div class="section-title">Rides</div>
+      <div id="dd-earnings-list"></div>
+      <div class="empty-state hidden" id="dd-earnings-empty">
+        <div class="big">&#10022;</div>
+        <p>No completed rides yet.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">Get the driver app</div>
+      <div class="store-badges">
+        <a href="/driver"><img src="/static/img/google-play-badge.png" alt="Get it on Google Play" height="48"></a>
+        <a href="/driver"><img src="/static/img/app-store-badge.svg" alt="Download on the App Store" height="48"></a>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="/static/js/driver-dashboard.js"></script>
+</body>
+</html>

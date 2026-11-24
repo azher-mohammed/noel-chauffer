@@ -4261,6 +4261,11 @@ def driver_page():
     return _serve_page("driver.html", "driver app")
 
 
+@app.route("/driver-dashboard")
+def driver_dashboard_page():
+    return _serve_page("driver-dashboard.html", "driver dashboard")
+
+
 @app.route("/app")
 def customer_app_page():
     return _serve_page("customer-app.html", "customer app")

@@ -1,0 +1,20 @@
+/* Noel Chauffer — driver dashboard website (owner 2026-11-24).
+   The dashboard reuses driver.css for the shared driver-app look;
+   this file holds only the dashboard's own rules, so the driver
+   app's own files stay untouched:
+   - a wider desktop-friendly column instead of the 430px phone frame
+   - the driver app badges (same 48px badges, one row, as the
+     homepage app band): they open the driver app — there is no store
+     listing yet. */
+.dashboard {
+  max-width: 880px;
+  margin: 0 auto;
+  background: var(--white);
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+}
+.dashboard .screen { padding-bottom: 32px; }
+.store-badges { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin: 0; }
+.store-badges a { display: flex; align-items: center; line-height: 0; }
+.store-badges img { display: block; height: 48px; width: auto; }

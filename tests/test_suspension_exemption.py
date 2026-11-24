@@ -275,6 +275,116 @@ class SuspensionExemptionCase(unittest.TestCase):
                                  headers={"X-Driver-Token": token}).get_json()
         self.assertEqual(offers, [])
 
+    def booking_status(self, booking_id):
+        with app_module.app.app_context():
+            b = app_module.db.session.get(app_module.Booking, booking_id)
+            return b.status, b.accepted_driver_id
+
+    def offers_for(self, token):
+        return self.client.get("/api/drivers/me/offers",
+                               headers={"X-Driver-Token": token}).get_json()
+
+    # -- re-dispatch on block (owner decision 2026-11-24, 'Haan, bana do') --
+    def test_redispatch_on_block_accepted_jobs_return_to_offered(self):
+        # Three non-overlapping jobs (66-minute busy window each):
+        # C at 60 min out (the one he cancels), B1 at 150, B2 at 240.
+        _d, token = self.register_driver("otherdriver@test.com")
+        _d2, token2 = self.register_driver("otherdriver2@test.com")
+        jobs = {}
+        for key, minutes in (("C", 60), ("B1", 150), ("B2", 240)):
+            date, time = self.pickup_offset(minutes)
+            booking = self.book(date=date, time=time)
+            self.assertEqual(self.pay(booking["id"]).status_code, 200)
+            self.accept(token, booking["id"])
+            jobs[key] = booking["id"]
+        resp = self.trip_event(token, jobs["C"], "cancel", reason="other_job")
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        body = resp.get_json()
+        self.assertEqual(body["emergency_cancel"]["judgment"], "fault")
+        self.assertIsNotNone(body["emergency_cancel"]["suspended_until"])
+        # Both other jobs were sent back, in id order.
+        self.assertEqual(body["emergency_cancel"]["redispatched_booking_ids"],
+                         [jobs["B1"], jobs["B2"]])
+        for key in ("B1", "B2"):
+            status, driver_id = self.booking_status(jobs[key])
+            self.assertEqual(status, "offered", key)
+            self.assertIsNone(driver_id, key)
+        # The cancelled job itself is offered too (existing behaviour).
+        status, _ = self.booking_status(jobs["C"])
+        self.assertEqual(status, "offered")
+        # The other driver can now see and take the re-dispatched jobs.
+        offers2 = [o["booking_id"] for o in self.offers_for(token2)]
+        self.assertIn(jobs["B1"], offers2)
+        self.assertIn(jobs["B2"], offers2)
+        # And the blocked driver is blocked: no offers, cannot go online.
+        self.assertEqual(self.offers_for(token), [])
+        resp = self.client.post("/api/drivers/me/availability",
+                                json={"available": True},
+                                headers={"X-Driver-Token": token})
+        self.assertEqual(resp.status_code, 409)
+
+    def test_redispatch_on_block_in_progress_trip_stays(self):
+        # A at 30 min out, driven to in_progress; C at 120 min out
+        # (the one he cancels); B at 200 min out (accepted, not started).
+        _d, token = self.register_driver("otherdriver@test.com")
+        date, time = self.pickup_offset(30)
+        booking_a = self.book(date=date, time=time)
+        self.assertEqual(self.pay(booking_a["id"]).status_code, 200)
+        self.accept(token, booking_a["id"])
+        self.assertEqual(self.trip_event(token, booking_a["id"], "en_route").status_code, 200)
+        self.assertEqual(self.trip_event(token, booking_a["id"], "arrived").status_code, 200)
+        self.assertEqual(self.trip_event(token, booking_a["id"], "start").status_code, 200)
+        status, _ = self.booking_status(booking_a["id"])
+        self.assertEqual(status, "in_progress")
+        date, time = self.pickup_offset(120)
+        booking_c = self.book(date=date, time=time)
+        self.assertEqual(self.pay(booking_c["id"]).status_code, 200)
+        self.accept(token, booking_c["id"])
+        date, time = self.pickup_offset(200)
+        booking_b = self.book(date=date, time=time)
+        self.assertEqual(self.pay(booking_b["id"]).status_code, 200)
+        self.accept(token, booking_b["id"])
+        resp = self.trip_event(token, booking_c["id"], "cancel",
+                               reason="dont_want")
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        body = resp.get_json()
+        self.assertEqual(body["emergency_cancel"]["judgment"], "fault")
+        # Only the not-yet-started job went back; the live trip stayed.
+        self.assertEqual(body["emergency_cancel"]["redispatched_booking_ids"],
+                         [booking_b["id"]])
+        status, driver_id = self.booking_status(booking_b["id"])
+        self.assertEqual(status, "offered")
+        self.assertIsNone(driver_id)
+        status, driver_id = self.booking_status(booking_a["id"])
+        self.assertEqual(status, "in_progress")
+        with app_module.app.app_context():
+            driver = app_module.Driver.query.filter_by(
+                email="otherdriver@test.com").first()
+            self.assertEqual(driver_id, driver.id)
+
+    def test_exempt_driver_fault_cancel_keeps_jobs(self):
+        # Azher cancels one job with a fault reason: no block, and
+        # his other accepted job stays his.
+        _d, token = self.register_driver(AZHER_EMAIL)
+        date, time = self.pickup_offset(60)
+        booking_c = self.book(date=date, time=time)
+        self.assertEqual(self.pay(booking_c["id"]).status_code, 200)
+        self.accept(token, booking_c["id"])
+        date, time = self.pickup_offset(150)
+        booking_b = self.book(date=date, time=time)
+        self.assertEqual(self.pay(booking_b["id"]).status_code, 200)
+        self.accept(token, booking_b["id"])
+        resp = self.trip_event(token, booking_c["id"], "cancel",
+                               reason="other_job")
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True)[:200])
+        body = resp.get_json()
+        self.assertEqual(body["emergency_cancel"]["judgment"], "fault")
+        self.assertIsNone(body["emergency_cancel"]["suspended_until"])
+        self.assertEqual(body["emergency_cancel"]["redispatched_booking_ids"], [])
+        status, driver_id = self.booking_status(booking_b["id"])
+        self.assertEqual(status, "accepted")
+        self.assertIsNotNone(driver_id)
+
 
 if __name__ == "__main__":
     unittest.main()

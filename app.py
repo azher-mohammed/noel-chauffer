@@ -3424,6 +3424,44 @@ def suspension_message(driver):
             + " (New York time). You will not get job offers until then.")
 
 
+def _redispatch_blocked_driver_jobs(driver, exclude_booking_id):
+    """Owner decision 2026-11-24 ('Haan, bana do'): when a driver is
+    blocked (48-hour fault block), his other accepted-but-not-yet-
+    started jobs go back to "offered" for re-dispatch to other
+    drivers — a blocked driver must not keep running jobs. A trip
+    already in progress (status "in_progress": the driver started
+    the trip, the customer is in the car) stays with the driver; it
+    cannot be handed to another driver mid-way. Jobs only heading
+    to pickup or waiting there ("en_route", "arrived") have not
+    started, so they go back too. The cancelled job itself is
+    excluded here — the caller already re-dispatched it. Returns
+    the list of booking ids sent back."""
+    others = (Booking.query.filter(
+        Booking.accepted_driver_id == driver.id,
+        Booking.status.in_(("accepted", "en_route", "arrived")),
+        Booking.id != exclude_booking_id,
+    ).order_by(Booking.id).all())
+    redispatched = []
+    for other in others:
+        other.status = "offered"
+        other.accepted_driver_id = None
+        other.assigned_driver_id = None
+        other.driver_lat = None
+        other.driver_lng = None
+        # The reminder flag resets with the re-dispatch, so the next
+        # driver to accept gets his own 1-hour reminder.
+        other.pickup_reminder_sent_at = None
+        if not BookingExclusion.query.filter_by(
+                booking_id=other.id, driver_id=driver.id).first():
+            db.session.add(BookingExclusion(booking_id=other.id,
+                                            driver_id=driver.id))
+        add_event(other.id, "driver_blocked_redispatch",
+                  f"Driver {driver.name} was blocked for 48 hours, so "
+                  f"booking #{other.id} was sent back to other drivers.")
+        redispatched.append(other.id)
+    return redispatched
+
+
 # --- Driver document expiry enforcement (owner decision 2026-11-19) ------
 # Two owner decisions from the same voice call:
 #   1. Ten-day advance alert ("poore documents ki expiry 10 din pehle
@@ -7576,9 +7614,12 @@ def driver_trip_event(booking_id):
                                if judgment == "fault"
                                and not suspension_exempt_for(driver.email)
                                else None)
+            redispatched_ids = []
             if suspended_until is not None:
                 driver.suspended_until = suspended_until
                 driver.available = False
+                redispatched_ids = _redispatch_blocked_driver_jobs(
+                    driver, booking.id)
             db.session.add(EmergencyCancel(
                 booking_id=booking.id,
                 driver_id=driver.id,
@@ -7594,6 +7635,7 @@ def driver_trip_event(booking_id):
                 "judgment": judgment,
                 "flagged": flagged,
                 "suspended_until": iso(suspended_until),
+                "redispatched_booking_ids": redispatched_ids,
             }
         booking.status = "offered"
         booking.accepted_driver_id = None
@@ -7615,6 +7657,7 @@ def driver_trip_event(booking_id):
                       + f". Automatic judgment: {judgment}"
                       + (" (flagged for owner review)" if flagged else "")
                       + (f"; driver app blocked until {iso(suspended_until)}" if suspended_until is not None else "; no suspension")
+                      + (f"; {len(redispatched_ids)} other job(s) sent back to other drivers: {redispatched_ids}" if redispatched_ids else "")
                       + ". Sent back to other drivers. Payment kept.")
             response_extra["emergency_cancel"] = emergency
         else:

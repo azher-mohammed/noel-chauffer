@@ -2612,8 +2612,9 @@ class OutboxMessage(db.Model):
     body = db.Column(db.Text, nullable=False)
     # Optional HTML part of an email row (the plain-text `body`
     # stays the fallback and is what the owner dashboard shows).
-    # Only the payment receipt uses it so far (owner 2026-11-23,
-    # step-by-step receipt); NULL means text-only, as before.
+    # Used by the payment receipt and the chauffeur-assigned email
+    # (owner 2026-11-23, both step-by-step); NULL means text-only,
+    # as before.
     html_body = db.Column(db.Text, nullable=True)
     booking_id = db.Column(db.Integer, db.ForeignKey("bookings.id"), nullable=True)
     # Set only when Resend confirms the email was sent (owner
@@ -3494,9 +3495,17 @@ def add_outbox(channel, recipient, body, booking_id=None, subject=None, html=Non
     return row
 
 
-def outbox_to_customer(booking, sms_body, email_body=None):
+def outbox_to_customer(booking, sms_body, email_body=None, email_html=None):
+    """Queue the SMS + email pair for a booking. The email defaults
+    to the SMS text (text-only, as before); callers that need a
+    richer email pass their own email_body and, optionally, an HTML
+    part (the chauffeur-assigned email, owner 2026-11-23 — line by
+    line in plain text AND as an HTML part, same rows). The subject
+    stays the default "Noel Chauffer" unless the caller queues the
+    email itself (the payment receipt does)."""
     add_outbox("sms", booking.phone, sms_body, booking.id)
-    add_outbox("email", booking.email, email_body or sms_body, booking.id)
+    add_outbox("email", booking.email, email_body or sms_body, booking.id,
+               html=email_html)
 
 
 def route_url_for(booking):
@@ -4888,6 +4897,76 @@ def payment_confirmation_html(booking, test=False, payment=None):
         "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" "
         "style=\"width:100%;border-collapse:collapse;\">"
         f"{detail_html}{total_html}</table>{notes_html}"
+        "</div></body></html>")
+
+
+# The chauffeur-assigned email's heading (owner 2026-11-23): the
+# customer must read every chauffeur detail on its own line.
+CHAUFFEUR_ASSIGNED_HEADING = "Your chauffeur has been assigned."
+
+
+def _chauffeur_assigned_rows(driver, booking):
+    """Chauffeur details, one row per detail, in order. Each row is a
+    (label, value) pair. The plain-text body and the HTML email render
+    the same rows. Only facts already sent in the old single-paragraph
+    email — chauffeur name, phone, car, plate, pickup date/time and
+    pickup address — nothing added, nothing dropped. No drop-off, no
+    total: the old email never carried them (owner 2026-11-23, 'line
+    by line', every detail on its own line so it is easy to read)."""
+    return [
+        ("Chauffeur", driver.name),
+        ("Phone", driver.phone),
+        ("Car", f"{driver.car_model} ({driver.car_colour})"),
+        ("Plate", driver.plate),
+        ("Pickup", f"{booking.date} at {booking.time}"),
+        ("From", booking.pickup),
+    ]
+
+
+def chauffeur_assigned_text(driver, booking):
+    """The plain-text chauffeur email: the heading, a divider, every
+    detail on its own line with labels aligned in one column — the
+    same professional step-by-step layout as the payment receipt
+    (owner 2026-11-23; the old single-paragraph email was hard to
+    read)."""
+    rows = _chauffeur_assigned_rows(driver, booking)
+    width = max(len(label) + 1 for label, _ in rows)  # +1 for the colon
+    divider = "-" * 40
+    lines = [CHAUFFEUR_ASSIGNED_HEADING, divider]
+    lines += [f"{label}:".ljust(width) + " " + value for label, value in rows]
+    return "\n".join(lines)
+
+
+def chauffeur_assigned_html(driver, booking):
+    """The HTML chauffeur email: the same rows as the plain text, as
+    a clean business message — Noel Chauffer letterhead, heading,
+    divider, label/value table with aligned columns. No gradients,
+    no images; the only gold is the brand wordmark (owner 2026-11-23)."""
+    rows = _chauffeur_assigned_rows(driver, booking)
+    detail_html = "".join(
+        "<tr>"
+        f"<td style=\"padding:5px 16px 5px 0;font-weight:bold;"
+        f"white-space:nowrap;vertical-align:top;\">"
+        f"{html_escape(label)}</td>"
+        f"<td style=\"padding:5px 0;vertical-align:top;\">"
+        f"{html_escape(value)}</td></tr>"
+        for label, value in rows)
+    return (
+        "<!DOCTYPE html><html><body style=\"margin:0;padding:0;"
+        "background:#ffffff;\">"
+        "<div style=\"max-width:560px;margin:0 auto;padding:24px;"
+        "font-family:Arial,Helvetica,sans-serif;color:#222222;"
+        "font-size:15px;line-height:1.6;\">"
+        "<div style=\"font-size:22px;font-weight:600;letter-spacing:0.02em;"
+        "color:#111111;margin-bottom:12px;\">Noel "
+        "<span style=\"color:#D4AF37;\">Chauffeur</span></div>"
+        f"<h1 style=\"font-size:20px;line-height:1.4;margin:0 0 12px 0;"
+        f"color:#111111;\">{html_escape(CHAUFFEUR_ASSIGNED_HEADING)}</h1>"
+        "<hr style=\"border:none;border-top:1px solid #dddddd;"
+        "margin:0 0 12px 0;\">"
+        "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" "
+        "style=\"width:100%;border-collapse:collapse;\">"
+        f"{detail_html}</table>"
         "</div></body></html>")
 
 
@@ -7224,11 +7303,19 @@ def driver_accept(booking_id):
         return err("This booking has already been taken.", 409)
     db.session.commit()
     booking = db.session.get(Booking, booking_id)
+    # The chauffeur email goes out line by line (owner 2026-11-23):
+    # the SMS keeps the old one-paragraph text, but the email gets
+    # the step-by-step format — plain text AND an HTML part, same
+    # rows — so the customer reads every detail on its own line.
+    # Subject stays the default "Noel Chauffer"; sender stays the
+    # Resend default (info@noelchauffer.com since 2026-11-23).
     outbox_to_customer(
         booking,
         f"Noel Chauffer: your chauffeur is {driver.name} ({driver.phone}), "
         f"{driver.car_model} ({driver.car_colour}), plate {driver.plate}. "
         f"Pickup {booking.date} at {booking.time} from {booking.pickup}.",
+        email_body=chauffeur_assigned_text(driver, booking),
+        email_html=chauffeur_assigned_html(driver, booking),
     )
     add_event(booking.id, "driver_accepted",
               f"Driver {driver.name} accepted booking #{booking.id}.")

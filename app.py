@@ -4960,10 +4960,13 @@ def _chauffeur_assigned_rows(driver, booking):
     (label, value) pair. The plain-text body and the HTML email render
     the same rows. Only facts already sent in the old single-paragraph
     email — chauffeur name, phone, car, plate, pickup date/time and
-    pickup address — nothing added, nothing dropped. No drop-off, no
-    total: the old email never carried them (owner 2026-11-23, 'line
-    by line', every detail on its own line so it is easy to read)."""
-    return [
+    pickup address — plus the drop-off address, which the owner added
+    2026-11-24 ('Drop off bhi rehna na'): it goes on its own line
+    after From, labelled 'To'. No total: the old email never carried
+    one (owner 2026-11-23, 'line by line', every detail on its own
+    line so it is easy to read). Hourly rides have no drop-off, so
+    the 'To' row is omitted rather than printed blank."""
+    rows = [
         ("Chauffeur", driver.name),
         ("Phone", driver.phone),
         ("Car", f"{driver.car_model} ({driver.car_colour})"),
@@ -4971,6 +4974,9 @@ def _chauffeur_assigned_rows(driver, booking):
         ("Pickup", f"{booking.date} at {booking.time}"),
         ("From", booking.pickup),
     ]
+    if getattr(booking, "dropoff", None):
+        rows.append(("To", booking.dropoff))
+    return rows
 
 
 def chauffeur_assigned_text(driver, booking):

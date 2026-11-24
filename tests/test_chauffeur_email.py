@@ -13,9 +13,14 @@ Rules pinned here:
 - The EMAIL (plain text AND its HTML part) is step-by-step, the
   same professional layout as the payment receipt: heading, divider,
   every detail on its own line with labels aligned in one column.
-  Lines, in order: Chauffeur, Phone, Car, Plate, Pickup, From.
-- Only facts the old email already sent — nothing added, nothing
-  dropped. No drop-off, no total: the old email never carried them.
+  Lines, in order: Chauffeur, Phone, Car, Plate, Pickup, From, To.
+- The drop-off ("To") was added 2026-11-24 by owner order ("Drop
+  off bhi rehna na") — same format, HTML + plain text, right after
+  From. No total: the old email never carried one. Hourly rides
+  have no drop-off, so the "To" row is omitted rather than printed
+  blank.
+- The SMS keeps the old one-paragraph text (the owner complained
+  about the mail, not the text message).
 - The SMS keeps the old one-paragraph text (the owner complained
   about the mail, not the text message).
 - The subject stays the default "Noel Chauffer". The sender stays
@@ -142,7 +147,8 @@ class ChauffeurEmailCase(unittest.TestCase):
         booking = SimpleNamespace(
             date="2026-11-24", time="00:30",
             pickup=("John F. Kennedy International Airport, JFK Access Road, "
-                    "Queens, Queens County, New York, 11430, United States"))
+                    "Queens, Queens County, New York, 11430, United States"),
+            dropoff="Times Square, New York, 10036, United States")
         text = app_module.chauffeur_assigned_text(driver, booking)
         lines = text.split("\n")
         self.assertEqual(lines[0], "Your chauffeur has been assigned.")
@@ -155,6 +161,14 @@ class ChauffeurEmailCase(unittest.TestCase):
         self.assertEqual(field_value(lines, "From"),
                          "John F. Kennedy International Airport, JFK Access Road, "
                          "Queens, Queens County, New York, 11430, United States")
+        self.assertEqual(field_value(lines, "To"),
+                         "Times Square, New York, 10036, United States")
+        # "To" is the last row, right after "From".
+        self.assertLess(lines.index(next(l for l in lines
+                                         if l.startswith("From:"))),
+                        lines.index(next(l for l in lines
+                                         if l.startswith("To:"))))
+        self.assertTrue(lines[-1].startswith("To:"))
         # Labels aligned in one column: every value starts at the
         # same character position.
         expected = {
@@ -163,6 +177,7 @@ class ChauffeurEmailCase(unittest.TestCase):
             "Pickup": "2026-11-24 at 00:30",
             "From": ("John F. Kennedy International Airport, JFK Access Road, "
                      "Queens, Queens County, New York, 11430, United States"),
+            "To": "Times Square, New York, 10036, United States",
         }
         value_starts = {line.index(value) for line in lines[2:]
                         for label, value in expected.items()
@@ -170,8 +185,7 @@ class ChauffeurEmailCase(unittest.TestCase):
         self.assertEqual(len(value_starts), 1)
         # The old single-paragraph form is gone from the email.
         self.assertNotIn("your chauffeur is", text)
-        # Nothing invented beyond the old email's facts.
-        self.assertNotIn("Drop-off", text)
+        # Nothing invented beyond the chauffeur details + drop-off.
         self.assertNotIn("Total", text)
 
     def test_html_has_same_rows(self):
@@ -179,7 +193,8 @@ class ChauffeurEmailCase(unittest.TestCase):
                                  car_model="Tesla Model 3", car_colour="White",
                                  plate="T100506C")
         booking = SimpleNamespace(date="2026-11-24", time="00:30",
-                                  pickup="JFK Airport, Queens, NY")
+                                  pickup="JFK Airport, Queens, NY",
+                                  dropoff="Times Square, New York, NY")
         html = app_module.chauffeur_assigned_html(driver, booking)
         self.assertIn("Noel ", html)
         self.assertIn('<span style="color:#D4AF37;">Chauffeur</span>', html)
@@ -189,12 +204,36 @@ class ChauffeurEmailCase(unittest.TestCase):
                              ("Car", "Tesla Model 3 (White)"),
                              ("Plate", "T100506C"),
                              ("Pickup", "2026-11-24 at 00:30"),
-                             ("From", "JFK Airport, Queens, NY")):
+                             ("From", "JFK Airport, Queens, NY"),
+                             ("To", "Times Square, New York, NY")):
             self.assertIn(label, html)
             self.assertIn(value, html)
+        # "To" comes after "From" in the HTML table too.
+        self.assertLess(html.index("JFK Airport, Queens, NY"),
+                        html.index("Times Square, New York, NY"))
         self.assertNotIn("your chauffeur is", html)
-        self.assertNotIn("Drop-off", html)
         self.assertNotIn("Total", html)
+
+    def test_no_dropoff_means_no_to_row(self):
+        """Hourly rides have no drop-off: the 'To' row is omitted
+        rather than printed blank — in both the text and the HTML."""
+        driver = SimpleNamespace(name="Azher Mohammed", phone="9293857597",
+                                 car_model="Tesla Model 3", car_colour="White",
+                                 plate="T100506C")
+        for dropoff in (None, ""):
+            booking = SimpleNamespace(date="2026-11-24", time="00:30",
+                                      pickup="JFK Airport, Queens, NY",
+                                      dropoff=dropoff)
+            text = app_module.chauffeur_assigned_text(driver, booking)
+            self.assertNotIn("To:", text)
+            html = app_module.chauffeur_assigned_html(driver, booking)
+            self.assertNotIn(">To<", html)
+        # A booking object with no dropoff attribute at all behaves
+        # the same (older fixtures / hourly rows).
+        booking = SimpleNamespace(date="2026-11-24", time="00:30",
+                                  pickup="JFK Airport, Queens, NY")
+        self.assertNotIn("To:", app_module.chauffeur_assigned_text(
+            driver, booking))
 
     # -- the real accept flow ----------------------------------------------
     def test_accept_queues_line_by_line_email_and_unchanged_sms(self):
@@ -218,6 +257,13 @@ class ChauffeurEmailCase(unittest.TestCase):
         self.assertEqual(field_value(lines, "Plate"), "T00001")
         self.assertEqual(field_value(lines, "Pickup"), "2030-06-01 at 12:00")
         self.assertEqual(field_value(lines, "From"), "JFK Airport")
+        self.assertEqual(field_value(lines, "To"), "Times Square, New York")
+        # "To" is the last row, right after "From".
+        self.assertLess(lines.index(next(l for l in lines
+                                         if l.startswith("From:"))),
+                        lines.index(next(l for l in lines
+                                         if l.startswith("To:"))))
+        self.assertTrue(lines[-1].startswith("To:"))
         self.assertNotIn("your chauffeur is", email.body)
         # The HTML part travelled with the email row — same rows.
         self.assertIsNotNone(email.html_body)
@@ -225,6 +271,9 @@ class ChauffeurEmailCase(unittest.TestCase):
         self.assertIn("Test Driver 1", email.html_body)
         self.assertIn("Cadillac CT6 (Black)", email.html_body)
         self.assertIn("T00001", email.html_body)
+        self.assertIn("Times Square, New York", email.html_body)
+        self.assertLess(email.html_body.index("JFK Airport"),
+                        email.html_body.index("Times Square, New York"))
 
     def test_email_subject_stays_noel_chauffer(self):
         _driver, token = self.register_driver()

@@ -201,7 +201,7 @@ class PermanentLoginFrontendCase(unittest.TestCase):
         self.assertIn("refreshAppHeaderSignin", cont)
 
     def test_i18n_signout_keys_have_all_languages(self):
-        """New keys must exist in all 8 languages, like every other
+        """New keys must exist in all 19 languages, like every other
         dictionary key (the language-switcher completeness test
         enforces this repo-wide)."""
         src = _read("static/js/i18n.js")
@@ -209,7 +209,9 @@ class PermanentLoginFrontendCase(unittest.TestCase):
             m = re.search(r'NOEL_I18N\["%s"\] = \{(.*?)\};' % re.escape(key),
                           src, re.S)
             self.assertIsNotNone(m, "missing i18n key %s" % key)
-            for lang in ("en", "es", "fr", "ar", "pt", "ur", "hi", "bn"):
+            for lang in ("en", "es", "fr", "ar", "pt", "ur", "hi", "bn",
+                         "ud", "zh", "de", "it", "ru", "tr", "ko", "ja",
+                         "vi", "fa", "th"):
                 lm = re.search(r'"%s":\s*"([^"]+)"' % lang, m.group(1))
                 self.assertIsNotNone(lm, "%s missing %s" % (key, lang))
                 self.assertTrue(lm.group(1).strip(), "%s %s empty" % (key, lang))

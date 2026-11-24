@@ -6,8 +6,8 @@ dropdown must be TYPEABLE / SEARCHABLE — type to filter the list).
 
 Pinned here:
 - The translation dictionary in static/js/i18n.js is complete: every
-  key has all 8 languages (en, es, fr, ar, pt, ur, hi, bn), no empty
-  values, no duplicate keys.
+  key has all 19 languages (en, es, fr, ar, pt, ur, hi, bn, ud, zh, de,
+  it, ru, tr, ko, ja, vi, fa, th), no empty values, no duplicate keys.
 - Every data-i18n / data-i18n-ph / data-i18n-aria key used in
   index.html, customer-app.html and your-ride-history.html exists in
   the dictionary; every T("key", ...) call in customer.js,
@@ -16,9 +16,10 @@ Pinned here:
   its picker slot (menu / app header / history header); the old plain
   "English (US)" menu item is gone.
 - The choice persists under localStorage key "noel-language".
-- Arabic is right-to-left: its LANGS entry is dir "rtl", applyLanguage
-  sets document dir, and both customer CSS files carry html[dir="rtl"]
-  rules. The picker dropdown + search styles exist in both CSS files.
+- Arabic, Urdu and Persian are right-to-left: their LANGS entries are
+  dir "rtl", applyLanguage sets document dir, and both customer CSS
+  files carry html[dir="rtl"] rules. The picker dropdown + search styles
+  exist in both CSS files.
 - Fares are untouched (JFK -> Times Square Business driver $102.46).
 
 Run:  python -m unittest discover -s tests -v
@@ -57,7 +58,8 @@ HISTORY_JS = (REPO_DIR / "static" / "js" / "ride-history.js").read_text()
 CUSTOMER_CSS = (REPO_DIR / "static" / "css" / "customer.css").read_text()
 APP_CSS = (REPO_DIR / "static" / "css" / "customer-app.css").read_text()
 
-LANGS = {"en", "es", "fr", "ar", "pt", "ur", "hi", "bn"}
+LANGS = {"en", "es", "fr", "ar", "pt", "ur", "hi", "bn",
+         "ud", "zh", "de", "it", "ru", "tr", "ko", "ja", "vi", "fa", "th"}
 
 
 def _dictionary():
@@ -86,7 +88,7 @@ DICT = _dictionary()
 
 
 class TestDictionaryComplete(unittest.TestCase):
-    def test_every_key_has_all_eight_languages(self):
+    def test_every_key_has_all_nineteen_languages(self):
         self.assertGreater(len(DICT), 300, "dictionary looks truncated")
         for key, langs in DICT.items():
             with self.subTest(key=key):
@@ -94,12 +96,19 @@ class TestDictionaryComplete(unittest.TestCase):
                 for code, value in langs.items():
                     self.assertTrue(value.strip(), f"{key}[{code}] is empty")
 
-    def test_langs_list_has_all_eight_with_arabic_rtl(self):
-        m = re.search(
-            r'\{ code: "ar", label: "Arabic", native: "العربية", dir: "rtl" \}',
-            I18N_JS,
-        )
-        self.assertIsNotNone(m, "Arabic LANGS entry must be dir rtl")
+    def test_langs_list_has_all_nineteen_with_rtl(self):
+        for code, label, native in (
+            ("ar", "Arabic", "العربية"),
+            ("ud", "Urdu", "اردو"),
+            ("fa", "Persian", "فارسی"),
+        ):
+            m = re.search(
+                r'\{ code: "%s", label: "%s", native: "%s", dir: "rtl" \}'
+                % (code, label, native),
+                I18N_JS,
+            )
+            self.assertIsNotNone(
+                m, "%s LANGS entry must be dir rtl" % label)
         for code in sorted(LANGS):
             self.assertIn(f'code: "{code}"', I18N_JS, code)
 

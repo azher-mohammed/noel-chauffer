@@ -261,6 +261,10 @@ class VinLookupCase(unittest.TestCase):
         self.assertIn('id="reg-vin"', html)
         self.assertIn('id="vin-lookup-btn"', html)
         self.assertIn('id="vin-note"', html)
+        # The Look up button has its own class, not .btn-primary: the
+        # driver-look tests read the .btn-primary rule out of
+        # driver.css, so a second .btn-primary rule would shadow it.
+        self.assertIn('class="vin-lookup-btn"', html)
         with open(os.path.join(REPO_DIR, "static", "js", "driver.js")) as f:
             js = f.read()
         self.assertIn("/api/vin-lookup", js)
@@ -273,6 +277,8 @@ class VinLookupCase(unittest.TestCase):
         with open(os.path.join(REPO_DIR, "static", "css", "driver.css")) as f:
             css = f.read()
         self.assertIn(".vin-row", css)
+        self.assertIn(".vin-row .vin-lookup-btn", css)
+        self.assertNotIn(".vin-row .btn-primary", css)
 
 
 if __name__ == "__main__":

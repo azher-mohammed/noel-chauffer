@@ -3263,94 +3263,6 @@
     });
   }
 
-  /* ---------- Free VIN lookup (NHTSA vPIC, owner decision
-     2026-11-24, "Pehle sirf VIN free wala banao") ---------- */
-  /* The VIN and body type from the last successful lookup, sent
-     with registration. Typing a different VIN clears them — the
-     decoded body type belongs to the looked-up VIN, not to whatever
-     is in the field now. The lookup NEVER bypasses the allowlist:
-     the model is auto-selected only when the decoded "Make Model"
-     matches an entry in the car list exactly (case-insensitive);
-     otherwise the driver still picks from the list, and the server
-     re-validates the model, the year and the Model 3 restriction
-     at registration. Colour is never filled in — a VIN does not
-     encode it. */
-  var vinLookupVin = null;
-  var vinLookupBodyType = null;
-
-  function titleCaseMake(make) {
-    return String(make || "").toLowerCase().replace(/(^|[\s-])([a-z])/g, function (m, sep, ch) { return sep + ch.toUpperCase(); });
-  }
-
-  function normModelName(s) {
-    return String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
-  }
-
-  function initVinLookup() {
-    var input = $("reg-vin");
-    var btn = $("vin-lookup-btn");
-    var note = $("vin-note");
-    if (!input || !btn) return;
-    input.addEventListener("input", function () {
-      if (vinLookupVin && input.value.trim().toUpperCase() !== vinLookupVin) {
-        vinLookupVin = null;
-        vinLookupBodyType = null;
-      }
-    });
-    btn.addEventListener("click", function () {
-      var vin = input.value.trim().toUpperCase();
-      if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
-        note.textContent = "Please enter a valid 17-character VIN (letters and numbers only, no I, O or Q).";
-        return;
-      }
-      btn.disabled = true;
-      btn.textContent = "Looking up…";
-      note.textContent = "Looking up your car…";
-      fetch("/api/vin-lookup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vin: vin }) })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-        .then(function (res) {
-          btn.disabled = false;
-          btn.textContent = "Look up";
-          if (!res.ok || !res.j.year || !res.j.make || !res.j.model) {
-            note.textContent = (res.j && res.j.error) || "Could not look up this VIN. Please enter your car details manually.";
-            return;
-          }
-          var d = res.j;
-          vinLookupVin = vin;
-          vinLookupBodyType = d.body_type || null;
-          var yearSel = $("reg-car-year");
-          var yearSet = false;
-          if (yearSel) {
-            for (var i = 0; i < yearSel.options.length; i++) {
-              if (yearSel.options[i].value === String(d.year)) {
-                yearSel.value = String(d.year);
-                yearSet = true;
-                break;
-              }
-            }
-          }
-          var candidate = titleCaseMake(d.make) + " " + d.model;
-          var match = null;
-          carModels.forEach(function (m) { if (normModelName(m) === normModelName(candidate)) match = m; });
-          var foundLine = "Found: " + d.year + " " + candidate + (d.body_type ? " · " + d.body_type : "") + ".";
-          if (match && yearSet) {
-            $("reg-car-model").value = match;
-            note.textContent = foundLine + " Year and model filled in — check them, and type your car's colour below.";
-          } else if (match) {
-            $("reg-car-model").value = match;
-            note.textContent = foundLine + " The year is not in the list — please choose the year from the list.";
-          } else {
-            note.textContent = foundLine + " That model is not on the eligible list — please choose your car model from the list.";
-          }
-        })
-        .catch(function () {
-          btn.disabled = false;
-          btn.textContent = "Look up";
-          note.textContent = "Could not reach the service. Please check your connection and enter your car details manually.";
-        });
-    });
-  }
-
   function initCarModelDropdown() {
     var input = $("reg-car-model");
     var list = $("car-model-list");
@@ -3470,6 +3382,95 @@
     loadCarModels();
     $("reg-email").addEventListener("change", loadCarModels);
   }
+
+  /* ---------- Free VIN lookup (NHTSA vPIC, owner decision
+     2026-11-24, "Pehle sirf VIN free wala banao") ---------- */
+  /* The VIN and body type from the last successful lookup, sent
+     with registration. Typing a different VIN clears them — the
+     decoded body type belongs to the looked-up VIN, not to whatever
+     is in the field now. The lookup NEVER bypasses the allowlist:
+     the model is auto-selected only when the decoded "Make Model"
+     matches an entry in the car list exactly (case-insensitive);
+     otherwise the driver still picks from the list, and the server
+     re-validates the model, the year and the Model 3 restriction
+     at registration. Colour is never filled in — a VIN does not
+     encode it. */
+  var vinLookupVin = null;
+  var vinLookupBodyType = null;
+
+  function titleCaseMake(make) {
+    return String(make || "").toLowerCase().replace(/(^|[\s-])([a-z])/g, function (m, sep, ch) { return sep + ch.toUpperCase(); });
+  }
+
+  function normModelName(s) {
+    return String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  function initVinLookup() {
+    var input = $("reg-vin");
+    var btn = $("vin-lookup-btn");
+    var note = $("vin-note");
+    if (!input || !btn) return;
+    input.addEventListener("input", function () {
+      if (vinLookupVin && input.value.trim().toUpperCase() !== vinLookupVin) {
+        vinLookupVin = null;
+        vinLookupBodyType = null;
+      }
+    });
+    btn.addEventListener("click", function () {
+      var vin = input.value.trim().toUpperCase();
+      if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
+        note.textContent = "Please enter a valid 17-character VIN (letters and numbers only, no I, O or Q).";
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Looking up…";
+      note.textContent = "Looking up your car…";
+      fetch("/api/vin-lookup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vin: vin }) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          btn.disabled = false;
+          btn.textContent = "Look up";
+          if (!res.ok || !res.j.year || !res.j.make || !res.j.model) {
+            note.textContent = (res.j && res.j.error) || "Could not look up this VIN. Please enter your car details manually.";
+            return;
+          }
+          var d = res.j;
+          vinLookupVin = vin;
+          vinLookupBodyType = d.body_type || null;
+          var yearSel = $("reg-car-year");
+          var yearSet = false;
+          if (yearSel) {
+            for (var i = 0; i < yearSel.options.length; i++) {
+              if (yearSel.options[i].value === String(d.year)) {
+                yearSel.value = String(d.year);
+                yearSet = true;
+                break;
+              }
+            }
+          }
+          var candidate = titleCaseMake(d.make) + " " + d.model;
+          var match = null;
+          carModels.forEach(function (m) { if (normModelName(m) === normModelName(candidate)) match = m; });
+          var foundLine = "Found: " + d.year + " " + candidate + (d.body_type ? " · " + d.body_type : "") + ".";
+          if (match && yearSet) {
+            $("reg-car-model").value = match;
+            note.textContent = foundLine + " Year and model filled in — check them, and type your car's colour below.";
+          } else if (match) {
+            $("reg-car-model").value = match;
+            note.textContent = foundLine + " The year is not in the list — please choose the year from the list.";
+          } else {
+            note.textContent = foundLine + " That model is not on the eligible list — please choose your car model from the list.";
+          }
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.textContent = "Look up";
+          note.textContent = "Could not reach the service. Please check your connection and enter your car details manually.";
+        });
+    });
+  }
+
 
   /* ---------- State dropdown + per-state documents (registration) ---------- */
   /* Searchable dropdown fed by GET /api/states — the same single

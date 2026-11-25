@@ -104,7 +104,12 @@ input, select { font: inherit; }
    takes the space, the Look up button sits beside it. */
 .vin-row { display: flex; gap: 8px; }
 .vin-row input { flex: 1; min-width: 0; text-transform: uppercase; }
-.vin-row .btn-primary { width: auto; margin-top: 0; padding: 11px 18px; white-space: nowrap; }
+/* The Look up button has its own class (not .btn-primary): the
+   driver-look tests read the .btn-primary rule out of this file,
+   so a second .btn-primary rule here would shadow it. Same flat
+   blue look as the other primary buttons. */
+.vin-row .vin-lookup-btn { width: auto; margin-top: 0; padding: 11px 18px; white-space: nowrap; background: var(--blue); color: var(--white); border: 0; border-radius: 6px; font-size: 16px; }
+.vin-row .vin-lookup-btn:disabled { opacity: 0.6; }
 
 /* Car-model suggestions (same pattern as the address autocomplete:
    type to filter, suggestions appear below the field). */

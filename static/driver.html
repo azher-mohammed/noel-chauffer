@@ -177,6 +177,14 @@
       </div>
 
       <div class="section-title">Your car</div>
+      <div class="field">
+        <label for="reg-vin">VIN (optional)</label>
+        <div class="vin-row">
+          <input id="reg-vin" type="text" placeholder="17-character VIN" maxlength="17" autocomplete="off" autocapitalize="characters">
+          <button type="button" id="vin-lookup-btn" class="btn-primary">Look up</button>
+        </div>
+        <p class="hint" id="vin-note">Enter your car's 17-character VIN to fill in the year and model automatically. A VIN does not include the colour — type that below.</p>
+      </div>
       <div class="field field-places">
         <label for="reg-car-model">Car model</label>
         <input id="reg-car-model" type="text" required placeholder="Start typing your car model…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="car-model-list" aria-autocomplete="list">

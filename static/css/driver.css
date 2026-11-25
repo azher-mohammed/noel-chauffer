@@ -100,6 +100,12 @@ input, select { font: inherit; }
 .field .hint { font-size: 13.5px; color: var(--grey); margin-top: 5px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
+/* VIN lookup row (free NHTSA lookup, 2026-11-24): the VIN input
+   takes the space, the Look up button sits beside it. */
+.vin-row { display: flex; gap: 8px; }
+.vin-row input { flex: 1; min-width: 0; text-transform: uppercase; }
+.vin-row .btn-primary { width: auto; margin-top: 0; padding: 11px 18px; white-space: nowrap; }
+
 /* Car-model suggestions (same pattern as the address autocomplete:
    type to filter, suggestions appear below the field). */
 .field-places { position: relative; }

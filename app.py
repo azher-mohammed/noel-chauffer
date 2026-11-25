@@ -38,6 +38,7 @@ Env vars:
 from __future__ import annotations
 
 import io
+import json
 import hashlib
 import hmac
 import logging
@@ -48,6 +49,8 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from html import escape as html_escape
+from urllib import request as urllib_request
+from urllib.error import URLError
 from urllib.parse import quote_plus
 
 from cryptography.fernet import Fernet
@@ -2229,6 +2232,18 @@ class Driver(db.Model):
     vehicle_class = db.Column(db.String(10), nullable=True)
     car_colour = db.Column(db.String(60), nullable=False)
     plate = db.Column(db.String(40), nullable=False)
+    # Vehicle Identification Number, from the free NHTSA vPIC VIN
+    # lookup (owner decision 2026-11-24, "Pehle sirf VIN free wala
+    # banao"). Optional: typed by the driver at registration and
+    # decoded once via POST /api/vin-lookup. Stored uppercase.
+    # Nullable: drivers registered before the lookup existed have
+    # no VIN on file and keep working exactly as before.
+    vin = db.Column(db.String(17), nullable=True)
+    # Body type decoded from the VIN by the same lookup (e.g.
+    # "Sedan", "Sport Utility Vehicle [SUV]"). The VIN itself never
+    # encodes colour, so colour stays typed by the driver.
+    # Nullable: same as vin above.
+    vehicle_body_type = db.Column(db.String(120), nullable=True)
     profile_photo = db.Column(db.LargeBinary, nullable=True)
     profile_photo_mime = db.Column(db.String(60), nullable=True)
     available = db.Column(db.Boolean, nullable=False, default=False)
@@ -2769,6 +2784,24 @@ with app.app_context():
                 _conn.execute(_sa_text("ALTER TABLE drivers ADD COLUMN car_year INTEGER"))
     except Exception as exc:  # logged, never fatal at startup
         log.warning("car_year column check failed: %s", exc)
+    # Same pattern for the VIN + decoded body-type columns (added
+    # with the free NHTSA VIN lookup, 2026-11-24). Nullable, so
+    # existing driver rows keep working with no VIN on file.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        _dadds = {
+            "vin": "ALTER TABLE drivers ADD COLUMN vin VARCHAR(17)",
+            "vehicle_body_type": "ALTER TABLE drivers ADD COLUMN vehicle_body_type VARCHAR(120)",
+        }
+        for _name, _ddl in _dadds.items():
+            if _name not in _dcols:
+                with db.engine.begin() as _conn:
+                    _conn.execute(_sa_text(_ddl))
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("vin columns check failed: %s", exc)
     # Same pattern for the vehicle-class / fare / tax columns (added
     # with the class + NYC-tax change, 2026-11-16). Nullable, so
     # existing rows keep working; the read helpers below derive the
@@ -6367,6 +6400,88 @@ def validate_plate(value):
     return plate, None
 
 
+# VIN format (free NHTSA vPIC VIN lookup, owner decision 2026-11-24,
+# "Pehle sirf VIN free wala banao"): a VIN is exactly 17 letters or
+# digits and never contains I, O or Q. The stored value is
+# normalized to uppercase. This checks the FORMAT only — whether the
+# VIN decodes is NHTSA's answer in decode_vin below.
+VIN_ERROR = "Please enter a valid 17-character VIN (letters and numbers only, no I, O or Q)."
+
+
+def validate_vin(value):
+    """Return (normalized_vin, None) or (None, error_message).
+
+    The driver app enforces the same rule with the same wording
+    before submitting; the server re-checks so a bypassed client
+    cannot store an invalid VIN.
+    """
+    vin = (value or "").strip().upper()
+    if len(vin) != 17:
+        return None, VIN_ERROR
+    if not vin.isascii() or not vin.isalnum():
+        return None, VIN_ERROR
+    if any(c in vin for c in "IOQ"):
+        return None, VIN_ERROR
+    return vin, None
+
+
+# NHTSA vPIC VIN decoder (free, no key required). The custom
+# User-Agent matches the Resend fix (Cloudflare blocks urllib's
+# default UA with 403 "error code: 1010").
+VPIC_URL = "https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/%s?format=json"
+VPIC_TIMEOUT_SECONDS = 10
+
+
+def decode_vin(vin):
+    """Decode a VIN with the free NHTSA vPIC API.
+
+    Returns (decoded_dict, None) or (None, (message, status)).
+    The dict carries year (int), make, model, body_type and trim.
+    Colour is NEVER in a VIN, so it is never returned here — the
+    driver types the colour in the form. Any transport failure, bad
+    payload or undecodable VIN is a plain error message, never an
+    exception: the lookup is a convenience, and the driver can
+    always type the car details in by hand.
+    """
+    lookup_failed = ("Could not look up this VIN right now. Please check "
+                     "the VIN and try again, or enter your car details "
+                     "manually.")
+    not_decoded = ("This VIN could not be decoded. Please check the VIN "
+                   "and try again, or enter your car details manually.")
+    try:
+        req = urllib_request.Request(
+            VPIC_URL % quote_plus(vin),
+            headers={"User-Agent": "NoelChauffer/1.0"},
+        )
+        with urllib_request.urlopen(req, timeout=VPIC_TIMEOUT_SECONDS) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return None, (lookup_failed, 502)
+    try:
+        results = payload.get("Results") or []
+        row = results[0] if results else {}
+    except Exception:
+        return None, (lookup_failed, 502)
+    if str(row.get("ErrorCode")) != "0":
+        return None, (not_decoded, 422)
+    try:
+        year = int(str(row.get("ModelYear") or "").strip())
+    except (TypeError, ValueError):
+        year = None
+    make = (row.get("Make") or "").strip()
+    model = (row.get("Model") or "").strip()
+    if not year or not make or not model:
+        return None, (not_decoded, 422)
+    # BodyClass comes back as e.g. "Sedan/Saloon" or "Sport Utility
+    # Vehicle [SUV]/Multipurpose Vehicle [MPV]" — the first segment
+    # is the body type.
+    body_class = (row.get("BodyClass") or "").strip()
+    body_type = body_class.split("/")[0].strip() if body_class else ""
+    return {"year": year, "make": make, "model": model,
+            "body_type": body_type,
+            "trim": (row.get("Trim") or "").strip()}, None
+
+
 def _validate_upload(storage, allowed_exts, field_name):
     """Return (bytes, mime, original_name) or an error response tuple."""
     data = storage.read()
@@ -6490,6 +6605,29 @@ def car_models():
         "min_year": MIN_CAR_YEAR,
         "max_year": max_car_year(),
     })
+
+
+@app.route("/api/vin-lookup", methods=["POST"])
+def vin_lookup():
+    """Decode a VIN with the free NHTSA vPIC API (owner decision
+    2026-11-24, VIN lookup first, no paid plate API).
+
+    The driver app posts {"vin": "..."} from the registration form
+    and uses the answer to fill in the car year and model. Colour
+    is never returned — a VIN does not encode it. The lookup never
+    changes what the driver may register: the car-model allowlist
+    is still enforced by register_driver, and the driver can correct
+    every auto-filled field before submitting.
+    """
+    data = request.get_json(silent=True) or {}
+    vin, error = validate_vin(data.get("vin"))
+    if error:
+        return err(error)
+    decoded, failure = decode_vin(vin)
+    if failure:
+        message, status = failure
+        return jsonify({"error": message}), status
+    return jsonify({"vin": vin, **decoded})
 
 
 @app.route("/api/states", methods=["GET"])
@@ -6657,6 +6795,24 @@ def register_driver():
     if plate_error:
         return err(plate_error)
 
+    # VIN (free NHTSA lookup, owner decision 2026-11-24): optional.
+    # When the driver used the lookup, the VIN rides along with the
+    # decoded body type; both are stored on the driver and shown in
+    # Profile. A VIN that fails the format check is rejected — the
+    # lookup result is a convenience, never a bypass: the car model
+    # and year above are still validated against the allowlist.
+    vin = None
+    raw_vin = (form.get("vin") or "").strip()
+    if raw_vin:
+        vin, vin_error = validate_vin(raw_vin)
+        if vin_error:
+            return err(vin_error)
+    body_type = (form.get("vehicle_body_type") or "").strip() or None
+    if body_type and len(body_type) > 120:
+        body_type = body_type[:120]
+    if not vin:
+        body_type = None
+
     # Validate all uploaded files before creating anything.
     profile_photo = None
     if "profile_photo" in request.files and request.files["profile_photo"].filename:
@@ -6795,6 +6951,8 @@ def register_driver():
         vehicle_class=class_for_model(car_model),
         car_colour=form["car_colour"].strip(),
         plate=plate,
+        vin=vin,
+        vehicle_body_type=body_type,
         profile_photo=profile_photo[0] if profile_photo else None,
         profile_photo_mime=profile_photo[1] if profile_photo else None,
         available=False,
@@ -6825,6 +6983,8 @@ def register_driver():
         "vehicle_class_label": class_label(driver_vehicle_class(driver)),
         "car_colour": driver.car_colour,
         "plate": driver.plate,
+        "vin": driver.vin,
+        "vehicle_body_type": driver.vehicle_body_type,
         "docs": driver_docs_status(driver),
         "bank_masked": bank_masked(driver),
     }, "token": driver.token}), 201
@@ -6946,6 +7106,8 @@ def driver_me():
         "vehicle_class_label": class_label(driver_vehicle_class(driver)),
         "car_colour": driver.car_colour,
         "plate": driver.plate,
+        "vin": driver.vin,
+        "vehicle_body_type": driver.vehicle_body_type,
         "docs": driver_docs_status(driver),
         "bank_masked": bank_masked(driver),
         "available": driver.available,

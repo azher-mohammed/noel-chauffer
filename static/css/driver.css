@@ -709,6 +709,31 @@ input, select { font: inherit; }
 #screen-home .btn-accept:active,
 #screen-home .btn-decline:active { transform: translateY(1px); }
 
+/* Job offer cards on the trip screen (second-job cards, owner
+   2026-11-25): same white card with a blue spine as on Home, so a
+   job that arrives mid-trip reads exactly like any other offer. */
+#screen-trip .offer {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+#screen-trip .offer .route { color: var(--ink); }
+#screen-trip .offer .route .route-label { color: var(--grey); }
+#screen-trip .offer .when { color: var(--grey); }
+#screen-trip .offer .route-link { color: var(--blue); }
+#screen-trip .btn-accept,
+#screen-trip .btn-decline { border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+#screen-trip .btn-accept:active,
+#screen-trip .btn-decline:active { transform: translateY(1px); }
+/* The queued next job: same card, with a small tag line so the
+   driver can tell it apart from a new offer at a glance. */
+#trip-next-jobs .next-job-tag {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--grey); margin-bottom: 4px;
+}
+
 /* Trip card: white with depth; links in blue. */
 #screen-trip .trip-card {
   background: var(--white);

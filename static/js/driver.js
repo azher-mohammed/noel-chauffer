@@ -743,6 +743,12 @@
     toneStopAt: 0,
     toneOfferIds: {},
     lastOffersSig: "",
+    /* Second job accepted mid-trip (owner 2026-11-25): the queued
+       next job(s), shown on the trip screen until the current trip
+       ends. lastTripOffersSig dedupes the trip-screen offer list
+       the same way lastOffersSig dedupes the home list. */
+    nextJobs: [],
+    lastTripOffersSig: "",
     chatTimer: null,
     lastChatSig: "",
     chatLanguage: "en",
@@ -1805,6 +1811,13 @@
     state.offersTimer = setInterval(function () {
       if (!$("screen-home").classList.contains("hidden") && !state.trip) {
         refreshOffers();
+      } else if (!$("screen-trip").classList.contains("hidden") && state.trip) {
+        /* Second-job cards (owner 2026-11-25): a job that arrives
+           mid-trip used to ring the chime with no card anywhere,
+           because offers were only polled on the home screen. Poll
+           on the trip screen too, at every stage, so the card
+           shows under the current trip. */
+        refreshOffers();
       }
     }, 5000);
   }
@@ -1842,10 +1855,123 @@
           if (!anyLeft) stopOfferTone();
         }
         renderOffers(list);
+        /* The same offers render on the trip screen too (second-job
+           cards, owner 2026-11-25), and the queued next job is
+           refreshed alongside them. */
+        renderTripOffers(list);
+        if (state.trip) refreshNextJobs();
       })
       .catch(function () { /* keep the current list on a failed check */ });
   }
   function offerId(o) { return o.booking_id || o.id; }
+  /* One offer card, shared by the home list and the trip-screen
+     list: pickup / drop-off as separate blocks, date / time / class,
+     map links, Accept / Decline. No amounts — offers show pickup,
+     drop-off and time only while prices are being updated (owner
+     decision 2026-11-20). */
+  function buildOfferCard(o) {
+    var card = document.createElement("div");
+    card.className = "offer";
+    var route = routeHtml(o.pickup, o.dropoff);
+    var when = [o.date, o.time].filter(Boolean).join(" · ");
+    var cls = classLabelFor(o);
+    if (cls) when += (when ? " · " : "") + cls;
+    if (o.ride_type === "hourly") when += (when ? " · " : "") + "By the hour" + (o.hours ? " · " + o.hours + " hour(s)" : "");
+    else if (o.is_return) when += (when ? " · " : "") + "Return trip";
+    var html = '<div class="route">' + route + "</div>" +
+      '<div class="when">' + esc(when) + "</div>";
+    if (o.route_url) {
+      html += '<a class="route-link" href="' + esc(o.route_url) + '" target="_blank" rel="noopener">Google Maps ↗</a>';
+    }
+    if (o.route_waze_url) {
+      html += '<a class="route-link" href="' + esc(o.route_waze_url) + '" target="_blank" rel="noopener">Waze ↗</a>';
+    }
+    html += '<div class="offer-actions">' +
+      '<button type="button" class="btn-accept">Accept</button>' +
+      '<button type="button" class="btn-decline">Decline</button></div>';
+    card.innerHTML = html;
+    card.querySelector(".btn-accept").addEventListener("click", function () { respondToOffer(offerId(o), "accept"); });
+    card.querySelector(".btn-decline").addEventListener("click", function () { respondToOffer(offerId(o), "decline"); });
+    return card;
+  }
+  /* The trip-screen offer list (second-job cards, owner 2026-11-25):
+     the same cards as Home, under the current trip. Same
+     no-flicker rule as the home list: unchanged offers stay put
+     under the driver's tap. The section hides when there is
+     nothing new and no queued job. */
+  function renderTripOffers(list) {
+    var box = $("trip-offers-list");
+    if (!box) return;
+    var sig = list.map(function (o) { return offerId(o); }).join("|");
+    if (sig === state.lastTripOffersSig) { refreshTripOffersSection(); return; }
+    state.lastTripOffersSig = sig;
+    box.innerHTML = "";
+    list.forEach(function (o) { box.appendChild(buildOfferCard(o)); });
+    refreshTripOffersSection();
+  }
+  function refreshTripOffersSection() {
+    var section = $("trip-offers-section");
+    if (!section) return;
+    var hasOffers = $("trip-offers-list") && $("trip-offers-list").children.length > 0;
+    var hasNext = $("trip-next-jobs") && $("trip-next-jobs").children.length > 0;
+    if (hasOffers) show($("trip-offers-block")); else hide($("trip-offers-block"));
+    if (hasNext) show($("trip-next-jobs-block")); else hide($("trip-next-jobs-block"));
+    if (hasOffers || hasNext) show(section); else hide(section);
+  }
+  /* Offer-shaped view of an accepted booking (the accept response
+     carries the full booking shape): the queued next job renders
+     like an offer, minus the buttons. */
+  function offerFromBooking(b) {
+    return {
+      booking_id: b.booking_id || b.id,
+      pickup: b.pickup,
+      dropoff: b.dropoff,
+      date: b.date,
+      time: b.time,
+      ride_type: b.ride_type,
+      is_return: b.is_return,
+      hours: b.hours,
+      vehicle_class: b.vehicle_class,
+      vehicle_class_label: b.vehicle_class_label,
+      route_url: b.route_url,
+      route_waze_url: b.route_waze_url
+    };
+  }
+  /* The queued next job(s): accepted but not started, earliest
+     pickup first. The current trip is filtered out — the server
+     cannot tell it apart from a queued job, both are "accepted"
+     until the trip starts. */
+  function renderTripNextJobs() {
+    var box = $("trip-next-jobs");
+    if (!box) return;
+    box.innerHTML = "";
+    (state.nextJobs || []).forEach(function (o) {
+      if (state.trip && (offerId(o) === state.trip.id)) return;
+      var card = document.createElement("div");
+      card.className = "offer";
+      var route = routeHtml(o.pickup, o.dropoff);
+      var when = [o.date, o.time].filter(Boolean).join(" · ");
+      var cls = classLabelFor(o);
+      if (cls) when += (when ? " · " : "") + cls;
+      if (o.ride_type === "hourly") when += (when ? " · " : "") + "By the hour" + (o.hours ? " · " + o.hours + " hour(s)" : "");
+      else if (o.is_return) when += (when ? " · " : "") + "Return trip";
+      card.innerHTML = '<div class="next-job-tag">Accepted — after this trip</div>' +
+        '<div class="route">' + route + "</div>" +
+        '<div class="when">' + esc(when) + "</div>";
+      box.appendChild(card);
+    });
+    refreshTripOffersSection();
+  }
+  function refreshNextJobs() {
+    if (!state.token) return;
+    fetch("/api/drivers/me/next-jobs", { headers: authHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        state.nextJobs = Array.isArray(j) ? j : (j.next_jobs || []);
+        renderTripNextJobs();
+      })
+      .catch(function () { /* keep the current next-job card on a failed check */ });
+  }
   /* Route as two separate blocks (owner 2026-11-23): 'Pick up' and
      'Drop off' used to run together on one line, so the two addresses
      were hard to tell apart at a glance. Each leg is now its own
@@ -1869,33 +1995,7 @@
     box.innerHTML = "";
     if (!list.length) { show($("offers-empty")); return; }
     hide($("offers-empty"));
-    list.forEach(function (o) {
-      var card = document.createElement("div");
-      card.className = "offer";
-      var route = routeHtml(o.pickup, o.dropoff);
-      var when = [o.date, o.time].filter(Boolean).join(" · ");
-      var cls = classLabelFor(o);
-      if (cls) when += (when ? " · " : "") + cls;
-      if (o.ride_type === "hourly") when += (when ? " · " : "") + "By the hour" + (o.hours ? " · " + o.hours + " hour(s)" : "");
-      else if (o.is_return) when += (when ? " · " : "") + "Return trip";
-      /* PAUSED (owner decision 2026-11-20): offers show pickup,
-         drop-off and time only — no earnings, no toll. */
-      var html = '<div class="route">' + route + "</div>" +
-        '<div class="when">' + esc(when) + "</div>";
-      if (o.route_url) {
-        html += '<a class="route-link" href="' + esc(o.route_url) + '" target="_blank" rel="noopener">Google Maps ↗</a>';
-      }
-      if (o.route_waze_url) {
-        html += '<a class="route-link" href="' + esc(o.route_waze_url) + '" target="_blank" rel="noopener">Waze ↗</a>';
-      }
-      html += '<div class="offer-actions">' +
-        '<button type="button" class="btn-accept">Accept</button>' +
-        '<button type="button" class="btn-decline">Decline</button></div>';
-      card.innerHTML = html;
-      card.querySelector(".btn-accept").addEventListener("click", function () { respondToOffer(offerId(o), "accept"); });
-      card.querySelector(".btn-decline").addEventListener("click", function () { respondToOffer(offerId(o), "decline"); });
-      box.appendChild(card);
-    });
+    list.forEach(function (o) { box.appendChild(buildOfferCard(o)); });
   }
   function respondToOffer(id, action) {
     /* The driver answered: stop the tone at once, for accept and
@@ -1911,6 +2011,19 @@
         if (action === "decline") { refreshOffers(); return; }
         if (!res.ok) { refreshOffers(); return; }
         var b = res.j.booking || res.j;
+        if (state.trip) {
+          /* Second job accepted mid-trip (owner 2026-11-25): it
+             queues as the next job. The current trip keeps running
+             untouched — state.trip is NOT replaced, the trip screen
+             is NOT re-shown, and the chat is NOT re-opened. The
+             overlap rule is enforced server-side (409), so a job
+             that overlaps the current ride can never reach here. */
+          var queued = offerFromBooking(b);
+          state.nextJobs = [queued].concat((state.nextJobs || []).filter(function (n) { return offerId(n) !== offerId(queued); }));
+          renderTripNextJobs();
+          refreshOffers();
+          return;
+        }
         state.trip = tripFromBooking(b, id);
         state.stageIndex = 0;
         renderTrip();
@@ -2663,6 +2776,14 @@
     hide($("trip-noshow-btn"));
     showScreen("home");
     refreshOffers();
+    /* Second-job cards (owner 2026-11-25): if the driver queued a
+       next job mid-trip, it becomes the active trip now that this
+       one is over — the app fetches it and opens its trip screen.
+       With nothing queued the fetch returns nothing and the driver
+       stays on Home, as before. After a fault cancel the queued
+       jobs were already offered to other drivers, so a suspended
+       driver never lands on a trip here. */
+    restoreActiveTrip();
   }
 
   /* ---------- Location sharing while heading to pickup ---------- */

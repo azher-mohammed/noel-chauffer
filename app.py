@@ -7310,13 +7310,22 @@ def driver_active_trip():
     # this response) so the reminder queues when the driver opens the
     # app and restores his trip, even before the reminder poll runs.
     _run_pickup_reminders_best_effort(driver_id=driver.id)
-    booking = (Booking.query
-               .filter(Booking.accepted_driver_id == driver.id,
-                       Booking.status.in_(("accepted", "en_route", "arrived", "in_progress")))
-               .order_by(Booking.created_at.desc(), Booking.id.desc())
-               .first())
-    if not booking:
+    trips = (Booking.query
+             .filter(Booking.accepted_driver_id == driver.id,
+                     Booking.status.in_(("accepted", "en_route", "arrived", "in_progress")))
+             .order_by(Booking.date, Booking.time, Booking.id)
+             .all())
+    if not trips:
         return jsonify({"booking": None})
+    # A trip already started (heading to pickup, arrived, or on the
+    # trip) is the driver's current trip: it wins over a merely
+    # accepted job queued for later, even if the queued job was
+    # booked first — otherwise a reload mid-trip would swap the
+    # current trip for the next job (second-job cards, owner
+    # 2026-11-25). Among started trips (or among merely accepted
+    # ones), the earliest pickup is next.
+    started = [b for b in trips if b.status in ("en_route", "arrived", "in_progress")]
+    booking = (started or trips)[0]
     return jsonify({"booking": {
         "id": booking.id,
         "pickup": booking.pickup,
@@ -7471,6 +7480,48 @@ def driver_offers():
             "route_waze_url": waze_url_for(b),
         })
     return jsonify(offers)
+
+
+@app.route("/api/drivers/me/next-jobs", methods=["GET"])
+def driver_next_jobs():
+    """Jobs this driver has already accepted but not started yet
+    (status "accepted"), earliest pickup first.
+
+    Lets the driver app show a second job accepted mid-trip as the
+    queued next job — including after a reload, when the app only
+    remembers the current trip (second-job cards, owner 2026-11-25).
+    Same pickup/drop-off/time shape as the offers list, no amounts:
+    offers show pickup, drop-off and time only while prices are
+    being updated (owner decision 2026-11-20). The current trip is
+    included here when it has not started yet; the app filters it
+    out by id.
+    """
+    driver, error = require_driver()
+    if error:
+        return error
+    if is_driver_suspended(driver):
+        return jsonify([])
+    if is_driver_expiry_blocked(driver):
+        return jsonify([])
+    jobs = (Booking.query
+            .filter(Booking.accepted_driver_id == driver.id,
+                    Booking.status == "accepted")
+            .order_by(Booking.date, Booking.time, Booking.id)
+            .all())
+    return jsonify([{
+        "booking_id": b.id,
+        "pickup": b.pickup,
+        "dropoff": b.dropoff,
+        "date": b.date,
+        "time": b.time,
+        "ride_type": b.ride_type,
+        "is_return": bool(getattr(b, "is_return", False)),
+        "hours": num(b.hours),
+        "vehicle_class": booking_vehicle_class(b),
+        "vehicle_class_label": class_label(booking_vehicle_class(b)),
+        "route_url": route_url_for(b),
+        "route_waze_url": waze_url_for(b),
+    } for b in jobs])
 
 
 @app.route("/api/drivers/me/offers/<int:booking_id>/accept", methods=["POST"])

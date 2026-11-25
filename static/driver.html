@@ -380,6 +380,23 @@
       <button class="btn-ghost" type="button" id="cancel-reason-back">Back</button>
     </div>
 
+    <!-- New job offers while on a trip (owner 2026-11-25): a job
+         that arrives mid-trip used to ring the chime with no card
+         anywhere, because offers were only polled on the home
+         screen. The card shows here, under the current trip, with
+         Accept / Decline — and a job already accepted mid-trip
+         shows as the queued next job. -->
+    <div id="trip-offers-section" class="hidden">
+      <div id="trip-offers-block" class="hidden">
+        <div class="section-title">New job offers</div>
+        <div id="trip-offers-list"></div>
+      </div>
+      <div id="trip-next-jobs-block" class="hidden">
+        <div class="section-title">Your next job</div>
+        <div id="trip-next-jobs"></div>
+      </div>
+    </div>
+
     <div class="chat-box" id="trip-chat">
       <div class="section-title">Chat with your customer</div>
       <label class="chat-lang">Language:

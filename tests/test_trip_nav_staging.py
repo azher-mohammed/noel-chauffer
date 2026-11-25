@@ -82,11 +82,18 @@ class TripNavStagingCase(unittest.TestCase):
         self.assertNotIn("renderTripNavLinks", stages)
 
     def test_offer_card_links_unchanged(self):
+        # Offer cards are built by the shared buildOfferCard helper
+        # (used by renderOffers on Home and by the trip-screen list
+        # since the second-job cards), so the route links live there.
         driver_js = read("static/js/driver.js")
+        card = driver_js[driver_js.index("function buildOfferCard"):]
+        card = card[:card.index("function renderTripOffers")]
+        self.assertIn('esc(o.route_url)', card)
+        self.assertIn('esc(o.route_waze_url)', card)
+        # ...and renderOffers still builds its cards through it.
         offers = driver_js[driver_js.index("function renderOffers"):]
         offers = offers[:offers.index("function respondToOffer")]
-        self.assertIn('esc(o.route_url)', offers)
-        self.assertIn('esc(o.route_waze_url)', offers)
+        self.assertIn("buildOfferCard(o)", offers)
 
     def test_chooser_still_uses_staged_destination(self):
         # The chooser is now the driver's only navigation route, so

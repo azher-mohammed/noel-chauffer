@@ -67,8 +67,8 @@ class RouteUrlCase(unittest.TestCase):
 
     def test_waze_url_present_in_driver_payloads(self):
         source = read("app.py")
-        self.assertEqual(source.count('"route_waze_url": waze_url_for('), 3,
-                         "offers list, active-trip, and accept payloads")
+        self.assertEqual(source.count('"route_waze_url": waze_url_for('), 4,
+                         "offers list, active-trip, accept, and next-jobs payloads")
 
     def test_driver_js_renders_both_links(self):
         driver_js = read("static/js/driver.js")

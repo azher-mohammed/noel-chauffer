@@ -213,10 +213,15 @@ class SecondPageStripTest(unittest.TestCase):
 
 
 class CustomerAppWhiteTest(unittest.TestCase):
-    """Customer app: white background, black booking form. The
-    website background and the driver app are untouched."""
+    """Customer app: white background, white booking form like the
+    website. The website background and the driver app are
+    untouched."""
 
-    def test_white_canvas_black_form(self):
+    def test_white_canvas_white_form(self):
+        # Owner 2026-11-25 ("White kar do" + "why is it not like the
+        # website"): the app booking page matches the website's
+        # booking flow — the booking card is WHITE, like the
+        # website's. (Was black until 2026-11-25.)
         css = _read("static/css/customer-app.css")
         body = _rule(css, "body")
         self.assertIn("background: #ffffff;", body)
@@ -227,11 +232,15 @@ class CustomerAppWhiteTest(unittest.TestCase):
         self.assertIn("color-scheme: light;", screen)
         self.assertNotIn("linear-gradient(180deg, #101012", screen)
         card = _rule(css, "#ca-booking-card")
-        self.assertIn("background: var(--black);", card)
-        self.assertIn("color-scheme: dark;", card)
-        # The heading inside the black card stays white.
-        self.assertIn("color: var(--white);",
+        self.assertIn("background: var(--white);", card)
+        self.assertIn("color-scheme: light;", card)
+        self.assertIn("border-top: 3px solid #1a1a1a;", card)
+        # The heading inside the white card is dark ink, with the
+        # black rule under it like the website's booking card.
+        self.assertIn("color: var(--ink);",
                       _rule(css, "#ca-booking-card h2"))
+        self.assertIn("background: #1a1a1a;",
+                      _rule(css, "#ca-booking-card h2::after"))
         # Headings on the white screen are dark ink.
         self.assertIn("color: var(--ink);", _rule(css, ".screen h2"))
         # The header stays black (white Noel + gold Chauffer).

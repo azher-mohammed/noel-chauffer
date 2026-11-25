@@ -1676,12 +1676,14 @@
           state.cardElement = elements.create("card", {
             style: {
               base: {
-                color: "#ffffff",
+                /* White pay panel (owner 2026-11-25, "White kar do"):
+                   dark text inside the card iframe. */
+                color: "#161617",
                 fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                 fontSize: "16px",
-                "::placeholder": { color: "#8e8e93" }
+                "::placeholder": { color: "#8a8a8a" }
               },
-              invalid: { color: "#ff9d9d" }
+              invalid: { color: "#a83232" }
             }
           });
           state.cardElement.mount("#ca-pay-card-element");

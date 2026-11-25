@@ -1,8 +1,12 @@
 /* Noel Chauffer — customer app. Phone-frame, plain business look:
-   WHITE canvas with the booking form on BLACK (owner 2026-11-22),
-   serif headings, flat blue primary buttons. The header and the
-   bottom tab bar stay black; cards and panels stay dark with light
-   text, so they read as black cards on the white screen. */
+   WHITE canvas, serif headings, flat blue primary buttons. The
+   booking page matches the website's booking flow (owner
+   2026-11-25, "White kar do" + "why is it not like the website"):
+   white booking card, white class cards, white fields, flat white
+   pay area. The header and the bottom tab bar stay black; the
+   dark popups (address suggestions, date/time pickers) stay dark
+   like the website's, and the post-booking screens (driver card,
+   chat, history, referral, invoice) keep their dark cards. */
 :root {
   --black: #0b0b0c;
   --blue: #5b9bd5;
@@ -90,10 +94,10 @@ input, select { font: inherit; }
   -webkit-text-fill-color: transparent;
 }
 
-/* Screens: WHITE canvas, room for the tab bar. The booking form
-   itself sits on a black card (#ca-booking-card below); the other
-   steps, cards and panels keep their dark styling, so they read as
-   black cards on the white screen. */
+/* Screens: WHITE canvas, room for the tab bar. The booking page
+   matches the website's booking flow: the booking card, class
+   cards, fields and pay area are white on the white screen. The
+   post-booking cards and panels keep their dark styling. */
 .screen {
   flex: 1;
   padding: 22px 18px 110px;
@@ -113,29 +117,29 @@ input, select { font: inherit; }
 .screen h3 { font-family: Georgia, serif; font-weight: 400; font-size: 20px; color: var(--ink); margin: 0 0 8px; }
 .screen .intro { color: #6b7280; font-size: 14.5px; margin: 0 0 16px; }
 
-/* Booking form card — BLACK on the white screen (owner 2026-11-22).
-   The form (pickup, drop-off, date, time, ride-type tabs, View
-   options) sits on black; its heading stays white and its native
-   date/time pickers keep the dark colour scheme. */
+/* Booking form card — WHITE like the website's booking card
+   (owner 2026-11-25: the app booking page matches the website).
+   White card, black top accent, dark ink heading with the black
+   rule under it; native date/time pickers use the light scheme. */
 #ca-booking-card {
-  background: var(--black);
-  border: 1px solid #2e2e30;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-top: 3px solid #1a1a1a;
   border-radius: 14px;
   padding: 18px;
   margin-bottom: 4px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-  color-scheme: dark;
+  box-shadow: 0 24px 54px rgba(11, 11, 12, 0.18);
+  color-scheme: light;
 }
-#ca-booking-card h2 { color: var(--white); }
-#ca-booking-card .field label { color: var(--gold-soft); }
-#ca-booking-card .field .hint { color: var(--muted); }
-#ca-booking-card .form-error { color: #ff9d9d; }
+#ca-booking-card h2 { color: var(--ink); }
+#ca-booking-card h2::after { background: #1a1a1a; }
 
 /* Fields */
 .field { margin-bottom: 14px; }
 .field label { display: block; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; color: #6b7280; margin-bottom: 5px; }
-/* Field labels inside dark cards keep the light colour. */
-.pay-panel .field label { color: var(--gold-soft); }
+/* Field labels inside the pay panel keep the standard grey label
+   colour (the panel is flat white now, like the website). */
+.pay-panel .field label { color: #6b7280; }
 .field input, .field select {
   width: 100%; padding: 13px 14px; border: 1px solid #3a3a3e; border-radius: 10px;
   background: #1d1d1f; color: var(--white); font-size: 16px;
@@ -151,6 +155,41 @@ input, select { font: inherit; }
   -webkit-text-fill-color: var(--white);
   caret-color: var(--white);
 }
+/* White fields (owner 2026-11-25, "White kar do" + booking page
+   matches the website): every field on the booking page — the
+   booking-form card, the flight step, the "Your details" fields
+   on the class step, and the Pay by card panel — is WHITE with
+   dark text and the website's #cfccc2 border. The history lookup
+   keeps the dark base inputs (base rule above); it is outside the
+   booking flow. Focus matches the website: near-black border
+   with a dark ring (the website's --gold is #1a1a1a). */
+#ca-booking-card .field input, #ca-booking-card .field select,
+#ca-flight-step .field input, #ca-flight-step .field select,
+.class-contact .field input, .class-contact .field select,
+.pay-panel .field input, .pay-panel .field select {
+  background: #ffffff; color: var(--ink); border: 1px solid #cfccc2;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+#ca-booking-card .field input::placeholder, #ca-flight-step .field input::placeholder,
+.class-contact .field input::placeholder, .pay-panel .field input::placeholder { color: #8e8e93; }
+#ca-booking-card .field input:focus, #ca-booking-card .field select:focus,
+#ca-flight-step .field input:focus, #ca-flight-step .field select:focus,
+.class-contact .field input:focus, .class-contact .field select:focus,
+.pay-panel .field input:focus, .pay-panel .field select:focus {
+  outline: none; border-color: #1a1a1a;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+#ca-booking-card .field input:-webkit-autofill, #ca-flight-step .field input:-webkit-autofill,
+.class-contact .field input:-webkit-autofill, .pay-panel .field input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 60px #ffffff inset;
+  -webkit-text-fill-color: var(--ink);
+  caret-color: var(--ink);
+}
+/* Invalid fields keep the red border on the white booking page
+   (the scoped white rule above would otherwise outrank the base
+   .field-invalid rule). */
+#ca-booking-card .field input.field-invalid, #ca-flight-step .field input.field-invalid,
+.class-contact .field input.field-invalid, .pay-panel .field input.field-invalid { border-color: #ff6b6b; }
 .field .hint { font-size: 13px; color: #6b7280; margin-top: 5px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field-row .field-wide { grid-column: 1 / -1; }
@@ -177,14 +216,18 @@ input, select { font: inherit; }
 
 /* Ride-type tabs */
 .ride-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+/* Ride-type tabs: light like the website's (paper background,
+   dark text, light border); the active tab is blue with the
+   website's black underline. */
 .ride-tab {
   flex: 1; padding: 11px 10px; border-radius: 10px; font-size: 15px; font-weight: 600;
-  background: transparent; color: var(--soft); border: 1px solid rgba(255, 255, 255, 0.35);
+  background: var(--paper); color: var(--ink); border: 1px solid var(--line);
 }
+.ride-tab:hover { border-color: #1a1a1a; }
 .ride-tab.active {
   background: var(--blue);
-  color: var(--white); border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: none;
+  color: var(--white); border: 1px solid var(--blue);
+  box-shadow: inset 0 -3px 0 #1a1a1a;
 }
 
 /* Buttons */
@@ -239,11 +282,11 @@ input, select { font: inherit; }
   font-weight: 600; font-size: 15px; text-align: left;
 }
 .form-error { color: var(--bad); font-size: 14px; min-height: 1.2em; margin-top: 10px; }
-/* Error text inside dark panels keeps the light red. */
-.pay-panel .form-error { color: #ff9d9d; }
+/* Error text inside the (now white) pay panel keeps the standard red. */
+.pay-panel .form-error { color: var(--bad); }
 .form-note { color: #6b7280; font-size: 13.5px; }
-/* Notes inside dark panels keep the light muted colour. */
-.pay-panel .form-note { color: var(--muted); }
+/* Notes inside the (now white) pay panel keep the standard grey. */
+.pay-panel .form-note { color: #6b7280; }
 .form-note a { color: var(--gold-soft); }
 
 /* Flight step + class chooser */
@@ -251,10 +294,14 @@ input, select { font: inherit; }
 .flight-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 .flight-actions .btn-ghost { margin-top: 0; }
 .class-options { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 6px; }
+/* Class options: WHITE cards like the website's (owner
+   2026-11-25: the app booking page matches the website). White
+   card, dark text, light border; the selected card turns blue
+   with white text, like the website's. */
 .class-option {
-  text-align: left; background: var(--card); border: 1px solid var(--card-line);
-  border-radius: 14px; padding: 18px; color: var(--soft);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  text-align: left; background: var(--white); border: 1px solid #cfccc2;
+  border-radius: 14px; padding: 18px; color: var(--ink);
+  box-shadow: 0 2px 8px rgba(11, 11, 12, 0.05);
   display: flex; flex-direction: row; align-items: center; gap: 12px;
 }
 .class-option-car { width: 80px; height: 80px; flex: none; border-radius: 10px; object-fit: cover; object-position: center; background: #fff; }
@@ -265,13 +312,14 @@ input, select { font: inherit; }
 .class-option-capacity .cap-icon { flex: none; }
 .class-option-capacity .cap-dot { opacity: 0.6; }
 .class-option-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; align-items: flex-start; }
-.class-option:hover { border-color: var(--gold); }
+.class-option:hover { border-color: #1a1a1a; box-shadow: 0 6px 16px rgba(11, 11, 12, 0.1); }
 .class-option.selected {
-  border: 2px solid var(--blue);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.22);
+  background: var(--blue); color: var(--white); border-color: var(--blue);
+  box-shadow: 0 0 0 2px var(--blue), 0 10px 24px rgba(11, 11, 12, 0.2);
 }
-.class-option-name { font-size: 16px; font-weight: 600; color: var(--white); }
-.class-option-total { font-family: Georgia, serif; font-size: 26px; color: var(--gold-soft); }
+.class-option-name { font-size: 16px; font-weight: 600; }
+.class-option-total { font-family: Georgia, serif; font-size: 26px; }
+.class-option.selected .class-option-total { color: var(--gold-soft); }
 .class-details { margin: 6px 0 4px; }
 .class-details h3 { font-size: 15px; margin: 14px 0 6px; }
 .class-breakdown { font-size: 14px; }
@@ -303,36 +351,42 @@ input, select { font: inherit; }
 /* Total + payment */
 .total-box {
   display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
-  background: var(--card); border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 14px;
-  padding: 18px; margin: 16px 0; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  background: #f7f7f7; border: 1px solid #1a1a1a; border-radius: 10px;
+  padding: 18px; margin: 16px 0; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
 }
-.total-box .label { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.total-box .amount { font-family: Georgia, serif; font-size: 34px; color: var(--white); }
-.total-box .note { width: 100%; font-size: 13.5px; color: var(--muted); margin: 0; }
+.total-box .label { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--grey); }
+.total-box .amount { font-family: Georgia, serif; font-size: 34px; color: var(--ink); }
+.total-box .note { width: 100%; font-size: 13.5px; color: var(--grey); margin: 0; }
 .pay-panel {
-  background: var(--card); border: 1px solid var(--card-line); border-radius: 14px;
-  padding: 18px; margin: 16px 0; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  /* Flat like the website's pay area (owner 2026-11-25: the app
+     booking page matches the website): no card, just the divider
+     line above the payment form. The blue Pay button and the light
+     TEST MODE banner are untouched. */
+  background: transparent; border: 0; border-top: 1px solid var(--line);
+  border-radius: 0; box-shadow: none;
+  padding: 18px 0 0; margin: 20px 0 16px;
 }
-.field-label { display: block; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--gold-soft); margin-bottom: 5px; }
-/* Stripe Card Element: styled like the app's own dark inputs.
-   Card details live inside Stripe's iframe — this app never sees them. */
+.field-label { display: block; font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; color: #6b7280; margin-bottom: 5px; }
+/* Stripe Card Element: styled like the app's own white inputs
+   (owner 2026-11-25, "White kar do"). Card details live inside
+   Stripe's iframe — this app never sees them. */
 .stripe-card-element {
-  width: 100%; padding: 13px 14px; border: 1px solid #3a3a3e; border-radius: 10px;
-  background: #1d1d1f; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  width: 100%; padding: 13px 14px; border: 1px solid #cfccc2; border-radius: 10px;
+  background: #ffffff; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
 }
-.stripe-card-element.StripeElement--focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35); }
+.stripe-card-element.StripeElement--focus { outline: none; border-color: #1a1a1a; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.06); }
 .stripe-card-element.StripeElement--invalid { border-color: var(--bad); }
 .saved-card-option {
   display: flex; align-items: center; gap: 10px;
-  border: 1px solid #3a3a3e; border-radius: 10px; background: #1d1d1f;
-  padding: 12px 13px; margin-bottom: 8px; font-size: 15px; color: var(--white); cursor: pointer;
+  border: 1px solid #cfccc2; border-radius: 10px; background: #ffffff;
+  padding: 12px 13px; margin-bottom: 8px; font-size: 15px; color: var(--ink); cursor: pointer;
 }
 .saved-card-option input { accent-color: var(--gold); }
 .saved-card-option .remove-saved-card {
-  margin-left: auto; background: none; border: 0; color: var(--muted);
+  margin-left: auto; background: none; border: 0; color: #6b7280;
   font-size: 13.5px; text-decoration: underline; padding: 4px 0; cursor: pointer;
 }
-.save-card { display: flex; align-items: center; gap: 8px; font-size: 14.5px; color: var(--soft); margin: 4px 0 10px; cursor: pointer; }
+.save-card { display: flex; align-items: center; gap: 8px; font-size: 14.5px; color: var(--ink); margin: 4px 0 10px; cursor: pointer; }
 .save-card input { accent-color: var(--gold); }
 .test-banner {
   background: #f2f2f2; color: #4a4a4a; border: 1px solid var(--gold);
@@ -464,7 +518,7 @@ input, select { font: inherit; }
    is deliberately NO Google attribution line.) */
 
 /* Field-required error: red message under the field + red underline. */
-.field-error { color: #ff9d9d; font-size: 13.5px; margin: 5px 0 0; }
+.field-error { color: var(--bad); font-size: 13.5px; margin: 5px 0 0; }
 .field input.field-invalid { border-color: #ff6b6b; }
 
 /* Address suggestions: dark dropdown, full address as the bold main
@@ -530,7 +584,7 @@ input, select { font: inherit; }
 .class-option-capacity { justify-content: flex-start; }
 
 /* Class details below the cards. */
-.class-explore { font-size: 15px; font-weight: 600; color: var(--white); margin: 16px 0 8px; }
+.class-explore { font-size: 15px; font-weight: 600; color: var(--ink); margin: 16px 0 8px; }
 .class-highlights { position: relative; overflow: hidden; border-radius: 10px; }
 /* Highlights track: align-items flex-start so slides keep their natural
    height (the track is sized to the active slide by JS, owner 2026-11-23)
@@ -539,10 +593,10 @@ input, select { font: inherit; }
 .hl-slide { flex: 0 0 100%; min-width: 0; }
 .hl-slide figure { margin: 0; }
 .hl-slide img { width: 100%; height: 200px; object-fit: cover; display: block; border-radius: 10px; background: #fff; }
-.hl-slide figcaption { font-size: 14.5px; color: var(--soft); padding: 10px 4px 0; }
-.hl-slide-text { padding: 18px; background: var(--card); border: 1px solid var(--card-line); border-radius: 10px; min-height: 110px; }
-.hl-slide-text h4 { margin: 0 0 6px; font-size: 17px; color: var(--white); }
-.hl-slide-text p { margin: 0; color: var(--muted); font-size: 14.5px; }
+.hl-slide figcaption { font-size: 14.5px; color: var(--ink); padding: 10px 4px 0; }
+.hl-slide-text { padding: 18px; background: var(--paper); border-radius: 10px; min-height: 110px; }
+.hl-slide-text h4 { margin: 0 0 6px; font-size: 17px; color: var(--ink); }
+.hl-slide-text p { margin: 0; color: var(--grey); font-size: 14.5px; }
 .hl-arrow {
   position: absolute; top: 82px; width: 34px; height: 34px; border-radius: 50%;
   background: rgba(11, 11, 12, 0.55); color: #fff; border: 0; font-size: 20px; line-height: 1;
@@ -551,7 +605,7 @@ input, select { font: inherit; }
 .hl-prev { left: 8px; }
 .hl-next { right: 8px; }
 .hl-dots { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
-.hl-dot { width: 8px; height: 8px; border-radius: 50%; border: 0; background: #555558; padding: 0; }
+.hl-dot { width: 8px; height: 8px; border-radius: 50%; border: 0; background: #cfccc2; padding: 0; }
 .hl-dot.active { background: var(--blue); }
 .class-included ul, .class-notes ul { margin: 6px 0 0; padding-left: 20px; font-size: 14.5px; color: var(--soft); }
 .class-included li, .class-notes li { margin-bottom: 6px; }

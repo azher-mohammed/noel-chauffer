@@ -70,7 +70,8 @@ class WhiteBookingFieldsTest(unittest.TestCase):
         "#ca-booking-card .field input, #ca-booking-card .field select,\n"
         "#ca-flight-step .field input, #ca-flight-step .field select,\n"
         ".class-contact .field input, .class-contact .field select,\n"
-        ".pay-panel .field input, .pay-panel .field select",
+        ".pay-panel .field input, .pay-panel .field select,\n"
+        "#ca-history-form .field input",
     )
 
     def test_booking_fields_are_white(self):
@@ -85,21 +86,24 @@ class WhiteBookingFieldsTest(unittest.TestCase):
             "#ca-booking-card .field input:focus, #ca-booking-card .field select:focus,\n"
             "#ca-flight-step .field input:focus, #ca-flight-step .field select:focus,\n"
             ".class-contact .field input:focus, .class-contact .field select:focus,\n"
-            ".pay-panel .field input:focus, .pay-panel .field select:focus")
+            ".pay-panel .field input:focus, .pay-panel .field select:focus,\n"
+            "#ca-history-form .field input:focus")
         self.assertIn("border-color: #1a1a1a;", focus)
         self.assertIn("box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25)", focus)
         # Autofill keeps the white fill with dark text.
         af = _rule(
             css,
             "#ca-booking-card .field input:-webkit-autofill, #ca-flight-step .field input:-webkit-autofill,\n"
-            ".class-contact .field input:-webkit-autofill, .pay-panel .field input:-webkit-autofill")
+            ".class-contact .field input:-webkit-autofill, .pay-panel .field input:-webkit-autofill,\n"
+            "#ca-history-form .field input:-webkit-autofill")
         self.assertIn("-webkit-box-shadow: 0 0 0 60px #ffffff inset;", af)
         self.assertIn("-webkit-text-fill-color: var(--ink);", af)
         # Invalid fields still show the red border.
         inv = _rule(
             css,
             "#ca-booking-card .field input.field-invalid, #ca-flight-step .field input.field-invalid,\n"
-            ".class-contact .field input.field-invalid, .pay-panel .field input.field-invalid")
+            ".class-contact .field input.field-invalid, .pay-panel .field input.field-invalid,\n"
+            "#ca-history-form .field input.field-invalid")
         self.assertIn("border-color: #ff6b6b;", inv)
         # The required-field message is dark red on white.
         self.assertIn("color: var(--bad);", _rule(css, ".field-error"))
@@ -113,13 +117,18 @@ class WhiteBookingFieldsTest(unittest.TestCase):
                       "ca-pay-cvc"):
             self.assertIn('id="%s"' % ident, html, ident)
 
-    def test_history_lookup_keeps_dark_inputs(self):
-        # Outside the booking flow: the My Rides phone lookup keeps
-        # the dark base inputs.
+    def test_history_lookup_input_is_white(self):
+        # Owner 2026-11-25 (My Rides light grey, latest word): the
+        # My Rides phone lookup is white like the booking fields
+        # now — the old dark-lookup pin is superseded. The generic
+        # dark base rule still exists for fields outside the white
+        # scopes, but the history input is covered by the scoped
+        # white rule above.
         css = _read("static/css/customer-app.css")
+        self.assertIn("#ca-history-form .field input",
+                      self.WHITE_SCOPES[0])
         base = _rule(css, ".field input, .field select")
         self.assertIn("background: #1d1d1f;", base)
-        self.assertIn("color: var(--white);", base)
 
 
 class WhiteRideTabsTest(unittest.TestCase):
@@ -275,8 +284,10 @@ class UntouchedSurfacesTest(unittest.TestCase):
                       _rule(css, ".driver-card"))
         self.assertIn("background: var(--card);",
                       _rule(css, ".chat-panel"))
-        self.assertIn("background: var(--card);",
-                      _rule(css, ".history-item"))
+        # NOTE: .history-item was here until 2026-11-25 — the owner
+        # then ordered My Rides light grey ("It should be in light
+        # gray not in black"), so the history card is #f5f5f5 now;
+        # see test_customer_app_support_white.LightGreyMyRidesTest.
         self.assertIn("background: var(--card);",
                       _rule(css, ".invoice-panel"))
 

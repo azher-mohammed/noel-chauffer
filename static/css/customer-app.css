@@ -3,7 +3,13 @@
    booking page matches the website's booking flow (owner
    2026-11-25, "White kar do" + "why is it not like the website"):
    white booking card, white class cards, white fields, flat white
-   pay area. The header and the bottom tab bar stay black; the
+   pay area. The Support screen ("Chat with us") is white like the
+   website's chat widget (owner 2026-11-25, "It should be in white"):
+   white assistant bubbles, white message input. My Rides is light
+   grey (owner 2026-11-25, "It should be in light gray not in
+   black"): #f5f5f5 ride cards with dark text, white phone input,
+   and Pickup / Drop-off on two separate lines. The header and the
+   bottom tab bar stay black; the
    dark popups (address suggestions, date/time pickers) stay dark
    like the website's, and the post-booking screens (driver card,
    chat, history, referral, invoice) keep their dark cards. */
@@ -159,28 +165,33 @@ input, select { font: inherit; }
    matches the website): every field on the booking page — the
    booking-form card, the flight step, the "Your details" fields
    on the class step, and the Pay by card panel — is WHITE with
-   dark text and the website's #cfccc2 border. The history lookup
-   keeps the dark base inputs (base rule above); it is outside the
-   booking flow. Focus matches the website: near-black border
+   dark text and the website's #cfccc2 border. The My Rides phone
+   lookup input is white too (owner 2026-11-25, My Rides light
+   grey) — the same white field as the booking page. Focus matches
+   the website: near-black border
    with a dark ring (the website's --gold is #1a1a1a). */
 #ca-booking-card .field input, #ca-booking-card .field select,
 #ca-flight-step .field input, #ca-flight-step .field select,
 .class-contact .field input, .class-contact .field select,
-.pay-panel .field input, .pay-panel .field select {
+.pay-panel .field input, .pay-panel .field select,
+#ca-history-form .field input {
   background: #ffffff; color: var(--ink); border: 1px solid #cfccc2;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 #ca-booking-card .field input::placeholder, #ca-flight-step .field input::placeholder,
-.class-contact .field input::placeholder, .pay-panel .field input::placeholder { color: #8e8e93; }
+.class-contact .field input::placeholder, .pay-panel .field input::placeholder,
+#ca-history-form .field input::placeholder { color: #8e8e93; }
 #ca-booking-card .field input:focus, #ca-booking-card .field select:focus,
 #ca-flight-step .field input:focus, #ca-flight-step .field select:focus,
 .class-contact .field input:focus, .class-contact .field select:focus,
-.pay-panel .field input:focus, .pay-panel .field select:focus {
+.pay-panel .field input:focus, .pay-panel .field select:focus,
+#ca-history-form .field input:focus {
   outline: none; border-color: #1a1a1a;
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 #ca-booking-card .field input:-webkit-autofill, #ca-flight-step .field input:-webkit-autofill,
-.class-contact .field input:-webkit-autofill, .pay-panel .field input:-webkit-autofill {
+.class-contact .field input:-webkit-autofill, .pay-panel .field input:-webkit-autofill,
+#ca-history-form .field input:-webkit-autofill {
   -webkit-box-shadow: 0 0 0 60px #ffffff inset;
   -webkit-text-fill-color: var(--ink);
   caret-color: var(--ink);
@@ -189,7 +200,8 @@ input, select { font: inherit; }
    (the scoped white rule above would otherwise outrank the base
    .field-invalid rule). */
 #ca-booking-card .field input.field-invalid, #ca-flight-step .field input.field-invalid,
-.class-contact .field input.field-invalid, .pay-panel .field input.field-invalid { border-color: #ff6b6b; }
+.class-contact .field input.field-invalid, .pay-panel .field input.field-invalid,
+#ca-history-form .field input.field-invalid { border-color: #ff6b6b; }
 .field .hint { font-size: 13px; color: #6b7280; margin-top: 5px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field-row .field-wide { grid-column: 1 / -1; }
@@ -443,7 +455,7 @@ input, select { font: inherit; }
 .chat-msg.theirs { align-self: flex-start; background: #2a2a2c; border: 1px solid #3a3a3e; color: var(--soft); }
 .msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 15px; line-height: 1.4; }
 .msg.user { align-self: flex-end; background: #f2f2f2; border: 1px solid var(--gold); color: var(--black); }
-.msg.bot { align-self: flex-start; background: #2a2a2c; border: 1px solid #3a3a3e; color: var(--soft); }
+.msg.bot { align-self: flex-start; background: var(--white); border: 1px solid var(--line); color: var(--ink); border-bottom-left-radius: 3px; }
 .chat-input-row { display: flex; gap: 8px; }
 .chat-input-row input {
   flex: 1; padding: 11px 12px; border: 1px solid #3a3a3e; border-radius: 10px;
@@ -463,29 +475,35 @@ input, select { font: inherit; }
 .chat-chips button:active { background: rgba(0, 0, 0, 0.08); }
 .chat-form { display: flex; gap: 8px; }
 .chat-form input {
-  flex: 1; padding: 12px; border: 1px solid #3a3a3e; border-radius: 10px;
-  font-size: 16px; min-width: 0; background: #262628; color: var(--white);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  flex: 1; padding: 12px; border: 1px solid #cfccc2; border-radius: 10px;
+  font-size: 16px; min-width: 0; background: #ffffff; color: var(--ink);
 }
+.chat-form input::placeholder { color: #8e8e93; }
 .chat-form input:focus {
-  outline: none; border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  outline: none; border-color: #1a1a1a;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25);
 }
 .chat-form .btn-primary { width: auto; margin-top: 0; padding: 12px 18px; }
 
 /* Ride history */
 .history-item {
-  border: 1px solid var(--card-line); border-radius: 12px; background: var(--card);
-  padding: 14px 15px; margin-top: 12px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line); border-radius: 12px; background: #f5f5f5;
+  padding: 14px 15px; margin-top: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 .history-item .h-top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.history-item .h-route { font-weight: 600; color: var(--white); word-break: break-word; }
-.history-item .h-meta { color: var(--muted); font-size: 14px; }
+.history-item .h-route { font-weight: 600; color: var(--ink); word-break: break-word; }
+/* Pickup and drop-off on two lines (owner 2026-11-25), like the
+   driver app's offer cards: each leg is its own block with a
+   label, separated by a down arrow. */
+.history-item .route-leg { display: block; }
+.history-item .route-label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #6b6b6b; }
+.history-item .route-sep { display: block; font-size: 14px; font-weight: 700; line-height: 1.2; color: #6b6b6b; margin: 1px 0; }
+.history-item .h-meta { color: #6b6b6b; font-size: 14px; }
 .history-item .h-total { font-family: Georgia, serif; font-size: 19px; white-space: nowrap; color: var(--gold-soft); }
 .history-item .h-view { margin-top: 10px; }
 .pill {
   display: inline-block; font-size: 13px; padding: 4px 11px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14); color: var(--gold-soft); border: 1px solid rgba(255, 255, 255, 0.55);
+  background: #f7f7f7; color: #4a4a4a; border: 1px solid #cfcfcf;
   margin-top: 6px;
 }
 

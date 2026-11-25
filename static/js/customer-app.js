@@ -192,6 +192,21 @@
     }
     return (b.pickup || "") + "  →  " + (b.dropoff || "");
   }
+  /* My Rides route on two lines (owner 2026-11-25): Pickup and
+     Drop-off as separate blocks with labels, like the driver
+     app's offer cards (routeHtml) — the one-line "pickup →
+     dropoff" was hard to read at a glance. Hourly rides have no
+     drop-off, so they show the pickup line only. rideLabel() is
+     untouched — the status view still uses it. */
+  function historyRouteHtml(b) {
+    if (!b) return "";
+    var pickup = '<div class="route-leg"><span class="route-label">' +
+      esc(T("status.pickup_label", "Pickup")) + "</span> " + esc(b.pickup || "") + "</div>";
+    if (b.ride_type === "hourly" || !b.dropoff) return pickup;
+    return pickup + '<div class="route-sep" aria-hidden="true">↓</div>' +
+      '<div class="route-leg"><span class="route-label">' +
+      esc(T("status.dropoff_label", "Drop-off")) + "</span> " + esc(b.dropoff) + "</div>";
+  }
   /* "Return trip" is a second one-way booking made through
      the return-trip button (owner decision 2026-11-20): it
      must display as "Return trip", never "One way". */
@@ -2140,7 +2155,7 @@
       var item = document.createElement("div");
       item.className = "history-item";
       item.innerHTML = '<div class="h-top"><div>' +
-        '<div class="h-route">' + esc(rideLabel(b)) + "</div>" +
+        '<div class="h-route">' + historyRouteHtml(b) + "</div>" +
         '<div class="h-meta">' + esc(whenLabel(b)) +
         " · " + rideTypeLabel(b) + "</div>" +
         '<div><span class="pill">' + esc(statusLabel(b.status)) + "</span></div>" +

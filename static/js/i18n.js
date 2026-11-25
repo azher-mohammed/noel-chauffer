@@ -708,6 +708,14 @@ NOEL_I18N["status.pickup_label"] = {
   "vi": "Đón", "fa": "سوارشدن", "th": "รับ"
 };
 
+NOEL_I18N["status.dropoff_label"] = {
+  "en": "Drop-off", "es": "Destino", "fr": "Destination", "ar": "الوصول",
+  "pt": "Destino", "ur": "Drop-off", "hi": "ड्रॉप-ऑफ़", "bn": "ড্রপ-অফ",
+  "ud": "ڈراپ آف", "zh": "下车", "de": "Absetzen", "it": "Consegna",
+  "ru": "Высадка", "tr": "İniş", "ko": "하차", "ja": "降車",
+  "vi": "Trả khách", "fa": "پیاده‌شدن", "th": "ส่ง"
+};
+
 NOEL_I18N["status.map_unavailable"] = {
   "en": "Live map is unavailable right now. Your chauffeur is on the way to {place}.", "es": "El mapa en vivo no está disponible ahora mismo. Tu chófer está en camino a {place}.", "fr": "La carte en direct n'est pas disponible pour le moment. Votre chauffeur est en route vers {place}.", "ar": "الخريطة المباشرة غير متاحة الآن. سائقك في الطريق إلى {place}.",
   "pt": "O mapa ao vivo não está disponível agora. Seu motorista está a caminho de {place}.", "ur": "Live map abhi available nahi hai. Aapka chauffeur {place} ki taraf aa raha hai.", "hi": "लाइव मैप अभी उपलब्ध नहीं है। आपका शॉफ़र {place} की ओर आ रहा है।", "bn": "লাইভ মানচিত্র এখন উপলব্ধ নয়। আপনার শোফার {place}-এর দিকে আসছেন।",

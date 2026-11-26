@@ -4812,13 +4812,20 @@ def _booking_received_rows(booking):
     """Booking details, one row per detail, in order. Each row is a
     (label, value) pair for the detail lines, or ("", text) for the
     closing payment instruction. The plain-text body and the HTML
-    email render the same rows. Only facts already sent in the old
-    single-paragraph email — date, time, pickup, drop-off, class
-    and total — plus the same payment instruction as its closing
-    line. Hourly rides have no drop-off, so the 'To' row is omitted
-    rather than printed blank (same rule as the chauffeur email)."""
+    email render the same rows. First row is the booking number
+    (owner 2026-11-25, voice call: the NC- code goes at the very
+    top of the email); then date, time, pickup, drop-off, class
+    and total, plus the same payment instruction as its closing
+    line. The code is ensured in the booking flow before this email
+    is built, so it is always present on real bookings; a row
+    without one simply omits it. Hourly rides have no drop-off, so
+    the 'To' row is omitted rather than printed blank (same rule
+    as the chauffeur email)."""
     class_text = class_label(booking_vehicle_class(booking))
-    rows = [
+    rows = []
+    if getattr(booking, "booking_code", None):
+        rows.append(("Booking number", booking.booking_code))
+    rows += [
         ("Date", booking.date),
         ("Time", booking.time),
         ("From", booking.pickup),
@@ -5413,6 +5420,10 @@ def create_booking():
     # The "booking received" message can only go out once an address
     # exists: one-way rides created without contact get it from the
     # contact step instead.
+    # Booking number first (owner 2026-11-25): ensure the NC- code
+    # now so the booking-received email shows it at the top; the
+    # commit below persists it.
+    _ensure_booking_code(booking)
     if booking.phone or booking.email:
         outbox_to_customer(booking, booking_received_text(booking),
                            email_body=booking_received_email_text(booking),
@@ -5516,6 +5527,10 @@ def save_booking_contact(booking_id):
     if not had_contact:
         # The "booking received" message could not go out at creation
         # (no address yet); it goes out now that we have one.
+        # Booking number first (owner 2026-11-25): ensure the NC-
+        # code now so the email shows it at the top; the commit
+        # below persists it.
+        _ensure_booking_code(booking)
         outbox_to_customer(booking, booking_received_text(booking),
                            email_body=booking_received_email_text(booking),
                            email_html=booking_received_email_html(booking))

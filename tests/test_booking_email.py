@@ -17,13 +17,23 @@ The old email was one single paragraph:
     and we will message you the chauffeur's details once a driver
     accepts.
 
+Owner addition (2026-11-25 ~21:0x EST, voice call): the booking
+number — the NC- code — goes at the very top of the email, first
+row, above Date; and the arrangement line was wrong (nothing is
+assigned right after payment — the ride is sent to our chauffeurs
+after payment, and the chauffeur's details are messaged once a
+driver accepts), so the closing line says that instead.
+
 Rules pinned here:
 - The EMAIL (plain text AND its HTML part) is step-by-step, the
   same professional layout as the payment receipt: heading,
   divider, every detail on its own line with labels aligned in one
   column, divider, the total set apart on its own, then the payment
-  instruction as a closing line. Lines, in order: Date, Time, From,
-  To, Class, Total.
+  instruction as a closing line. Lines, in order: Booking number,
+  Date, Time, From, To, Class, Total.
+- The booking number is the NC- code, first row, above Date — in
+  both the text and the HTML. It is ensured in the booking flow
+  before the email is built; a row without a stored code omits it.
 - The drop-off ("To") is labelled "To", like the chauffeur email.
   Hourly rides have no drop-off, so the "To" row is omitted rather
   than printed blank.
@@ -83,6 +93,7 @@ def field_value(lines, label):
 def one_way_booking(**overrides):
     """A one-way booking namespace with the fields the email builders read."""
     booking = SimpleNamespace(
+        booking_code="NC-118705",
         date="2026-11-26", time="00:20",
         pickup=("John F. Kennedy International Airport, JFK Access Road, "
                 "Queens, Queens County, New York, 11430, United States"),
@@ -156,6 +167,9 @@ class BookingEmailCase(unittest.TestCase):
         lines = text.split("\n")
         self.assertEqual(lines[0], "Your booking has been received.")
         self.assertEqual(lines[1], "-" * 40)
+        # The booking number is the very first row, above Date.
+        self.assertEqual(lines[2], "Booking number: NC-118705")
+        self.assertEqual(field_value(lines, "Booking number"), "NC-118705")
         self.assertEqual(field_value(lines, "Date"), "2026-11-26")
         self.assertEqual(field_value(lines, "Time"), "00:20")
         self.assertEqual(field_value(lines, "From"),
@@ -166,8 +180,9 @@ class BookingEmailCase(unittest.TestCase):
                          "New York, 11371, United States")
         self.assertEqual(field_value(lines, "Class"), "Business Class")
         self.assertEqual(field_value(lines, "Total"), "$163.80")
-        # Rows in order: Date, Time, From, To, Class, Total.
-        order = ["Date:", "Time:", "From:", "To:", "Class:", "Total:"]
+        # Rows in order: Booking number, Date, Time, From, To, Class, Total.
+        order = ["Booking number:", "Date:", "Time:", "From:", "To:",
+                 "Class:", "Total:"]
         positions = [next(i for i, l in enumerate(lines)
                           if l.startswith(label)) for label in order]
         self.assertEqual(positions, sorted(positions))
@@ -183,6 +198,7 @@ class BookingEmailCase(unittest.TestCase):
         # Labels aligned in one column: every value starts at the
         # same character position.
         expected = {
+            "Booking number": "NC-118705",
             "Date": "2026-11-26", "Time": "00:20",
             "From": ("John F. Kennedy International Airport, JFK Access Road, "
                      "Queens, Queens County, New York, 11430, United States"),
@@ -202,7 +218,8 @@ class BookingEmailCase(unittest.TestCase):
         self.assertIn("Noel ", html)
         self.assertIn('<span style="color:#D4AF37;">Chauffeur</span>', html)
         self.assertIn("Your booking has been received.", html)
-        for label, value in (("Date", "2026-11-26"),
+        for label, value in (("Booking number", "NC-118705"),
+                             ("Date", "2026-11-26"),
                              ("Time", "00:20"),
                              ("From", "John F. Kennedy International Airport"),
                              ("To", "Central Terminal Drive"),
@@ -210,6 +227,8 @@ class BookingEmailCase(unittest.TestCase):
                              ("Total", "$163.80")):
             self.assertIn(label, html)
             self.assertIn(value, html)
+        # The booking number is the first row in the HTML table too.
+        self.assertLess(html.index(">Booking number<"), html.index(">Date<"))
         # The total is set apart and bold.
         self.assertIn("<strong>$163.80</strong>", html)
         # The payment instruction closes the email.
@@ -235,6 +254,11 @@ class BookingEmailCase(unittest.TestCase):
                                   ride_type="hourly", vehicle_class="sedan",
                                   fare_total="218.32")
         self.assertNotIn("To:", app_module.booking_received_email_text(booking))
+        # ... and a booking with no stored code simply omits the
+        # booking-number row (real bookings always have one — it is
+        # ensured in the flow before the email is built).
+        self.assertNotIn("Booking number:",
+                         app_module.booking_received_email_text(booking))
 
     # -- the real booking flow ----------------------------------------------
 
@@ -255,6 +279,9 @@ class BookingEmailCase(unittest.TestCase):
         self.assertEqual(len(email_rows), 1)
         email = email_rows[0]
         lines = email.body.split("\n")
+        # The booking number is the very first row, above Date.
+        self.assertEqual(lines[2].split(":", 1)[0], "Booking number")
+        self.assertRegex(field_value(lines, "Booking number"), r"^NC-\d{6}$")
         self.assertEqual(field_value(lines, "Date"), "2030-06-01")
         self.assertEqual(field_value(lines, "Time"), "12:00")
         self.assertEqual(field_value(lines, "From"), "JFK Airport")
@@ -266,6 +293,8 @@ class BookingEmailCase(unittest.TestCase):
         self.assertIn('<span style="color:#D4AF37;">Chauffeur</span>',
                       email.html_body or "")
         self.assertIn("Your booking has been received.", email.html_body or "")
+        self.assertIn("Booking number", email.html_body or "")
+        self.assertRegex(email.html_body or "", r"NC-\d{6}")
         self.assertIn("<strong>%s</strong>" % sms_total, email.html_body or "")
 
     def test_hourly_creation_omits_to_row(self):
@@ -280,6 +309,10 @@ class BookingEmailCase(unittest.TestCase):
                          "JFK Airport")
         self.assertEqual(field_value(email.body.split("\n"), "Class"),
                          "Business Class")
+        # Hourly rides get a booking number too, first row.
+        self.assertRegex(
+            field_value(email.body.split("\n"), "Booking number") or "",
+            r"^NC-\d{6}$")
         # The SMS is still the one-paragraph form, pickup only.
         sms_rows = self.outbox_rows(booking_id, channel="sms")
         self.assertEqual(len(sms_rows), 1)

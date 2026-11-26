@@ -2289,6 +2289,16 @@ class Driver(db.Model):
     # ALTER below, and drivers registered before it existed read as
     # not onboarded.
     stripe_connect_account_id = db.Column(db.String(60), nullable=True)
+    # Welcome email sent once at registration (owner decision
+    # 2026-11-25, voice call): a warm welcome email goes to a new
+    # driver exactly once. NULL/False means not sent yet; True once
+    # the welcome has been queued. The flag is the once-only guard
+    # (a driver who re-registers never gets it a second time — the
+    # outbox check in send_driver_welcome_email covers the case
+    # where the old row was removed first). Nullable: added by the
+    # startup ALTER below, and drivers registered before it existed
+    # read as not sent.
+    welcome_email_sent = db.Column(db.Boolean, nullable=True)
     token = db.Column(db.String(64), unique=True, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
@@ -2873,6 +2883,20 @@ with app.app_context():
                 _conn.execute(_sa_text("ALTER TABLE drivers ADD COLUMN city VARCHAR(80)"))
     except Exception as exc:  # logged, never fatal at startup
         log.warning("city column check failed: %s", exc)
+    # Same pattern for the welcome-email flag (added with the
+    # driver welcome email, 2026-11-25). Nullable, so existing
+    # driver rows keep working with no flag on file (reads as
+    # not sent).
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        if "welcome_email_sent" not in _dcols:
+            with db.engine.begin() as _conn:
+                _conn.execute(_sa_text("ALTER TABLE drivers ADD COLUMN welcome_email_sent BOOLEAN"))
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("welcome_email_sent column check failed: %s", exc)
     # Same pattern for the chat-translation columns (added with the
     # Azure Translator chat translation, 2026-11-18). All nullable,
     # so existing driver, booking and message rows keep working with
@@ -4951,6 +4975,73 @@ def ride_complete_thank_you_html():
         f"color:#111111;\">{html_escape(RIDE_COMPLETE_THANK_YOU_HEADING)}</h1>"
         "<p style=\"margin:0;\">Thanks again, please ride with us again.</p>"
         "</div></body></html>")
+
+
+# The driver welcome email (owner 2026-11-25, voice call): when a
+# driver registers, he gets a warm welcome email ONCE. The SMS
+# channel never reaches a phone (outbox-only, Resend is
+# email-only), so email is the channel. The text is the owner's
+# approved wording, kept verbatim ("Okay very good").
+DRIVER_WELCOME_HEADING = "Welcome to Noel Chauffer!"
+DRIVER_WELCOME_SUBJECT = "Welcome to Noel Chauffer"
+
+
+def driver_welcome_email_text():
+    """The plain-text driver welcome email: the heading and the
+    owner's approved lines, nothing else."""
+    return (DRIVER_WELCOME_HEADING + "\n\n"
+            "Thank you for joining us as a chauffeur. "
+            "Driver app kholein aur jab taiyar hon to online ho jayein "
+            "apni pehli ride ke liye.")
+
+
+def driver_welcome_email_html():
+    """The HTML driver welcome email: the same lines as the plain
+    text, as a clean business message — Noel Chauffer letterhead,
+    heading, the welcome lines. No gradients, no images; the only
+    gold is the brand wordmark (owner 2026-11-25)."""
+    return (
+        "<!DOCTYPE html><html><body style=\"margin:0;padding:0;"
+        "background:#ffffff;\">"
+        "<div style=\"max-width:560px;margin:0 auto;padding:24px;"
+        "font-family:Arial,Helvetica,sans-serif;color:#222222;"
+        "font-size:15px;line-height:1.6;\">"
+        "<div style=\"font-size:22px;font-weight:600;letter-spacing:0.02em;"
+        "color:#111111;margin-bottom:12px;\">Noel "
+        "<span style=\"color:#D4AF37;\">Chauffeur</span></div>"
+        f"<h1 style=\"font-size:20px;line-height:1.4;margin:0 0 12px 0;"
+        f"color:#111111;\">{html_escape(DRIVER_WELCOME_HEADING)}</h1>"
+        "<p style=\"margin:0 0 12px 0;\">Thank you for joining us as a chauffeur.</p>"
+        "<p style=\"margin:0;\">Driver app kholein aur jab taiyar hon to online "
+        "ho jayein apni pehli ride ke liye.</p>"
+        "</div></body></html>")
+
+
+def send_driver_welcome_email(driver):
+    """Queue the welcome email for a newly registered driver, once
+    only. Two guards: the welcome_email_sent flag on the driver
+    row, and a prior welcome row in the outbox for the same email
+    address — the second guard covers a re-registration after the
+    old driver row was removed (the flag dies with the row, the
+    outbox row survives). No email address on file means no
+    welcome. Returns True when a welcome was queued, False
+    otherwise. The caller commits, so the outbox row and the flag
+    persist together."""
+    email = (getattr(driver, "email", "") or "").strip()
+    if not email:
+        return False
+    if getattr(driver, "welcome_email_sent", None):
+        return False
+    prior = OutboxMessage.query.filter_by(
+        channel="email", recipient=email).filter(
+        OutboxMessage.body.like(DRIVER_WELCOME_HEADING + "%")).first()
+    if prior is not None:
+        return False
+    add_outbox("email", email, driver_welcome_email_text(),
+               subject=DRIVER_WELCOME_SUBJECT,
+               html=driver_welcome_email_html())
+    driver.welcome_email_sent = True
+    return True
 
 
 # The receipt's first line doubles as its idempotency marker: a
@@ -7132,6 +7223,11 @@ def register_driver():
             mime=mime, original_name=original_name,
             file_hash=hashlib.sha256(data).hexdigest(),
             expires_on=expiries.get(doc_type)))
+    # Driver welcome email (owner 2026-11-25, voice call): a warm
+    # welcome, sent ONCE at registration. Queued before the commit
+    # below, so the outbox row and the sent flag persist together.
+    # Nothing else about registration changes.
+    send_driver_welcome_email(driver)
     db.session.commit()
     return jsonify({"driver": {
         "id": driver.id,

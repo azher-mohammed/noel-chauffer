@@ -123,9 +123,15 @@ class EmailSenderCase(unittest.TestCase):
         return resp
 
     def outbox_rows(self):
+        # The registration welcome email (owner 2026-11-25) is
+        # excluded here: these tests pin the reset/create-password
+        # emails, and the welcome is pinned in
+        # test_driver_welcome_email.
         with app_module.app.app_context():
-            return app_module.OutboxMessage.query.order_by(
+            rows = app_module.OutboxMessage.query.order_by(
                 app_module.OutboxMessage.id).all()
+        return [r for r in rows
+                if not r.body.startswith(app_module.DRIVER_WELCOME_HEADING)]
 
     # -- unconfigured: zero HTTP, behaviour unchanged -------------------------
     def test_no_key_no_http_call(self):

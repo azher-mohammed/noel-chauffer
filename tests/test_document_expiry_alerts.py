@@ -155,7 +155,11 @@ class ExpiryAlertsCase(unittest.TestCase):
         with app_module.app.app_context():
             rows = app_module.OutboxMessage.query.all()
         sms = [r for r in rows if r.channel == "sms"]
-        email = [r for r in rows if r.channel == "email"]
+        # The registration welcome email (owner 2026-11-25) is
+        # excluded: these counts pin the expiry alerts, and the
+        # welcome is pinned in test_driver_welcome_email.
+        email = [r for r in rows if r.channel == "email"
+                 and not r.body.startswith(app_module.DRIVER_WELCOME_HEADING)]
         return sms, email
 
     # -- 10-day alert -------------------------------------------------------

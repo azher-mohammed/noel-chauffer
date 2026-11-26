@@ -494,10 +494,24 @@ input, select { font: inherit; }
 .history-item .h-route { font-weight: 600; color: var(--ink); word-break: break-word; }
 /* Pickup and drop-off on two lines (owner 2026-11-25), like the
    driver app's offer cards: each leg is its own block with a
-   label, separated by a down arrow. */
+   label, separated by a down arrow. The same blocks are used on
+   the ride-detail/status view (summaryHtml), so the rules cover
+   the history cards and the status lines; the meta line (class /
+   type / date-time) inherits its container's font and colour.
+   (Separate rules per container: the test helper matches one
+   selector per rule.) */
 .history-item .route-leg { display: block; }
+.status-line .route-leg { display: block; }
+.ride-summary .route-leg { display: block; }
 .history-item .route-label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #6b6b6b; }
+.status-line .route-label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #6b6b6b; }
+.ride-summary .route-label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #6b6b6b; }
 .history-item .route-sep { display: block; font-size: 14px; font-weight: 700; line-height: 1.2; color: #6b6b6b; margin: 1px 0; }
+.status-line .route-sep { display: block; font-size: 14px; font-weight: 700; line-height: 1.2; color: #6b6b6b; margin: 1px 0; }
+.ride-summary .route-sep { display: block; font-size: 14px; font-weight: 700; line-height: 1.2; color: #6b6b6b; margin: 1px 0; }
+.history-item .route-meta { display: block; margin-top: 2px; }
+.status-line .route-meta { display: block; margin-top: 2px; }
+.ride-summary .route-meta { display: block; margin-top: 2px; }
 .history-item .h-meta { color: #6b6b6b; font-size: 14px; }
 .history-item .h-total { font-family: Georgia, serif; font-size: 19px; white-space: nowrap; color: var(--gold-soft); }
 .history-item .h-view { margin-top: 10px; }

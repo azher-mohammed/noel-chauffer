@@ -207,6 +207,33 @@
       '<div class="route-leg"><span class="route-label">' +
       esc(T("status.dropoff_label", "Drop-off")) + "</span> " + esc(b.dropoff) + "</div>";
   }
+  function summaryMetaText(b) {
+    /* The class / ride-type / date-time tail of summaryText(),
+       without the route — the route is rendered on two lines by
+       summaryHtml() below. Kept word-for-word identical to
+       summaryText so the status view shows exactly the same words,
+       only re-laid out. */
+    var parts = [];
+    if (b.ride_type === "hourly") {
+      parts.push(T("form.by_hour", "By the hour") + (b.hours ? " · " + b.hours + T("class.hour_suffix", " hour(s)") : ""));
+    }
+    var cls = classLabelFor(b);
+    if (cls) parts.push(cls);
+    if (b.ride_type !== "hourly") parts.push(rideTypeLabel(b));
+    if (whenLabel(b)) parts.push(whenLabel(b));
+    return parts.join(" · ");
+  }
+  /* Ride-detail/status view route on two lines (owner 2026-11-25):
+     the same two-line Pickup / Drop-off blocks as the My Rides
+     cards (historyRouteHtml), with the class / type / date-time
+     meta on its own line after. Hourly rides have no drop-off, so
+     they show the pickup line only. `trailing` is appended inside
+     the meta line (the thank-you line ends with a period). */
+  function summaryHtml(b, trailing) {
+    if (!b) return "";
+    return historyRouteHtml(b) +
+      '<div class="route-meta">' + esc(summaryMetaText(b)) + esc(trailing || "") + "</div>";
+  }
   /* "Return trip" is a second one-way booking made through
      the return-trip button (owner decision 2026-11-20): it
      must display as "Return trip", never "One way". */
@@ -1342,7 +1369,7 @@
        can never be re-submitted with the old ride's values — the
        ride stays in front of the customer until "Book another ride". */
     clearBookingForm();
-    $("ca-status-summary").textContent = summaryText(booking);
+    $("ca-status-summary").innerHTML = summaryHtml(booking);
     /* The total and the card payment box open from renderBooking. */
     renderBooking(booking);
     pollOnce();
@@ -1372,7 +1399,7 @@
   }
 
   function renderBooking(b) {
-    $("ca-status-summary").textContent = summaryText(b);
+    $("ca-status-summary").innerHTML = summaryHtml(b);
     var flightEl = $("ca-status-flight");
     if (b.flight_number) {
       var flightText = T("status.flight_prefix", "Flight: ") + b.flight_number;
@@ -1592,8 +1619,8 @@
 
   function showThankYou(b) {
     show($("ca-thankyou-block"));
-    $("ca-thankyou-summary").textContent =
-      "Ride confirmed: " + summaryText(b) + ".";
+    $("ca-thankyou-summary").innerHTML =
+      "Ride confirmed: " + summaryHtml(b, ".");
     /* Test-mode payments say so on the booked view — never presented
        as a real charge. */
     var testNote = $("ca-thankyou-test-note");

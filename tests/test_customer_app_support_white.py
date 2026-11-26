@@ -38,9 +38,14 @@ Kept unchanged by this change (pinned here): the green Send button
 chips, the Support heading/intro text, the black brand header, the
 black bottom tab bar, the light-blue buttons (#5b9bd5 — "Show my
 rides" and "View this ride"), the price breakdown, the trip chat
-(chat with the chauffeur — .chat-msg.theirs stays dark), the
-status view's one-line ride label, and the website itself (it loads
-customer.css, not customer-app.css).
+(chat with the chauffeur — .chat-msg.theirs stays dark), and the
+website itself (it loads customer.css, not customer-app.css).
+NOTE (owner 2026-11-25 ~19:46 EST, "Is screen pe bhi pickup/drop-off
+alag lines mein kar do"): the status view's one-line ride label is
+NO LONGER unchanged — the ride-detail/status view now shows Pickup
+and Drop-off on two lines too (StatusTwoLineRouteTest below); the
+one-line rideLabel() itself is still used by the class-step trip
+summary (ca-class-trip-summary), which stays one-line text.
 
 Run:  python -m unittest discover -s tests -v
 """
@@ -241,13 +246,18 @@ class MyRidesTwoLineRouteTest(unittest.TestCase):
         self.assertIn("historyRouteHtml(b)", fn)
         self.assertNotIn("rideLabel(b)", fn)
 
-    def test_status_view_ride_label_unchanged(self):
-        # rideLabel() still builds the one-line "pickup → dropoff"
-        # for the status view — only the history cards split it.
+    def test_ride_label_still_builds_one_line_label(self):
+        # rideLabel() itself still builds the one-line "pickup →
+        # dropoff" — it is still used by the class-step trip summary
+        # (ca-class-trip-summary, one-line text). Only the status
+        # view stopped using it (see StatusTwoLineRouteTest).
         js = _read("static/js/customer-app.js")
         start = js.index("function rideLabel(b)")
         fn = js[start:start + 600]
         self.assertIn('"  →  "', fn)
+        self.assertIn(
+            '$("ca-class-trip-summary").textContent = summaryText(booking);',
+            js)
 
     def test_route_labels_have_translations(self):
         # Both T() keys the helper uses must exist in the i18n
@@ -273,6 +283,85 @@ class MyRidesTwoLineRouteTest(unittest.TestCase):
         self.assertIn("font-weight: 600;", label)
         self.assertIn("display: block;",
                       _rule(css, ".history-item .route-sep"))
+
+
+class StatusTwoLineRouteTest(unittest.TestCase):
+    """Ride-detail/status view: Pickup and Drop-off on two lines.
+
+    Owner 2026-11-25 ~19:46 EST (tapped "Yes" on "Is screen pe bhi
+    pickup/drop-off alag lines mein kar do"): the "Ride confirmed"
+    line on the ride-detail/status view showed the route on one
+    line ("pickup → dropoff") even after the My Rides cards were
+    split — it must split the same way. The status card's route
+    line (ca-status-summary, shown while the ride is being
+    followed) renders the same route on the same screen, so it
+    splits too. The class-step trip summary (ca-class-trip-summary)
+    is a different screen (booking flow) and stays one-line text.
+    """
+
+    def test_status_summary_uses_two_line_route(self):
+        # Both status-view call sites render the two-line helper,
+        # never the one-line summaryText.
+        js = _read("static/js/customer-app.js")
+        self.assertIn("function summaryHtml(b, trailing)", js)
+        start = js.index("function summaryHtml(b, trailing)")
+        fn = js[start:start + 600]
+        self.assertIn("historyRouteHtml(b)", fn)
+        self.assertIn('class="route-meta"', fn)
+        self.assertIn("summaryMetaText(b)", fn)
+        self.assertIn(
+            '$("ca-status-summary").innerHTML = summaryHtml(booking);',
+            js)
+        self.assertIn(
+            '$("ca-status-summary").innerHTML = summaryHtml(b);', js)
+        self.assertIn(
+            '$("ca-thankyou-summary").innerHTML =\n'
+            '      "Ride confirmed: " + summaryHtml(b, ".");', js)
+        self.assertNotIn(
+            '$("ca-status-summary").textContent = summaryText', js)
+        self.assertNotIn(
+            '$("ca-thankyou-summary").textContent', js)
+
+    def test_status_meta_keeps_class_type_datetime(self):
+        # The meta line carries exactly the words summaryText had
+        # after the route: class, ride type, date/time (hourly: the
+        # "By the hour · N hour(s)" prefix instead of a ride type).
+        js = _read("static/js/customer-app.js")
+        start = js.index("function summaryMetaText(b)")
+        fn = js[start:start + 900]
+        self.assertIn("classLabelFor(b)", fn)
+        self.assertIn('if (b.ride_type !== "hourly") parts.push(rideTypeLabel(b));', fn)
+        self.assertIn("whenLabel(b)", fn)
+        self.assertIn('T("form.by_hour", "By the hour")', fn)
+
+    def test_status_summary_elements_are_divs(self):
+        # The summary elements hold block-level route legs, so they
+        # must be <div>s — a <p> would be auto-closed by the parser
+        # and the legs would fall outside the styled container.
+        html = _read("static/customer-app.html")
+        self.assertIn('<div class="ride-summary" id="ca-status-summary">', html)
+        self.assertIn('<div class="status-line" id="ca-thankyou-summary">', html)
+        self.assertNotIn('<p class="ride-summary" id="ca-status-summary">', html)
+        self.assertNotIn('<p class="status-line" id="ca-thankyou-summary">', html)
+
+    def test_route_styles_cover_status_view(self):
+        css = _read("static/css/customer-app.css")
+        for selector in (".status-line .route-leg",
+                         ".ride-summary .route-leg"):
+            self.assertIn("display: block;", _rule(css, selector))
+        for selector in (".status-line .route-label",
+                         ".ride-summary .route-label"):
+            label = _rule(css, selector)
+            self.assertIn("color: #6b6b6b;", label)
+            self.assertIn("font-weight: 600;", label)
+        for selector in (".status-line .route-sep",
+                         ".ride-summary .route-sep"):
+            self.assertIn("display: block;", _rule(css, selector))
+        # Meta line: its own block, inheriting the container's font
+        # and colour (the thank-you line keeps its current look).
+        for selector in (".status-line .route-meta",
+                         ".ride-summary .route-meta"):
+            self.assertIn("display: block;", _rule(css, selector))
 
 
 class MyRidesUnchangedTest(unittest.TestCase):

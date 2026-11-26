@@ -54,10 +54,12 @@ from urllib.error import URLError
 from urllib.parse import quote_plus
 
 from cryptography.fernet import Fernet
-from flask import Flask, Response, jsonify, request, send_from_directory, session
+from flask import Flask, Response, jsonify, request, send_file, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from PIL import Image, ImageOps
 from sqlalchemy import Numeric, func, or_
+from sqlalchemy.orm import defer as _orm_defer
+from sqlalchemy.orm import selectinload as _orm_selectinload
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -2246,6 +2248,20 @@ class Driver(db.Model):
     vehicle_body_type = db.Column(db.String(120), nullable=True)
     profile_photo = db.Column(db.LargeBinary, nullable=True)
     profile_photo_mime = db.Column(db.String(60), nullable=True)
+    # Disk path of the profile photo, relative to DRIVER_PHOTOS_DIR
+    # (owner decision 2026-11-25: photos live on the Render disk, not
+    # in the Neon database — re-serving BLOBs burned the 5 GB/month
+    # transfer allowance in two days). Content-addressed
+    # ("profile/<sha256>.<ext>"), so the same bytes always map to the
+    # same file and a changed photo gets a new name. NULL for rows
+    # stored before the disk existed — those keep serving from the
+    # BLOB until the migration copies them (see
+    # migrate_photos_to_disk). The BLOB itself is never deleted.
+    profile_photo_path = db.Column(db.String(255), nullable=True)
+    # SHA-256 hex of the profile photo bytes, for the ETag on the
+    # DB-fallback response and for the disk filename. NULL on rows
+    # stored before this existed; filled by the migration.
+    profile_photo_hash = db.Column(db.String(64), nullable=True)
     available = db.Column(db.Boolean, nullable=False, default=False)
     # Suspension end (owner decision 2026-11-18, voice call): when a
     # driver cancels inside the 2-hour window and the automatic
@@ -2303,6 +2319,13 @@ class DriverDocument(db.Model):
     file = db.Column(db.LargeBinary, nullable=False)
     mime = db.Column(db.String(60), nullable=False)
     original_name = db.Column(db.String(255), nullable=False, default="")
+    # Disk path of the document photo, relative to DRIVER_PHOTOS_DIR
+    # (owner decision 2026-11-25, same as Driver.profile_photo_path):
+    # content-addressed ("docs/<sha256>.<ext>"). NULL for rows stored
+    # before the disk existed — those keep serving from the BLOB until
+    # the migration copies them (see migrate_photos_to_disk). The BLOB
+    # itself is never deleted.
+    file_path = db.Column(db.String(255), nullable=True)
     # SHA-256 hex of the raw file bytes (driver document verification,
     # owner decision 2026-11-19): duplicate detection across drivers
     # and across slots. NULL on rows created before this existed —
@@ -2802,6 +2825,30 @@ with app.app_context():
                     _conn.execute(_sa_text(_ddl))
     except Exception as exc:  # logged, never fatal at startup
         log.warning("vin columns check failed: %s", exc)
+    # Same pattern for the disk photo paths + profile-photo hash
+    # (owner decision 2026-11-25: photos move out of the database to
+    # the Render disk). Nullable, so existing rows keep serving from
+    # their BLOBs until the migration fills these in.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        from sqlalchemy import text as _sa_text
+
+        _dcols = [c["name"] for c in _sa_inspect(db.engine).get_columns("drivers")]
+        _dadds = {
+            "profile_photo_path": "ALTER TABLE drivers ADD COLUMN profile_photo_path VARCHAR(255)",
+            "profile_photo_hash": "ALTER TABLE drivers ADD COLUMN profile_photo_hash VARCHAR(64)",
+        }
+        for _name, _ddl in _dadds.items():
+            if _name not in _dcols:
+                with db.engine.begin() as _conn:
+                    _conn.execute(_sa_text(_ddl))
+        _doccols = [c["name"] for c in _sa_inspect(db.engine).get_columns("driver_documents")]
+        if "file_path" not in _doccols:
+            with db.engine.begin() as _conn:
+                _conn.execute(_sa_text(
+                    "ALTER TABLE driver_documents ADD COLUMN file_path VARCHAR(255)"))
+    except Exception as exc:  # logged, never fatal at startup
+        log.warning("photo path columns check failed: %s", exc)
     # Same pattern for the vehicle-class / fare / tax columns (added
     # with the class + NYC-tax change, 2026-11-16). Nullable, so
     # existing rows keep working; the read helpers below derive the
@@ -3519,19 +3566,32 @@ EXPIRY_ALERT_DAYS = 10
 def expired_documents(driver, today=None):
     """DriverDocument rows whose stored expiry date has passed. A
     document expiring TODAY is still valid — only a date before today
-    counts as expired, matching _parse_expiry at registration."""
+    counts as expired, matching _parse_expiry at registration. Read
+    as a query that defers the photo BLOB (owner decision 2026-11-25):
+    expiry checks only need metadata, and the old relationship
+    iteration pulled every document photo over the wire on each
+    driver-app load."""
     today = today or _today_ny()
-    return [d for d in driver.documents
-            if d.expires_on is not None and d.expires_on < today]
+    return (DriverDocument.query
+            .options(_orm_defer(DriverDocument.file))
+            .filter(DriverDocument.driver_id == driver.id,
+                    DriverDocument.expires_on.isnot(None),
+                    DriverDocument.expires_on < today)
+            .order_by(DriverDocument.expires_on, DriverDocument.id).all())
 
 
 def expiring_documents(driver, today=None, days=EXPIRY_ALERT_DAYS):
     """DriverDocument rows whose stored expiry date is today or
-    within the next `days` days — the 10-day advance-alert window."""
+    within the next `days` days — the 10-day advance-alert window.
+    Same BLOB-deferred query as expired_documents."""
     today = today or _today_ny()
-    return [d for d in driver.documents
-            if d.expires_on is not None
-            and 0 <= (d.expires_on - today).days <= days]
+    return (DriverDocument.query
+            .options(_orm_defer(DriverDocument.file))
+            .filter(DriverDocument.driver_id == driver.id,
+                    DriverDocument.expires_on.isnot(None),
+                    DriverDocument.expires_on >= today,
+                    DriverDocument.expires_on <= today + timedelta(days=days))
+            .order_by(DriverDocument.expires_on, DriverDocument.id).all())
 
 
 def is_driver_expiry_blocked(driver, today=None):
@@ -3620,7 +3680,15 @@ def driver_docs_status(driver):
     for doc_type in required_docs_for(driver.state or "New York",
                                       getattr(driver, "city", None)):
         if doc_type == "profile_picture":
-            status[doc_type] = "completed" if driver.profile_photo else "missing"
+            # A photo on disk counts as present without loading the
+            # BLOB (owner decision 2026-11-25: photos live on disk).
+            # The BLOB check only runs for rows stored before the
+            # disk existed — and only until the migration fills in
+            # their paths.
+            status[doc_type] = ("completed"
+                                if (driver.profile_photo_path
+                                    or driver.profile_photo)
+                                else "missing")
         else:
             status[doc_type] = "completed" if doc_type in present else "missing"
     return status
@@ -3665,7 +3733,17 @@ def require_driver():
     token = request.headers.get("X-Driver-Token")
     if not token:
         return None, err("Missing X-Driver-Token header.", 401)
-    driver = Driver.query.filter_by(token=token).first()
+    # Photo BLOBs are deferred on every driver load (owner decision
+    # 2026-11-25): the driver app polls /api/drivers/me and the
+    # offers endpoints every few seconds, and each load used to pull
+    # every document photo over the wire. Status/expiry checks only
+    # need metadata; a photo is loaded only when a photo endpoint
+    # asks for it (see _serve_photo).
+    driver = (Driver.query
+              .options(_orm_defer(Driver.profile_photo),
+                       _orm_selectinload(Driver.documents)
+                       .defer(DriverDocument.file))
+              .filter_by(token=token).first())
     if not driver:
         return None, err("Invalid driver token.", 401)
     return driver, None
@@ -4101,7 +4179,10 @@ def run_expiry_alerts(now=None, driver_id=None):
     """
     now = now or utcnow()
     today = _today_ny()
+    # The photo BLOB is deferred: alerts only need the expiry date
+    # (owner decision 2026-11-25).
     query = (DriverDocument.query
+             .options(_orm_defer(DriverDocument.file))
              .filter(DriverDocument.expires_on.isnot(None),
                      DriverDocument.expiry_alert_sent_at.is_(None)))
     if driver_id is not None:
@@ -6226,10 +6307,17 @@ def booking_driver_photo(booking_id):
     booking = db.session.get(Booking, booking_id)
     if not booking or not booking.accepted_driver_id:
         return err("No driver assigned to this booking.", 404)
-    driver = booking.accepted_driver
-    if not driver or not driver.profile_photo:
+    # The profile-photo BLOB is deferred: it is only loaded when the
+    # disk file is missing (owner decision 2026-11-25).
+    driver = (Driver.query
+              .options(_orm_defer(Driver.profile_photo))
+              .filter_by(id=booking.accepted_driver_id).first())
+    if not driver:
         return err("Driver photo not available.", 404)
-    return Response(driver.profile_photo, mimetype=driver.profile_photo_mime or "image/jpeg")
+    return _serve_photo(driver.profile_photo_path,
+                        lambda: driver.profile_photo,
+                        driver.profile_photo_mime,
+                        driver.profile_photo_hash)
 
 
 # ------------------------------------------------------------- chat -------
@@ -6644,6 +6732,165 @@ def decode_vin(vin):
     return {"year": year, "make": make, "model": model,
             "body_type": body_type,
             "trim": (row.get("Trim") or "").strip()}, None
+
+
+# --- Driver photos on disk (owner decision 2026-11-25) ---------------------
+# Driver document/profile photos used to live as BLOBs in the database
+# and were re-served from Neon on every load — that repeated movement
+# burned the Neon Free 5 GB/month transfer allowance in two days (the
+# whole database is only 35 MB; the photos are 22 MB of it). Photos
+# now live as files on the Render persistent disk declared in
+# render.yaml (DRIVER_PHOTOS_DIR, /var/data/driver-photos on Render),
+# served with a year of public caching, so each photo crosses the
+# network once. The DB BLOBs stay as the fallback copy and are never
+# deleted; reads check the disk first and only touch the BLOB when
+# the file is not on disk yet.
+DRIVER_PHOTOS_DIR = os.environ.get("DRIVER_PHOTOS_DIR") or "/var/data/driver-photos"
+PHOTO_CACHE_MAX_AGE = 31536000  # 1 year; photo files are content-addressed, never change
+
+_PHOTO_EXT_BY_MIME = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "application/pdf": ".pdf",
+}
+_PHOTO_ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".pdf"}
+
+
+def _disk_photo_abs_path(rel_path):
+    """Absolute path of a stored photo, or None when the stored path
+    is not a plain relative path inside DRIVER_PHOTOS_DIR. Stored
+    paths come from our own database, but a value must never escape
+    the photo directory (no absolute paths, no "..")."""
+    if not rel_path or not isinstance(rel_path, str):
+        return None
+    if os.path.isabs(rel_path):
+        return None
+    parts = rel_path.replace("\\", "/").split("/")
+    if ".." in parts or "" in parts:
+        return None
+    base = os.path.abspath(DRIVER_PHOTOS_DIR)
+    abs_path = os.path.abspath(os.path.join(base, rel_path))
+    if os.path.commonpath([base, abs_path]) != base:
+        return None
+    return abs_path
+
+
+def save_photo_to_disk(subdir, data, mime, original_name=""):
+    """Store photo bytes as a content-addressed file on the disk and
+    return its relative path ("profile/<sha256>.<ext>"), or None when
+    the disk write fails. Never raises: a disk failure must never
+    break registration or re-upload — the caller keeps the DB BLOB
+    and the photo keeps serving from it."""
+    try:
+        ext = _PHOTO_EXT_BY_MIME.get((mime or "").lower())
+        if ext is None:
+            ext = os.path.splitext(original_name or "")[1].lower()
+        if ext not in _PHOTO_ALLOWED_EXTS:
+            ext = ".bin"
+        rel_path = subdir + "/" + hashlib.sha256(data).hexdigest() + ext
+        abs_path = _disk_photo_abs_path(rel_path)
+        if abs_path is None:
+            return None
+        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+        if not os.path.isfile(abs_path):
+            with open(abs_path, "wb") as fh:
+                fh.write(data)
+        return rel_path
+    except Exception as exc:  # logged, never fatal to the caller
+        log.warning("saving driver photo to disk failed: %s", exc)
+        return None
+
+
+def _serve_photo(rel_path, blob, mime, etag_hash):
+    """Serve one driver photo: from the disk file first, from the DB
+    BLOB when the file is not on disk yet (rows stored before the
+    disk existed), 404 when neither has it. `blob` may be the bytes
+    or a zero-arg callable returning them — pass a callable when the
+    column is deferred, so the BLOB is only loaded when the disk
+    file is missing. Disk files are served with a year of public
+    immutable caching and conditional handling (ETag/Last-Modified),
+    so a browser downloads each photo once. The BLOB fallback
+    carries the same long Cache-Control plus an ETag from the stored
+    file hash, so a repeat load answers 304 without re-sending the
+    bytes."""
+    if rel_path:
+        abs_path = _disk_photo_abs_path(rel_path)
+        if abs_path and os.path.isfile(abs_path):
+            try:
+                resp = send_file(abs_path, mimetype=mime or "image/jpeg",
+                                 conditional=True, max_age=PHOTO_CACHE_MAX_AGE)
+                resp.headers["Cache-Control"] = (
+                    "public, max-age=31536000, immutable")
+                return resp
+            except Exception as exc:  # fall through to the BLOB
+                log.warning("serving driver photo from disk failed: %s", exc)
+    if callable(blob):
+        blob = blob()
+    if blob:
+        # No stored hash on rows saved before the hash column existed
+        # (pre-migration profile photos): hash the bytes we already
+        # hold, so the fallback still answers 304s.
+        if not etag_hash:
+            etag_hash = hashlib.sha256(blob).hexdigest()
+        etag = '"%s"' % etag_hash
+        inm = request.headers.get("If-None-Match", "")
+        if etag in inm or inm.strip() == "*":
+            return Response(status=304)
+        resp = Response(blob, mimetype=mime or "image/jpeg")
+        resp.headers["Cache-Control"] = "public, max-age=31536000"
+        resp.headers["ETag"] = etag
+        return resp
+    return err("Photo not available.", 404)
+
+
+def migrate_photos_to_disk():
+    """Copy every stored driver photo BLOB to the disk store and
+    record its path on the row. Idempotent: rows whose file is
+    already on disk are skipped, rows whose path is set but whose
+    file is missing are re-written from the BLOB. BLOBs are NEVER
+    deleted — the disk is the fast path, the database stays the
+    fallback copy. Returns counts; the owner runs this once via
+    POST /api/owner/migrate-photos-to-disk (or
+    scripts/migrate_photos_to_disk.py) after Neon is reachable
+    again — it cannot run while the transfer quota is exhausted."""
+    counts = {"documents_copied": 0, "profiles_copied": 0,
+              "already_on_disk": 0, "failed": 0}
+    for doc in DriverDocument.query.all():
+        abs_path = _disk_photo_abs_path(doc.file_path) if doc.file_path else None
+        if abs_path and os.path.isfile(abs_path):
+            counts["already_on_disk"] += 1
+            continue
+        if not doc.file:
+            counts["failed"] += 1
+            continue
+        rel_path = save_photo_to_disk("docs", doc.file, doc.mime,
+                                      doc.original_name or "")
+        if rel_path:
+            doc.file_path = rel_path
+            counts["documents_copied"] += 1
+        else:
+            counts["failed"] += 1
+    for driver in Driver.query.all():
+        abs_path = (_disk_photo_abs_path(driver.profile_photo_path)
+                    if driver.profile_photo_path else None)
+        if abs_path and os.path.isfile(abs_path):
+            counts["already_on_disk"] += 1
+            continue
+        if not driver.profile_photo:
+            continue
+        rel_path = save_photo_to_disk(
+            "profile", driver.profile_photo,
+            driver.profile_photo_mime or "image/jpeg")
+        if rel_path:
+            driver.profile_photo_path = rel_path
+            driver.profile_photo_hash = hashlib.sha256(
+                driver.profile_photo).hexdigest()
+            counts["profiles_copied"] += 1
+        else:
+            counts["failed"] += 1
+    db.session.commit()
+    return counts
 
 
 def _validate_upload(storage, allowed_exts, field_name):
@@ -7070,8 +7317,12 @@ def register_driver():
     # Same file bytes already submitted by a DIFFERENT driver (any
     # document type). Existing drivers are never re-checked: rows
     # stored before file_hash existed read as NULL and never match.
-    existing = DriverDocument.query.filter(
-        DriverDocument.file_hash.in_(list(seen_hashes))).first()
+    # The photo BLOB is deferred: the check only needs the hash
+    # (owner decision 2026-11-25).
+    existing = (DriverDocument.query
+                .options(_orm_defer(DriverDocument.file))
+                .filter(
+                    DriverDocument.file_hash.in_(list(seen_hashes))).first())
     if existing is not None:
         _record_document_flag(form, existing.doc_type, "duplicate_other_driver",
                               existing.file_hash)
@@ -7097,6 +7348,17 @@ def register_driver():
 
     account = form["bank_account_number"].strip()
     routing = form["bank_routing_number"].strip()
+    # Photos go to the disk store as well as the DB BLOB (owner
+    # decision 2026-11-25): the BLOB stays as the fallback copy, the
+    # disk file is what the photo endpoints serve first. A disk
+    # failure never blocks registration — save_photo_to_disk returns
+    # None and the BLOB still serves.
+    profile_photo_path = None
+    profile_photo_hash = None
+    if profile_photo:
+        profile_photo_hash = hashlib.sha256(profile_photo[0]).hexdigest()
+        profile_photo_path = save_photo_to_disk(
+            "profile", profile_photo[0], profile_photo[1])
     driver = Driver(
         name=form["name"].strip(),
         phone=phone,
@@ -7119,6 +7381,8 @@ def register_driver():
         vehicle_body_type=body_type,
         profile_photo=profile_photo[0] if profile_photo else None,
         profile_photo_mime=profile_photo[1] if profile_photo else None,
+        profile_photo_path=profile_photo_path,
+        profile_photo_hash=profile_photo_hash,
         available=False,
         bank_encrypted=encrypt_bank(account, routing),
         bank_last4=account[-4:],
@@ -7131,6 +7395,7 @@ def register_driver():
             driver_id=driver.id, doc_type=doc_type, file=data,
             mime=mime, original_name=original_name,
             file_hash=hashlib.sha256(data).hexdigest(),
+            file_path=save_photo_to_disk("docs", data, mime, original_name),
             expires_on=expiries.get(doc_type)))
     db.session.commit()
     return jsonify({"driver": {
@@ -7189,8 +7454,11 @@ def driver_reupload_document():
         if photo_error:
             return err(photo_error)
     new_hash = hashlib.sha256(data).hexdigest()
-    # Same file bytes already submitted by a DIFFERENT driver.
+    # Same file bytes already submitted by a DIFFERENT driver. The
+    # photo BLOB is deferred on both checks: only the hash matters
+    # (owner decision 2026-11-25).
     other = (DriverDocument.query
+             .options(_orm_defer(DriverDocument.file))
              .filter(DriverDocument.file_hash == new_hash,
                      DriverDocument.driver_id != driver.id)
              .first())
@@ -7199,6 +7467,7 @@ def driver_reupload_document():
                    "account. Please upload your own document.")
     # Same file bytes as one of THIS driver's OTHER documents.
     own_other = (DriverDocument.query
+                 .options(_orm_defer(DriverDocument.file))
                  .filter(DriverDocument.file_hash == new_hash,
                          DriverDocument.driver_id == driver.id,
                          DriverDocument.doc_type != doc_type)
@@ -7227,13 +7496,17 @@ def driver_reupload_document():
         existing.mime = mime
         existing.original_name = original_name
         existing.file_hash = new_hash
+        existing.file_path = save_photo_to_disk(
+            "docs", data, mime, original_name)
         existing.expires_on = expires
         doc = existing
     else:
         doc = DriverDocument(
             driver_id=driver.id, doc_type=doc_type, file=data,
             mime=mime, original_name=original_name,
-            file_hash=new_hash, expires_on=expires)
+            file_hash=new_hash,
+            file_path=save_photo_to_disk("docs", data, mime, original_name),
+            expires_on=expires)
         db.session.add(doc)
     db.session.commit()
     return jsonify({
@@ -8979,7 +9252,10 @@ def _expiring_document_rows(today):
     Shared by the owner dashboard endpoint and the daily summary
     email (owner decision 2026-11-19)."""
     rows = []
+    # The photo BLOB is deferred: this list only needs expiry dates
+    # (owner decision 2026-11-25).
     for doc in (DriverDocument.query
+                .options(_orm_defer(DriverDocument.file))
                 .filter(DriverDocument.expires_on.isnot(None))
                 .order_by(DriverDocument.expires_on, DriverDocument.id)
                 .all()):
@@ -9566,7 +9842,11 @@ def owner_drivers():
     error = require_owner()
     if error:
         return error
-    drivers = Driver.query.order_by(Driver.created_at, Driver.id).all()
+    drivers = (Driver.query
+               .options(_orm_defer(Driver.profile_photo),
+                        _orm_selectinload(Driver.documents)
+                        .defer(DriverDocument.file))
+               .order_by(Driver.created_at, Driver.id).all())
     return jsonify([{
         "id": d.id,
         "name": d.name,
@@ -9726,10 +10006,15 @@ def owner_document(doc_id):
     error = require_owner()
     if error:
         return error
-    doc = db.session.get(DriverDocument, doc_id)
+    # The document BLOB is deferred: it is only loaded when the disk
+    # file is missing (owner decision 2026-11-25).
+    doc = (DriverDocument.query
+           .options(_orm_defer(DriverDocument.file))
+           .filter_by(id=doc_id).first())
     if not doc:
         return err("Document not found.", 404)
-    return Response(doc.file, mimetype=doc.mime)
+    return _serve_photo(doc.file_path, lambda: doc.file, doc.mime,
+                        doc.file_hash)
 
 
 @app.route("/api/owner/drivers/<int:driver_id>/photo", methods=["GET"])
@@ -9737,10 +10022,31 @@ def owner_driver_photo(driver_id):
     error = require_owner()
     if error:
         return error
-    driver = db.session.get(Driver, driver_id)
-    if not driver or not driver.profile_photo:
+    driver = (Driver.query
+              .options(_orm_defer(Driver.profile_photo))
+              .filter_by(id=driver_id).first())
+    if not driver:
         return err("Photo not available.", 404)
-    return Response(driver.profile_photo, mimetype=driver.profile_photo_mime or "image/jpeg")
+    return _serve_photo(driver.profile_photo_path,
+                        lambda: driver.profile_photo,
+                        driver.profile_photo_mime,
+                        driver.profile_photo_hash)
+
+
+@app.route("/api/owner/migrate-photos-to-disk", methods=["POST"])
+def owner_migrate_photos_to_disk():
+    """One-time copy of the stored photo BLOBs to the disk store
+    (owner decision 2026-11-25): after the December Neon reset makes
+    the database reachable again, the owner runs this once and every
+    photo is served from disk afterwards. Idempotent and safe to
+    re-run — rows already on disk are skipped, BLOBs are never
+    deleted. PIN-session gated like every other owner endpoint."""
+    error = require_owner()
+    if error:
+        return error
+    counts = migrate_photos_to_disk()
+    log.info("owner migrated driver photos to disk: %s", counts)
+    return jsonify({"migrated": True, **counts})
 
 
 # ------------------------------------------------------------------- main ---

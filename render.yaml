@@ -12,17 +12,23 @@
 #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 # and paste the value into the Render dashboard. Never commit it to git.
 #
-# Free-tier notes: the web service sleeps after ~15 minutes idle (the
-# first request after sleep is slow), and the free Postgres database
-# EXPIRES after 30 days and its data is deleted. That is acceptable for
-# this one-month trial. Uploads (driver documents/photos) live inside
-# the database, so they survive restarts — but not the 30-day expiry.
+# Free-tier notes: the free Postgres database EXPIRES after 30 days
+# and its data is deleted. That is acceptable for this one-month
+# trial. Driver document/profile photos live on the persistent disk
+# below, NOT inside the database (owner decision 2026-11-25): the
+# database is Neon Free with a 5 GB/month transfer allowance, and
+# re-serving photo BLOBs from the DB burned it in two days. Photos
+# are written to disk and served as files with long caching, so each
+# photo crosses the network once; the DB BLOBs stay as the fallback
+# copy — nothing is deleted. The web service itself runs on the
+# Starter plan ($7/month, purchased 2026-11-22) — the plan below
+# matches the live service; a disk needs a paid plan.
 
 services:
   - type: web
     name: noel-chauffer
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     # One gthread worker with 2 threads: a slow upstream call (Nominatim /
     # OSRM, ~1s) in one thread no longer blocks page loads and the other
@@ -31,7 +37,19 @@ services:
     # plain dicts, so no extra locking is needed. See geo.py keep-alive.
     startCommand: gunicorn app:app --workers 1 --threads 2
     healthCheckPath: /
+    # Persistent disk for driver document/profile photos (owner
+    # decision 2026-11-25): photos are files here, served with long
+    # caching, instead of BLOBs re-served from the Neon database on
+    # every load. 1 GB is far more than the ~35 MB of photos on file
+    # today; size can only grow, never shrink. The disk costs
+    # $0.25/month on top of the $7 Starter plan.
+    disk:
+      name: driver-photos
+      mountPath: /var/data/driver-photos
+      sizeGB: 1
     envVars:
+      - key: DRIVER_PHOTOS_DIR
+        value: "/var/data/driver-photos"
       - key: NOEL_SEARCH_WARMUP
         value: "1"
       - key: OWNER_PIN

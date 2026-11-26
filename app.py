@@ -4829,9 +4829,9 @@ def _booking_received_rows(booking):
         rows.append(("Class", class_text))
     rows.append(("Total", f"${booking.fare_total}"))
     rows.append(("", "Complete your card payment to confirm your ride — "
-                    "your chauffeur will be assigned right after payment, "
-                    "and we will message you the chauffeur's details once "
-                    "a driver accepts."))
+                    "your ride will be sent to our chauffeurs right after "
+                    "payment, and we will message you the chauffeur's "
+                    "details once a driver accepts."))
     return rows
 
 

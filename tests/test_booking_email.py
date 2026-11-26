@@ -176,8 +176,8 @@ class BookingEmailCase(unittest.TestCase):
         self.assertEqual(lines[total_idx - 1], "-" * 40)
         # The payment instruction is the closing line, not a row.
         self.assertTrue(lines[-1].startswith("Complete your card payment"))
-        self.assertIn("your chauffeur will be assigned right after payment",
-                      lines[-1])
+        self.assertIn("your ride will be sent to our chauffeurs right after "
+                      "payment", lines[-1])
         self.assertIn("we will message you the chauffeur's details once "
                       "a driver accepts", lines[-1])
         # Labels aligned in one column: every value starts at the

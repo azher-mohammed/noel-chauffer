@@ -4917,6 +4917,42 @@ def booking_received_email_html(booking):
         "</div></body></html>")
 
 
+# The ride-complete thank-you email (owner 2026-11-25, voice call):
+# when a ride completes, the customer also gets a short thank-you
+# email. The SMS alone never reaches a phone (outbox-only, Resend
+# is email-only), so the email is the note the customer actually
+# receives. Heading + the owner's line, nothing else — no amounts,
+# no booking details, no links, no referral text.
+RIDE_COMPLETE_THANK_YOU_HEADING = "Thank you for riding with us."
+
+
+def ride_complete_thank_you_text():
+    """The plain-text ride-complete thank-you email: the heading
+    and the owner's line, nothing else."""
+    return (RIDE_COMPLETE_THANK_YOU_HEADING + "\n\n"
+            "Thanks again, please ride with us again.")
+
+
+def ride_complete_thank_you_html():
+    """The HTML ride-complete thank-you email: the same two lines
+    as the plain text, as a clean business message — Noel Chauffer
+    letterhead, heading, the thank-you line. No gradients, no
+    images; the only gold is the brand wordmark (owner 2026-11-25)."""
+    return (
+        "<!DOCTYPE html><html><body style=\"margin:0;padding:0;"
+        "background:#ffffff;\">"
+        "<div style=\"max-width:560px;margin:0 auto;padding:24px;"
+        "font-family:Arial,Helvetica,sans-serif;color:#222222;"
+        "font-size:15px;line-height:1.6;\">"
+        "<div style=\"font-size:22px;font-weight:600;letter-spacing:0.02em;"
+        "color:#111111;margin-bottom:12px;\">Noel "
+        "<span style=\"color:#D4AF37;\">Chauffeur</span></div>"
+        f"<h1 style=\"font-size:20px;line-height:1.4;margin:0 0 12px 0;"
+        f"color:#111111;\">{html_escape(RIDE_COMPLETE_THANK_YOU_HEADING)}</h1>"
+        "<p style=\"margin:0;\">Thanks again, please ride with us again.</p>"
+        "</div></body></html>")
+
+
 # The receipt's first line doubles as its idempotency marker: a
 # payment confirmation row is recognised by this heading.
 PAYMENT_CONFIRMATION_PREFIX = "Payment received — your ride is confirmed."
@@ -7917,6 +7953,11 @@ def driver_trip_event(booking_id):
             # Amounts are hidden while prices are being updated (owner
             # decision 2026-11-20): no invoice figures in the message.
             "Noel Chauffer: thank you for riding with us. Your ride is complete.",
+            # Ride-complete thank-you email (owner 2026-11-25, voice
+            # call): the customer also gets this short email — the
+            # SMS alone never reaches a phone (outbox-only).
+            email_body=ride_complete_thank_you_text(),
+            email_html=ride_complete_thank_you_html(),
         )
         add_event(booking.id, "trip_completed",
                   f"Booking #{booking.id} completed. Invoice total ${total} "

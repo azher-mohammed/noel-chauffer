@@ -4791,7 +4791,9 @@ def bookings_paused():
 def booking_received_text(booking):
     """The "booking received" message: sent at creation when contact
     is known, or from the contact step when it was entered later
-    (one-way rides, Blacklane-style)."""
+    (one-way rides, Blacklane-style). This is the SMS text — it
+    stays one paragraph (owner 2026-11-25 complained about the
+    email, not the text message)."""
     route_text = f"{booking.pickup} to {booking.dropoff}" if booking.dropoff else booking.pickup
     return (
         f"Noel Chauffer: booking received for {booking.date} at {booking.time}, {route_text}. "
@@ -4799,6 +4801,113 @@ def booking_received_text(booking):
         "your ride — your chauffeur will be assigned right after payment, and we "
         "will message you the chauffeur's details once a driver accepts."
     )
+
+
+# The booking-received email's heading (owner 2026-11-25): the
+# customer must read every booking detail on its own line.
+BOOKING_RECEIVED_HEADING = "Your booking has been received."
+
+
+def _booking_received_rows(booking):
+    """Booking details, one row per detail, in order. Each row is a
+    (label, value) pair for the detail lines, or ("", text) for the
+    closing payment instruction. The plain-text body and the HTML
+    email render the same rows. Only facts already sent in the old
+    single-paragraph email — date, time, pickup, drop-off, class
+    and total — plus the same payment instruction as its closing
+    line. Hourly rides have no drop-off, so the 'To' row is omitted
+    rather than printed blank (same rule as the chauffeur email)."""
+    class_text = class_label(booking_vehicle_class(booking))
+    rows = [
+        ("Date", booking.date),
+        ("Time", booking.time),
+        ("From", booking.pickup),
+    ]
+    if getattr(booking, "dropoff", None):
+        rows.append(("To", booking.dropoff))
+    if class_text:
+        rows.append(("Class", class_text))
+    rows.append(("Total", f"${booking.fare_total}"))
+    rows.append(("", "Complete your card payment to confirm your ride — "
+                    "your chauffeur will be assigned right after payment, "
+                    "and we will message you the chauffeur's details once "
+                    "a driver accepts."))
+    return rows
+
+
+def booking_received_email_text(booking):
+    """The plain-text booking-received email: a clean, professional
+    layout — the heading, a divider, every detail on its own line
+    with labels aligned in one column, a divider, the total on its
+    own, then the payment instruction (owner 2026-11-25 — the old
+    single-paragraph email was hard to read, 'step by step details
+    rehna')."""
+    rows = _booking_received_rows(booking)
+    fields = [(label, value) for label, value in rows if label]
+    notes = [value for label, value in rows if not label]
+    width = max(len(label) + 1 for label, _ in fields)  # +1 for the colon
+    divider = "-" * 40
+    detail = [(label, value) for label, value in fields if label != "Total"]
+    total = [(label, value) for label, value in fields if label == "Total"]
+    lines = [BOOKING_RECEIVED_HEADING, divider]
+    lines += [f"{label}:".ljust(width) + " " + value for label, value in detail]
+    lines.append(divider)
+    lines += [f"{label}:".ljust(width) + " " + value for label, value in total]
+    lines.append("")
+    lines += notes
+    return "\n".join(lines)
+
+
+def booking_received_email_html(booking):
+    """The HTML booking-received email: the same rows as the plain
+    text, as a clean business message — Noel Chauffer letterhead,
+    heading, divider, label/value table with aligned columns, the
+    total set apart and bold, then the payment instruction. No
+    gradients, no images; the only gold is the brand wordmark
+    (owner 2026-11-25)."""
+    rows = _booking_received_rows(booking)
+    fields = [(label, value) for label, value in rows if label]
+    notes = [value for label, value in rows if not label]
+    detail = [(label, value) for label, value in fields if label != "Total"]
+    total = [(label, value) for label, value in fields if label == "Total"]
+
+    def _row(label, value, total_row=False):
+        border = "border-top:1px solid #cccccc;" if total_row else ""
+        size = "font-size:16px;" if total_row else ""
+        rendered = html_escape(value)
+        if total_row:
+            rendered = f"<strong>{rendered}</strong>"
+        return (
+            "<tr>"
+            f"<td style=\"padding:5px 16px 5px 0;font-weight:bold;"
+            f"white-space:nowrap;vertical-align:top;{border}\">"
+            f"{html_escape(label)}</td>"
+            f"<td style=\"padding:5px 0;vertical-align:top;{border}{size}\">"
+            f"{rendered}</td></tr>")
+
+    detail_html = "".join(_row(label, value) for label, value in detail)
+    total_html = "".join(_row(label, value, total_row=True)
+                         for label, value in total)
+    notes_html = "".join(
+        f"<p style=\"margin:12px 0 0 0;\">{html_escape(note)}</p>"
+        for note in notes)
+    return (
+        "<!DOCTYPE html><html><body style=\"margin:0;padding:0;"
+        "background:#ffffff;\">"
+        "<div style=\"max-width:560px;margin:0 auto;padding:24px;"
+        "font-family:Arial,Helvetica,sans-serif;color:#222222;"
+        "font-size:15px;line-height:1.6;\">"
+        "<div style=\"font-size:22px;font-weight:600;letter-spacing:0.02em;"
+        "color:#111111;margin-bottom:12px;\">Noel "
+        "<span style=\"color:#D4AF37;\">Chauffeur</span></div>"
+        f"<h1 style=\"font-size:20px;line-height:1.4;margin:0 0 12px 0;"
+        f"color:#111111;\">{html_escape(BOOKING_RECEIVED_HEADING)}</h1>"
+        "<hr style=\"border:none;border-top:1px solid #dddddd;"
+        "margin:0 0 12px 0;\">"
+        "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" "
+        "style=\"width:100%;border-collapse:collapse;\">"
+        f"{detail_html}{total_html}</table>{notes_html}"
+        "</div></body></html>")
 
 
 # The receipt's first line doubles as its idempotency marker: a
@@ -5305,7 +5414,9 @@ def create_booking():
     # exists: one-way rides created without contact get it from the
     # contact step instead.
     if booking.phone or booking.email:
-        outbox_to_customer(booking, booking_received_text(booking))
+        outbox_to_customer(booking, booking_received_text(booking),
+                           email_body=booking_received_email_text(booking),
+                           email_html=booking_received_email_html(booking))
     add_event(booking.id, "booking_received",
               f"New booking #{booking.id}: {route_text} on {booking.date} at {booking.time} "
               f"({booking.customer_name}, {booking.phone}).")
@@ -5405,7 +5516,9 @@ def save_booking_contact(booking_id):
     if not had_contact:
         # The "booking received" message could not go out at creation
         # (no address yet); it goes out now that we have one.
-        outbox_to_customer(booking, booking_received_text(booking))
+        outbox_to_customer(booking, booking_received_text(booking),
+                           email_body=booking_received_email_text(booking),
+                           email_html=booking_received_email_html(booking))
     db.session.commit()
     return jsonify({"booking": _booking_create_view(booking)})
 
